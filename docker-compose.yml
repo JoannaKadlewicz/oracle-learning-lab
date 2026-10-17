@@ -1,0 +1,49 @@
+# One-command setup: Oracle Database XE 21c + Oracle Learning Lab.
+#   docker compose up -d --build      then open http://127.0.0.1:8071
+# See docs/docker.md.
+
+name: oracle-learning-lab
+
+services:
+  oracle:
+    image: gvenzl/oracle-xe:21-slim-faststart
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-orastudy_sys}
+      APP_USER: orastudy
+      APP_USER_PASSWORD: ${STUDY_PASSWORD:-orastudy}
+    # No ports: the database is only reachable from the app container
+    # (another Oracle may already use host port 1521).
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped
+
+  app:
+    build: .
+    image: oracle-learning-lab-app
+    depends_on:
+      oracle:
+        condition: service_healthy
+    environment:
+      STUDY_HOST: 0.0.0.0
+      STUDY_PORT: "8071"
+      STUDY_DSN: oracle:1521/XEPDB1
+      STUDY_USER: orastudy
+      STUDY_PASSWORD: ${STUDY_PASSWORD:-orastudy}
+    # Localhost only: the SQL lab runs any SQL you type.
+    ports:
+      - "127.0.0.1:${STUDY_PUBLISH_PORT:-8071}:8071"
+    volumes:
+      - study-state:/srv/app/state
+      - study-notes:/srv/app/notes/personal
+    restart: unless-stopped
+
+volumes:
+  oracle-data:
+  study-state:
+  study-notes:

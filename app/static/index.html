@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oracle Learning Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
+  <link rel="stylesheet" href="/app.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='7' width='26' height='18' rx='2' fill='%23fff' stroke='%23172338' stroke-width='2'/%3E%3Cpath d='M9 7v18' stroke='%23C8364A' stroke-width='2'/%3E%3Cpath d='M12 14h13M12 19h10' stroke='%239DB4D3' stroke-width='2'/%3E%3C/svg%3E">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="shell">
+    <nav class="rail" aria-label="Sections">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text"><strong>Oracle Learning Lab</strong><span>1Z0-071 on Oracle 19c</span></span>
+      </div>
+      <ul>
+        <li><a href="#/home" data-view="home">Overview</a></li>
+        <li><a href="#/quiz" data-view="quiz">Quiz</a></li>
+        <li><a href="#/cards" data-view="cards">Flashcards</a></li>
+        <li><a href="#/exercises" data-view="exercises">Exercises</a></li>
+        <li><a href="#/lab" data-view="lab">SQL lab</a></li>
+        <li><a href="#/review" data-view="review">Mistakes <span class="count" id="nav-mistakes" hidden></span></a></li>
+        <li><a href="#/progress" data-view="progress">Progress</a></li>
+        <li><a href="#/notes" data-view="notes">Notes</a></li>
+        <li><a href="#/tutor" data-view="tutor">AI tutor</a></li>
+      </ul>
+      <p class="rail-foot" id="db-status">Checking database…</p>
+    </nav>
+    <main id="main" tabindex="-1"></main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <!-- SQL editor; if the CDN is unreachable the app falls back to a plain text area -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/sql-hint.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

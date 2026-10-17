@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.venv
+docs
+plan.md
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+app/state
+app/notes/personal
+Dockerfile
+docker-compose.yml
+.dockerignore

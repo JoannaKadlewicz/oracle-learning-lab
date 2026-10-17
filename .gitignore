@@ -1,0 +1,12 @@
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Your own study data (progress, saved SQL notes, AI drafts waiting for review)
+app/state/
+app/notes/personal/
+app/content/review_queue.json
+
+# IDE
+.idea/
