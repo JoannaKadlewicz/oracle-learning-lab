@@ -30,7 +30,6 @@ import engine  # noqa: E402
 import errors  # noqa: E402
 import report  # noqa: E402
 import sqlviz  # noqa: E402
-import tutor  # noqa: E402
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
@@ -198,94 +197,6 @@ def finalize_expired(state, now):
     for mock in state.get("mocks", []):
         if not mock["submitted"] and not mock["abandoned"] and now > engine.mock_deadline(mock) + engine.MOCK_GRACE:
             submit_mock(state, mock, now)
-
-
-# --------------------------------------------------------------------------- AI tutor (optional)
-
-TUTOR = tutor.Tutor()  # the API client is created on first use
-QUEUE_FILE = APP_DIR / "content" / "review_queue.json"
-SAMPLE_TABLES = ("DEPARTMENTS", "EMPLOYEES", "CUSTOMERS", "PRODUCTS", "ORDERS", "ORDER_ITEMS", "SALARY_GRADES",
-                 "EVENTS", "PROMOTIONS")
-
-
-def schema_text(sql=None):
-    """The sample tables (or only those named in `sql`) as compact column lists for a prompt."""
-    info = schema_info()
-    wanted = {t for t in SAMPLE_TABLES if not sql or re.search(rf"\b{t}\b", sql, re.IGNORECASE)} or set(SAMPLE_TABLES)
-    return "\n".join(f"{t['name'].lower()}(" + ", ".join(f"{c['name'].lower()} {c['type']}" for c in t["columns"]) + ")"
-                     for t in info.get("tables", []) if t["name"] in wanted)
-
-
-def load_queue():
-    return json.loads(QUEUE_FILE.read_text()) if QUEUE_FILE.exists() else []
-
-
-def save_queue(queue):
-    QUEUE_FILE.write_text(json.dumps(queue, indent=1, ensure_ascii=False))
-
-
-def draft_to_question(draft, objective):
-    """A generated draft in the content format: topic taken from existing questions on the objective."""
-    import hashlib
-    topics = [q["topic"] for q in content.QUESTIONS if q["objective"] == objective]
-    topic = max(set(topics), key=topics.count) if topics else "t01"
-    digest = hashlib.sha1(draft["prompt"].encode()).hexdigest()[:8]
-    q = {"id": f"q{topic[1:]}-gen-{digest}", "topic": topic, "objective": objective,
-         "prompt": draft["prompt"], "options": draft["options"], "answer": draft["answer"],
-         "explanation": draft["explanation"]}
-    for key in ("code", "answer_sql", "try_sql", "try_error"):
-        if str(draft.get(key) or "").strip():
-            q[key] = draft[key].strip()
-    return q
-
-
-def verify_question(q):
-    """Problems with a drafted question: structure, duplicates, and the database checks."""
-    import validate_content
-    problems = validate_content.check_question(q)
-    if q["id"] in QUESTIONS_BY_ID or any(item["question"]["id"] == q["id"] for item in load_queue()):
-        problems.append("a question with the same prompt already exists")
-    if not any(k in q for k in ("answer_sql", "try_error", "equivalent_sql")):
-        problems.append("the answer cannot be checked on the database (no answer_sql or try_error)")
-    if not problems:
-        conn = connect()
-        try:
-            problems = validate_content.question_db_errors(conn, q)
-        finally:
-            conn.rollback()
-            conn.close()
-    return problems
-
-
-def generate_questions(objective, count):
-    if objective not in content.OBJECTIVES:
-        raise ValueError("unknown objective")
-    examples = [q for q in content.QUESTIONS if q["objective"] == objective][:6]
-    drafts = TUTOR.generate(objective, content.OBJECTIVES[objective], examples, schema_text(), count)
-    added, rejected = [], []
-    for draft in drafts:
-        q = draft_to_question(draft, objective)
-        problems = verify_question(q)
-        (rejected if problems else added).append({"question": q, "problems": problems, "created": time.time()})
-    if added:
-        save_queue(load_queue() + added)
-    return {"added": added, "rejected": rejected}
-
-
-def accept_question(qid):
-    queue = load_queue()
-    item = next((i for i in queue if i["question"]["id"] == qid), None)
-    if item is None:
-        raise ValueError("not in the review queue")
-    generated = json.loads(content.GENERATED_FILE.read_text()) if content.GENERATED_FILE.exists() else []
-    content.GENERATED_FILE.write_text(json.dumps(generated + [item["question"]], indent=1, ensure_ascii=False))
-    content.QUESTIONS.append(item["question"])
-    QUESTIONS_BY_ID[qid] = item["question"]
-    save_queue([i for i in queue if i is not item])
-
-
-def reject_question(qid):
-    save_queue([i for i in load_queue() if i["question"]["id"] != qid])
 
 
 HISTORY_LIMIT = 100
@@ -1108,10 +1019,6 @@ class Handler(BaseHTTPRequestHandler):
             view, seen = track(state), track_state(state)
             html = report.render(view, seen, engine.progress(view, seen, time.time()), time.time())
             return self.send_html(html)
-        if path == "/api/tutor/status":
-            return self.send_json(tutor.status())
-        if path == "/api/tutor/queue":
-            return self.send_json(load_queue())
         if path == "/api/mock":
             from urllib.parse import parse_qs
             mock_id = parse_qs(urlparse(self.path).query).get("id", [""])[0]
@@ -1203,8 +1110,6 @@ class Handler(BaseHTTPRequestHandler):
             view = track(state)
             count = max(1, min(int(data.get("count", 10)), len(view.QUESTIONS)))
             return self.send_json({"ids": engine.pick_questions(view, track_state(state), time.time(), count, topics)})
-        if path.startswith("/api/tutor/"):
-            return self.handle_tutor(path.rsplit("/", 1)[1], data)
         if path.startswith("/api/mock/"):
             return self.handle_mock(path.rsplit("/", 1)[1], data)
         if path == "/api/reset-progress":
@@ -1253,39 +1158,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"ok": True})
         return self.send_json({**snapshot(state), **result})
 
-    def handle_tutor(self, action, data):
-        if action in ("accept", "reject"):
-            try:
-                (accept_question if action == "accept" else reject_question)(data.get("id"))
-            except ValueError as exc:
-                return self.send_json({"error": str(exc)}, 404)
-            return self.send_json({"queue": load_queue()})
-        if not tutor.status()["available"]:
-            return self.send_json({"error": "The AI tutor is not set up. " + tutor.status()["reason"]}, 503)
-        try:
-            if action == "why":
-                q = QUESTIONS_BY_ID[data["id"]]
-                return self.send_json({"text": TUTOR.why_wrong(q, [int(i) for i in data.get("chosen", [])], data.get("confidence"))})
-            if action == "lab":
-                lab = next(lab for lab in content.LABS if lab["id"] == data["id"])
-                result = grade(lab, data.get("sql", ""))
-                if result.get("passed"):
-                    return self.send_json({"text": "Your SQL already passes this exercise."})
-                return self.send_json({"text": TUTOR.lab_hint(lab, data.get("sql", ""), result,
-                                                              schema_text(lab["solution"] + " " + data.get("sql", "")))})
-            if action == "generate":
-                return self.send_json(generate_questions(data.get("objective"), max(1, min(int(data.get("count", 3)), 5))))
-        except (KeyError, StopIteration):
-            return self.send_json({"error": "Unknown question or exercise"}, 404)
-        except (tutor.TutorError, ValueError) as exc:
-            return self.send_json({"error": str(exc)}, 502)
-        return self.send_json({"error": "Not found"}, 404)
-
     def serve_static(self, path):
         if path in ("", "/"):
             path = "/index.html"
         target = (STATIC_DIR / path.lstrip("/")).resolve()
         if STATIC_DIR not in target.parents or not target.is_file():
+            if Path(path).suffix:  # a missing asset is a 404, not the app shell
+                return self.send_json({"error": "Not found"}, 404)
             target = STATIC_DIR / "index.html"
         types = {".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml"}
         body = target.read_bytes()

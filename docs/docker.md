@@ -41,7 +41,7 @@ Useful commands:
 
 ## Oracle 23ai for the 1Z0-171 track
 
-The app prepares for 1Z0-071 (19c) and 1Z0-171 (23ai); switch on the Overview page. Topic 15
+The app prepares for 1Z0-071 (19c) and 1Z0-171 (23ai); switch at the top of the menu. Topic 15
 (SQL features new in 23ai) only runs on Oracle 23ai. To get a second database for it:
 
     STUDY_DSN_23AI=oracle23:1521/FREEPDB1 docker compose --profile 23ai up -d --build

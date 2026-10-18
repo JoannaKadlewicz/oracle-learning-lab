@@ -4,11 +4,11 @@ A local web app for the Oracle SQL certification exams, **1Z0-071** (Oracle Data
 **1Z0-171** (Oracle AI Database SQL Associate, 23ai), that grades your SQL against a real Oracle
 database and measures your readiness without letting you fool yourself.
 
-![Overview with today's study plan](docs/screenshots/overview.png)
+![Today: the study session, exam countdown and pass chance](docs/screenshots/overview.png)
 
 ## What makes it different
 
-- **Two exams, one app.** Switch between 1Z0-071 and 1Z0-171 on the Overview: each track has its
+- **Two exams, one app.** Switch between 1Z0-071 and 1Z0-171 at the top of the menu: each track has its
   own question pool, objectives, mock exams (63 questions / 63% or 60 questions / 65%) and readiness.
   Topic 15 covers the SQL new in 23ai (BOOLEAN, IF [NOT] EXISTS, GROUP BY alias, VALUES constructor,
   UPDATE/DELETE with joins, domains, annotations, schema privileges, VECTOR search). Questions whose
@@ -96,22 +96,9 @@ The server listens on 127.0.0.1 only: the SQL lab runs any SQL you type. Setting
   run selection, error explanations, DML before/after, join and set-operator visualizer,
   query history, and "save as note".
 - **Notes** for all 15 topics, with common traps, Oracle vs. standard SQL and 23ai differences,
-  plus the exam guide 2026 and the cheat sheet (linked from the Overview).
-- **Optional AI tutor** (Claude), see below.
-
-## Optional AI tutor
-
-With the Claude API configured, the app can explain why a quiz answer was wrong, give a hint
-(never the solution) for a failed exercise, and draft new questions. Drafts are run against your
-database like all other content: only drafts whose answer Oracle confirms reach a review queue,
-and only questions you accept join the question bank (`app/content/generated.json`).
-
-    .venv/bin/pip install -r app/requirements-ai.txt
-    export ANTHROPIC_API_KEY=...        # or run `ant auth login`
-    .venv/bin/python app/server.py
-
-It uses `claude-opus-5-5` (`STUDY_TUTOR_MODEL` to change it, `STUDY_TUTOR=off` to disable it).
-Everything else works without it.
+  plus the exam guide 2026 and the cheat sheet (linked from Today).
+- **Interface**: works on desktop and phone, light and dark themes, full keyboard use (option
+  numbers, S/T/G, Enter, Space and 1/2/3 for flashcards), and no build step.
 
 ## Develop
 
@@ -133,14 +120,16 @@ against Oracle XE 21c.
     ├── sqlviz.py           join and set-operator visualizer
     ├── sqltext.py          light SQL text analysis used by both
     ├── report.py           printable readiness report
-    ├── tutor.py            optional Claude tutor
     ├── validate_content.py checks content structure and runs it against the database
     ├── init_db.py          waits for the database and creates the sample schema once
     ├── demo.py             simulated study history
     ├── content/            questions, flashcards, exercises (one module per topic), objectives
     ├── sql/                sample schema create, seed and cleanup scripts
     ├── notes/              study notes; notes/personal holds your saved SQL notes
-    ├── static/             front end (index.html, app.js, app.css)
+    ├── static/             front end, native ES modules, no build step
+    │   ├── index.html      app shell: navigation, icons, vendor scripts
+    │   ├── css/            design tokens and styles in cascade layers (app.css is the entry)
+    │   └── js/             main.js; core/ (state, API, router), ui/ (shared rendering), views/ (one per page)
     ├── state/              your progress (progress.json)
     └── tests/              pytest suite
 
