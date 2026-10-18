@@ -2,48 +2,100 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Oracle Learning Lab</title>
+  <meta name="description" content="Prepare for the Oracle SQL exams 1Z0-071 and 1Z0-171 with answers checked by a real Oracle database.">
+  <meta name="theme-color" content="#EDF1F6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E1522" media="(prefers-color-scheme: dark)">
+  <script>
+    // Apply the saved theme before first paint, so dark mode never flashes light.
+    try { const t = JSON.parse(localStorage.getItem("study:theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
-  <link rel="stylesheet" href="/app.css">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='7' width='26' height='18' rx='2' fill='%23fff' stroke='%23172338' stroke-width='2'/%3E%3Cpath d='M9 7v18' stroke='%23C8364A' stroke-width='2'/%3E%3Cpath d='M12 14h13M12 19h10' stroke='%239DB4D3' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400..700&family=Atkinson+Hyperlegible+Next:ital,wght@0,300..800;1,400&display=swap">
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='7' width='26' height='18' rx='2' fill='%23FFFEFA' stroke='%2316233A' stroke-width='2'/%3E%3Cpath d='M9 7v18' stroke='%23C8364A' stroke-width='2'/%3E%3Cpath d='M12 14h13M12 19h10' stroke='%23A9BCD6' stroke-width='2'/%3E%3C/svg%3E">
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-today" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/></symbol>
+      <symbol id="i-quiz" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.4c-.7.3-1 .8-1 1.5v.4"/><path d="M12 16.8v.2"/></symbol>
+      <symbol id="i-cards" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7.5" width="14" height="12" rx="1.5"/><path d="M7 4.5h12.5A1.5 1.5 0 0 1 21 6v10"/><path d="M6.5 7.5v12"/></symbol>
+      <symbol id="i-exercise" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9z"/><path d="M14 4v5h5"/><path d="m9 14.5 2 2 4-4"/></symbol>
+      <symbol id="i-lab" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="m7 9.5 3 2.5-3 2.5M12.5 15H17"/></symbol>
+      <symbol id="i-mistakes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 21 19.5H3z"/><path d="M12 10v4M12 17v.2"/></symbol>
+      <symbol id="i-progress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16h16"/><path d="m7.5 14 3.5-4 3 3 5-6"/></symbol>
+      <symbol id="i-notes" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+      <symbol id="i-prev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6-6 6 6 6"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6 6 6-6 6"/></symbol>
+      <symbol id="i-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7"/><path d="M12 10v3.5l2 1.5M10 3h4"/></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9z"/><path d="M14 4v5h5M8.5 13h7M8.5 16.5h5"/></symbol>
+    </defs>
+  </svg>
+
   <a class="skip" href="#main">Skip to content</a>
-  <div class="shell">
-    <nav class="rail" aria-label="Sections">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <span class="brand-text"><strong>Oracle Learning Lab</strong><span id="brand-sub">SQL certification prep</span></span>
+
+  <header class="topbar">
+    <button class="icon-btn" id="nav-open" aria-label="Open navigation" aria-controls="rail" aria-expanded="false"><svg><use href="#i-menu"/></svg></button>
+    <a class="brand" href="#/home"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text"><strong>Oracle Learning Lab</strong></span></a>
+    <span class="topbar-exam" id="topbar-exam"></span>
+  </header>
+
+  <div class="shell" id="shell">
+    <nav class="rail" id="rail" aria-label="Main">
+      <div class="rail-head">
+        <a class="brand" href="#/home"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text"><strong>Oracle Learning Lab</strong><span>SQL certification prep</span></span></a>
+        <button class="icon-btn rail-close" id="nav-close" aria-label="Close navigation"><svg><use href="#i-close"/></svg></button>
       </div>
-      <ul>
-        <li><a href="#/home" data-view="home">Overview</a></li>
-        <li><a href="#/quiz" data-view="quiz">Quiz</a></li>
-        <li><a href="#/cards" data-view="cards">Flashcards</a></li>
-        <li><a href="#/exercises" data-view="exercises">Exercises</a></li>
-        <li><a href="#/lab" data-view="lab">SQL lab</a></li>
-        <li><a href="#/review" data-view="review">Mistakes <span class="count" id="nav-mistakes" hidden></span></a></li>
-        <li><a href="#/progress" data-view="progress">Progress</a></li>
-        <li><a href="#/notes" data-view="notes">Notes</a></li>
-        <li><a href="#/tutor" data-view="tutor">AI tutor</a></li>
+
+      <div class="exam-switch">
+        <span id="exam-switch-label">Preparing for</span>
+        <div class="seg" role="group" aria-labelledby="exam-switch-label" id="exam-switch"></div>
+      </div>
+
+      <ul class="nav">
+        <li class="nav-label">Study</li>
+        <li><a href="#/home" data-view="home"><svg aria-hidden="true"><use href="#i-today"/></svg>Today</a></li>
+        <li><a href="#/quiz" data-view="quiz"><svg aria-hidden="true"><use href="#i-quiz"/></svg>Quiz</a></li>
+        <li><a href="#/cards" data-view="cards"><svg aria-hidden="true"><use href="#i-cards"/></svg>Flashcards</a></li>
+        <li><a href="#/exercises" data-view="exercises"><svg aria-hidden="true"><use href="#i-exercise"/></svg>Exercises</a></li>
+        <li><a href="#/lab" data-view="lab"><svg aria-hidden="true"><use href="#i-lab"/></svg>SQL lab</a></li>
+        <li class="nav-label">Review</li>
+        <li><a href="#/review" data-view="review"><svg aria-hidden="true"><use href="#i-mistakes"/></svg>Mistakes <span class="count" id="nav-mistakes" hidden></span></a></li>
+        <li><a href="#/progress" data-view="progress"><svg aria-hidden="true"><use href="#i-progress"/></svg>Progress</a></li>
+        <li><a href="#/notes" data-view="notes"><svg aria-hidden="true"><use href="#i-notes"/></svg>Notes</a></li>
       </ul>
-      <p class="rail-foot" id="db-status">Checking database…</p>
+
+      <div class="rail-foot">
+        <ul class="nav">
+          <li><a href="#/settings" data-view="settings"><svg aria-hidden="true"><use href="#i-settings"/></svg>Settings</a></li>
+        </ul>
+        <p class="db-status" id="db-status" role="status">Checking database…</p>
+      </div>
     </nav>
-    <main id="main" tabindex="-1"></main>
+    <div class="scrim" id="scrim"></div>
+
+    <main id="main" tabindex="-1">
+      <p class="loading">Loading your study plan…</p>
+    </main>
   </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
   <!-- SQL editor; if the CDN is unreachable the app falls back to a plain text area -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/sql-hint.min.js"></script>
-  <script src="/app.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/sql-hint.min.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

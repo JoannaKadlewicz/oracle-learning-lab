@@ -1,0 +1,79 @@
+/* Flashcards: the index card */
+
+.deck { display: grid; justify-items: center; gap: 22px; }
+.deck-top { width: min(660px, 100%); display: flex; align-items: center; gap: 16px; }
+.deck-stats { display: flex; gap: 20px; color: var(--muted); font-size: 15px; flex-wrap: wrap; }
+.deck-stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.deck-progress { width: min(660px, 100%); height: 4px; border-radius: 2px; background: var(--paper-3); overflow: hidden; margin-top: -10px; }
+.deck-progress i { display: block; height: 100%; background: var(--ink); transition: width .3s var(--ease); }
+
+.card-stage { width: min(660px, 100%); perspective: 1600px; }
+.index-card {
+  position: relative;
+  width: 100%;
+  height: 384px; /* 12 ruled lines of 32px */
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform .5s var(--ease);
+}
+.index-card.flipped { transform: rotateY(180deg); }
+.index-card:focus-visible { outline-offset: 6px; }
+.card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 32px 0 76px;
+  overflow: auto;
+  border-radius: 4px;
+  background-color: var(--card-paper);
+  color: var(--card-ink);
+  box-shadow: var(--shadow-card);
+  backface-visibility: hidden;
+}
+.card-face::before {
+  content: "";
+  position: absolute;
+  left: 56px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--card-margin);
+  opacity: .7;
+}
+.card-front {
+  background-image:
+    linear-gradient(to bottom, transparent 0 62px, var(--card-margin) 62px 63.5px, transparent 63.5px),
+    repeating-linear-gradient(to bottom, transparent 0 31px, var(--card-rule) 31px 32px);
+  background-attachment: local;
+}
+.card-back {
+  transform: rotateY(180deg);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, var(--card-rule) 31px 32px);
+  background-attachment: local;
+}
+.card-topic { height: 32px; margin: 0 0 32px; font-size: var(--t-s); line-height: 32px; color: var(--card-muted); }
+.card-text { margin: 0; padding-top: 4px; }
+.card-front .card-text { font-size: 25px; line-height: 32px; font-weight: 700; }
+.card-back .card-text { font-size: 19px; line-height: 32px; }
+.card-text code { font-size: .85em; background: rgba(36, 87, 197, .08); border: 0; color: inherit; padding: 1px 4px; border-radius: 3px; }
+.card-hint { flex-shrink: 0; margin: auto 0 0; padding-top: 32px; font-size: var(--t-xs); line-height: 32px; color: var(--card-muted); }
+.card-box { position: absolute; top: 16px; right: 20px; font-size: var(--t-xs); color: var(--card-muted); }
+
+.ratings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: min(660px, 100%); }
+.ratings .btn { min-height: 52px; display: grid; gap: 2px; justify-items: center; }
+.ratings .btn small { font-weight: 400; font-size: 12px; opacity: .75; }
+
+@media (max-width: 600px) {
+  .card-face { padding: 32px 16px 0 50px; }
+  .card-face::before { left: 34px; }
+  .card-front .card-text { font-size: 21px; }
+  .card-back .card-text { font-size: 17px; }
+  .index-card { height: 416px; }
+}

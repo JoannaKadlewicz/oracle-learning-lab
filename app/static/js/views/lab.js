@@ -1,0 +1,132 @@
+/* SQL lab: free SQL against the learning schema, with explanations, DML changes, the visualizer,
+   history and the schema browser. */
+
+import { $, $$, esc, plural } from "../core/dom.js";
+import { api } from "../core/api.js";
+import { store } from "../core/store.js";
+import { S, DB } from "../core/state.js";
+import { main } from "../core/router.js";
+import { toast, toastError, confirmDialog, promptDialog } from "../ui/feedback.js";
+import { pageHead, loading } from "../ui/widgets.js";
+import { makeEditor, schemaHtml, invalidateSchema } from "../ui/editor.js";
+import { resultsHtml, vizHtml, bindViz, errorBox } from "../ui/sql.js";
+import { openNote } from "./notes.js";
+
+const DEFAULT_SQL = "SELECT e.employee_id, e.last_name, e.salary\nFROM   employees e\nORDER  BY e.salary DESC;";
+
+/** The lab's draft: read it, or replace it (other views open SQL in the lab this way). */
+export function labDraft(sql) {
+  if (sql === undefined) return store("lab-sql") ?? DEFAULT_SQL;
+  store("lab-sql", sql);
+  return sql;
+}
+
+async function render() {
+  const where = DB ? `Oracle ${esc(DB.version.split(".").slice(0, 2).join("."))}` : "your Oracle database";
+  main.innerHTML = `
+    ${pageHead("SQL lab", `Run any SQL against the learning schema on ${where}. Separate statements with semicolons, end PL/SQL blocks with a line holding only <code>/</code>, and select text to run only that part.`)}
+    <div class="lab">
+      <div>
+        <div class="editor-wrap">
+          <textarea class="editor" id="sql" aria-label="SQL" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(labDraft())}</textarea>
+          <div class="editor-bar">
+            <button class="btn" id="run"><span>Run</span> <span class="kbd">Ctrl+Enter</span></button>
+            <button class="btn secondary" id="visualize" title="Show how the rows of two joined tables, or of two combined queries, end up in the result">Visualize rows</button>
+            <label class="check small"><input type="checkbox" id="keep" ${store("keep") ? "checked" : ""}> Commit changes</label>
+            <span class="links">
+              <button class="link-btn" id="save-note">Save as note</button>
+              <button class="link-btn quiet" id="reset-data">Restore sample data</button>
+            </span>
+          </div>
+        </div>
+        <p class="editor-note" id="keep-note"></p>
+        <div class="results" id="results" aria-live="polite"></div>
+      </div>
+      <aside class="lab-side panel side-panel" aria-label="Tables and history">
+        <h3>Tables</h3><div class="schema" id="schema">${loading("Loading tables")}</div>
+        <h3>History</h3><div id="history"></div>
+      </aside>
+    </div>`;
+
+  const keep = $("#keep");
+  const results = $("#results");
+  const editor = makeEditor($("#sql"), { onRun: () => run(), onChange: v => labDraft(v) });
+  editor.onSelection(has => { $("#run span").textContent = has ? "Run selection" : "Run"; });
+  const note = () => {
+    $("#keep-note").textContent = keep.checked
+      ? "Changes are committed after each run."
+      : "Changes are rolled back after each run. DDL (CREATE, DROP, TRUNCATE…) always commits at once, including any DML before it.";
+  };
+  note();
+  keep.addEventListener("change", () => { store("keep", keep.checked); note(); });
+
+  const showHistory = list => {
+    const items = [...(list || [])].reverse().slice(0, 20);
+    $("#history").innerHTML = items.length ? `<ul class="history">${items.map((h, n) =>
+      `<li><button class="link-btn" data-history="${n}" title="${esc(h.sql)}">${esc(h.sql.trim().split("\n")[0].slice(0, 60))}</button>
+        <span class="xsmall muted">${new Date(h.t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${h.errors ? `, ${plural(h.errors, "error")}` : ""}</span></li>`).join("")}</ul>`
+      : `<p class="small muted">Statements you run appear here.</p>`;
+    $$("[data-history]", main).forEach(b => b.addEventListener("click", () => { editor.set(items[Number(b.dataset.history)].sql); editor.focus(); }));
+  };
+  showHistory(S.history);
+
+  const refreshSchema = async () => { invalidateSchema(); $("#schema").innerHTML = await schemaHtml(); };
+
+  const run = async () => {
+    const btn = $("#run");
+    btn.disabled = true;
+    results.innerHTML = loading("Running");
+    try {
+      const res = await api("/api/run", { sql: editor.selection() || editor.get(), keep: keep.checked });
+      results.innerHTML = resultsHtml(res);
+      S.history = res.history;
+      showHistory(res.history);
+      if (res.results?.some(r => /^\s*(CREATE|DROP|ALTER|RENAME)/i.test(r.sql) && r.type === "message")) await refreshSchema();
+    } catch (err) { results.innerHTML = errorBox(err.message); }
+    btn.disabled = false;
+  };
+  $("#run").addEventListener("click", run);
+  $("#visualize").addEventListener("click", async () => {
+    results.innerHTML = loading("Tracing rows");
+    try {
+      results.innerHTML = vizHtml(await api("/api/visualize", { sql: editor.selection() || editor.get() }));
+      bindViz(results);
+    } catch (err) { results.innerHTML = errorBox(err.message); }
+  });
+  $("#save-note").addEventListener("click", async () => {
+    const sql = editor.selection() || editor.get();
+    if (!sql.trim()) return toast("Type some SQL first.");
+    const title = await promptDialog({
+      title: "Save as note",
+      body: "The SQL is saved as a Markdown note under My notes.",
+      label: "Title", value: sql.trim().split("\n")[0].slice(0, 60), confirm: "Save note",
+    });
+    if (title === null) return;
+    try {
+      const res = await api("/api/notes/save", { title, sql });
+      openNote(res.path, false);
+      toast("Saved to My notes.");
+    } catch { toastError("Could not save the note."); }
+  });
+  $("#reset-data").addEventListener("click", async () => {
+    if (!await confirmDialog({
+      title: "Restore the sample data?",
+      body: "The sample tables are dropped and created again with their original rows. Other objects you created are kept.",
+      confirm: "Restore sample data", danger: true,
+    })) return;
+    try {
+      const res = await api("/api/reset-data", {});
+      if (res.ok) toast("Sample data restored."); else toastError("Restore failed: " + res.error);
+    } catch (err) { toastError(err.message); }
+    await refreshSchema();
+  });
+  $("#schema").addEventListener("click", e => {
+    const t = e.target.closest("[data-insert]");
+    if (!t) return;
+    editor.set(`SELECT *\nFROM   ${t.dataset.insert};`);
+    editor.focus();
+  });
+  $("#schema").innerHTML = await schemaHtml();
+}
+
+export const labView = { title: "SQL lab", render };

@@ -1,0 +1,150 @@
+/* Design tokens. The look is a study desk: cool desk surface, white paper, fountain-pen navy ink,
+   the red margin line of ruled paper (brand marker), and a yellow highlighter. */
+
+:root {
+  --desk: #EDF1F6;
+  --paper: #FFFFFF;
+  --paper-2: #F5F7FB;
+  --paper-3: #E6ECF4;
+  --ink: #16233A;
+  --ink-2: #33435C;
+  --muted: #56667E;
+  --on-ink: #FFFFFF;
+  --rule: #D6DFEA;
+  --rule-strong: #A9BCD6;
+  --margin: #C8364A;
+  --mark: #FFE173;
+  --mark-soft: #FFF4C2;
+  --link: #2457C5;
+  --focus: #2457C5;
+  --good: #1D7A55;
+  --good-bg: #E4F2EA;
+  --bad: #B3283C;
+  --bad-bg: #FBE7EA;
+  --warn: #8A5A00;
+  --warn-bg: #FCF0D4;
+  --code-bg: #F3F6FA;
+
+  /* Index cards are real paper in both themes */
+  --card-paper: #FFFEFA;
+  --card-ink: #1D2433;
+  --card-muted: #6A7487;
+  --card-rule: #BED0E6;
+  --card-margin: #D9505F;
+
+  /* Chart palette (validated: categorical series, status, sequential) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
+  --seq-0: #DCE4EE;
+  --seq-1: #b7d3f6;
+  --seq-2: #6da7ec;
+  --seq-3: #2a78d6;
+  --seq-4: #184f95;
+
+  --shadow-s: 0 1px 2px rgba(22, 35, 58, .06);
+  --shadow-card: 0 1px 0 rgba(22, 35, 58, .06), 0 14px 32px -16px rgba(22, 35, 58, .35);
+  --shadow-pop: 0 20px 60px -20px rgba(22, 35, 58, .45);
+
+  --r-s: 6px;
+  --r-m: 10px;
+  --r-l: 14px;
+
+  --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --mono: "Atkinson Hyperlegible Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Type scale (16px base, ~1.25 ratio) */
+  --t-xs: 13px;
+  --t-s: 14px;
+  --t-m: 16px;
+  --t-l: 18px;
+  --t-xl: 22px;
+  --t-2xl: 28px;
+  --t-3xl: 36px;
+  --t-hero: 64px;
+
+  --rail-w: 248px;
+  --content-w: 1120px;
+  --reading-w: 780px;
+  --ease: cubic-bezier(.3, .7, .2, 1);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --desk: #0E1522;
+    --paper: #162033;
+    --paper-2: #1B273D;
+    --paper-3: #22314B;
+    --ink: #E6EDF7;
+    --ink-2: #C3CFE0;
+    --muted: #97A7BF;
+    --on-ink: #0E1522;
+    --rule: #26354E;
+    --rule-strong: #3B5274;
+    --margin: #E9707F;
+    --mark: #F2D35B;
+    --mark-soft: #3A3317;
+    --link: #8AB1FF;
+    --focus: #8AB1FF;
+    --good: #62CF9E;
+    --good-bg: #163A2B;
+    --bad: #F38C9B;
+    --bad-bg: #40202A;
+    --warn: #F2C35C;
+    --warn-bg: #3A2F14;
+    --code-bg: #111A2A;
+    --card-paper: #F7F4EC;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --seq-0: #22314B;
+    --seq-1: #184f95;
+    --seq-2: #256abf;
+    --seq-3: #3987e5;
+    --seq-4: #86b6ef;
+    --shadow-s: 0 1px 2px rgba(0, 0, 0, .3);
+    --shadow-card: 0 1px 0 rgba(0, 0, 0, .35), 0 18px 40px -18px rgba(0, 0, 0, .8);
+    --shadow-pop: 0 24px 70px -20px rgba(0, 0, 0, .85);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --desk: #0E1522;
+  --paper: #162033;
+  --paper-2: #1B273D;
+  --paper-3: #22314B;
+  --ink: #E6EDF7;
+  --ink-2: #C3CFE0;
+  --muted: #97A7BF;
+  --on-ink: #0E1522;
+  --rule: #26354E;
+  --rule-strong: #3B5274;
+  --margin: #E9707F;
+  --mark: #F2D35B;
+  --mark-soft: #3A3317;
+  --link: #8AB1FF;
+  --focus: #8AB1FF;
+  --good: #62CF9E;
+  --good-bg: #163A2B;
+  --bad: #F38C9B;
+  --bad-bg: #40202A;
+  --warn: #F2C35C;
+  --warn-bg: #3A2F14;
+  --code-bg: #111A2A;
+  --card-paper: #F7F4EC;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --seq-0: #22314B;
+  --seq-1: #184f95;
+  --seq-2: #256abf;
+  --seq-3: #3987e5;
+  --seq-4: #86b6ef;
+  --shadow-s: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-card: 0 1px 0 rgba(0, 0, 0, .35), 0 18px 40px -18px rgba(0, 0, 0, .8);
+  --shadow-pop: 0 24px 70px -20px rgba(0, 0, 0, .85);
+  color-scheme: dark;
+}

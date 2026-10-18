@@ -1,0 +1,162 @@
+/* Today: the session is written on an index card (ruled every 32px, red header line and margin),
+   the same object as the flashcards. Every row sits on the ruling. */
+
+.today-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(250px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.session-card {
+  --line: 32px;
+  position: relative;
+  padding: 0 28px 0 76px;
+  border-radius: 4px;
+  color: var(--card-ink);
+  background-color: var(--card-paper);
+  background-image:
+    linear-gradient(to bottom, transparent calc(2 * var(--line) - 2px), var(--card-margin) calc(2 * var(--line) - 2px) calc(2 * var(--line)), transparent calc(2 * var(--line))),
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), var(--card-rule) calc(var(--line) - 1px) var(--line));
+  box-shadow: var(--shadow-card);
+}
+.session-card::before {
+  content: "";
+  position: absolute;
+  left: 56px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--card-margin);
+  opacity: .7;
+}
+.session-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  height: calc(2 * var(--line));
+  padding-top: var(--line);
+}
+.session-head h2 { color: var(--card-ink); font-size: 21px; line-height: 30px; margin: 0; }
+.session-head span { color: var(--card-muted); font-size: var(--t-s); white-space: nowrap; }
+
+.session-steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+.session-steps li { counter-increment: step; }
+.session-steps a {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 16px;
+  height: calc(2 * var(--line));
+  color: inherit;
+  text-decoration: none;
+}
+.session-steps a::before {
+  content: counter(step);
+  position: absolute;
+  left: -50px;
+  top: 6px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--card-ink);
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--card-paper);
+}
+.session-steps a.done::before { content: "✓"; background: var(--card-ink); color: var(--card-paper); }
+.session-steps strong, .session-steps small {
+  line-height: var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-steps strong { font-size: 17.5px; font-weight: 700; }
+.session-steps small { grid-column: 1; font-size: var(--t-s); color: var(--card-muted); }
+.session-steps .minutes { grid-column: 2; grid-row: 1; line-height: var(--line); font-size: var(--t-s); color: var(--card-muted); font-variant-numeric: tabular-nums; }
+.session-steps a:hover strong { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; text-decoration-color: var(--card-margin); }
+.session-steps a:focus-visible { outline-offset: -2px; }
+.session-steps a[aria-disabled="true"] { opacity: .55; pointer-events: none; }
+.session-foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  height: calc(2 * var(--line));
+  padding-top: calc(var(--line) - 20px); /* the button straddles a rule, centred on it */
+}
+.session-foot .btn { --btn-bg: var(--card-ink); --btn-border: var(--card-ink); --btn-fg: var(--card-paper); }
+.session-foot .btn:hover { --btn-bg: #33405A; }
+.session-foot span { color: var(--card-muted); font-size: var(--t-s); line-height: var(--line); margin-top: calc(20px - var(--line)); }
+
+/* Exam facts beside the card */
+.exam-facts { display: grid; gap: 14px; }
+.fact {
+  display: grid;
+  gap: 4px;
+  padding: 20px 22px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-l);
+  background: var(--paper);
+}
+.fact-value { font-size: 52px; font-weight: 750; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.fact-value small { font-size: 18px; font-weight: 600; letter-spacing: 0; color: var(--muted); margin-left: 6px; }
+.fact-label { font-weight: 600; }
+.fact p { margin: 0; color: var(--muted); font-size: var(--t-s); }
+.fact a { font-size: var(--t-s); }
+.fact.pass .fact-value { color: var(--good); }
+.fact.risk .fact-value { color: var(--bad); }
+
+.exam-line { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 10px 0 0; padding: 0; list-style: none; color: var(--muted); font-size: 15px; }
+.exam-line b { color: var(--ink); font-weight: 650; }
+
+/* Secondary actions: one list, not a wall of cards */
+.next-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--paper); overflow: hidden; }
+.next-list a, .next-list button {
+  display: grid;
+  align-content: start;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 14px;
+  align-items: start;
+  padding: 18px 20px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  box-shadow: inset -1px 0 var(--rule), inset 0 -1px var(--rule);
+  cursor: pointer;
+}
+.next-list a:hover, .next-list button:hover { background: var(--paper-2); }
+.next-list svg { grid-row: span 2; width: 22px; height: 22px; margin-top: 2px; color: var(--muted); }
+.next-list strong { font-weight: 650; }
+.next-list span { color: var(--muted); font-size: var(--t-s); }
+
+.advice { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.advice li { display: flex; gap: 10px; color: var(--ink-2); font-size: 15px; max-width: 80ch; }
+.advice li::before { content: ""; flex: none; width: 4px; border-radius: 2px; background: var(--mark); }
+
+.resources { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* 4, 2 or 1 columns: never a lone item on its own row */
+@media (min-width: 1280px) { .next-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+@media (max-width: 1080px) {
+  .today-hero { grid-template-columns: minmax(0, 1fr); }
+  .exam-facts { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .next-list { grid-template-columns: minmax(0, 1fr); }
+  .session-card { padding: 0 16px 0 52px; }
+  .session-card::before { left: 38px; }
+  .session-steps a::before { left: -44px; width: 24px; height: 24px; top: 7px; }
+  .session-head h2 { font-size: 19px; }
+  .session-head span, .session-foot span { display: none; }
+  .session-foot { justify-content: flex-end; }
+  .fact-value { font-size: 42px; }
+}

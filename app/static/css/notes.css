@@ -1,0 +1,37 @@
+/* Notes reader and settings */
+
+.note-body {
+  max-width: 76ch;
+  padding: 32px 40px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-l);
+  background: var(--paper);
+  font-size: 16.5px;
+  line-height: 1.7;
+}
+.note-body > :first-child { margin-top: 0; }
+.note-body h1 { font-size: var(--t-2xl); margin: 0 0 18px; }
+.note-body h2 { font-size: var(--t-xl); margin: 36px 0 12px; padding-top: 4px; }
+.note-body h3 { font-size: var(--t-l); margin: 26px 0 8px; }
+.note-body p, .note-body ul, .note-body ol { margin: 0 0 14px; }
+.note-body li + li { margin-top: 4px; }
+.note-body table { display: block; overflow-x: auto; border-collapse: collapse; margin: 14px 0 20px; font-size: 14.5px; line-height: 1.5; }
+.note-body th, .note-body td { border: 1px solid var(--rule); padding: 7px 11px; text-align: left; vertical-align: top; }
+.note-body th { background: var(--paper-2); font-weight: 650; }
+.note-body pre { margin: 0 0 18px; padding: 14px 18px; overflow-x: auto; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--code-bg); font-size: 14px; line-height: 1.6; }
+.note-body pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+.note-body blockquote { margin: 0 0 16px; padding: 10px 16px; border-left: 3px solid var(--mark); background: var(--mark-soft); border-radius: 0 var(--r-s) var(--r-s) 0; }
+.note-body blockquote p:last-child { margin: 0; }
+.note-body hr { margin: 28px 0; }
+
+.settings { display: grid; gap: 20px; max-width: 760px; }
+.setting { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: center; }
+.setting + .setting { border-top: 1px solid var(--rule); padding-top: 20px; }
+.setting h3 { margin: 0 0 2px; font-size: var(--t-m); }
+.setting p { margin: 0; color: var(--muted); font-size: var(--t-s); max-width: 56ch; }
+.danger-zone { border-color: color-mix(in srgb, var(--bad) 35%, var(--rule)); }
+
+@media (max-width: 600px) {
+  .note-body { padding: 20px 18px; font-size: 16px; }
+  .setting { grid-template-columns: minmax(0, 1fr); }
+}

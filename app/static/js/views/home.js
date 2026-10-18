@@ -1,0 +1,145 @@
+/* Today: the study session for today on an index card, the exam countdown and pass chance,
+   what else is open, and mastery per topic. */
+
+import { $$, esc, plural, icon } from "../core/dom.js";
+import { C, P, L, CARD, DB, mistakes, topicStats, topicLabel } from "../core/state.js";
+import { main } from "../core/router.js";
+import { levelBadge, meter, section } from "../ui/widgets.js";
+import { startQuiz, startMock, resumeMock } from "./quiz.js";
+import { openDeck } from "./cards.js";
+import { openNote } from "./notes.js";
+
+function trackWarning() {
+  if (!DB || C.exam.code !== "1Z0-171" || DB.major >= 23) return "";
+  return `<div class="callout"><p>You are preparing for 1Z0-171, but the SQL lab is connected to Oracle ${esc(DB.version)}.
+    Quizzes and flashcards work as usual; the SQL of topic 15 (23ai features) only runs on Oracle 23ai.
+    Start Oracle 23ai Free and set <code>STUDY_DSN_23AI</code> to switch databases with the exam (see the README).</p></div>`;
+}
+
+function countdownFact(plan, examDate) {
+  const date = examDate ? new Date(examDate + "T12:00:00").toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }) : "";
+  if (plan.days_left === null) {
+    return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">No exam date yet</span>
+      <p>Set it to get a daily plan that fits the time you have.</p><a href="#/settings">Set your exam date</a></div>`;
+  }
+  if (plan.days_left > 0) {
+    return `<div class="fact"><span class="fact-value">${plan.days_left}<small>${plan.days_left === 1 ? "day" : "days"}</small></span>
+      <span class="fact-label">until your ${esc(C.exam.code)} exam</span><p>${esc(date)}</p></div>`;
+  }
+  if (plan.days_left === 0) {
+    return `<div class="fact"><span class="fact-value">Today</span><span class="fact-label">is your exam</span>
+      <p>Skim your mistakes and flashcards, and trust your preparation.</p></div>`;
+  }
+  return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">Your exam date has passed</span>
+    <p>Preparing for a retake?</p><a href="#/settings">Set a new date</a></div>`;
+}
+
+function passFact(r) {
+  if (r.status !== "ok") {
+    return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">Chance to pass</span>
+      <p>Not enough data yet. Answer new questions or take a mock exam.</p><a href="#/progress">How readiness works</a></div>`;
+  }
+  const pct = Math.round(r.pass_probability * 100);
+  return `<div class="fact ${pct >= 80 ? "pass" : pct < 50 ? "risk" : ""}"><span class="fact-value">${pct}%</span>
+    <span class="fact-label">chance to pass</span>
+    <p>Expected score ${r.low_pct} to ${r.high_pct}%, from first answers only.</p><a href="#/progress">See your progress</a></div>`;
+}
+
+function render() {
+  const plan = P.plan;
+  const miss = mistakes().length;
+  const lab = plan.lab ? L[plan.lab] : null;
+  const cardMinutes = Math.max(1, Math.round(plan.cards.length * 0.3));
+  const questionMinutes = Math.max(1, Math.round(plan.questions.length * 1.5));
+  const mock = P.active_mock;
+  const mockLeft = mock ? Math.max(0, Math.round((mock.deadline - Date.now() / 1000) / 60)) : 0;
+
+  main.innerHTML = `
+    <header class="page-head">
+      <div>
+        <h1>Today</h1>
+        <ul class="exam-line">
+          <li><b>${esc(C.exam.code)}</b> ${esc(C.exam.name)}</li>
+          <li><b>${C.exam.questions}</b> questions</li>
+          <li><b>${C.exam.minutes}</b> minutes</li>
+          <li><b>${C.exam.passing_pct}%</b> to pass</li>
+        </ul>
+      </div>
+    </header>
+    ${trackWarning()}
+
+    <div class="today-hero">
+      <article class="session-card" aria-labelledby="session-title">
+        <div class="session-head"><h2 id="session-title">Today's session</h2><span>About ${plan.estimate} minutes</span></div>
+        <ol class="session-steps">
+          <li><a href="#/quiz" data-start="plan">
+            <strong>Answer ${plural(plan.questions.length, "question")}</strong>
+            <small>Open mistakes, due reviews and your weakest objectives</small>
+            <span class="minutes">${questionMinutes} min</span></a></li>
+          <li><a href="#/cards" data-start="cards" ${plan.cards.length ? "" : `aria-disabled="true" tabindex="-1"`}>
+            <strong>${plan.cards.length ? `Review ${plural(plan.cards.length, "flashcard")}` : "No flashcards due today"}</strong>
+            <small>${plan.cards.length ? "Spaced by how well you know them" : "Come back tomorrow, or study a topic deck"}</small>
+            <span class="minutes">${plan.cards.length ? `${cardMinutes} min` : ""}</span></a></li>
+          ${lab ? `<li><a href="#/exercises/${esc(lab.id)}">
+            <strong>Exercise: ${esc(lab.title)}</strong>
+            <small>${esc(topicLabel(lab.topic))}, one of your weakest objectives</small>
+            <span class="minutes">8 min</span></a></li>` : ""}
+        </ol>
+        <div class="session-foot">
+          <span>${plan.minutes} minutes a day planned</span>
+          <button class="btn" data-start="plan">Start the session</button>
+        </div>
+      </article>
+
+      <div class="exam-facts">
+        ${countdownFact(plan, P.settings.exam_date)}
+        ${passFact(P.readiness)}
+      </div>
+    </div>
+
+    ${plan.advice.length ? `<ul class="advice">${plan.advice.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+
+    ${section("Also open", `<div class="next-list">
+      <a href="#/review">${icon("mistakes")}<strong>${miss ? plural(miss, "open mistake") : "No open mistakes"}</strong>
+        <span>${miss ? `Cleared after confident correct answers on ${P.proof_days} different days.` : "Missed questions and lucky guesses collect here."}</span></a>
+      ${mock ? `<button data-start="resume">${icon("timer")}<strong>Resume your mock exam</strong>
+          <span>${mock.answered} of ${mock.count} answered, ${plural(mockLeft, "minute")} left.</span></button>`
+        : `<button data-start="mock">${icon("timer")}<strong>Take a mock exam</strong>
+          <span>${C.exam.questions} questions in ${C.exam.minutes} minutes, questions you have not seen first.</span></button>`}
+      <button data-note="docs/exam-guide-2026.md">${icon("doc")}<strong>Exam guide 2026</strong>
+        <span>1Z0-071 and 1Z0-171 compared, with every 19c and 23ai difference.</span></button>
+      <button data-note="docs/cheat-sheet.md">${icon("notes")}<strong>Cheat sheet</strong>
+        <span>The rules and traps of every topic on one page.</span></button>
+    </div>`)}
+
+    ${section("Topics", `<div class="table-wrap"><table class="data">
+      <thead><tr><th>Topic</th><th>Mastery</th>
+        <th class="hide-s" title="Questions whose most recent answer was correct. Mastery uses all your recent answers, so retrying a question until it is right does not hide earlier misses.">Questions correct</th>
+        <th class="hide-s">Cards learned</th><th class="hide-s">Exercises passed</th><th><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>${Object.keys(C.topics).map(t => {
+        const s = topicStats(t);
+        return `<tr>
+          <td>${esc(topicLabel(t))}</td>
+          <td>${levelBadge(P.topics[t])}</td>
+          <td class="hide-s">${meter(s.correct, s.total, "Questions correct")}</td>
+          <td class="hide-s">${meter(s.learned, s.cards, "Cards learned")}</td>
+          <td class="hide-s">${meter(s.passed, s.labs, "Exercises passed")}</td>
+          <td class="actions"><button class="btn secondary small" data-topic="${t}">Practise</button></td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table></div>`, { note: `Mastery combines quiz answers, flashcards and exercises per official objective, weighted by how recent they are and how sure you were. <a href="#/progress">See every objective</a>.` })}
+  `;
+
+  $$("[data-start]", main).forEach(a => a.addEventListener("click", e => {
+    e.preventDefault();
+    const kind = a.dataset.start;
+    if (kind === "mock") startMock();
+    else if (kind === "resume") resumeMock();
+    else if (kind === "plan") startQuiz({ mode: "practice", ids: plan.questions, keepOrder: true });
+    else if (plan.cards.length) openDeck(plan.cards.map(id => CARD[id]), true);
+  }));
+  $$("[data-topic]", main).forEach(b => b.addEventListener("click", () => startQuiz({ mode: "practice", topics: [b.dataset.topic], count: 10 })));
+  $$("[data-note]", main).forEach(b => b.addEventListener("click", () => openNote(b.dataset.note)));
+}
+
+export const homeView = { title: "Today", render };
