@@ -119,3 +119,29 @@ WHERE o.order_date BETWEEN DATE '2024-03-01' AND DATE '2024-03-31'            --
 > - `ADD_MONTHS`, `MONTHS_BETWEEN`, `NEXT_DAY`, `LAST_DAY` (Oracle) correspond to `DATEADD`/`DATEDIFF`
 >   (SQL Server) and `+ INTERVAL`/`AGE` (PostgreSQL).
 > - Python's `%` takes the sign of the divisor (`-7 % 3` = 2); Oracle's `MOD` takes the dividend's.
+
+## Oracle 23ai differences (1Z0-171)
+
+Executed on Oracle AI Database 23ai (23.26, schema ORASTUDY) and compared with 19c. Everything
+else in this topic (SUBSTR, INSTR, TRIM, ROUND/TRUNC/MOD on numbers, DATE arithmetic,
+ADD_MONTHS, MONTHS_BETWEEN, NEXT_DAY, LAST_DAY, ROUND/TRUNC on dates) behaves the same.
+
+| Expression | 19c | 23ai |
+|---|---|---|
+| `CONCAT(e.first_name, ' ', e.last_name)` | **ORA-00909** | `Steven King` (any number of arguments, at least 2) |
+| `CONCAT('a', NULL, 'b')`, `CONCAT(1, 2, 3)` | **ORA-00909** | `ab`, `123` |
+| `CONCAT('a')` | **ORA-00909** | **ORA-00909** (still needs two or more) |
+| `CEIL(TO_DATE('2024-03-05 13:00', ...))`, `FLOOR(...)` | **ORA-00932** | `2024-03-06 00:00:00`, `2024-03-05 00:00:00` |
+| `CEIL(d, 'MM')` for 2024-03-05 13:00, `FLOOR(d, 'MM')` | **ORA-00909** | `2024-04-01`, `2024-03-01` (CEIL of an exact month start stays put) |
+| `CEIL(TIMESTAMP '2024-03-05 13:00:00')`, `FLOOR(ts, 'YYYY')` | error | `2024-03-06 00:00:00`, `2024-01-01 00:00:00` |
+| `ROUND(INTERVAL '1 13:00:00' DAY TO SECOND)`, `TRUNC(...)` | **ORA-00932** | `+02 00:00:00`, `+01 00:00:00` |
+| `ROUND(INTERVAL '1-7' YEAR TO MONTH)`, `TRUNC(...)`, `FLOOR(...)`, `CEIL(...)` | **ORA-00932** | `+02-00`, `+01-00`, `+01-00`, `+02-00` |
+| `SELECT UPPER('a');` (no FROM) | **ORA-00923** | `A` (FROM DUAL is optional) |
+
+- The error codes are unchanged, but 23ai messages are more descriptive: `DATE * 2` gives
+  *ORA-00932: expression is of data type DATE, which is incompatible with expected data type NUMBER*,
+  and `TRUNC('2024-03-05')` gives *ORA-01722: unable to convert string value containing ...*.
+- `DATE + DATE` still raises **ORA-00975**, `DATE - DATE` is still a NUMBER, `DATE - TIMESTAMP`
+  still an INTERVAL DAY TO SECOND.
+- New in 23ai and covered in t15: `TIME_BUCKET(DATE '2024-03-05', INTERVAL '7' DAY, DATE '2024-03-01')`
+  = `2024-03-01`.

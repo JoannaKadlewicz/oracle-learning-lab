@@ -1,5 +1,7 @@
 # One-command setup: Oracle Database XE 21c + Oracle Learning Lab.
 #   docker compose up -d --build      then open http://127.0.0.1:8071
+# With Oracle 23ai for the 1Z0-171 track as well:
+#   STUDY_DSN_23AI=oracle23:1521/FREEPDB1 docker compose --profile 23ai up -d --build
 # See docs/docker.md.
 
 name: oracle-learning-lab
@@ -23,6 +25,25 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # Optional (profile "23ai"): Oracle 23ai Free for the 1Z0-171 track.
+  oracle23:
+    image: gvenzl/oracle-free:23-slim-faststart
+    profiles: ["23ai"]
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-orastudy_sys}
+      APP_USER: orastudy
+      APP_USER_PASSWORD: ${STUDY_PASSWORD:-orastudy}
+    volumes:
+      - oracle23-data:/opt/oracle/oradata
+      - ./docker/23ai-grants.sql:/container-entrypoint-initdb.d/23ai-grants.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped
+
   app:
     build: .
     image: oracle-learning-lab-app
@@ -35,6 +56,8 @@ services:
       STUDY_DSN: oracle:1521/XEPDB1
       STUDY_USER: orastudy
       STUDY_PASSWORD: ${STUDY_PASSWORD:-orastudy}
+      # Set to oracle23:1521/FREEPDB1 together with --profile 23ai; empty: one database for both tracks.
+      STUDY_DSN_23AI: ${STUDY_DSN_23AI:-}
     # Localhost only: the SQL lab runs any SQL you type.
     ports:
       - "127.0.0.1:${STUDY_PUBLISH_PORT:-8071}:8071"
@@ -45,5 +68,6 @@ services:
 
 volumes:
   oracle-data:
+  oracle23-data:
   study-state:
   study-notes:

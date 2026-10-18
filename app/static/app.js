@@ -14,6 +14,8 @@ const Q = {};          // questions by id
 const L = {};          // labs by id
 const CARD = {};       // flashcards by id
 let TUTOR = { available: false };  // the optional Claude tutor (app/tutor.py)
+let DB = null;          // connected database: version, major
+const NEEDS_23AI = q => q.topic === "t15";  // items whose SQL only runs on Oracle 23ai
 
 function apply(snapshot) { S = snapshot.state; P = snapshot.progress; }
 
@@ -154,7 +156,9 @@ views.home = () => {
   const questionMinutes = Math.round(plan.questions.length * 1.5);
 
   main.innerHTML = `
-    <h1>Exam prep for 1Z0-071</h1>
+    <h1>Exam prep for ${esc(C.exam.code)}</h1>
+    <p class="exam-tag">${esc(C.exam.name)} · ${C.exam.questions} questions · ${C.exam.minutes} minutes · ${C.exam.passing_pct}% to pass · ${esc(C.exam.database)}</p>
+    ${trackWarning()}
     <p class="lede">${plan.days_left === null
       ? `${C.questions.length} practice questions, ${C.flashcards.length} flashcards and ${C.labs.length} graded SQL exercises. Set your exam date below to get a plan that fits the time you have.`
       : plan.days_left > 0 ? `<b>${plan.days_left} day${plan.days_left === 1 ? "" : "s"}</b> to your exam. Today's session takes about ${plan.estimate} minutes.`
@@ -192,6 +196,10 @@ views.home = () => {
       </a>
     </div>
     ${plan.advice.length ? `<ul class="advice">${plan.advice.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+    <p class="small resources">Study resources:
+      <button class="link-btn" data-note="docs/exam-guide-2026.md">Exam guide 2026 (1Z0-071 vs 1Z0-171)</button> ·
+      <button class="link-btn" data-note="docs/cheat-sheet.md">Cheat sheet</button> ·
+      <a href="#/notes">Topic notes</a> · <a href="/report" target="_blank" rel="noopener">Readiness report</a></p>
 
     <h2>Topics</h2>
     <table class="topics">
@@ -213,6 +221,12 @@ views.home = () => {
     <p class="small muted">Mastery combines quiz answers, flashcards and exercises per official objective, weighted by how recent they are and how sure you were. <a href="#/progress">See every objective and your calibration</a>.</p>
 
     <h2>Settings</h2>
+    <div class="field"><span>Exam</span>
+      <div class="seg" role="group" aria-label="Exam">
+        ${Object.values(C.exams).map(x => `<button data-exam="${x.code}" aria-pressed="${x.code === C.exam.code}">${x.code} · ${x.code === "1Z0-171" ? "23ai" : "19c"}</button>`).join("")}
+      </div>
+      <p class="small muted">1Z0-071 tests Oracle Database 19c behavior. 1Z0-171 (Oracle AI Database SQL Associate) tests the same SQL on 23ai and adds topic 15, the SQL features new in 23ai; questions whose answer changed in 23ai are only shown on 1Z0-071. Progress is kept for both.</p>
+    </div>
     <div class="settings">
       <label class="field"><span>Exam date</span>
         <input type="date" id="exam-date" value="${esc(settings.exam_date || "")}"></label>
@@ -237,12 +251,25 @@ views.home = () => {
     else if (plan.cards.length) { openDeck(plan.cards.map(id => CARD[id]), true); go("#/cards"); }
   }));
   $$("[data-topic]", main).forEach(b => b.addEventListener("click", () => startQuiz({ mode: "practice", topics: [b.dataset.topic], count: 10 })));
+  $$("[data-note]", main).forEach(b => b.addEventListener("click", () => { currentNote = b.dataset.note; go("#/notes"); }));
   $$("[data-theme]", main).forEach(b => b.addEventListener("click", () => { applyTheme(b.dataset.theme); views.home(); }));
   const saveSetting = async body => {
     try { apply(await api("/api/settings", body)); views.home(); toast("Saved."); }
     catch { toast("Could not save the setting."); }
   };
   $("#exam-date").addEventListener("change", e => saveSetting({ exam_date: e.target.value }));
+  $$("[data-exam]", main).forEach(b => b.addEventListener("click", async () => {
+    if (b.dataset.exam === C.exam.code) return;
+    if (P.active_mock && !confirm("A mock exam is running on this exam track. It stays open and resumes when you switch back. Switch?")) return;
+    try {
+      apply(await api("/api/settings", { exam: b.dataset.exam }));
+      await loadContent();
+      quiz = null; deck = null; currentLab = null;
+      route();
+      checkDatabase();
+      toast(`Now preparing for ${C.exam.code}.`);
+    } catch { toast("Could not switch the exam."); }
+  }));
   $("#daily-minutes").addEventListener("change", e => saveSetting({ daily_minutes: Number(e.target.value) }));
   $("#reset-progress").addEventListener("click", async () => {
     if (!confirm("Delete all quiz answers, flashcard reviews and exercise results? This cannot be undone.")) return;
@@ -366,10 +393,10 @@ async function startQuiz({ mode, topics, count, minutes, ids, keepOrder }) {
 /* Mock exams live on the server: it picks the questions, keeps the answers and the deadline,
    and scores the exam. A reload resumes a running mock from the Overview. */
 
-async function startMock({ topics, count, minutes } = {}) {
+async function startMock({ topics, count, minutes, ids } = {}) {
   if (P.active_mock && !confirm("A mock exam is still running. Abandon it and start a new one?")) return;
   let res;
-  try { res = await api("/api/mock/start", { topics, count, minutes }); }
+  try { res = await api("/api/mock/start", { topics, count, minutes, ids }); }
   catch { return toast("Could not start the mock exam. Is the server running?"); }
   apply(res);
   openMock(res.mock);
@@ -433,6 +460,12 @@ function renderQuizSetup() {
         </div>
         <div class="row small"><button class="link-btn" id="all-topics">Select all</button><button class="link-btn" id="no-topics">Clear</button></div>
       </div>
+      <div class="field"><span>Question type</span>
+        <div class="chips" id="type-chips">
+          ${Object.entries(QTYPES).map(([k, [label]]) => `<button class="chip" data-qtype="${k}" aria-pressed="${(saved.qtype || "all") === k}">${label}</button>`).join("")}
+        </div>
+        <label class="check small"><input type="checkbox" id="unseen-only" ${saved.unseen ? "checked" : ""}> Only questions I have not answered yet</label>
+      </div>
       <div class="field"><span>Number of questions</span>
         <select id="q-count">${[5, 10, 20, 30, C.exam.questions, 999].map(n => `<option value="${n}" ${n === saved.count ? "selected" : ""}>${n === 999 ? "All available" : n}</option>`).join("")}</select>
       </div>
@@ -440,16 +473,23 @@ function renderQuizSetup() {
       <button class="btn" id="start-quiz">Start quiz</button>
     </div>`;
 
-  const state = { ...saved };
+  const state = { qtype: "all", unseen: false, ...saved };
+  state.topics = state.topics.filter(t => C.topics[t]);
+  if (!state.topics.length) state.topics = Object.keys(C.topics);
+  const filtered = () => C.questions.filter(q => state.topics.includes(q.topic) && QTYPES[state.qtype][1](q)
+    && !(state.unseen && S.attempts[q.id]?.length));
   const sync = () => {
     $$("[data-mode]", main).forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === state.mode));
     $$("#topic-chips .chip").forEach(b => b.setAttribute("aria-pressed", state.topics.includes(b.dataset.t)));
-    const pool = C.questions.filter(q => state.topics.includes(q.topic)).length;
+    $$("[data-qtype]", main).forEach(b => b.setAttribute("aria-pressed", b.dataset.qtype === state.qtype));
+    const special = state.qtype !== "all" || state.unseen;
+    const pool = filtered().length;
     const n = Math.min(pool, state.count);
     $("#pool-info").textContent = pool
       ? `${n} of ${pool} matching questions. ` + (state.mode === "exam"
-        ? `Every objective covered where possible, questions you have not seen first. Time limit: ${Math.ceil(n * 1.9)} minutes. Results at the end.`
-        : "Open mistakes, due reviews and unseen questions from your weakest objectives come first.")
+        ? (special ? `A timed drill on these questions: ${Math.ceil(n * 1.9)} minutes, results at the end. Full mock exams use every question type.`
+          : `Every objective covered where possible, questions you have not seen first. Time limit: ${Math.ceil(n * 1.9)} minutes. Results at the end.`)
+        : special ? "Picked at random from the matching questions." : "Open mistakes, due reviews and unseen questions from your weakest objectives come first.")
       : "Select at least one topic.";
     $("#start-quiz").disabled = !pool;
   };
@@ -462,13 +502,31 @@ function renderQuizSetup() {
   $("#all-topics").addEventListener("click", () => { state.topics = Object.keys(C.topics); sync(); });
   $("#no-topics").addEventListener("click", () => { state.topics = []; sync(); });
   $("#q-count").addEventListener("change", e => { state.count = Number(e.target.value); sync(); });
+  $$("[data-qtype]", main).forEach(b => b.addEventListener("click", () => { state.qtype = b.dataset.qtype; sync(); }));
+  $("#unseen-only").addEventListener("change", e => { state.unseen = e.target.checked; sync(); });
   $("#start-quiz").addEventListener("click", () => {
     store("quiz-setup", state);
-    const n = Math.min(state.count, C.questions.filter(q => state.topics.includes(q.topic)).length);
+    const special = state.qtype !== "all" || state.unseen;
+    const n = Math.min(state.count, filtered().length);
+    if (special) {
+      const ids = shuffle(filtered().map(q => q.id)).slice(0, n);
+      if (state.mode === "exam") return startMock({ ids, minutes: Math.ceil(n * 1.9) });
+      return startQuiz({ mode: "practice", ids });
+    }
     startQuiz({ mode: state.mode, topics: state.topics, count: state.count, minutes: state.mode === "exam" ? Math.ceil(n * 1.9) : null });
   });
   sync();
 }
+
+const QTYPES = {
+  all: ["All types", () => true],
+  multi: ["Choose two or three", q => q.answer.length > 1],
+  error: ["Which error?", q => !!q.try_error],
+  output: ["Predict the output", q => !!q.answer_sql],
+  equivalent: ["Equivalent queries", q => !!q.equivalent_sql],
+  code: ["Read the code", q => !!q.code],
+  concept: ["Concepts (no code)", q => !q.code],
+};
 
 function isCorrect(q, chosen) {
   const a = [...q.answer].sort().join(",");
@@ -528,7 +586,9 @@ function renderQuestion(i, reviewing) {
              ${CONF.map(([k, label, key]) => `<button class="btn secondary" data-conf="${k}" ${chosen.length ? "" : "disabled"}>${label} <span class="kbd">${key}</span></button>`).join("")}
            </div>`}
       <span class="spacer"></span>
-      ${revealed && (q.try_sql || q.code) ? `<button class="btn secondary" id="try">Run it in the SQL lab</button>` : ""}
+      ${revealed && (q.try_sql || q.code) ? (NEEDS_23AI(q) && DB && DB.major < 23
+        ? `<span class="small muted" title="Set STUDY_DSN_23AI to run 23ai SQL in the lab">Runs on Oracle 23ai only</span>`
+        : `<button class="btn secondary" id="try">Run it in the SQL lab</button>`) : ""}
       ${!reviewing ? `<button class="link-btn small" id="quit">End quiz</button>` : ""}
     </div>
     ${exam ? `<div class="qgrid" aria-label="Question navigator">${quiz.items.map((qid, n) =>
@@ -953,6 +1013,7 @@ function renderDeckSetup() {
     <div class="row" style="margin-bottom:22px">
       <button class="btn" id="study-due" ${due.length ? "" : "disabled"}>Study ${due.length} due cards</button>
       <button class="btn secondary" id="study-all">Study all ${C.flashcards.length} cards</button>
+      <button class="btn secondary" id="study-weak" title="Cards from the topics where your mastery is lowest, due and new cards first">Weakest topics</button>
     </div>
     <h2>By topic</h2>
     <table class="topics"><tbody>
@@ -967,6 +1028,14 @@ function renderDeckSetup() {
     </tbody></table>`;
   $("#study-due").addEventListener("click", () => openDeck(due));
   $("#study-all").addEventListener("click", () => openDeck(C.flashcards));
+  $("#study-weak").addEventListener("click", () => {
+    const rank = t => ({ new: 1, weak: 0, learning: 2, strong: 3 }[P.topics[t]?.level] ?? 1) + (P.topics[t]?.estimate || 0);
+    const weakest = Object.keys(C.topics).sort((a, b) => rank(a) - rank(b)).slice(0, 3);
+    const due = new Set(dueCards());
+    const cards = C.flashcards.filter(c => weakest.includes(c.topic)).sort((a, b) => due.has(b.id) - due.has(a.id));
+    toast("Weakest topics: " + weakest.map(t => topicNo(t) + ". " + topicName(t)).join(", "));
+    openDeck(cards.slice(0, 30), true);
+  });
   $$("[data-deck]", main).forEach(b => b.addEventListener("click", () => openDeck(C.flashcards.filter(c => c.topic === b.dataset.deck))));
 }
 
@@ -1344,7 +1413,11 @@ views.exercises = (arg) => {
   const lab = L[currentLab];
   const st = S.labs[lab.id];
   const kind = lab.kind || "query";
-  const draft = store("ex:" + lab.id) ?? st?.last ?? (kind === "query" ? "SELECT \nFROM   \n" : "");
+  const draft = store("ex:" + lab.id) ?? st?.last ?? lab.starter ?? (kind === "query" ? "SELECT \nFROM   \n" : "");
+  const f = { topic: "all", kind: "all", status: "all", ...(store("ex-filter") || {}) };
+  const shown = C.labs.filter(l => (f.topic === "all" || l.topic === f.topic)
+    && (f.kind === "all" || (f.kind === "fix" ? !!l.starter : (l.kind || "query") === f.kind))
+    && (f.status === "all" || (f.status === "passed") === !!S.labs[l.id]?.passed));
   const howGraded = {
     query: `Columns: <code>${esc(lab.columns)}</code>. ${lab.ordered ? "Row order is checked." : "Row order is not checked."}`,
     dml: "Write DML statements. They run in a transaction that is rolled back after checking, so the sample data never changes.",
@@ -1354,15 +1427,27 @@ views.exercises = (arg) => {
   main.innerHTML = `
     <h1>Exercises</h1>
     <p class="lede">Checking runs your SQL and the reference solution against the database and compares the results. For queries, column names are not graded, column count and order are. For DML and DDL exercises, the resulting table state is compared.</p>
+    <div class="ex-filters">
+      <label class="field"><span>Topic</span><select id="f-topic"><option value="all">All topics</option>${Object.keys(C.topics).map(t =>
+        `<option value="${t}" ${f.topic === t ? "selected" : ""}>${topicNo(t)}. ${esc(topicName(t))}</option>`).join("")}</select></label>
+      <label class="field"><span>Kind</span><select id="f-kind">${[["all", "All kinds"], ["query", "Query"], ["dml", "DML"], ["ddl", "DDL"], ["fix", "Fix the bug"]].map(([v, label]) =>
+        `<option value="${v}" ${f.kind === v ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+      <label class="field"><span>Status</span><select id="f-status">${[["all", "All"], ["open", "Not passed"], ["passed", "Passed"]].map(([v, label]) =>
+        `<option value="${v}" ${f.status === v ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+      <p class="small muted">${shown.length} of ${C.labs.length} exercises · ${C.labs.filter(l => S.labs[l.id]?.passed).length} passed</p>
+    </div>
     <div class="ex-layout">
-      <ul class="ex-list">${C.labs.map(l => {
+      <ul class="ex-list">${shown.map(l => {
         const s = S.labs[l.id];
         return `<li><button data-lab="${l.id}" aria-current="${l.id === lab.id}">
           <span class="status-dot ${s?.passed ? "passed" : s?.tries ? "tried" : ""}" aria-label="${s?.passed ? "Passed" : s?.tries ? "Attempted" : "Not attempted"}"></span>
-          <span>${esc(l.title)}<small>${topicNo(l.topic)}. ${esc(topicName(l.topic))}</small></span></button></li>`;
-      }).join("")}</ul>
+          <span>${esc(l.title)}<small>${topicNo(l.topic)}. ${esc(topicName(l.topic))} · ${l.starter ? "fix the bug" : (l.kind || "query").toUpperCase().replace("QUERY", "query")}</small></span></button></li>`;
+      }).join("") || `<li class="small muted" style="padding:10px">No exercise matches these filters.</li>`}</ul>
       <section>
         <h2 style="margin-top:0">${esc(lab.title)}</h2>
+        <p class="lab-tags"><span class="tag">${kind.toUpperCase()}</span>${lab.starter ? `<span class="tag tag-fix">Fix the bug</span>` : ""}<span class="tag">${topicNo(lab.topic)}. ${esc(topicName(lab.topic))}</span><span class="tag">Objective ${esc(lab.objective)}</span></p>
+        ${lab.starter ? `<p class="small muted">The editor starts with a statement that has a mistake in it. Find it, fix it, and check.</p>` : ""}
+        ${NEEDS_23AI(lab) && DB && DB.major < 23 ? `<p class="banner">This exercise uses Oracle 23ai syntax, and your database is Oracle ${esc(DB.version)}. Run the app with <code>STUDY_DSN_23AI</code> set (see the README) to check it.</p>` : ""}
         <p class="task">${inlineCode(lab.task)}</p>
         <p class="cols">${howGraded}</p>
         <div id="hint-box"></div>
@@ -1373,6 +1458,7 @@ views.exercises = (arg) => {
             <button class="btn" id="check-ex">Check <span class="kbd">Ctrl+Enter</span></button>
             ${kind === "ddl" ? "" : `<button class="btn secondary" id="run-ex">Run without checking</button>`}
             <span class="spacer"></span>
+            ${lab.starter ? `<button class="link-btn" id="reset-starter">Restore the starter</button>` : ""}
             ${lab.hint ? `<button class="link-btn" id="show-hint">Hint</button>` : ""}
             <button class="link-btn" id="show-solution">Show solution</button>
           </div>
@@ -1414,6 +1500,13 @@ views.exercises = (arg) => {
     $("#hint-box").innerHTML = `<p class="small muted">Reference solution. Other correct queries are just as valid.</p><pre class="code"><code>${esc(lab.solution)}</code></pre>`;
   });
   $$("[data-lab]", main).forEach(b => b.addEventListener("click", () => go("#/exercises/" + b.dataset.lab)));
+  $("#reset-starter")?.addEventListener("click", () => { editor.set(lab.starter); store("ex:" + lab.id, lab.starter); editor.focus(); });
+  [["#f-topic", "topic"], ["#f-kind", "kind"], ["#f-status", "status"]].forEach(([sel, key]) => $(sel).addEventListener("change", e => {
+    store("ex-filter", { ...f, [key]: e.target.value });
+    const first = C.labs.find(l => (key !== "topic" || e.target.value === "all" || l.topic === e.target.value));
+    if (key === "topic" && first && e.target.value !== "all") currentLab = first.id;
+    views.exercises();
+  }));
 };
 
 /* ===================================================================== mistakes */
@@ -1572,26 +1665,45 @@ document.addEventListener("keydown", e => {
 async function boot() {
   applyTheme(store("theme") || "auto");
   try {
-    let snapshot;
-    [C, snapshot] = await Promise.all([api("/api/content"), api("/api/progress")]);
-    apply(snapshot);
+    apply(await api("/api/progress"));
+    await loadContent();
   } catch {
     main.innerHTML = `<div class="empty">The study server is not responding. Start it with <code>.venv/bin/python app/server.py</code>.</div>`;
     return;
   }
-  C.questions.forEach(q => { Q[q.id] = q; });
-  C.labs.forEach(l => { L[l.id] = l; });
-  C.flashcards.forEach(c => { CARD[c.id] = c; });
   TUTOR = await api("/api/tutor/status").catch(() => ({ available: false, reason: "Status unavailable." }));
   window.addEventListener("hashchange", route);
   route();
+  checkDatabase();
+}
+
+/* The content of the chosen exam track (1Z0-071 or 1Z0-171); reloaded when the track changes. */
+async function loadContent() {
+  C = await api("/api/content");
+  C.questions.forEach(q => { Q[q.id] = q; });
+  C.labs.forEach(l => { L[l.id] = l; });
+  C.flashcards.forEach(c => { CARD[c.id] = c; });
+  $("#brand-sub").textContent = `${C.exam.code} on ${C.exam.code === "1Z0-171" ? "Oracle 23ai" : "Oracle 19c"}`;
+}
+
+function checkDatabase() {
+  schemaCache = null;
   api("/api/schema").then(r => {
     schemaCache = r.ok ? r : null;
+    DB = r.ok ? r.database : null;
     const el = $("#db-status");
     el.className = "rail-foot " + (r.ok ? "ok" : "down");
-    el.textContent = r.ok ? "Connected to ORAPDB1" : "Database offline";
-    if (!r.ok) el.title = r.error;
+    el.textContent = r.ok ? `Oracle ${DB.version.split(".").slice(0, 2).join(".")} connected` : "Database offline";
+    el.title = r.ok ? `${DB.dsn}, Oracle ${DB.version}` : r.error;
+    if (currentView === "home") route();
   }).catch(() => { $("#db-status").textContent = "Database offline"; });
+}
+
+function trackWarning() {
+  if (!DB || C.exam.code !== "1Z0-171" || DB.major >= 23) return "";
+  return `<p class="banner">You are preparing for 1Z0-171, but the SQL lab is connected to Oracle ${esc(DB.version)}.
+    Quizzes and flashcards work as usual; the SQL of topic 15 (23ai features) only runs on Oracle 23ai.
+    Start Oracle 23ai Free and set <code>STUDY_DSN_23AI</code> to switch databases with the exam (see the README).</p>`;
 }
 
 boot();

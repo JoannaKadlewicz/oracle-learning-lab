@@ -148,3 +148,42 @@ ROLLBACK TO sp;                       -- 10 = A, 20 = B, 30 = Warsaw
 > - Oracle treats `''` as NULL: inserting `''` into department_name raised ORA-01400.
 > - `TRUNCATE ... CASCADE` exists in PostgreSQL too, but there it truncates referencing
 >   tables regardless of ON DELETE rules.
+
+## More verified results (19c and 23ai)
+
+- Conditional `INSERT ALL` with overlapping WHEN clauses: 3 earners of 10000+ and 4 commission
+  earners gave **7** rows (employee 101 twice); `INSERT FIRST` would give 6.
+- WHEN and VALUES of a multitable insert see only the subquery's select list:
+  `VALUES (employee_id, last_name, 10)` with `last_name` not selected → **ORA-00904**.
+- A multitable insert that hits ORA-00001 on one row leaves **no** rows (statement-level rollback).
+- MERGE `ON (1 = 0)` inserts every source row. A NULL on both sides of the ON condition is
+  NOT MATCHED, so the INSERT branch runs (customer 5 → ORA-00001).
+- MERGE `UPDATE SET ... WHERE s.lim > c.credit_limit DELETE WHERE c.credit_limit < 2500`: a matched
+  row skipped by the UPDATE's WHERE is not deleted, even if it satisfies the DELETE condition.
+- `ROLLBACK TO a` twice in a row works; `ROLLBACK TO` a misspelled savepoint → ORA-01086, nothing undone.
+- Two sessions: `FOR UPDATE NOWAIT` on a locked row → **ORA-00054**; after the locker ran
+  `ROLLBACK TO` a savepoint taken before its UPDATE, the row could be locked again;
+  `FOR UPDATE OF e.salary` in a join left the departments row unlocked.
+  `TRUNCATE` by session B while A has uncommitted DML in the table → ORA-00054 (DDL does not wait).
+- `TRUNCATE TABLE missing_table` (ORA-00942) still committed a pending INSERT.
+
+## Oracle 23ai differences (1Z0-171)
+
+Verified on Oracle 23ai Free (23.26) with the same schema; everything not listed behaved as on 19c
+(savepoint rules, statement-level rollback, ORA-38104, ORA-30926, ORA-02292, INSERT ALL / FIRST counts).
+
+| 23ai | 19c |
+|---|---|
+| `INSERT INTO promotions VALUES (5, 'A', 10), (6, 'B', 15)` inserts 2 rows (a duplicate key in the list → ORA-00001, no row kept) | **ORA-00933** |
+| `MERGE INTO promotions p USING (VALUES (1, 'A', 5), (2, 'B', 6)) s (id, n, d) ON ...` works | not available |
+| `UPDATE employees e SET ... FROM departments d WHERE ...` (3 London rows), `DELETE FROM order_items oi FROM orders o WHERE ...` | use subqueries |
+| `CREATE TABLE IF NOT EXISTS` (table exists) and `DROP TABLE IF EXISTS` (table missing) succeed as no-ops, **and still commit** the pending INSERT | ORA-00922 / ORA-00933 |
+| `FOR UPDATE WAIT 1` on a locked row → **ORA-00054** after the timeout | **ORA-30006** |
+| `b NUMBER DEFAULT ON NULL FOR INSERT AND UPDATE 7`: `UPDATE ... SET b = NULL` stores 7 | ORA-00936 at CREATE |
+
+- Error texts are longer: ORA-00001 names the table and columns, ORA-30926 names the row
+  ("attempted to update the same row ... twice"), ORA-00054 names the lock type.
+- Some syntax errors get new codes: a second `VALUES` or `DELETE ... ORDER BY` → **ORA-03048**
+  (19c ORA-00933); `INSERT FIRST` without WHEN → **ORA-02000** missing WHEN keyword (19c ORA-00905);
+  `WHEN MATCHED THEN DELETE WHERE ...` without UPDATE → ORA-02000 (19c ORA-00905).
+- Multi-row VALUES, `IF [NOT] EXISTS`, joins in UPDATE/DELETE and RETURNING OLD/NEW are covered in topic 15.

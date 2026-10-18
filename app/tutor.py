@@ -20,9 +20,10 @@ FALLBACK_BETA = "server-side-fallback-2026-07-01"
 LETTERS = "ABCDEFGH"
 
 SYSTEM = (
-    "You are a precise Oracle Database 19c SQL tutor helping someone prepare for the "
-    "Oracle Database SQL (1Z0-071) certification exam. The questions, answers and expected "
-    "results you are given were verified by running them on a real Oracle 19c database: treat "
+    "You are a precise Oracle SQL tutor helping someone prepare for the Oracle SQL certification "
+    "exams 1Z0-071 (Oracle Database 19c) and 1Z0-171 (Oracle AI Database 23ai). Unless a question "
+    "is about features new in 23ai, explain 19c behavior. The questions, answers and expected "
+    "results you are given were verified by running them on a real Oracle database: treat "
     "them as correct. Be concrete and brief. Plain text only: no headings, no bullet lists, "
     "no markdown, at most two short paragraphs."
 )

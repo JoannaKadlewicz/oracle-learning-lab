@@ -21,6 +21,7 @@ Lab fields:
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from . import (
     t01_basic_select,
@@ -37,8 +38,9 @@ from . import (
     t12_data_dictionary,
     t13_user_access,
     t14_time_zones_intervals,
+    t15_oracle_23ai,
 )
-from .objectives import EXAM, OBJECTIVES, SECTIONS  # noqa: F401
+from .objectives import DEFAULT_EXAM, EXAM, EXAMS, OBJECTIVES, SECTION_EXAMS, SECTIONS  # noqa: F401
 
 TOPICS = {
     "t01": "Basic SELECT",
@@ -55,7 +57,10 @@ TOPICS = {
     "t12": "Data dictionary",
     "t13": "User access control",
     "t14": "Time zones and intervals",
+    "t15": "Oracle 23ai SQL features",
 }
+# Topics only on one exam; every other topic belongs to both.
+TOPIC_EXAMS = {"t15": ["1Z0-171"]}
 
 _MODULES = [
     t01_basic_select,
@@ -72,6 +77,7 @@ _MODULES = [
     t12_data_dictionary,
     t13_user_access,
     t14_time_zones_intervals,
+    t15_oracle_23ai,
 ]
 
 GENERATED_FILE = Path(__file__).with_name("generated.json")
@@ -80,3 +86,24 @@ GENERATED = json.loads(GENERATED_FILE.read_text()) if GENERATED_FILE.exists() el
 QUESTIONS = [q for m in _MODULES for q in m.QUESTIONS] + GENERATED
 FLASHCARDS = [c for m in _MODULES for c in m.FLASHCARDS]
 LABS = [lab for m in _MODULES for lab in m.LABS]
+
+
+def item_exams(item):
+    """The exams an item belongs to: its own "exams" list, else its topic's, else every exam."""
+    return item.get("exams") or TOPIC_EXAMS.get(item.get("topic")) or list(EXAMS)
+
+
+def for_exam(code):
+    """The content of one exam track, with the same attributes as this module (used by the engine)."""
+    code = code if code in EXAMS else DEFAULT_EXAM
+    sections = {s: t for s, t in SECTIONS.items() if code in SECTION_EXAMS.get(s, EXAMS)}
+    return SimpleNamespace(
+        CODE=code,
+        EXAM=EXAMS[code],
+        TOPICS={t: n for t, n in TOPICS.items() if code in TOPIC_EXAMS.get(t, EXAMS)},
+        SECTIONS=sections,
+        OBJECTIVES={o: t for o, t in OBJECTIVES.items() if o.split(".")[0] in sections},
+        QUESTIONS=[q for q in QUESTIONS if code in item_exams(q)],
+        FLASHCARDS=[c for c in FLASHCARDS if code in item_exams(c)],
+        LABS=[lab for lab in LABS if code in item_exams(lab)],
+    )

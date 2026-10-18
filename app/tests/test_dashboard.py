@@ -89,7 +89,7 @@ def test_report_renders_for_empty_and_used_progress():
              "mocks": [full_mock(NOW - DAY, 50)]}
     html = report.render(content, state, engine.progress(content, state, NOW), NOW)
     assert "estimated chance to pass" in html and "Full mock" in html and "<svg" in html
-    assert "1 of 79 query" in html
+    assert f"1 of {sum(1 for lab in content.LABS if lab.get('kind', 'query') == 'query')} query" in html
 
 
 def test_demo_history_is_consistent_and_feeds_every_dashboard_part():

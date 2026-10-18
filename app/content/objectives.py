@@ -7,10 +7,27 @@ Checked on 2026-10-17 against a third-party restatement of the guide
 Oracle's guide when possible. The same source states: 63 questions, 120 minutes, 63% to pass,
 no published section weights.
 
+Since 2025 Oracle also offers 1Z0-171, Oracle (AI) Database 23ai SQL Associate: 60 questions,
+120 minutes, 65% to pass (checked 2026-10-18 against third-party guides, for example
+https://www.aguidetocloud.com/cert-tracker/oracle-ai-database-sql/ and
+https://www.certificationbox.com/2026/07/21/oracle-1z0-171-ai-database-sql-associate-study-guide/;
+re-check against Oracle's exam page). It covers the same SQL areas as 1Z0-071 on Oracle 23ai, so
+the app uses sections 1-16 for both exams and adds section 17 for the SQL features new in 23ai.
+Their published weights disagree with each other, so mocks stay one question per objective first.
+
 Every question, flashcard and exercise has an "objective" key from OBJECTIVES.
 """
 
-EXAM = {"questions": 63, "minutes": 120, "passing_pct": 63}
+EXAMS = {
+    "1Z0-071": {"code": "1Z0-071", "name": "Oracle Database SQL", "database": "Oracle Database 19c",
+                "questions": 63, "minutes": 120, "passing_pct": 63},
+    "1Z0-171": {"code": "1Z0-171", "name": "Oracle AI Database SQL Associate",
+                "database": "Oracle AI Database 23ai", "questions": 60, "minutes": 120, "passing_pct": 65},
+}
+DEFAULT_EXAM = "1Z0-071"
+EXAM = EXAMS[DEFAULT_EXAM]
+# Sections only on one exam; every other section belongs to both.
+SECTION_EXAMS = {"17": ["1Z0-171"]}
 
 SECTIONS = {
     "1": "Relational Database concepts",
@@ -29,6 +46,7 @@ SECTIONS = {
     "14": "Controlling User Access",
     "15": "Managing Objects with Data Dictionary Views",
     "16": "Managing Data in Different Time Zones",
+    "17": "SQL Features New in Oracle 23ai",
 }
 
 OBJECTIVES = {
@@ -92,4 +110,12 @@ OBJECTIVES = {
     "15.1": "Using data dictionary views",
     "16.1": "CURRENT_DATE, CURRENT_TIMESTAMP and LOCALTIMESTAMP",
     "16.2": "INTERVAL data types",
+    "17.1": "SELECT without FROM, GROUP BY and HAVING with column aliases, the VALUES table constructor",
+    "17.2": "The BOOLEAN data type",
+    "17.3": "IF [NOT] EXISTS in DDL statements",
+    "17.4": "DML enhancements: joins in UPDATE and DELETE, RETURNING OLD and NEW, DEFAULT ON NULL",
+    "17.5": "Schema privileges and the DB_DEVELOPER_ROLE",
+    "17.6": "SQL domains and annotations",
+    "17.7": "The VECTOR data type and similarity search",
+    "17.8": "New and extended functions in 23ai",
 }

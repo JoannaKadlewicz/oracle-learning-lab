@@ -130,3 +130,27 @@ HAVING COUNT(*) > 1;                    -- group filter: 20 → 3, 30 → 4
 > - `LISTAGG` is Oracle's (and SQL:2016's) string aggregation; PostgreSQL uses `STRING_AGG`,
 >   MySQL `GROUP_CONCAT`.
 > - Oracle treats `''` as NULL, so empty strings are ignored by `COUNT(col)` as well.
+
+## Oracle 23ai differences (1Z0-171)
+
+Executed on Oracle AI Database 23ai Free (23.26) against the same sample data. Everything
+not listed here (NULL handling, COUNT forms, nesting rules, ORA-00934/00937/00978) behaves
+exactly as in 19c.
+
+| Statement | 19c | 23ai |
+|---|---|---|
+| `SELECT e.department_id AS dept, COUNT(*) FROM employees e GROUP BY dept` | ORA-00904 | 4 rows: aliases allowed in GROUP BY |
+| `... GROUP BY e.department_id HAVING cnt > 1` (cnt is a SELECT alias) | ORA-00904 | 2 rows (20 → 3, 30 → 4) |
+| `... GROUP BY dept HAVING dept > 10` | ORA-00904 | 2 rows |
+| `SELECT e.department_id AS dept FROM employees e WHERE dept > 10` | ORA-00904 | **still ORA-00904**: WHERE never sees aliases |
+| `SELECT e.department_id, COUNT(*) FROM employees e GROUP BY 1` | ORA-00979 (1 is a constant) | **ORA-03162** (positions are off by default) |
+| same, after `ALTER SESSION SET group_by_position_enabled = TRUE` | ORA-02248 (no such parameter) | 4 rows: GROUP BY 1 is positional |
+| `SELECT e.department_id, COUNT(*) FROM employees e GROUP BY ALL` | ORA-00936 | 4 rows: groups by every non-aggregated SELECT expression |
+| `SELECT e.department_id, e.job_title, SUM(e.salary) ... GROUP BY e.department_id` | ORA-00979: not a GROUP BY expression | ORA-00979 with the column named: `"E"."JOB_TITLE": must appear in the GROUP BY clause or be used in an aggregate function` |
+
+- `group_by_position_enabled` is `FALSE` by default in 23ai, so on the exam assume
+  `GROUP BY 1` is an error unless the question says the parameter is set.
+- `GROUP BY ALL` also works with expressions: `SELECT TO_CHAR(e.hire_date, 'YYYY') AS yr,
+  COUNT(*) FROM employees e GROUP BY ALL` → 7 rows.
+- Aggregate results are identical; only row order of unordered GROUP BY output differed
+  between the two databases (another reminder that grouping does not sort).

@@ -126,3 +126,25 @@ SELECT e.salary * 12 AS annual, e.salary "Monthly Pay" FROM employees e ORDER BY
 > - `q'[...]'` alternative quoting and the `UNIQUE` synonym for DISTINCT are Oracle-only.
 > - `AS` for table aliases is accepted by most other databases, not by Oracle.
 > - Unquoted identifiers fold to UPPERCASE in Oracle (standard), to lowercase in PostgreSQL.
+
+## Oracle 23ai differences (1Z0-171)
+
+Each point below was executed on Oracle 23ai (FREEPDB1) and on 19c for comparison.
+
+| Statement | 19c | 23ai |
+|---|---|---|
+| `SELECT 2 + 3 * 4` (no FROM) | **ORA-00923** | `14`: FROM is optional |
+| `SELECT TRUE FROM dual` | **ORA-00904** "TRUE": invalid identifier | `TRUE` (BOOLEAN data type) |
+| `CONCAT('a', 'b', 'c')` | **ORA-00909** (2 arguments only) | `abc` |
+| `FROM employees AS e` | **ORA-00933** | **ORA-03048**: SQL reserved word 'AS' is not syntactically valid ... |
+| `... ORDER BY e.last_name WHERE ...` | **ORA-00933** | **ORA-03048** |
+| `SELECT e.department_id, DISTINCT e.job_title` | **ORA-00936** | **ORA-03045**: DISTINCT or UNIQUE keyword in select_list |
+| `SELECT e.salary * 12 AS annual ... GROUP BY annual` | **ORA-00904** | 7 rows: GROUP BY accepts the alias |
+| `SELECT e.salary * 12 AS annual ... HAVING annual > 100000` | **ORA-00904** | **ORA-00979** (still an error) |
+
+- Unchanged in 23ai: an alias in WHERE still raises **ORA-00904**; `||` still ignores NULL;
+  `''` is still NULL; `NULL / 0` is still NULL; alias rules (ORA-00923 for `2024_pay`, `'pay'`).
+- Many messages are longer and name the objects involved, with the same codes:
+  ORA-00932 "expression is of data type DATE, which is incompatible with expected data type NUMBER",
+  ORA-00001 "... violated on table ORASTUDY.ORDER_ITEMS columns (ORDER_ID, LINE_NO)",
+  ORA-00942 "table or view "ORASTUDY"."X" does not exist". SQL*Plus 23 adds a `Help:` URL line.

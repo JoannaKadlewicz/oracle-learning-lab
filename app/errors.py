@@ -168,6 +168,7 @@ NOTES = {
     "t09": "topics/09-dml-and-transactions/notes.md", "t10": "topics/10-tables-and-constraints/notes.md",
     "t11": "topics/11-views-sequences-indexes/notes.md", "t12": "topics/12-data-dictionary/notes.md",
     "t13": "topics/13-user-access-control/notes.md", "t14": "topics/14-time-zones-and-intervals/notes.md",
+    "t15": "topics/15-oracle-23ai/notes.md",
 }
 
 

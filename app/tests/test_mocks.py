@@ -49,9 +49,17 @@ def test_fresh_questions_come_before_practised_and_mocked_ones():
 
 
 def test_the_real_pool_gives_one_question_per_objective_in_a_full_mock():
-    mock = engine.build_mock(content, empty(), NOW, content.EXAM["questions"], content.EXAM["minutes"])
-    objectives = {next(x for x in content.QUESTIONS if x["id"] == i)["objective"] for i in mock["items"]}
-    assert len(mock["items"]) == 63 and objectives == set(content.OBJECTIVES)
+    track = content.for_exam("1Z0-071")
+    mock = engine.build_mock(track, empty(), NOW, track.EXAM["questions"], track.EXAM["minutes"])
+    objectives = {next(x for x in track.QUESTIONS if x["id"] == i)["objective"] for i in mock["items"]}
+    assert len(mock["items"]) == 63 and objectives == set(track.OBJECTIVES)
+
+
+def test_a_1z0_171_mock_has_60_questions_from_60_different_objectives():
+    track = content.for_exam("1Z0-171")
+    mock = engine.build_mock(track, empty(), NOW, track.EXAM["questions"], track.EXAM["minutes"])
+    objectives = {next(x for x in track.QUESTIONS if x["id"] == i)["objective"] for i in mock["items"]}
+    assert len(mock["items"]) == 60 and len(objectives) == 60
 
 
 # ---------------------------------------------------------------- reports

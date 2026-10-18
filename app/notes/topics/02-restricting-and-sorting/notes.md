@@ -109,3 +109,24 @@ SQL> UNDEFINE dept_id
 > - `ROWNUM` is Oracle-only.
 > - Substitution variables are a client feature (SQL*Plus, SQLcl, SQL Developer), not SQL;
 >   other clients use bind variables (`:name`) or their own variable syntax.
+
+## Oracle 23ai differences (1Z0-171)
+
+Each point below was executed on Oracle 23ai (FREEPDB1), SQL*Plus included, and on 19c for comparison.
+
+| Statement | 19c | 23ai |
+|---|---|---|
+| `... FETCH FIRST 2 ROWS ONLY OFFSET 1 ROWS` | **ORA-00933** | **ORA-03049**: SQL keyword 'OFFSET' is not syntactically valid ... |
+| `... ORDER BY e.salary NULLS FIRST DESC` | **ORA-00933** | **ORA-03048** (write `DESC NULLS FIRST`) |
+| `... FROM employees e LIMIT 3` | **ORA-00933** | **ORA-03049**: still no LIMIT clause |
+| `WHERE TRUE` | **ORA-00920** | all rows (BOOLEAN condition) |
+| `WHERE (e.salary > 5000) IS TRUE` | **ORA-00933** | 6 rows |
+| `ORDER BY e.department_id FETCH FIRST 2 PARTITION BY e.department_id, 1 ROWS ONLY` | **ORA-00905** | 2 rows (100, 101): partitioned row limiting |
+| `'Total: ' \|\| 10 + 5` | **ORA-01722**: invalid number | **ORA-01722**: unable to convert string value containing 'T' to a number |
+
+- Unchanged in 23ai: AND/OR/NOT precedence, `||` at the same level as `+`/`-`, all row limiting
+  results (fractions truncated, PERCENT rounded up, WITH TIES), ROWNUM, NULL ordering,
+  ORA-01791 and ORA-01785.
+- SQL*Plus 23 behaves like SQL*Plus 19c for `&`, `&&`, the period terminator (`&pre.loyees`),
+  `DEFINE job = Sales Rep` (stores only `Sales`), SET VERIFY (only lines with a variable) and
+  SET DEFINE OFF (SP2-0552); error output adds a `Help:` URL line.

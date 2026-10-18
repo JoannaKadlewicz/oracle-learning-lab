@@ -144,3 +144,20 @@ Rules:
 >   and MySQL cannot select from the table being updated in a subquery (error 1093), which Oracle allows.
 > - `MAX(AVG(x))` (nested aggregates) is Oracle-only; elsewhere use an inline view.
 > - Oracle does not report "no data found" for an empty scalar subquery; that is a PL/SQL `SELECT INTO` error.
+
+## Oracle 23ai differences (1Z0-171)
+
+Checked on Oracle AI Database 23ai (FREEPDB1) with the same sample data. Subquery semantics
+are unchanged: every result above (NOT IN with a NULL → 0 rows, `> ALL` / `> ANY`, empty
+scalar subquery → NULL, read consistency in correlated DML, ORA-01427 in WHERE and in the
+SELECT list, ORA-00907 for ORDER BY in a WHERE subquery, ORA-22818 for a subquery in
+GROUP BY, ORA-00947 / ORA-00913 / ORA-00927 in `SET (a, b) = ...`, ORA-02292 in a correlated
+DELETE) is the same on 23ai. Only some error codes differ:
+
+- A correlated UPDATE whose SET subquery returns several rows for a row
+  (`SET e.salary = (SELECT e2.salary ... WHERE e2.department_id = e.department_id)`) raises
+  **ORA-30926** (unable to update the same row twice) instead of ORA-01427 (21c and later).
+  The statement still fails as a whole and nothing is changed.
+- `SET (i.unit_price, i.quantity) = SELECT 1, 1 FROM dual` (subquery without parentheses):
+  19c ORA-01767 (UPDATE ... SET expression must be a subquery), 23ai **ORA-00906** missing left
+  parenthesis.

@@ -855,3 +855,31 @@ table.diff td .expected { color: var(--good); font-weight: 700; }
 .queue-item { margin-bottom: 14px; }
 .queue-options { margin: 8px 0; padding-left: 24px; }
 .queue-options li.correct { font-weight: 700; color: var(--good); }
+
+/* ---------------------------------------------------------------- exam tracks, filters, tags */
+.exam-tag { margin: -6px 0 14px; font-size: 14px; color: var(--muted); letter-spacing: .01em; }
+.banner {
+  border-left: 3px solid var(--status-warning);
+  background: var(--surface);
+  padding: 10px 14px;
+  border-radius: var(--radius-s);
+  max-width: 72ch;
+  font-size: 15px;
+}
+.check { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--muted); }
+.ex-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 4px 18px; margin-bottom: 8px; }
+.ex-filters .field { margin-bottom: 8px; }
+.ex-filters select { font: inherit; max-width: 240px; }
+.ex-filters p { margin: 0 0 14px; }
+.lab-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+.tag {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+  background: var(--surface);
+}
+.tag-fix { color: var(--bad); border-color: var(--bad); background: var(--bad-bg); }
+.field > .seg { justify-self: start; }

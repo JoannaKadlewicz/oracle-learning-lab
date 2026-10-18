@@ -127,3 +127,27 @@ Month arithmetic does not adjust the day:
 >   to 2024-02-29; Oracle raises ORA-01839. SQL Server has no interval type (`DATEADD` / `DATEDIFF`).
 > - PostgreSQL's `timestamptz` behaves like Oracle's WITH LOCAL TIME ZONE (stores UTC, shows the session zone);
 >   Oracle's WITH TIME ZONE keeps the original zone, like SQL Server's `datetimeoffset` (offsets only).
+
+## Oracle 23ai differences (1Z0-171)
+
+Executed on Oracle 23ai (FREEPDB1) and 19c against the same `events` rows.
+
+- **SUM and AVG over intervals.** 19c accepts only numbers (ORA-00932: expected NUMBER got
+  INTERVAL DAY TO SECOND); 23ai aggregates intervals directly. NULLs are ignored, and an empty
+  set gives NULL:
+
+  | Expression | 19c | 23ai |
+  |---|---|---|
+  | `SUM(e.duration)` | ORA-00932 | +01 02:15:00 |
+  | `AVG(e.duration)` | ORA-00932 | +00 08:45:00 |
+  | `SUM(e.warranty)` / `AVG(e.warranty)` | ORA-00932 | +01-06 / +00-09 |
+  | `MIN(e.duration)` / `MAX(e.duration)` | +00 00:45:00 / +01 00:00:00 | same |
+
+  In 19c, convert to a number first (`EXTRACT(DAY ...) * 1440 + EXTRACT(HOUR ...) * 60 + ...`;
+  `e.duration * 1440` is still an interval) and convert the total back with NUMTODSINTERVAL.
+- Error codes for datetime and interval mistakes are the same on both versions (ORA-01839,
+  ORA-01873, ORA-30076, ORA-30081, ORA-01867, ORA-01850). Some texts are longer in 23ai, for example
+  ORA-00932 for `duration > 1`: "expression (1) is of data type NUMBER, which is incompatible with
+  expected data type INTERVAL DAY TO SECOND".
+- Time zone results (AT TIME ZONE, FROM_TZ, TZ_OFFSET, EXTRACT in UTC, DST gaps) matched on both
+  versions for every example in these notes.

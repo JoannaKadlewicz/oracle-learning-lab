@@ -19,6 +19,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlparse
 
 import oracledb
@@ -41,6 +42,10 @@ HOST = os.environ.get("STUDY_HOST", "127.0.0.1")
 PORT = int(os.environ.get("STUDY_PORT", "8071"))
 DSN = os.environ.get("STUDY_DSN", "localhost:1521/ORAPDB1")
 DB_USER = os.environ.get("STUDY_USER", "orastudy")
+# Optional second database for the 1Z0-171 track (Oracle 23ai). Without it, both tracks use STUDY_DSN.
+DSN_23AI = os.environ.get("STUDY_DSN_23AI")
+DB_USER_23AI = os.environ.get("STUDY_USER_23AI", DB_USER)
+PASSWORD_23AI = os.environ.get("STUDY_PASSWORD_23AI")
 PASSWORD_FILE = Path(os.environ.get("STUDY_PASSWORD_FILE", Path.home() / ".orastudy_pwd"))
 
 MAX_ROWS = 500
@@ -75,9 +80,31 @@ def update_state(fn):
         return state
 
 
+def exam_code(state):
+    code = state.get("settings", {}).get("exam")
+    return code if code in content.EXAMS else content.DEFAULT_EXAM
+
+
+def track(state):
+    """The content of the exam track chosen in the settings (1Z0-071 or 1Z0-171)."""
+    return content.for_exam(exam_code(state))
+
+
+def mock_exam(mock):
+    return mock.get("exam") or content.DEFAULT_EXAM
+
+
+def track_state(state):
+    """The state as the engine sees it on the current track: only that track's mock exams."""
+    code = exam_code(state)
+    return {**state, "mocks": [m for m in state.get("mocks", []) if mock_exam(m) == code]}
+
+
 def snapshot(state):
     """What the front end needs after every change: the raw state and the computed progress."""
-    return {"state": state, "progress": engine.progress(content, state, time.time())}
+    use_track_database(state)
+    return {"state": state, "progress": {**engine.progress(track(state), track_state(state), time.time()),
+                                         "exam": exam_code(state)}}
 
 
 QUESTIONS_BY_ID = {q["id"]: q for q in content.QUESTIONS}
@@ -115,12 +142,20 @@ def start_mock(state, data, now):
     for mock in state.setdefault("mocks", []):
         if not mock["submitted"] and not mock["abandoned"]:
             mock["abandoned"] = now
-    topics = [t for t in data.get("topics") or [] if t in content.TOPICS] or None
-    count = int(data.get("count") or content.EXAM["questions"])
-    minutes = int(data.get("minutes") or content.EXAM["minutes"])
-    if not (1 <= count <= len(content.QUESTIONS) and 1 <= minutes <= 300):
+    view = track(state)
+    topics = [t for t in data.get("topics") or [] if t in view.TOPICS] or None
+    count = int(data.get("count") or view.EXAM["questions"])
+    minutes = int(data.get("minutes") or view.EXAM["minutes"])
+    if not (1 <= count <= len(view.QUESTIONS) and 1 <= minutes <= 300):
         raise ValueError("count or minutes out of range")
-    mock = engine.build_mock(content, state, now, count, minutes, topics)
+    ids = [i for i in data.get("ids") or [] if i in {q["id"] for q in view.QUESTIONS}]
+    if ids:  # a timed drill on chosen questions (for example only "Which error?" questions)
+        pool = SimpleNamespace(**{**vars(view), "QUESTIONS": [q for q in view.QUESTIONS if q["id"] in set(ids)]})
+        mock = engine.build_mock(pool, track_state(state), now, len(ids), minutes, None)
+        mock["topics"] = sorted({q["topic"] for q in pool.QUESTIONS})
+    else:
+        mock = engine.build_mock(view, track_state(state), now, count, minutes, topics)
+    mock["exam"] = view.CODE
     state["mocks"].append(mock)
     return mock
 
@@ -294,6 +329,10 @@ def record_settings(state, data):
         if not 5 <= minutes <= 480:
             raise ValueError("daily_minutes must be between 5 and 480")
         settings["daily_minutes"] = minutes
+    if "exam" in data:
+        if data["exam"] not in content.EXAMS:
+            raise ValueError("exam must be one of " + ", ".join(content.EXAMS))
+        settings["exam"] = data["exam"]
 
 
 # --------------------------------------------------------------------------- SQL splitting
@@ -437,8 +476,20 @@ def password():
     return os.environ.get("STUDY_PASSWORD") or PASSWORD_FILE.read_text().strip()
 
 
+USE_23AI = False  # set from the exam track when STUDY_DSN_23AI is configured
+
+
+def use_track_database(state):
+    """Point the SQL lab and the grader at the 23ai database while studying for 1Z0-171."""
+    global USE_23AI
+    USE_23AI = bool(DSN_23AI) and exam_code(state) == "1Z0-171"
+
+
 def connect():
-    conn = oracledb.connect(user=DB_USER, password=password(), dsn=DSN)
+    if USE_23AI:
+        conn = oracledb.connect(user=DB_USER_23AI, password=PASSWORD_23AI or password(), dsn=DSN_23AI)
+    else:
+        conn = oracledb.connect(user=DB_USER, password=password(), dsn=DSN)
     conn.call_timeout = CALL_TIMEOUT_MS
     with conn.cursor() as cur:
         cur.execute("ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS'")
@@ -943,7 +994,9 @@ def schema_info():
                     shown = dtype
                 tables.setdefault(t, []).append({"name": col, "type": shown, "nullable": nullable == "Y"})
             cur.execute("SELECT table_name, num_rows FROM user_tables")
-        return {"ok": True, "tables": [{"name": k, "columns": v} for k, v in tables.items()]}
+        return {"ok": True, "tables": [{"name": k, "columns": v} for k, v in tables.items()],
+                "database": {"version": conn.version, "dsn": DSN_23AI if USE_23AI else DSN,
+                             "major": int(conn.version.split(".")[0])}}
     finally:
         conn.close()
 
@@ -991,15 +1044,18 @@ def read_note(rel):
 
 # --------------------------------------------------------------------------- HTTP
 
-def public_content():
+def public_content(state):
+    view = track(state)
     return {
-        "topics": content.TOPICS,
-        "sections": content.SECTIONS,
-        "objectives": content.OBJECTIVES,
-        "exam": content.EXAM,
-        "questions": content.QUESTIONS,
-        "flashcards": content.FLASHCARDS,
-        "labs": content.LABS,
+        "topics": view.TOPICS,
+        "sections": view.SECTIONS,
+        "objectives": view.OBJECTIVES,
+        "exam": view.EXAM,
+        "exams": content.EXAMS,
+        "dual_database": bool(DSN_23AI),
+        "questions": view.QUESTIONS,
+        "flashcards": view.FLASHCARDS,
+        "labs": view.LABS,
     }
 
 
@@ -1042,14 +1098,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/api/content":
-            return self.send_json(public_content())
+            return self.send_json(public_content(load_state()))
         if path == "/api/state":
             return self.send_json(load_state())
         if path == "/api/progress":
             return self.send_json(snapshot(update_state(lambda st: finalize_expired(st, time.time()))))
         if path == "/report":
             state = load_state()
-            html = report.render(content, state, engine.progress(content, state, time.time()), time.time())
+            view, seen = track(state), track_state(state)
+            html = report.render(view, seen, engine.progress(view, seen, time.time()), time.time())
             return self.send_html(html)
         if path == "/api/tutor/status":
             return self.send_json(tutor.status())
@@ -1063,7 +1120,7 @@ class Handler(BaseHTTPRequestHandler):
                 mock = find_mock(state, mock_id)
             except ValueError as exc:
                 return self.send_json({"error": str(exc)}, 404)
-            summary = engine.mock_report(content, mock) if mock["submitted"] else None
+            summary = engine.mock_report(content.for_exam(mock_exam(mock)), mock) if mock["submitted"] else None
             return self.send_json({"mock": mock, "report": summary})
         if path == "/api/schema":
             try:
@@ -1142,8 +1199,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"error": str(exc)}, 400)
         if path == "/api/pick":
             topics = data.get("topics") or None
-            count = max(1, min(int(data.get("count", 10)), len(content.QUESTIONS)))
-            return self.send_json({"ids": engine.pick_questions(content, load_state(), time.time(), count, topics)})
+            state = load_state()
+            view = track(state)
+            count = max(1, min(int(data.get("count", 10)), len(view.QUESTIONS)))
+            return self.send_json({"ids": engine.pick_questions(view, track_state(state), time.time(), count, topics)})
         if path.startswith("/api/tutor/"):
             return self.handle_tutor(path.rsplit("/", 1)[1], data)
         if path.startswith("/api/mock/"):
@@ -1176,7 +1235,7 @@ class Handler(BaseHTTPRequestHandler):
                     mock["time_on"] = {q: float(v) for q, v in data["time_on"].items() if q in mock["items"]}
                 if not mock["submitted"]:
                     submit_mock(state, mock, now)
-                result["report"] = engine.mock_report(content, mock)
+                result["report"] = engine.mock_report(content.for_exam(mock_exam(mock)), mock)
             elif action == "abandon":
                 mock = find_mock(state, data.get("mock_id"))
                 if not mock["submitted"]:
@@ -1240,7 +1299,9 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"Oracle Learning Lab: http://{HOST}:{PORT}  (database {DB_USER}@{DSN})")
+    use_track_database(load_state())
+    print(f"Oracle Learning Lab: http://{HOST}:{PORT}  (database {DB_USER}@{DSN}"
+          + (f"; 1Z0-171 track: {DB_USER_23AI}@{DSN_23AI}" if DSN_23AI else "") + ")")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

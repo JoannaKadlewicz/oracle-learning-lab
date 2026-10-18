@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 import content
@@ -47,12 +49,29 @@ def test_settings_are_validated():
         server.record_settings(state, {"exam_date": "next week"})
     with pytest.raises(ValueError):
         server.record_settings(state, {"daily_minutes": 0})
+    server.record_settings(state, {"exam": "1Z0-171"})
+    assert state["settings"]["exam"] == "1Z0-171"
+    with pytest.raises(ValueError):
+        server.record_settings(state, {"exam": "1Z0-999"})
 
 
 def test_progress_snapshot_works_on_an_empty_state():
     snap = server.snapshot(empty())
     progress = snap["progress"]
-    assert set(progress["objectives"]) == set(content.OBJECTIVES)
+    track = content.for_exam(content.DEFAULT_EXAM)
+    assert progress["exam"] == content.DEFAULT_EXAM
+    assert set(progress["objectives"]) == set(track.OBJECTIVES)
     assert progress["mistakes"] == [] and progress["due_reviews"] == 0
-    assert len(progress["due_cards"]) == len(content.FLASHCARDS)
+    assert len(progress["due_cards"]) == len(track.FLASHCARDS)
     assert progress["plan"]["questions"] and progress["plan"]["lab"]
+
+
+def test_each_exam_track_only_sees_its_own_mock_exams():
+    state = empty()
+    state["settings"]["exam"] = "1Z0-171"
+    mock = server.start_mock(state, {"count": 5, "minutes": 10}, time.time())
+    assert mock["exam"] == "1Z0-171"
+    assert server.track_state(state)["mocks"] == [mock]
+    state["settings"]["exam"] = "1Z0-071"
+    assert server.track_state(state)["mocks"] == []
+    assert set(server.snapshot(state)["progress"]["objectives"]) == set(content.for_exam("1Z0-071").OBJECTIVES)

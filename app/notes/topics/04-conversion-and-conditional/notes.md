@@ -161,3 +161,24 @@ FROM   employees e WHERE e.employee_id = 100;
 >   `NVL('', 'x')` returns `x`.
 > - Oracle silently converts between strings and numbers/dates in comparisons; PostgreSQL is stricter and
 >   raises a type error for many of the same comparisons.
+
+## Oracle 23ai differences (1Z0-171)
+
+Executed on Oracle AI Database 23ai (23.26, schema ORASTUDY) and compared with 19c. NVL, NVL2,
+NULLIF, COALESCE, CASE, DECODE, implicit conversion rules and TO_CHAR/TO_DATE/TO_NUMBER format
+models (fm, fx, RR/YY, L, G/D, PR, MI) give the same results and the same ORA- codes.
+
+| Expression | 19c | 23ai |
+|---|---|---|
+| `NVL(e.commission_pct, 'none')` | ORA-01722: invalid number | ORA-01722: unable to convert string value containing 'n' to a number |
+| `NULLIF(1, 'a')` | ORA-00932: inconsistent datatypes | ORA-00932: expression ('a') is of data type CHAR, which is incompatible with expected data type NUMBER |
+| `TO_DATE(' 5-MAR-2024', 'fxDD-MON-YYYY')` | ORA-01858 | ORA-01858 (reworded message) |
+| `TO_CHAR(TRUE)`, `TO_NUMBER(TRUE)`, `TO_NUMBER(FALSE)` | ORA-00904 (no BOOLEAN) | `TRUE`, `1`, `0` |
+| `TO_BOOLEAN('yes')`, `TO_BOOLEAN(0)` | ORA-00904 | TRUE, FALSE |
+| `'10' + TRUE` | ORA-00904 | `11` (BOOLEAN converts implicitly to 1/0) |
+| `CASE WHEN 1 = 1 THEN TRUE ELSE FALSE END`, `DECODE(TRUE, TRUE, 'y', 'n')` | ORA-00904 | TRUE, `y` |
+| `WHERE e.salary > 5000 IS TRUE` | ORA-00933 | 6 rows |
+
+- Same codes, new wording: exam answers about ORA-01722, ORA-00932, ORA-01830, ORA-01843 and
+  ORA-01858 stay valid; only the message text names the offending value or type.
+- BOOLEAN (TRUE/FALSE, TO_BOOLEAN, IS TRUE) is a 23ai feature, covered in t15.

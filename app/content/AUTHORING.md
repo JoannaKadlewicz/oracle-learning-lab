@@ -10,6 +10,26 @@ After every change run, from the repository root:
     .venv/bin/python -m pytest -q app/tests
 
 Both must pass. The validator runs your SQL against the ORASTUDY schema and rolls back.
+`--topic t08` limits the database checks to one topic (much faster while authoring).
+
+## Exam tracks (1Z0-071 and 1Z0-171)
+
+The app prepares for two exams: **1Z0-071** (Oracle Database SQL, 19c behavior) and **1Z0-171**
+(Oracle AI Database SQL Associate, 23ai behavior). Sections 1-16 belong to both; section 17
+(topic `t15`, "SQL features new in 23ai") belongs to 1Z0-171 only.
+
+- An item belongs to both exams unless it has `"exams": ["1Z0-071"]` (or `["1Z0-171"]`).
+  Topic t15 items default to 1Z0-171.
+- Mark an item `"exams": ["1Z0-071"]` when its answer is only true before 23ai (for example
+  "GROUP BY on a column alias raises ORA-00904", which works in 23ai).
+- If only the error code differs, keep it on both exams and add
+  `"try_error_since": {"23": "ORA-03048"}`, and mention the 23ai code in the explanation.
+- The validator checks 1Z0-171 items when connected to Oracle 23ai or later and 1Z0-071 items
+  on older versions. Check against both databases:
+
+      .venv/bin/python app/validate_content.py --topic t15                         # 19c
+      STUDY_DSN=localhost:1522/FREEPDB1 STUDY_PASSWORD=Study23ai \
+          .venv/bin/python app/validate_content.py --topic t15                     # 23ai
 
 ## Ground rules
 
@@ -60,8 +80,9 @@ Both must pass. The validator runs your SQL against the ORASTUDY schema and roll
 
     {"id": "c123", "topic": "t06", "objective": "7.4", "front": "Question?", "back": "Answer."}
 
-IDs are `c` plus three digits and never change once published (progress is stored by ID).
-Use only the ID range you were given.
+IDs are `c` plus three or four digits and never change once published (progress is stored by ID).
+Use only the ID range you were given. New cards of topic tNN use `c(1000 + NN * 50)` to
+`c(1049 + NN * 50)`: t01 c1050-c1099, t02 c1100-c1149, ... t15 c1750-c1799.
 
 ## Labs (graded exercises)
 
@@ -98,6 +119,12 @@ drops the lab's objects before and after grading.
   SYSDATE: the validator runs the solution twice and requires identical results.
 - The check must give a different result without the solution, so doing nothing cannot pass.
 - See `lab-programmer-raise` (t09) and `lab-create-projects` (t10) for complete examples.
+
+**"Fix the bug" exercises** (`query` and `dml` labs): add `"starter"`, a broken or almost-right
+statement that the editor opens with. The task describes the intended result; the learner finds
+and fixes the mistake (a classic exam trap: NOT IN with NULLs, a missing join condition, WHERE
+instead of HAVING, a wrong format model...). The validator checks that the starter does not
+already pass. Start the title with "Fix:".
 
 ## The sample schema
 

@@ -143,3 +143,53 @@ with CTAS or INSERT ... SELECT.
 > - Global temporary tables follow the SQL standard; private temporary tables, `SET UNUSED`,
 >   `READ ONLY` tables and the recycle bin are Oracle-specific.
 > - Oracle has no `ON UPDATE CASCADE` for foreign keys (MySQL and PostgreSQL do).
+
+## More verified results (19c and 23ai)
+
+- Private temporary tables: no constraints (even NOT NULL), no DEFAULT, no index → **ORA-14451**;
+  CTAS works; a name without `ORA$PTT_` → ORA-00903; a GTT named `ora$ptt_...` → ORA-32463;
+  `ON COMMIT DELETE ROWS` → ORA-00901. Creating one did **not** commit a pending INSERT, and the
+  following ROLLBACK also dropped the table (DROP DEFINITION).
+- Global temporary tables: a foreign key → **ORA-14455** (PK and CHECK are fine). While sessions have
+  rows: `ALTER TABLE ... ADD` → ORA-14450, `DROP` → ORA-14452. `TRUNCATE` removes only your rows.
+- External tables: a missing DIRECTORY object fails at CREATE (**ORA-06564**); a PRIMARY KEY → ORA-30657.
+- `DROP COLUMN` / `SET UNUSED` of a column in a multi-column PK or CHECK → **ORA-12991**;
+  `CASCADE CONSTRAINTS` drops the whole constraint. A parent key column → ORA-12992. A READ ONLY
+  table → ORA-12081. Dropping a column drops its single-column index.
+- After `SET UNUSED (note)`: `ADD (note DATE)` works, `DROP COLUMN note` → ORA-00904, USER_TAB_COLS
+  shows a hidden `SYS_C00002_...$` column. A later `DROP COLUMN` of any column also removed the
+  unused columns (USER_UNUSED_COL_TABS was empty afterwards).
+- `PRIMARY KEY DEFERRABLE INITIALLY DEFERRED`: two equal keys inserted fine, `COMMIT` → **ORA-02091**
+  and the table was empty; `SET CONSTRAINT ... IMMEDIATE` → ORA-00001 but the rows stayed. The
+  key's index is NONUNIQUE. `SET CONSTRAINT` on a non-deferrable constraint → ORA-02447;
+  `MODIFY CONSTRAINT ... DEFERRABLE` is a syntax error (deferrability is fixed at creation).
+- `pid NOT NULL REFERENCES parent ON DELETE SET NULL`: deleting a parent with children → ORA-01407.
+- FK to a column without a PK/UNIQUE → ORA-02270; to a column of another type → ORA-02267.
+  `ON UPDATE CASCADE` / `ON DELETE RESTRICT` do not exist (syntax error). LOB in PK/UNIQUE → ORA-02329.
+- Identity: `GENERATED ALWAYS` → ORA-32795 on INSERT, ORA-32796 on UPDATE; `BY DEFAULT` with an
+  explicit NULL → ORA-01400; `BY DEFAULT ON NULL` fills it; a second identity column → ORA-30669.
+- CTAS: `(id PRIMARY KEY, name) AS SELECT ...` works; data types in the list → ORA-01773; wrong number
+  of names → ORA-01730. Defaults and identity are not copied; NOT NULL (also implied by DEFAULT ON NULL
+  or identity) is.
+
+## Oracle 23ai differences (1Z0-171)
+
+Verified on Oracle 23ai Free (23.26) with temporary `LAB_N10_` tables; everything else in this topic
+(temporary tables, deferrable constraints, ORA-12991, identity columns, CTAS rules) behaved as on 19c.
+
+| 23ai | 19c |
+|---|---|
+| `CREATE TABLE IF NOT EXISTS t (...)` when t exists: no error, the **old definition is kept** (the new column list is ignored); the statement still commits | ORA-00922 |
+| `DROP TABLE IF EXISTS t PURGE` when t is missing: no error | ORA-00933 |
+| `flag BOOLEAN DEFAULT FALSE`; inserting `'yes'` stored TRUE | ORA-00904 at CREATE |
+| `b NUMBER DEFAULT ON NULL FOR INSERT AND UPDATE 7`: an UPDATE to NULL stores 7 (USER_TAB_COLUMNS.DEFAULT_ON_NULL_UPD) | ORA-00936; DEFAULT ON NULL covers INSERT only |
+| USER_TAB_COLUMNS.DATA_DEFAULT_VC: the default as VARCHAR2 (DATA_DEFAULT is a LONG) | column does not exist |
+
+- Up to 4096 columns per table only with the initialization parameter `MAX_COLUMNS = EXTENDED`.
+  Our 23ai database has the default `STANDARD`, and a 1001-column table failed with ORA-01792 exactly
+  as on 19c.
+- Not in this release: `ALTER TABLE t ADD IF NOT EXISTS (...)` (ORA-02000), `DROP COLUMN IF EXISTS`
+  (ORA-03048) and `CREATE OR REPLACE TABLE` (ORA-00922).
+- New codes for some syntax errors: `ON UPDATE CASCADE` → ORA-02000 (19c ORA-00905);
+  `MODIFY CONSTRAINT ... DEFERRABLE` → ORA-03049 (19c ORA-00933). Messages for ORA-00001 and ORA-00942
+  now name the table (and columns).

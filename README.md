@@ -1,19 +1,29 @@
-# Oracle Learning Lab (1Z0-071)
+# Oracle Learning Lab (1Z0-071 and 1Z0-171)
 
-A local web app for the **Oracle Database SQL Certified Associate (1Z0-071)** exam that grades your
-SQL against a real Oracle database and measures your readiness without letting you fool yourself.
+A local web app for the Oracle SQL certification exams, **1Z0-071** (Oracle Database SQL, 19c) and
+**1Z0-171** (Oracle AI Database SQL Associate, 23ai), that grades your SQL against a real Oracle
+database and measures your readiness without letting you fool yourself.
 
 ![Overview with today's study plan](docs/screenshots/overview.png)
 
 ## What makes it different
 
-- **Answers are checked by Oracle, not by memory.** 453 original practice questions, 254 of them
-  verified on every run by executing SQL: the correct option must equal the query result, the
+- **Two exams, one app.** Switch between 1Z0-071 and 1Z0-171 on the Overview: each track has its
+  own question pool, objectives, mock exams (63 questions / 63% or 60 questions / 65%) and readiness.
+  Topic 15 covers the SQL new in 23ai (BOOLEAN, IF [NOT] EXISTS, GROUP BY alias, VALUES constructor,
+  UPDATE/DELETE with joins, domains, annotations, schema privileges, VECTOR search). Questions whose
+  answer changed in 23ai are shown on 1Z0-071 only. With a second database (`STUDY_DSN_23AI`) the
+  SQL lab and the grader switch to Oracle 23ai together with the track.
+- **Answers are checked by Oracle, not by memory.** 750 original practice questions, 430 of them
+  verified on every run by executing SQL, on Oracle 19c for the 1Z0-071 track and Oracle 23ai for 1Z0-171: the correct option must equal the query result, the
   error a statement raises must be the stated ORA- code, and the options of "which queries are
   equivalent" questions are executed and compared. Running the content this way caught real
   factual errors that had been written with confidence (listed in [plan.md](plan.md)).
-- **116 graded SQL exercises**: queries graded on their rows, DML graded on the resulting table
-  state inside a rolled-back transaction, and DDL graded over the data dictionary.
+- **169 graded SQL exercises**: queries graded on their rows, DML graded on the resulting table
+  state inside a rolled-back transaction, and DDL graded over the data dictionary. 19 of them are
+  "Fix the bug" exercises that start from a statement with a classic exam trap in it.
+- **366 flashcards**, an exam guide comparing 1Z0-071 and 1Z0-171 with every 19c/23ai difference
+  verified, a one-page cheat sheet, and notes for all 15 topics with a "23ai differences" section.
 - **Honest readiness**: the pass estimate uses only the *first* answer you ever gave to each
   question, mock exams prefer questions you have never seen and report your score on those,
   and a correct guess counts as a gap until you prove it on two different days.
@@ -62,11 +72,15 @@ The server listens on 127.0.0.1 only: the SQL lab runs any SQL you type. Setting
 | `STUDY_PASSWORD_FILE` | `~/.orastudy_pwd` | File holding the password |
 | `STUDY_HOST`, `STUDY_PORT` | `127.0.0.1`, `8071` | Where the app listens |
 | `STUDY_STATE_FILE` | `app/state/progress.json` | Where your progress is saved |
+| `STUDY_DSN_23AI` | – | Optional Oracle 23ai database used while the 1Z0-171 track is chosen |
+| `STUDY_USER_23AI`, `STUDY_PASSWORD_23AI` | the 19c user and password | Its learning user |
 
 ## Features
 
-- **Quiz**: practice with immediate explanations, or timed mock exams (63 questions, 120 minutes,
-  one question per official objective first, review screen before submitting).
+- **Quiz**: practice with immediate explanations, or timed mock exams (63 or 60 questions, 120 minutes,
+  one question per objective first, review screen before submitting). Filter by question type
+  (choose two/three, which error, predict the output, equivalent queries, read the code, concepts)
+  and by unseen questions; in exam mode a filtered set becomes a timed drill.
 - **Confidence and calibration**: rate each answer Sure / Think so / Guessing (keys S, T, G);
   the app tracks how often you are right when you are sure.
 - **Learning engine** (`app/engine.py`): SM-2 spacing for flashcards and questions, mistakes that
@@ -75,11 +89,14 @@ The server listens on 127.0.0.1 only: the SQL lab runs any SQL you type. Setting
 - **Readiness**: pass probability with a score range, a "ready to book" checklist, mock trend,
   objective heatmap, study streak and hours, evidence-based badges, and a printable
   readiness report at `/report`.
-- **Exercises**: query, DML and DDL exercises with two levels of hints and a row-by-row diff.
+- **Exercises**: query, DML, DDL and "Fix the bug" exercises with two levels of hints, a row-by-row
+  diff, and filters by topic, kind and status.
+- **Flashcards**: spaced repetition per topic, all due cards, or a deck from your weakest topics.
 - **SQL lab**: CodeMirror editor with Oracle SQL highlighting and table/column autocomplete,
   run selection, error explanations, DML before/after, join and set-operator visualizer,
   query history, and "save as note".
-- **Notes** for all 14 topics, with common traps and Oracle vs. standard SQL.
+- **Notes** for all 15 topics, with common traps, Oracle vs. standard SQL and 23ai differences,
+  plus the exam guide 2026 and the cheat sheet (linked from the Overview).
 - **Optional AI tutor** (Claude), see below.
 
 ## Optional AI tutor
@@ -101,6 +118,7 @@ Everything else works without it.
     .venv/bin/pip install -r app/requirements-dev.txt
     .venv/bin/python -m pytest app/tests                   # database tests skip if Oracle is down
     .venv/bin/python app/validate_content.py --coverage    # check all content against the database
+    STUDY_DSN=localhost:1522/FREEPDB1 STUDY_PASSWORD=... .venv/bin/python app/validate_content.py  # 1Z0-171 items on 23ai
     .venv/bin/python app/demo.py /tmp/demo.json            # simulated progress for screenshots
     STUDY_STATE_FILE=/tmp/demo.json .venv/bin/python app/server.py
 

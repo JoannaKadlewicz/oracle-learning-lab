@@ -59,3 +59,56 @@ jobs:
       - name: Content checks against the database (Oracle XE 21c)
         if: ${{ !cancelled() }}
         run: python app/validate_content.py
+
+  test-23ai:
+    name: 1Z0-171 content checks (Oracle 23ai Free)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      oracle23:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: ci_sys_password
+          APP_USER: orastudy
+          APP_USER_PASSWORD: orastudy
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 60
+          --health-start-period 30s
+
+    env:
+      STUDY_DSN: localhost:1521/FREEPDB1
+      STUDY_USER: orastudy
+      STUDY_PASSWORD: orastudy
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: app/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r app/requirements-dev.txt
+
+      # The validator opens many short sessions; the default process limit of Oracle Free is too low.
+      - name: Grant privileges and raise the process limit
+        run: |
+          docker exec -i ${{ job.services.oracle23.id }} sqlplus -s / as sysdba < docker/23ai-grants.sql
+          echo "ALTER SYSTEM SET processes=600 SCOPE=SPFILE;" | docker exec -i ${{ job.services.oracle23.id }} sqlplus -s / as sysdba
+          docker restart ${{ job.services.oracle23.id }}
+
+      - name: Create the sample schema
+        run: python app/init_db.py
+
+      # Oracle 23ai or later: the validator checks the items of the 1Z0-171 track.
+      - name: Content checks against the database (Oracle 23ai)
+        run: python app/validate_content.py

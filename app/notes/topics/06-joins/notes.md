@@ -128,3 +128,24 @@ Every row paired with every row: rows(A) × rows(B).
 > - SQL Server has no `NATURAL JOIN` or `USING`; Oracle, PostgreSQL and MySQL do.
 > - Oracle also supports `CROSS APPLY` / `OUTER APPLY` and `LATERAL` (12c+), which are not
 >   on the 1Z0-071 objectives.
+
+## Oracle 23ai differences (1Z0-171)
+
+Executed on Oracle AI Database 23ai Free (23.26) against the same sample data. Join results
+(row counts of inner, outer, self, non-equi and cross joins) are identical; the differences
+are in what the `(+)` operator accepts and in some error codes and messages.
+
+| Statement | 19c | 23ai |
+|---|---|---|
+| `employees e JOIN departments d ON e.department_id = d.department_id(+)` | accepted, works as a LEFT JOIN (9 rows) | **ORA-25156**: no `(+)` inside an ANSI ON clause either |
+| `WHERE e.department_id(+) = d.department_id OR e.salary(+) > 20000` | ORA-01719 | runs (every OR operand carries `(+)`) |
+| `WHERE e.department_id(+) = d.department_id OR d.department_id = 40` | ORA-01719 | **ORA-25556**: an OR operand without `(+)` is not allowed |
+| `employees e INNER JOIN departments d` (no ON/USING) | ORA-00905: missing keyword | **ORA-02000**: missing ON or USING keyword |
+| `departments d CROSS JOIN salary_grades g ON ...` | ORA-00933 | **ORA-03048**: SQL reserved word 'ON' is not syntactically valid |
+| `SELECT last_name FROM employees e JOIN employees m ON ...` | ORA-00918: column ambiguously defined | ORA-00918 with the column named (`LAST_NAME: column ambiguously specified`) |
+
+Unchanged in 23ai (verified): ORA-25154 for a qualified USING column (also `e.*`),
+ORA-25155 for a qualified NATURAL JOIN column, ORA-01468 for `(+)` on both sides,
+ORA-25156 for `(+)` in WHERE next to ANSI joins, ORA-00904 for an ON clause that refers to a
+table joined later, and `(+)` with an IN list of constants (`e.job_title(+) IN (...)`) works
+on both versions.

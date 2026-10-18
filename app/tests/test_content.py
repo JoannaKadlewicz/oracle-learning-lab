@@ -16,6 +16,15 @@ def test_every_topic_has_questions_and_flashcards():
         assert any(c["topic"] == topic for c in content.FLASHCARDS), topic
 
 
+def test_exam_tracks_keep_23ai_content_out_of_1z0_071():
+    old, new = content.for_exam("1Z0-071"), content.for_exam("1Z0-171")
+    assert "t15" not in old.TOPICS and "17.1" not in old.OBJECTIVES
+    assert all(q["topic"] != "t15" and q["objective"] in old.OBJECTIVES for q in old.QUESTIONS)
+    assert all(q["objective"] in new.OBJECTIVES for q in new.QUESTIONS)
+    assert [q for q in old.QUESTIONS if "1Z0-171" not in content.item_exams(q)]  # 19c-only behavior
+    assert old.EXAM["questions"] == 63 and new.EXAM["questions"] == 60
+
+
 @pytest.fixture
 def broken_question(monkeypatch):
     """Append a copy of the first two-answer question and return it for breaking."""

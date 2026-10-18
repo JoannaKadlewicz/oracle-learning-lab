@@ -136,3 +136,38 @@ ORDER_ID appears twice (PK and FK).
 >   `USER_` / `ALL_` / `DBA_` views.
 > - Other databases fold unquoted names differently: PostgreSQL stores lowercase, Oracle uppercase.
 > - PostgreSQL's `pg_catalog`, SQL Server's `sys.` views and Oracle's `V$` views are product-specific.
+
+## More facts checked (2026-10-18, 19c and 23ai)
+
+- `SELECT owner FROM user_tables`: **ORA-00904**. `SELECT ... FROM dba_tables` as ORASTUDY: **ORA-00942** (no privilege looks like no view).
+- `USER_VIEWS.TEXT LIKE ...`: **ORA-00932** (LONG); use `TEXT_VC`.
+- Counts in the sample schema: 10 columns in `EMPLOYEES`, 5 constraints on `ORDERS`, 10 indexes
+  (9 PK + 1 UK, no FK indexes), 3 `NULLABLE = 'N'` columns in employees (PK included),
+  9 rows in `USER_CATALOG` (no indexes), 10 rows in `USER_COL_COMMENTS` for employees (all NULL).
+- `USER_OBJECTS WHERE object_name = 'EMPLOYEES_PK'`: one row, type `INDEX` (the constraint is not an object).
+- `USER_CONSTRAINTS.STATUS` is ENABLED/DISABLED; `VALIDATED` and `GENERATED` ('USER NAME') are separate columns.
+- `DATA_TYPE` includes the precision for datetime types: `TIMESTAMP(0) WITH LOCAL TIME ZONE`.
+- Function-based index: `USER_IND_COLUMNS.COLUMN_NAME` is a hidden `SYS_NC00011$`-style column;
+  the expression `UPPER("LAST_NAME")` is in `USER_IND_EXPRESSIONS`.
+- `USER_UPDATABLE_COLUMNS` shows UPDATABLE/INSERTABLE/DELETABLE per view column (NO for `salary * 12`).
+- `COMMENT ON` again overwrites, `IS ''` clears, works on views (TABLE_TYPE VIEW);
+  `COMMENT ON INDEX`: **ORA-32594**.
+- `USER_SEQUENCES` has no START_WITH, CURRVAL or NEXTVAL column.
+- Short public synonyms: DICT, CAT, TABS, COLS, IND, OBJ, SEQ, SYN (owner PUBLIC, target SYS views).
+
+## Oracle 23ai differences (1Z0-171)
+
+Checked on Oracle 23ai Free (23.26), same ORASTUDY schema.
+
+- `DICTIONARY` is much larger (5798 rows versus 970 on our 19c) and its `COMMENTS` are filled in
+  (for example USER_CATALOG: "Tables, Views, Synonyms and Sequences owned by the user"); on our 19c
+  instance they are NULL. 23ai also lists the short synonyms (TABS, CAT, COLS...) as rows of DICTIONARY; 19c does not.
+- New dictionary views: `USER_ANNOTATIONS_USAGE` (annotations on tables, columns, views, indexes),
+  `USER_DOMAINS` and `USER_DOMAIN_COLS` (data use case domains), `USER_JSON_DUALITY_VIEWS`,
+  `USER_PROPERTY_GRAPHS`, `USER_PG_COMMENTS`. In 19c they raise ORA-00942.
+- New columns: `USER_TAB_COLUMNS.DOMAIN_NAME`, `USER_VIEWS.DUALITY_VIEW` (19c: ORA-00904).
+- Error messages name the object or are reworded, codes unchanged: ORA-00942 `table or view "SYS"."DBA_TABLES" does not exist`,
+  ORA-00932 `expression is of data type LONG, which is incompatible with expected data type CHAR`.
+- `CREATE ... IF NOT EXISTS` / `DROP ... IF EXISTS` leave the dictionary unchanged when the object
+  already exists / is missing, without an error (see topic 11).
+- Unchanged: uppercase names, USER_/ALL_/DBA_ scope, constraint types, comment views, USER_SEQUENCES columns.

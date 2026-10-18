@@ -4,6 +4,7 @@ Run from the repository root:
     .venv/bin/python app/validate_content.py            # structure + database checks
     .venv/bin/python app/validate_content.py --static   # structure only, no database
     .venv/bin/python app/validate_content.py --reset    # reset the sample data first
+    .venv/bin/python app/validate_content.py --topic t08  # database checks for one topic only
 
 Structure checks: unique IDs, valid topics and objectives, valid answer indexes,
 "Which two/three" prompts matching the number of answers, known fields only,
@@ -14,6 +15,9 @@ Database checks:
   - equivalent_sql: exactly the correct options return the same rows as this query
   - query labs: the solution runs, returns rows and the columns the task names
   - dml/ddl labs: the solution changes the check result, and gives the same result twice
+  - labs with a starter (a "fix the bug" exercise): the starter does not already pass
+Items are checked on the database of their exam track: Oracle 23ai or later checks the 1Z0-171
+items, older versions the 1Z0-071 items (an item's "exams" field, else its topic's, else both).
 Changes are rolled back. --reset drops and recreates the ORASTUDY sample tables.
 Exits with status 1 if any check fails.
 """
@@ -29,19 +33,21 @@ import content  # noqa: E402
 import server  # noqa: E402
 
 QUESTION_KEYS = {"id", "topic", "objective", "prompt", "code", "options", "answer", "explanation",
-                 "try_sql", "try_error", "try_error_since", "answer_sql", "equivalent_sql"}
+                 "try_sql", "try_error", "try_error_since", "answer_sql", "equivalent_sql", "exams"}
 QUESTION_REQUIRED = {"id", "topic", "objective", "prompt", "options", "answer", "explanation"}
 CARD_KEYS = {"id", "topic", "objective", "front", "back"}
+CARD_OPTIONAL = {"exams"}
 LAB_COMMON = {"id", "topic", "objective", "title", "task", "solution"}
 LAB_REQUIRED = {
     "query": LAB_COMMON | {"columns", "ordered"},
     "dml": LAB_COMMON | {"kind", "check"},
     "ddl": LAB_COMMON | {"kind", "check", "cleanup"},
 }
-LAB_OPTIONAL = {"hint", "hint2"}
+LAB_OPTIONAL = {"hint", "hint2", "exams", "starter"}
 TRY_SQL_VERBS = {"SELECT", "WITH", "INSERT", "UPDATE", "DELETE", "MERGE", "SAVEPOINT", "ROLLBACK"}
 CLEANUP_STATEMENT = re.compile(
-    r"\s*DROP\s+(TABLE|VIEW|SEQUENCE|INDEX|SYNONYM)\s+LAB_\w+(\s+CASCADE\s+CONSTRAINTS)?(\s+PURGE)?\s*;?\s*",
+    r"\s*DROP\s+((TABLE|VIEW|SEQUENCE|INDEX|SYNONYM)\s+LAB_\w+(\s+CASCADE\s+CONSTRAINTS)?(\s+PURGE)?"
+    r"|DOMAIN\s+LAB_\w+(\s+FORCE)?)\s*;?\s*",
     re.IGNORECASE,
 )
 MAX_OPTIONS = 8  # the quiz labels options A to H
@@ -59,12 +65,19 @@ def check_fields(kind, item, allowed, required):
         if key == "ordered":
             if not isinstance(item[key], bool):
                 errors.append(f"{label}: ordered must be True or False")
+        elif key == "exams":
+            if not (isinstance(item[key], list) and item[key] and set(item[key]) <= set(content.EXAMS)):
+                errors.append(f"{label}: exams must be a non-empty list of {', '.join(content.EXAMS)}")
+            elif not set(item[key]) <= set(content.TOPIC_EXAMS.get(item.get("topic"), content.EXAMS)):
+                errors.append(f"{label}: exams lists an exam its topic is not part of")
         elif key not in ("options", "answer", "try_error_since") and not (isinstance(item[key], str) and item[key].strip()):
             errors.append(f"{label}: {key} must be a non-empty string")
     if item.get("topic") not in content.TOPICS:
         errors.append(f"{label}: unknown topic {item.get('topic')!r}")
     if item.get("objective") not in content.OBJECTIVES:
         errors.append(f"{label}: unknown objective {item.get('objective')!r}")
+    elif not set(content.item_exams(item)) <= set(content.SECTION_EXAMS.get(item["objective"].split(".")[0], content.EXAMS)):
+        errors.append(f"{label}: objective {item['objective']} is not part of {', '.join(content.item_exams(item))}")
     return errors
 
 
@@ -119,8 +132,8 @@ def check_question(q):
 
 
 def check_card(card):
-    errors = check_fields("flashcard", card, CARD_KEYS, CARD_KEYS)
-    if not re.fullmatch(r"c\d{3}", card.get("id", "")):
+    errors = check_fields("flashcard", card, CARD_KEYS | CARD_OPTIONAL, CARD_KEYS)
+    if not re.fullmatch(r"c\d{3,4}", card.get("id", "")):
         errors.append(f"flashcard {card.get('id', '?')}: id should look like c000")
     return errors
 
@@ -142,6 +155,8 @@ def check_lab(lab):
     for stmt in server.split_statements(lab.get("cleanup", "")):
         if not CLEANUP_STATEMENT.fullmatch(stmt["text"]):
             errors.append(f"{label}: cleanup may only drop LAB_ objects, not: {stmt['text']}")
+    if "starter" in lab and kind == "ddl":
+        errors.append(f"{label}: starter is for query and dml exercises only")
     if "hint2" in lab and "hint" not in lab:
         errors.append(f"{label}: hint2 without hint")
     return errors
@@ -239,6 +254,17 @@ def question_db_errors(conn, q):
     return errors
 
 
+def starter_errors(conn, lab, columns, rows):
+    """A "fix the bug" starter must fail or give a different result than the solution."""
+    try:
+        got = server.lab_result(conn, lab, lab["starter"])
+    except Exception:  # noqa: BLE001
+        return []
+    if server.compare_results(lab, got[0], got[1], columns, rows)["passed"]:
+        return [f"lab {lab['id']}: the starter already passes"]
+    return []
+
+
 def lab_db_errors(conn, lab):
     label = f"lab {lab['id']}"
     errors = []
@@ -246,6 +272,8 @@ def lab_db_errors(conn, lab):
         columns, rows = server.lab_result(conn, lab, lab["solution"])
     except Exception as exc:  # noqa: BLE001
         return [f"{label}: solution failed: {first_line(server.format_error(exc))}"]
+    if "starter" in lab:
+        errors += starter_errors(conn, lab, columns, rows)
 
     if server.lab_kind(lab) == "query":
         named = [c.strip().upper() for c in lab["columns"].split(",")]
@@ -269,16 +297,28 @@ def lab_db_errors(conn, lab):
     return errors
 
 
-def db_errors():
+def track_of(conn):
+    """The exam track a database checks: 1Z0-171 on Oracle 23ai or later, else 1Z0-071."""
+    return "1Z0-171" if int(conn.version.split(".")[0]) >= 23 else "1Z0-071"
+
+
+def db_errors(topic=None):
     try:
         conn = server.connect()
     except Exception as exc:  # noqa: BLE001
         return [f"cannot connect: {first_line(server.format_error(exc))}"]
     errors = []
+    track = track_of(conn)
+    print(f"Database: Oracle {conn.version}, checking the {track} items"
+          + (f" of topic {topic}" if topic else "") + ".")
+
+    def wanted(item):
+        return track in content.item_exams(item) and (topic is None or item["topic"] == topic)
+
     try:
-        for q in content.QUESTIONS:
+        for q in filter(wanted, content.QUESTIONS):
             errors += question_db_errors(conn, q)
-        for lab in content.LABS:
+        for lab in filter(wanted, content.LABS):
             errors += lab_db_errors(conn, lab)
     finally:
         conn.rollback()
@@ -291,6 +331,7 @@ def main():
     parser.add_argument("--static", action="store_true", help="skip the database checks")
     parser.add_argument("--reset", action="store_true", help="reset the sample data before the database checks")
     parser.add_argument("--coverage", action="store_true", help="print item counts per objective")
+    parser.add_argument("--topic", help="run the database checks for one topic only, for example t08")
     args = parser.parse_args()
 
     errors = static_errors()
@@ -303,7 +344,7 @@ def main():
             if not reset["ok"]:
                 print(f"Reset failed: {reset['error']}")
                 return 1
-        db = db_errors()
+        db = db_errors(args.topic)
         print(f"Database: {len(db)} problem(s).")
         errors += db
 

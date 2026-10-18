@@ -139,3 +139,25 @@ Add `NULLS LAST` to move Initech to the end.
 >   Oracle evaluates all set operators left to right.
 > - `INTERSECT ALL` / `EXCEPT ALL` exist in the standard and PostgreSQL, and in Oracle only from 21c.
 > - Oracle sorts NULLs as the highest value (first with DESC); SQL Server sorts them as the lowest.
+
+## Oracle 23ai differences (1Z0-171)
+
+Checked on Oracle AI Database 23ai (FREEPDB1) with the same sample data.
+
+- **EXCEPT, EXCEPT ALL, MINUS ALL and INTERSECT ALL** work (available since 21c). In 19c,
+  `EXCEPT` raises ORA-00933 and `MINUS ALL` / `INTERSECT ALL` raise ORA-00928 missing SELECT keyword.
+  - `EXCEPT` is a synonym of `MINUS`: `orders.customer_id EXCEPT GB customers` → 1, 3, 5.
+  - `MINUS ALL` subtracts occurrences: order customer ids 1, 1, 1, 2, 2, 3, 5 `MINUS ALL`
+    customers (each id once) → **1, 1, 2** (3 rows; plain MINUS → 0 rows).
+  - `INTERSECT ALL` keeps the smaller number of occurrences: order customer ids
+    `INTERSECT ALL` customers → 1, 2, 3, 5 (4 rows).
+- **Precedence is unchanged**: `departments UNION employees INTERSECT high earners` still
+  returns 3 rows on 23ai (left to right), not the 4 rows of standard SQL precedence.
+- **ORDER BY in a middle branch** raises **ORA-03048** (SQL reserved word 'UNION' is not
+  syntactically valid following ...) instead of ORA-00933. ORA-00907 (ORDER BY inside a
+  parenthesized branch), ORA-00904 (second-branch alias or `e.` column in ORDER BY),
+  ORA-01785 (ORDER BY expression or position beyond the column count), ORA-01789 and
+  ORA-01790 are the same as in 19c.
+- **UNION output order differs.** On 19c the sample UNION queries happened to come back sorted
+  (10, 20, 30, 40, NULL); on 23ai the same query returned 10, 20, 30, NULL, 40. Neither version
+  guarantees any order without ORDER BY.

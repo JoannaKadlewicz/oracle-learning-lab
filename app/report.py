@@ -104,7 +104,7 @@ def render(content, state, progress, now):
 
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>1Z0-071 readiness report</title>
+<title>{content.EXAM['code']} readiness report</title>
 <style>
   :root {{ --ink:#172338; --muted:#56667E; --rule:#C9D5E5; --paper:#fff; --s1:#2a78d6; --s2:#eb6834;
           --good:#0ca30c; --warn:#fab219; --bad:#d03b3b; color-scheme: light; }}
@@ -135,8 +135,8 @@ def render(content, state, progress, now):
     body {{ padding: 0; max-width: none; }} @page {{ margin: 14mm; }} h2 {{ break-after: avoid; }} table, svg {{ break-inside: avoid; }} }}
 </style></head>
 <body>
-<h1>Oracle Database SQL (1Z0-071): readiness report</h1>
-<p class="muted">{today} · {len(content.QUESTIONS)} practice questions, {len(content.LABS)} graded SQL exercises, Oracle Database 19c</p>
+<h1>{escape(content.EXAM['name'])} ({content.EXAM['code']}): readiness report</h1>
+<p class="muted">{today} · {len(content.QUESTIONS)} practice questions, {len(content.LABS)} graded SQL exercises, {content.EXAM['database']}</p>
 <div class="summary">{headline}</div>
 
 <h2>Ready to book the exam?</h2>

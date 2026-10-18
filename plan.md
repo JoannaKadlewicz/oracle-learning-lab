@@ -211,6 +211,25 @@ a mock is not scored, but its questions count as seen.
 - Tested with a fake client (prompts, API parameters, refusals, the generate–verify–accept
   pipeline against the real database). **Not tested against the live API**: no API key here.
 
+## Phase 7: The 2026 exam scope (1Z0-071 and 1Z0-171)
+
+- [x] **Second exam track.** 1Z0-171 (Oracle AI Database SQL Associate, 23ai: 60 questions,
+      120 minutes, 65%) next to 1Z0-071. `content.for_exam()` gives the engine a filtered view, so
+      `engine.py` did not change; settings, mocks (tagged with their exam), readiness, the report and
+      the front end follow the chosen track. Section 17 / topic t15 cover the SQL new in 23ai.
+- [x] **Version-aware content.** Items carry `exams` when their answer is version-specific; the
+      validator checks 1Z0-171 items on Oracle 23ai and 1Z0-071 items on older versions. Running the
+      existing content on 23ai (23.26) found 10 items whose answer changed (GROUP BY alias, CONCAT
+      with 3 arguments, SUM of intervals, (+) in ANSI joins, new ORA-03048 / ORA-02000 codes).
+- [x] **Content: 453 → 750 questions, 168 → 366 flashcards, 116 → 169 exercises**, every topic
+      +18 questions, +12 cards, +3 exercises; t15 with 45 questions, 30 cards, 10 exercises.
+      All checked on Oracle 19.3 and Oracle 23.26 with 0 problems; 68 of 68 objectives covered.
+- [x] **"Fix the bug" exercises** (`starter`): 19 exercises open with a statement that hides an exam
+      trap; the validator checks that the starter does not pass.
+- [x] **Study modes**: quiz filters by question type and unseen only, timed drills from a filter,
+      exercise filters, a weakest-topics flashcard deck, an exam guide and a cheat sheet.
+- [x] **Second database**: `STUDY_DSN_23AI`, a `23ai` Docker Compose profile, and a CI job on Oracle 23ai Free.
+
 **Still open across phases:** misconception tagging (Phase 2), reviewing the notes of topics 1–8
 by execution, making privileges (topic 13) executable with a second schema, and running CI on GitHub.
 
