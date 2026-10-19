@@ -11,18 +11,16 @@ services:
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
-      - key: PORT                  # the port Render routes to; the app listens on STUDY_PORT
+      - key: PORT                  # the port Render routes to; the image sets STUDY_HOST=0.0.0.0, STUDY_PORT=8071
         value: "8071"
-      - key: STUDY_HOST
-        value: 0.0.0.0
       - key: STUDY_DSN             # e.g. the TLS connect string of an Autonomous Database (mTLS not required)
         sync: false
       - key: STUDY_USER
-        value: orastudy
+        sync: false
       - key: STUDY_PASSWORD        # password of the learning user (a Render secret, never in this file)
         sync: false
       - key: STUDY_STATE_USER      # owns the progress and notes tables; not the learning user (see docs/docker.md)
-        value: oralab_app
+        sync: false
       - key: STUDY_STATE_PASSWORD
         sync: false
       - key: STUDY_DSN_23AI        # optional: Oracle 23ai database for the 1Z0-171 track
