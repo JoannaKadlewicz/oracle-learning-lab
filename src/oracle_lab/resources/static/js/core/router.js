@@ -1,5 +1,6 @@
-/* Hash router. A view is { title, render(arg), leave?(), onKey?(event) }; the router owns
-   navigation state, the document title, focus and scroll, and calls leave() on the old view. */
+/* Path router (/quiz, /exercises/<id>; the server answers every such path with index.html).
+   A view is { title, render(arg), leave?(), onKey?(event) }; the router owns navigation state,
+   the document title, focus and scroll, and calls leave() on the old view. */
 
 import { $, $$, esc } from "./dom.js";
 
@@ -17,7 +18,8 @@ export function setTitle(title) {
 }
 
 export async function route() {
-  const [, name = "home", arg] = location.hash.split("/");
+  if (location.pathname === "/home") history.replaceState(null, "", "/");  // the home page lives at /
+  const [, name = "home", arg] = location.pathname.split("/");
   const next = views[name] ? name : "home";
   if (current && current !== next) views[current].leave?.();
   current = next;
@@ -39,10 +41,26 @@ export async function route() {
   window.scrollTo(0, 0);
 }
 
-/** Navigate to a hash; re-renders when it is already the current one. */
-export function go(hash) {
-  if (location.hash === hash) route();
-  else location.hash = hash;
+/** Navigate to a path; re-renders when it is already the current one. Like the old hashchange,
+    a new path is routed in a task of its own, so views may call go() from their render(). */
+export function go(path) {
+  if (location.pathname === path) return route();
+  history.pushState(null, "", path);
+  setTimeout(route);
+}
+
+/** Start routing: back/forward, in-app links without a page load, and old #/ bookmarks. */
+export function startRouting() {
+  window.addEventListener("popstate", route);
+  document.addEventListener("click", e => {
+    const a = e.target.closest("a[href^='/']");
+    if (!a || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey
+        || a.target || a.hasAttribute("download")) return;
+    e.preventDefault();
+    go(a.getAttribute("href"));
+  });
+  if (location.hash.startsWith("#/")) history.replaceState(null, "", location.hash.slice(1));
+  return route();
 }
 
 /** Re-render the current view without touching scroll or focus. */

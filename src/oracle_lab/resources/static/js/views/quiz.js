@@ -53,7 +53,7 @@ export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder }
     mode, items, order, idx: 0, answers: {}, checked: {}, flags: {}, confidence: {},
     started: Date.now(), deadline: null, finished: false, reviewIdx: null,
   };
-  go("#/quiz");
+  go("/quiz");
 }
 
 /* Mock exams live on the server: it picks the questions, keeps the answers and the deadline,
@@ -90,7 +90,7 @@ function mockQuiz(mock) {
   };
 }
 
-function openMock(mock) { quiz = mockQuiz(mock); go("#/quiz"); }
+function openMock(mock) { quiz = mockQuiz(mock); go("/quiz"); }
 
 function trackTime(id) {
   // Seconds spent per question in a mock, for the post-exam timing report.
@@ -314,7 +314,7 @@ function renderQuestion(i, reviewing) {
   $("#finish")?.addEventListener("click", showReviewScreen);
   $("#submit-exam")?.addEventListener("click", showReviewScreen);
   $("#back-results")?.addEventListener("click", () => { quiz.reviewIdx = null; render(); });
-  $("#try")?.addEventListener("click", () => { labDraft(q.try_sql || q.code); go("#/lab"); });
+  $("#try")?.addEventListener("click", () => { labDraft(q.try_sql || q.code); go("/lab"); });
   $("#quit")?.addEventListener("click", quit);
   $$("[data-go]", main).forEach(b => b.addEventListener("click", () => { quiz.idx = Number(b.dataset.go); render(); }));
 
@@ -572,15 +572,15 @@ export const quizView = {
   leave() { stopTimer(); if (quiz?.mode === "exam" && !quiz.finished) trackTime(null); },
 };
 
-/** #/mock/<id>: the report of a finished mock exam. */
+/** /mock/<id>: the report of a finished mock exam. */
 export const mockView = {
   title: "Mock exam report",
   async render(id) {
     const res = await api("/api/mock?id=" + encodeURIComponent(id));
-    if (!res.report) return go("#/progress");
+    if (!res.report) return go("/progress");
     quiz = mockQuiz(res.mock);
     quiz.finished = true;
     quiz.report = res.report;
-    go("#/quiz");
+    go("/quiz");
   },
 };

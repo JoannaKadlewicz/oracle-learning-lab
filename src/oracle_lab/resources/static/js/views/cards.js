@@ -15,7 +15,7 @@ export function resetDeck() { deck = null; }
 export function openDeck(cards, keepOrder) {
   const ids = cards.map(c => c.id);
   deck = { queue: keepOrder ? ids : shuffle(ids), done: 0, again: 0, flipped: false, total: cards.length };
-  go("#/cards");
+  go("/cards");
 }
 
 function render() {
@@ -60,7 +60,7 @@ function renderCard() {
   if (!deck.queue.length) {
     main.innerHTML = `
       ${pageHead("Deck finished", `${plural(deck.done, "card")} done${deck.again ? `, ${deck.again} sent back for another pass` : ""}. The next reviews are scheduled.`)}
-      <div class="row"><button class="btn" id="deck-back">Choose another deck</button><a class="btn secondary" href="#/home">Back to Today</a></div>`;
+      <div class="row"><button class="btn" id="deck-back">Choose another deck</button><a class="btn secondary" href="/">Back to Today</a></div>`;
     $("#deck-back").addEventListener("click", () => { deck = null; render(); });
     return;
   }

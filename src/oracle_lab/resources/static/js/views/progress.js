@@ -25,7 +25,7 @@ function render() {
         <td>${m.full ? "Full mock" : `Timed set, ${m.score[1]} questions`}</td>
         <td><span class="level ${m.passed ? "level-strong" : "level-weak"}">${m.pct}%</span></td>
         <td class="hide-s">${m.fresh[1] ? `${Math.round((m.fresh[0] / m.fresh[1]) * 100)}% of ${m.fresh[1]}` : `<span class="muted small">All seen before</span>`}</td>
-        <td class="actions"><a class="btn secondary small" href="#/mock/${esc(m.id)}">Report</a></td></tr>`).join("")}
+        <td class="actions"><a class="btn secondary small" href="/mock/${esc(m.id)}">Report</a></td></tr>`).join("")}
       </tbody></table></div>`
     : empty("No mock exams yet", `A full mock has ${C.exam.questions} questions in ${C.exam.minutes} minutes and covers every objective.`, `<button class="btn" id="first-mock">Take a mock exam</button>`);
 

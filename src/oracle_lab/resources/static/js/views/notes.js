@@ -10,7 +10,7 @@ let currentNote = null;
 /** Show a note; other views link to notes through this. */
 export function openNote(path, navigate = true) {
   currentNote = path;
-  if (navigate) go("#/notes");
+  if (navigate) go("/notes");
 }
 
 // "topics/06-joins/notes.md" -> group "Topics", label "6. Joins"
@@ -65,7 +65,7 @@ async function render() {
   $("#open-lab")?.addEventListener("click", async () => {
     const { labDraft } = await import("./lab.js");
     labDraft(note.text);
-    go("#/lab");
+    go("/lab");
   });
 }
 

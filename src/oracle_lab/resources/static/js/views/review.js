@@ -14,7 +14,7 @@ function render() {
   if (!list.length) {
     main.innerHTML = `${pageHead("Mistakes", lede)}
       ${empty("No open mistakes", "Wrong answers and lucky guesses collect here until you prove them.", `<button class="btn" id="to-quiz">Start a practice quiz</button>`)}`;
-    $("#to-quiz").addEventListener("click", () => go("#/quiz"));
+    $("#to-quiz").addEventListener("click", () => go("/quiz"));
     return;
   }
   const batch = Math.min(list.length, 20);

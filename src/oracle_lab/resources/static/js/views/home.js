@@ -20,7 +20,7 @@ function countdownFact(plan, examDate) {
   const date = examDate ? new Date(examDate + "T12:00:00").toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }) : "";
   if (plan.days_left === null) {
     return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">No exam date yet</span>
-      <p>Set it to get a daily plan that fits the time you have.</p><a href="#/settings">Set your exam date</a></div>`;
+      <p>Set it to get a daily plan that fits the time you have.</p><a href="/settings">Set your exam date</a></div>`;
   }
   if (plan.days_left > 0) {
     return `<div class="fact"><span class="fact-value">${plan.days_left}<small>${plan.days_left === 1 ? "day" : "days"}</small></span>
@@ -31,18 +31,18 @@ function countdownFact(plan, examDate) {
       <p>Skim your mistakes and flashcards, and trust your preparation.</p></div>`;
   }
   return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">Your exam date has passed</span>
-    <p>Preparing for a retake?</p><a href="#/settings">Set a new date</a></div>`;
+    <p>Preparing for a retake?</p><a href="/settings">Set a new date</a></div>`;
 }
 
 function passFact(r) {
   if (r.status !== "ok") {
     return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">Chance to pass</span>
-      <p>Not enough data yet. Answer new questions or take a mock exam.</p><a href="#/progress">How readiness works</a></div>`;
+      <p>Not enough data yet. Answer new questions or take a mock exam.</p><a href="/progress">How readiness works</a></div>`;
   }
   const pct = Math.round(r.pass_probability * 100);
   return `<div class="fact ${pct >= 80 ? "pass" : pct < 50 ? "risk" : ""}"><span class="fact-value">${pct}%</span>
     <span class="fact-label">chance to pass</span>
-    <p>Expected score ${r.low_pct} to ${r.high_pct}%, from first answers only.</p><a href="#/progress">See your progress</a></div>`;
+    <p>Expected score ${r.low_pct} to ${r.high_pct}%, from first answers only.</p><a href="/progress">See your progress</a></div>`;
 }
 
 function render() {
@@ -72,15 +72,15 @@ function render() {
       <article class="session-card" aria-labelledby="session-title">
         <div class="session-head"><h2 id="session-title">Today's session</h2><span>About ${plan.estimate} minutes</span></div>
         <ol class="session-steps">
-          <li><a href="#/quiz" data-start="plan">
+          <li><a href="/quiz" data-start="plan">
             <strong>Answer ${plural(plan.questions.length, "question")}</strong>
             <small>Open mistakes, due reviews and your weakest objectives</small>
             <span class="minutes">${questionMinutes} min</span></a></li>
-          <li><a href="#/cards" data-start="cards" ${plan.cards.length ? "" : `aria-disabled="true" tabindex="-1"`}>
+          <li><a href="/cards" data-start="cards" ${plan.cards.length ? "" : `aria-disabled="true" tabindex="-1"`}>
             <strong>${plan.cards.length ? `Review ${plural(plan.cards.length, "flashcard")}` : "No flashcards due today"}</strong>
             <small>${plan.cards.length ? "Spaced by how well you know them" : "Come back tomorrow, or study a topic deck"}</small>
             <span class="minutes">${plan.cards.length ? `${cardMinutes} min` : ""}</span></a></li>
-          ${lab ? `<li><a href="#/exercises/${esc(lab.id)}">
+          ${lab ? `<li><a href="/exercises/${esc(lab.id)}">
             <strong>Exercise: ${esc(lab.title)}</strong>
             <small>${esc(topicLabel(lab.topic))}, one of your weakest objectives</small>
             <span class="minutes">8 min</span></a></li>` : ""}
@@ -100,7 +100,7 @@ function render() {
     ${plan.advice.length ? `<ul class="advice">${plan.advice.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
 
     ${section("Also open", `<div class="next-list">
-      <a href="#/review">${icon("mistakes")}<strong>${miss ? plural(miss, "open mistake") : "No open mistakes"}</strong>
+      <a href="/review">${icon("mistakes")}<strong>${miss ? plural(miss, "open mistake") : "No open mistakes"}</strong>
         <span>${miss ? `Cleared after confident correct answers on ${P.proof_days} different days.` : "Missed questions and lucky guesses collect here."}</span></a>
       ${mock ? `<button data-start="resume">${icon("timer")}<strong>Resume your mock exam</strong>
           <span>${mock.answered} of ${mock.count} answered, ${plural(mockLeft, "minute")} left.</span></button>`
@@ -127,7 +127,7 @@ function render() {
           <td class="actions"><button class="btn secondary small" data-topic="${t}">Practise</button></td>
         </tr>`;
       }).join("")}</tbody>
-    </table></div>`, { note: `Mastery combines quiz answers, flashcards and exercises per official objective, weighted by how recent they are and how sure you were. <a href="#/progress">See every objective</a>.` })}
+    </table></div>`, { note: `Mastery combines quiz answers, flashcards and exercises per official objective, weighted by how recent they are and how sure you were. <a href="/progress">See every objective</a>.` })}
   `;
 
   $$("[data-start]", main).forEach(a => a.addEventListener("click", e => {

@@ -148,7 +148,7 @@ function render(arg) {
         <details class="disclosure"><summary>Show the expected result</summary><div class="result" style="margin-top:10px">${gridHtml(res.expected_columns, res.expected_rows)}</div></details>`;
     }
     results.innerHTML = html;
-    $("#go-next")?.addEventListener("click", () => go("#/exercises/" + next.id));
+    $("#go-next")?.addEventListener("click", () => go("/exercises/" + next.id));
     const dot = $(`[data-lab="${lab.id}"] .status-dot`, main);
     if (dot) dot.className = "status-dot " + statusOf(lab.id);
   };
@@ -175,14 +175,14 @@ function render(arg) {
     $("#hint-box").innerHTML = `<p class="small muted">Reference solution. Other correct queries are just as valid.</p><pre class="code"><code>${esc(lab.solution)}</code></pre>`;
   });
   $("#reset-starter")?.addEventListener("click", () => { editor.set(lab.starter); store("ex:" + lab.id, lab.starter); editor.focus(); });
-  $("#ex-prev").addEventListener("click", () => go("#/exercises/" + prev.id));
-  $("#ex-next").addEventListener("click", () => go("#/exercises/" + next.id));
-  $("#ex-picker").addEventListener("change", e => go("#/exercises/" + e.target.value));
+  $("#ex-prev").addEventListener("click", () => go("/exercises/" + prev.id));
+  $("#ex-next").addEventListener("click", () => go("/exercises/" + next.id));
+  $("#ex-picker").addEventListener("change", e => go("/exercises/" + e.target.value));
 
   const list = $("#ex-list");
   list.addEventListener("click", e => {
     const b = e.target.closest("[data-lab]");
-    if (b) go("#/exercises/" + b.dataset.lab);
+    if (b) go("/exercises/" + b.dataset.lab);
   });
   $("[aria-current='true']", list)?.scrollIntoView({ block: "center" });
 
@@ -198,7 +198,7 @@ function render(arg) {
     store("ex-filter", { ...f, ...(store("ex-filter") || {}), [key]: e.target.value });
     if (key === "topic" && e.target.value !== "all" && lab.topic !== e.target.value) {
       const first = C.labs.find(l => l.topic === e.target.value);
-      if (first) return go("#/exercises/" + first.id);
+      if (first) return go("/exercises/" + first.id);
     }
     refreshList();
   }));

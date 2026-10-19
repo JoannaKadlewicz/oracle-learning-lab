@@ -27,7 +27,7 @@ export function explainHtml(x) {
     <strong>${esc(x.code)}: ${esc(x.title)}</strong>
     <p>${inlineCode(x.text)}</p>
     ${x.hint ? `<p class="explain-hint">In your statement: ${inlineCode(x.hint)}</p>` : ""}
-    <p class="small"><a href="#/notes" data-note-link="${esc(x.note)}">Read the notes on ${esc(topicName(x.topic))}</a></p>
+    <p class="small"><a href="/notes" data-note-link="${esc(x.note)}">Read the notes on ${esc(topicName(x.topic))}</a></p>
   </div>`;
 }
 

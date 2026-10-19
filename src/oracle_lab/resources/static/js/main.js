@@ -2,7 +2,7 @@
 
 import { esc } from "./core/dom.js";
 import { loadProgress, loadContent } from "./core/state.js";
-import { main, registerViews, route, dispatchKey } from "./core/router.js";
+import { main, registerViews, startRouting, dispatchKey } from "./core/router.js";
 import { initShell, checkDatabase } from "./shell.js";
 import { homeView } from "./views/home.js";
 import { quizView, mockView, resetQuiz } from "./views/quiz.js";
@@ -56,9 +56,7 @@ async function boot() {
     return;
   }
   initShell({ onExamChange: () => { resetQuiz(); resetDeck(); resetExercise(); } });
-  window.addEventListener("hashchange", route);
-  if (!location.hash) history.replaceState(null, "", "#/home");
-  await route();
+  await startRouting();
   checkDatabase();
 }
 
