@@ -3,9 +3,8 @@ import types
 
 import pytest
 
-import content
-import engine
-import server
+from oracle_lab import content
+from oracle_lab.study import engine, mocks
 
 NOW = 1_800_000_000.0
 DAY = engine.DAY
@@ -34,7 +33,8 @@ def empty():
 
 def test_a_mock_covers_every_objective_before_repeating_one():
     mock = engine.build_mock(SMALL, empty(), NOW, 3, 6, rng=random.Random(4))
-    assert sorted(SMALL.QUESTIONS[[x["id"] for x in SMALL.QUESTIONS].index(i)]["objective"] for i in mock["items"]) == ["6.1", "7.1", "7.2"]
+    objective = {x["id"]: x["objective"] for x in SMALL.QUESTIONS}
+    assert sorted(objective[i] for i in mock["items"]) == ["6.1", "7.1", "7.2"]
     assert mock["seen_before"] == [] and mock["submitted"] is None
 
 
@@ -128,38 +128,38 @@ def test_beta_binomial_sums_to_one():
 
 def test_start_answer_and_submit_a_mock():
     state = empty()
-    mock = server.start_mock(state, {"count": 3, "minutes": 10}, NOW)
+    mock = mocks.start_mock(state, {"count": 3, "minutes": 10}, NOW)
     first, second = mock["items"][:2]
     right = content_answer(first)
-    server.answer_mock(state, {"mock_id": mock["id"], "id": first, "chosen": right, "confidence": "sure"}, NOW + 5)
-    server.answer_mock(state, {"mock_id": mock["id"], "id": second, "flagged": True,
-                               "time_on": {first: 12, second: 7, "q99-other": 3}}, NOW + 9)
+    mocks.answer_mock(state, {"mock_id": mock["id"], "id": first, "chosen": right, "confidence": "sure"}, NOW + 5)
+    mocks.answer_mock(state, {"mock_id": mock["id"], "id": second, "flagged": True,
+                              "time_on": {first: 12, second: 7, "q99-other": 3}}, NOW + 9)
     assert mock["answers"][second] == {"chosen": [], "confidence": None, "flagged": True}
     assert mock["time_on"] == {first: 12.0, second: 7.0}
-    server.submit_mock(state, mock, NOW + 20)
+    mocks.submit_mock(state, mock, NOW + 20)
     assert mock["submitted"] == NOW + 20
     assert state["attempts"][first][0] | {"chosen": None} == {"t": NOW + 20, "correct": True, "chosen": None,
                                                               "confidence": "sure", "mode": "exam"}
     assert second not in state["attempts"]  # unanswered: scores zero, but is not recorded as an answer
     assert engine.mock_report(content, mock)["score"] == [1, 3]
     with pytest.raises(ValueError):
-        server.answer_mock(state, {"mock_id": mock["id"], "id": first, "chosen": [0]}, NOW + 21)
+        mocks.answer_mock(state, {"mock_id": mock["id"], "id": first, "chosen": [0]}, NOW + 21)
 
 
 def test_starting_a_mock_abandons_the_running_one():
     state = empty()
-    old = server.start_mock(state, {"count": 3}, NOW)
-    new = server.start_mock(state, {"count": 3}, NOW + 60)
+    old = mocks.start_mock(state, {"count": 3}, NOW)
+    new = mocks.start_mock(state, {"count": 3}, NOW + 60)
     assert old["abandoned"] == NOW + 60 and new["abandoned"] is None
     assert engine.active_mock(state, NOW + 61)["id"] == new["id"]
 
 
 def test_expired_mocks_are_submitted_at_their_deadline():
     state = empty()
-    mock = server.start_mock(state, {"count": 3, "minutes": 10}, NOW)
-    server.finalize_expired(state, NOW + 10 * 60 + engine.MOCK_GRACE - 1)
+    mock = mocks.start_mock(state, {"count": 3, "minutes": 10}, NOW)
+    mocks.finalize_expired(state, NOW + 10 * 60 + engine.MOCK_GRACE - 1)
     assert mock["submitted"] is None
-    server.finalize_expired(state, NOW + 3600)
+    mocks.finalize_expired(state, NOW + 3600)
     assert mock["submitted"] == NOW + 600 and state["attempts"] == {}
 
 

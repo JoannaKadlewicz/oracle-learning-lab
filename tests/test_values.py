@@ -1,7 +1,10 @@
 import datetime
 import decimal
 
-from server import describe_success, to_json_value
+import oracledb
+
+from oracle_lab.database.values import to_json_value
+from oracle_lab.sqltext.messages import describe_success
 
 
 def test_numbers_are_shown_without_trailing_zeros():
@@ -33,8 +36,6 @@ def test_success_messages_match_sqlplus():
 
 
 def test_intervals_are_shown_like_sqlplus():
-    import oracledb
-
     assert to_json_value(datetime.timedelta(days=1)) == "+01 00:00:00"
     assert to_json_value(datetime.timedelta(hours=1, minutes=30)) == "+00 01:30:00"
     assert to_json_value(-datetime.timedelta(days=1, hours=2, minutes=3, seconds=4.5)) == "-01 02:03:04.500000"

@@ -7,7 +7,7 @@ checked against the ORASTUDY seed data on Oracle Database 19.3.
 Content lives in one module per topic (t01_basic_select.py, ...), each defining
 QUESTIONS, FLASHCARDS and LABS. Questions drafted by the AI tutor, checked against the database
 and accepted by you in the review queue, are stored in generated.json and added here.
-Check changes with: .venv/bin/python app/validate_content.py
+Check changes with: oracle-lab validate
 
 Question fields:
     id, topic, objective, prompt, code (optional), options, answer (list of option indexes),

@@ -1,21 +1,21 @@
 """Write a simulated study history to a separate progress file, for screenshots and demos.
 
-    .venv/bin/python app/demo.py /tmp/demo-progress.json
-    STUDY_STATE_FILE=/tmp/demo-progress.json .venv/bin/python app/server.py
+    oracle-lab demo /tmp/demo-progress.json
+    STUDY_STATE_FILE=/tmp/demo-progress.json oracle-lab serve
 
 Simulates five weeks of practice, flashcards, exercises and three mock exams, with skill that
 grows over time. It never touches the database or your real progress file.
 """
 
+import json
 import random
-import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import content  # noqa: E402
-import engine  # noqa: E402
-import server  # noqa: E402
+from oracle_lab import content
+from oracle_lab.study import engine
+from oracle_lab.study.mocks import answer_mock, start_mock, submit_mock
+from oracle_lab.study.recording import record_attempt, record_card
 
 DAY = engine.DAY
 
@@ -45,12 +45,12 @@ def simulate(days=35, seed=7, now=None):
         t = start + d * DAY + 19 * 3600 + rng.randint(0, 3600)
         for qid in engine.pick_questions(content, state, t, rng.randint(12, 24), rng=rng):
             chosen, confidence = answer(questions[qid], t)
-            server.record_attempt(state, {"id": qid, "chosen": chosen, "confidence": confidence}, t)
+            record_attempt(state, {"id": qid, "chosen": chosen, "confidence": confidence}, t)
             t += rng.randint(40, 150)
         for cid in engine.due_cards(content, state, t)[:rng.randint(10, 25)]:
             card = next(c for c in content.FLASHCARDS if c["id"] == cid)
             rating = "again" if rng.random() > skill(card["objective"], t) else rng.choice(["good", "good", "easy"])
-            server.record_card(state, {"id": cid, "rating": rating}, t)
+            record_card(state, {"id": cid, "rating": rating}, t)
             t += rng.randint(8, 30)
         for lab in rng.sample(content.LABS, 2):
             entry = state["labs"].setdefault(lab["id"], {"tries": 0, "passed": False})
@@ -59,25 +59,22 @@ def simulate(days=35, seed=7, now=None):
             entry["t"] = t
             t += rng.randint(200, 600)
         if d in mock_days:
-            mock = server.start_mock(state, {}, t)
+            mock = start_mock(state, {}, t)
             for qid in mock["items"]:
                 chosen, confidence = answer(questions[qid], t)
                 if rng.random() < 0.1:  # first instinct, then a change of mind
                     first, _ = answer(questions[qid], t)
-                    server.answer_mock(state, {"mock_id": mock["id"], "id": qid, "chosen": first}, t)
+                    answer_mock(state, {"mock_id": mock["id"], "id": qid, "chosen": first}, t)
                 t += rng.randint(50, 150)
-                server.answer_mock(state, {"mock_id": mock["id"], "id": qid, "chosen": chosen, "confidence": confidence,
-                                           "time_on": {**mock["time_on"], qid: rng.randint(45, 240)}}, t)
-            server.submit_mock(state, mock, t)
+                answer_mock(state, {"mock_id": mock["id"], "id": qid, "chosen": chosen, "confidence": confidence,
+                                    "time_on": {**mock["time_on"], qid: rng.randint(45, 240)}}, t)
+            submit_mock(state, mock, t)
     return state
 
 
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        sys.exit(__doc__)
-    target = Path(sys.argv[1])
-    if target.resolve() == server.STATE_FILE.resolve():
-        sys.exit("Refusing to overwrite your real progress file. Choose another path.")
-    import json
-    target.write_text(json.dumps(simulate(), indent=1))
-    print(f"Wrote a simulated study history to {target}")
+
+def write_demo(target: Path, real_state_file: Path) -> None:
+    """Write a simulated history to `target`; refuses to overwrite the real progress file."""
+    if target.resolve() == real_state_file.resolve():
+        raise ValueError("Refusing to overwrite your real progress file. Choose another path.")
+    target.write_text(json.dumps(simulate(), indent=1), encoding="utf-8")

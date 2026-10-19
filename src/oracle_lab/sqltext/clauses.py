@@ -28,7 +28,7 @@ class Token:
         return self.text.upper() if self.kind == "word" else self.text
 
 
-def tokens(sql):
+def tokens(sql):  # noqa: C901 - a hand-written scanner reads best as one loop
     out = []
     i, n, depth = 0, len(sql), 0
 
@@ -190,9 +190,9 @@ def item_alias(item):
     toks = [t for t in tokens(item) if t.depth == 0]
     if len(toks) >= 2 and toks[-1].kind in ("word", "ident"):
         prev = toks[-2]
-        if prev.upper == "AS" or prev.kind in ("word", "ident", "number", "string") or prev.text == ")":
-            if toks[-1].upper not in ("NULL",) and not (len(toks) == 3 and toks[1].text == "."):
-                return toks[-1].text.strip('"').upper()
+        follows_expression = prev.upper == "AS" or prev.kind in ("word", "ident", "number", "string") or prev.text == ")"
+        if follows_expression and toks[-1].upper != "NULL" and not (len(toks) == 3 and toks[1].text == "."):
+            return toks[-1].text.strip('"').upper()
     return None
 
 

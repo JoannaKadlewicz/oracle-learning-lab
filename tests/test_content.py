@@ -2,8 +2,8 @@ import copy
 
 import pytest
 
-import content
-import validate_content
+from oracle_lab import content
+from oracle_lab.tools import validate_content
 
 
 def test_content_is_valid():
@@ -65,14 +65,8 @@ def test_detects_duplicate_ids(broken_question):
     assert any("used 2 times" in e for e in validate_content.static_errors())
 
 
-def test_content_runs_against_the_database():
-    import server
-
-    try:
-        server.connect().close()
-    except Exception as exc:  # noqa: BLE001
-        pytest.skip(f"database not reachable: {exc}")
-    assert validate_content.db_errors() == []
+def test_content_runs_against_the_database(database):
+    assert validate_content.db_errors(database) == []
 
 
 @pytest.fixture

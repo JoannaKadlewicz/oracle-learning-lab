@@ -3,7 +3,7 @@
 Pure functions over the saved progress (`state`) and the study content. They take `now`
 (Unix seconds) so they can be tested; calendar days are local days.
 
-State layout (app/state/progress.json):
+State layout (progress.json in the data directory, see config.Settings):
     attempts  {question_id: [{"t", "correct", "chosen", "confidence", "mode"}, ...]}
     cards     {card_id: {"reviews": [[t, "again" | "good" | "easy"], ...]}}
     labs      {lab_id: {"tries", "passed", "last", "t"}}
@@ -14,6 +14,7 @@ State layout (app/state/progress.json):
 """
 
 import datetime
+import itertools
 import math
 import random
 
@@ -540,11 +541,11 @@ def activity(state, now):
         streak += 1
         day -= datetime.timedelta(days=1)
     seconds = 0.0
-    for prev, cur in zip(times, times[1:]):
+    for prev, cur in itertools.pairwise(times):
         gap = cur - prev
         if gap <= SESSION_GAP:
             seconds += min(gap, STEP_CAP)
-    seconds += 60 * sum(1 for prev, cur in zip([None] + times, times) if prev is None or cur - prev > SESSION_GAP)
+    seconds += 60 * sum(1 for prev, cur in zip([None] + times, times, strict=False) if prev is None or cur - prev > SESSION_GAP)
     first = today - datetime.timedelta(days=ACTIVITY_DAYS - 1)
     return {
         "days": [{"date": (first + datetime.timedelta(days=i)).isoformat(),
@@ -577,9 +578,9 @@ def fresh_mock_passes(content, state, threshold=80, min_fresh=50, gap_days=3):
         if not mock.get("submitted") or not is_full_mock(content, mock):
             continue
         right, fresh = mock_report(content, mock)["fresh"]
-        if fresh >= min_fresh and 100 * right >= threshold * fresh:
-            if not good or mock["submitted"] - good[-1] >= gap_days * DAY:
-                good.append(mock["submitted"])
+        passed = fresh >= min_fresh and 100 * right >= threshold * fresh
+        if passed and (not good or mock["submitted"] - good[-1] >= gap_days * DAY):
+            good.append(mock["submitted"])
     return len(good)
 
 
@@ -611,17 +612,21 @@ def badges(content, state, now, by_objective):
     return [
         badge("clean-run", "Clean run", "25 correct answers in a row, none of them guessed, spread over at least 3 days.",
               run, 25, run >= 25 and run_days >= 3),
-        badge("coverage", "Full coverage", "At least one correct answer for every official objective.", len(covered), len(content.OBJECTIVES)),
+        badge("coverage", "Full coverage", "At least one correct answer for every official objective.",
+              len(covered), len(content.OBJECTIVES)),
         badge("all-green", "All green", "Every official objective at the Strong mastery level.", strong, len(content.OBJECTIVES)),
         badge("calibrated", "Calibrated", "At least 50 answers rated Sure, and 90% or more of them correct.",
               cal["answers"], 50, sure_ok),
-        badge("misconceptions", "Misconceptions fixed", "10 questions you once got wrong while sure, now proven on two days.", fixed, 10),
+        badge("misconceptions", "Misconceptions fixed",
+              "10 questions you once got wrong while sure, now proven on two days.", fixed, 10),
         badge("dml-first-try", "DML first try", "Every DML exercise passed on the first check.",
-              sum(1 for lab in dml if labs.get(lab["id"], {}).get("passed") and labs[lab["id"]]["tries"] == 1), len(dml)),
+              sum(1 for lab in dml if labs.get(lab["id"], {}).get("passed") and labs[lab["id"]]["tries"] == 1),
+              len(dml)),
         badge("ddl-own-work", "Schema builder", "Every DDL exercise passed without opening the solution.",
-              sum(1 for lab in ddl if labs.get(lab["id"], {}).get("passed") and not labs[lab["id"]].get("solution_seen")), len(ddl)),
-        badge("lab-master", "Lab master", "Every exercise passed.", sum(1 for lab in content.LABS if labs.get(lab["id"], {}).get("passed")),
-              len(content.LABS)),
+              sum(1 for lab in ddl if labs.get(lab["id"], {}).get("passed") and not labs[lab["id"]].get("solution_seen")),
+              len(ddl)),
+        badge("lab-master", "Lab master", "Every exercise passed.",
+              sum(1 for lab in content.LABS if labs.get(lab["id"], {}).get("passed")), len(content.LABS)),
         badge("long-memory", "Long memory", "100 flashcards with an interval of three weeks or more.", long_cards, 100),
         badge("fresh-mocks", "Exam ready", "3 full mocks at 80% or more on questions new to you, at least 3 days apart.",
               fresh_mock_passes(content, state), 3),

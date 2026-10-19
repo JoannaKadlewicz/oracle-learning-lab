@@ -9,7 +9,7 @@ Hints are best effort: when the query cannot be analysed, only the general text 
 import difflib
 import re
 
-import sqltext
+from oracle_lab.sqltext import clauses as sqltext
 
 # code: (title, explanation, topic of the study notes)
 ERRORS = {
@@ -280,9 +280,9 @@ def hint_00918(message, sql, ctx):
     unqualified = []
     toks = sqltext.tokens(sql)
     for j, t in enumerate(toks):
-        if t.kind == "word" and t.upper in shared and (j == 0 or toks[j - 1].text != "."):
-            if t.upper not in unqualified:
-                unqualified.append(t.upper)
+        if (t.kind == "word" and t.upper in shared and (j == 0 or toks[j - 1].text != ".")
+                and t.upper not in unqualified):
+            unqualified.append(t.upper)
     if unqualified:
         return f"{', '.join(unqualified)} exists in {' and '.join(sorted(set(tables)))}. Qualify it, for example with a table alias."
     return None

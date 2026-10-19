@@ -2,7 +2,7 @@ import datetime
 import random
 import types
 
-import engine
+from oracle_lab.study import engine
 
 DAY = engine.DAY
 NOW = datetime.datetime(2026, 10, 17, 12, 0).timestamp()

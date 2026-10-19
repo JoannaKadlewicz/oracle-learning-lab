@@ -1,8 +1,10 @@
 """Error explanations, SQL text helpers, history and personal notes (no database needed)."""
 
-import errors
-import server
-import sqltext
+from oracle_lab.analysis import error_hints as errors
+from oracle_lab.database.executor import DML_TARGET, Transaction
+from oracle_lab.sqltext import clauses as sqltext
+from oracle_lab.study.notes import NotesLibrary
+from oracle_lab.study.recording import HISTORY_LIMIT, record_history
 
 
 class FakeSchema:
@@ -67,7 +69,7 @@ def test_set_operators_keep_the_final_order_by_apart():
 
 
 def test_transaction_tracks_savepoints_and_ddl_commits():
-    tx = server.Transaction()
+    tx = Transaction()
     assert tx.after("UPDATE t SET x = 1", 3)["pending"] == 3
     assert tx.after("SAVEPOINT a", 0)["savepoints"] == ["A"]
     assert tx.after("DELETE FROM t", 2)["pending"] == 5
@@ -78,26 +80,35 @@ def test_transaction_tracks_savepoints_and_ddl_commits():
 
 def test_history_moves_repeated_sql_to_the_top_and_is_capped():
     state = {}
-    for n in range(server.HISTORY_LIMIT + 5):
-        server.record_history(state, f"SELECT {n} FROM dual", {"ok": True, "results": [{"type": "rows"}]}, n)
-    server.record_history(state, "SELECT 10 FROM dual", {"ok": True, "results": [{"type": "error"}]}, 999)
-    assert len(state["history"]) == server.HISTORY_LIMIT
+    for n in range(HISTORY_LIMIT + 5):
+        record_history(state, f"SELECT {n} FROM dual", {"ok": True, "results": [{"type": "rows"}]}, n)
+    record_history(state, "SELECT 10 FROM dual", {"ok": True, "results": [{"type": "error"}]}, 999)
+    assert len(state["history"]) == HISTORY_LIMIT
     assert state["history"][-1] == {"t": 999, "sql": "SELECT 10 FROM dual", "statements": 1, "errors": 1}
 
 
-def test_personal_notes_get_unique_safe_file_names(tmp_path, monkeypatch):
-    monkeypatch.setattr(server, "NOTES_DIR", tmp_path)
-    first = server.save_personal_note("Outer joins: ../../etc", "SELECT 1 FROM dual;", 1_800_000_000)
-    second = server.save_personal_note("Outer joins: ../../etc", "SELECT 2 FROM dual;", 1_800_000_000)
+def test_personal_notes_get_unique_safe_file_names(tmp_path):
+    notes = NotesLibrary(tmp_path / "builtin", tmp_path / "personal")
+    first = notes.save("Outer joins: ../../etc", "SELECT 1 FROM dual;", 1_800_000_000)
+    second = notes.save("Outer joins: ../../etc", "SELECT 2 FROM dual;", 1_800_000_000)
     assert first.startswith("personal/") and first.endswith("-outer-joins-etc.md")
     assert second.endswith("-outer-joins-etc-2.md")
     assert "```sql\nSELECT 1 FROM dual;\n```" in (tmp_path / first).read_text()
-    assert [n["title"] for n in server.list_notes() if n["path"].startswith("personal/")] == [
+    assert [n["title"] for n in notes.list() if n["path"].startswith("personal/")] == [
         "My notes / Outer joins: ../../etc"] * 2
 
 
+def test_only_listed_notes_can_be_read(tmp_path):
+    (tmp_path / "builtin" / "docs").mkdir(parents=True)
+    (tmp_path / "builtin" / "docs" / "cheat-sheet.md").write_text("# Cheat sheet")
+    (tmp_path / "secret.txt").write_text("password")
+    notes = NotesLibrary(tmp_path / "builtin", tmp_path / "personal")
+    assert notes.read("docs/cheat-sheet.md") == "# Cheat sheet"
+    assert notes.read("../secret.txt") is None and notes.read("personal/../../secret.txt") is None
+
+
 def test_dml_target_table_is_found_for_every_dml_form():
-    found = {sql: server.DML_TARGET.match(sql).group(1) for sql in (
+    found = {sql: DML_TARGET.match(sql).group(1) for sql in (
         "DELETE FROM order_items WHERE 1 = 1", "DELETE order_items", "UPDATE employees e SET x = 1",
         "INSERT INTO departments VALUES (1)", "MERGE INTO orastudy.products p USING dual ON (1 = 1)")}
     assert list(found.values()) == ["order_items", "order_items", "employees", "departments", "orastudy.products"]

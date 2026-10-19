@@ -39,26 +39,29 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
-          cache-dependency-path: app/requirements*.txt
+          cache-dependency-path: pyproject.toml
 
-      - name: Install dependencies
-        run: pip install -r app/requirements-dev.txt
+      - name: Install the app and the dev tools
+        run: pip install -e '.[dev]'
+
+      - name: Lint (ruff)
+        run: ruff check src tests
 
       - name: Content structure checks (no database)
-        run: python app/validate_content.py --static
+        run: oracle-lab validate --static
 
       - name: Create the sample schema
-        run: python app/init_db.py
+        run: oracle-lab init-db
 
       - name: Tests (pytest)
-        run: python -m pytest -q app/tests
+        run: python -m pytest -q
 
       # The content was written and verified on Oracle 19c; this job runs it on XE 21c.
       # A failure here can be a real content error or a 19c/21c behaviour difference:
       # read the messages before changing content.
       - name: Content checks against the database (Oracle XE 21c)
         if: ${{ !cancelled() }}
-        run: python app/validate_content.py
+        run: oracle-lab validate
 
   test-23ai:
     name: 1Z0-171 content checks (Oracle 23ai Free)
@@ -94,21 +97,45 @@ jobs:
         with:
           python-version: "3.14"
           cache: pip
-          cache-dependency-path: app/requirements*.txt
+          cache-dependency-path: pyproject.toml
 
-      - name: Install dependencies
-        run: pip install -r app/requirements-dev.txt
+      - name: Install the app
+        run: pip install .
 
       # The validator opens many short sessions; the default process limit of Oracle Free is too low.
       - name: Grant privileges and raise the process limit
         run: |
-          docker exec -i ${{ job.services.oracle23.id }} sqlplus -s / as sysdba < docker/23ai-grants.sql
+          docker exec -i ${{ job.services.oracle23.id }} sqlplus -s / as sysdba < docker/23ai/01-grants.sql
           echo "ALTER SYSTEM SET processes=600 SCOPE=SPFILE;" | docker exec -i ${{ job.services.oracle23.id }} sqlplus -s / as sysdba
           docker restart ${{ job.services.oracle23.id }}
 
       - name: Create the sample schema
-        run: python app/init_db.py
+        run: oracle-lab init-db
 
       # Oracle 23ai or later: the validator checks the items of the 1Z0-171 track.
       - name: Content checks against the database (Oracle 23ai)
-        run: python app/validate_content.py
+        run: oracle-lab validate
+
+  container:
+    name: Container scripts and the app-only image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The all-in-one image needs a licensed Oracle 19c base image, which CI does not have;
+    # its scripts are checked here, and the app-only image is built and smoke-tested.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shellcheck
+        run: shellcheck docker/oracle/*.sh docker/oracle/startup/*.sh scripts/*.sh
+
+      - name: Compose file is valid
+        run: scripts/init-secrets.sh && docker compose config --quiet
+
+      - name: Build the app-only image
+        run: docker build -f docker/app.Dockerfile -t oracle-learning-lab-app .
+
+      - name: Smoke test (health check without a database)
+        run: |
+          docker run -d --name app -p 127.0.0.1:8071:8071 oracle-learning-lab-app oracle-lab serve
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8071/healthz && exit 0; sleep 1; done
+          docker logs app; exit 1

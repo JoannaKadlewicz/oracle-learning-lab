@@ -40,40 +40,49 @@ database and measures your readiness without letting you fool yourself.
 | ![Error explained](docs/screenshots/error-explained.png) | ![Quiz with confidence](docs/screenshots/quiz.png) |
 | An Oracle error explained, with a hint about the statement | Checking an answer by saying how sure you are |
 
-Screenshots use a simulated study history (`app/demo.py`). The printable readiness report is
+Screenshots use a simulated study history (`oracle-lab demo`). The printable readiness report is
 shown in [docs/screenshots/readiness-report.png](docs/screenshots/readiness-report.png).
 
 ## Quick start with Docker
 
-Needs Docker with Compose v2; no local Oracle installation.
+One container runs Oracle Database 19c and the app. The database files and your progress live in
+`./data` on the host, and the passwords in `./secrets`. You need Docker with Compose v2 and an
+Oracle 19c base image built from [oracle/docker-images](https://github.com/oracle/docker-images)
+(Oracle publishes no pullable 19c image).
 
-    docker compose up -d --build        # first run downloads about 1.3 GB (Oracle XE 21c)
+    cp .env.example .env     # set ORACLE_BASE_IMAGE to your 19c image
+    make up                  # generates ./secrets, builds, starts; the first start creates the database (10-30 min)
+    make logs
 
-Open http://127.0.0.1:8071 when `docker compose logs app` shows `Oracle Learning Lab: ...`
-(usually under a minute). Details, settings and data persistence: [docs/docker.md](docs/docker.md).
+Then open http://127.0.0.1:8071 and log in as `study` with the password in `secrets/study_auth_password`.
+For details (credentials, data folders, 23ai, the app-only image), see [docs/docker.md](docs/docker.md).
 
 ## Run against your own Oracle database
 
-Requirements: Python 3 (tested with 3.14), Oracle Database 19c (the content targets 19c; XE 21c also passes all
-checks), and a learning user with CREATE SESSION, TABLE, VIEW, SEQUENCE and SYNONYM.
+Requirements: Python 3.12 or later (tested with 3.14), Oracle Database 19c (the content targets 19c; XE 21c also passes
+all checks), and a learning user with CREATE SESSION, TABLE, VIEW, SEQUENCE and SYNONYM.
 
-    python -m venv .venv
-    .venv/bin/pip install -r app/requirements.txt
-    .venv/bin/python app/init_db.py     # once: creates the sample tables if they are missing
-    .venv/bin/python app/server.py      # then open http://127.0.0.1:8071
+    make venv                                     # .venv with the app (editable) and the dev tools
+    echo 'the-password' > ~/.orastudy_pwd && chmod 600 ~/.orastudy_pwd
+    .venv/bin/oracle-lab init-db                  # once: creates the sample tables if they are missing
+    .venv/bin/oracle-lab serve                    # then open http://127.0.0.1:8071
 
-The server listens on 127.0.0.1 only: the SQL lab runs any SQL you type. Settings:
+The server listens on 127.0.0.1 only, because the SQL lab runs any SQL you type. Passwords are read
+from files (`*_FILE`) rather than from the code or the command line. Settings:
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `STUDY_DSN` | `localhost:1521/ORAPDB1` | Database to connect to |
 | `STUDY_USER` | `orastudy` | Learning user |
-| `STUDY_PASSWORD` | – | Its password (otherwise read from `STUDY_PASSWORD_FILE`) |
-| `STUDY_PASSWORD_FILE` | `~/.orastudy_pwd` | File holding the password |
+| `STUDY_PASSWORD_FILE` | `~/.orastudy_pwd` | File holding its password (`STUDY_PASSWORD` also works, e.g. in CI) |
 | `STUDY_HOST`, `STUDY_PORT` | `127.0.0.1`, `8071` | Where the app listens |
-| `STUDY_STATE_FILE` | `app/state/progress.json` | Where your progress is saved |
+| `STUDY_DATA_DIR` | `~/.local/share/oracle-learning-lab` | Your progress (`progress.json`) and saved notes (`notes/`) |
+| `STUDY_STATE_FILE` | `$STUDY_DATA_DIR/progress.json` | Progress file, if it should live elsewhere |
+| `STUDY_AUTH_PASSWORD_FILE` | – | Turns on a login (user `STUDY_AUTH_USER`, default `study`) |
 | `STUDY_DSN_23AI` | – | Optional Oracle 23ai database used while the 1Z0-171 track is chosen |
-| `STUDY_USER_23AI`, `STUDY_PASSWORD_23AI` | the 19c user and password | Its learning user |
+| `STUDY_USER_23AI`, `STUDY_PASSWORD_23AI_FILE` | the 19c user and password | Its learning user |
+
+The full list, with validation, is in [src/oracle_lab/config.py](src/oracle_lab/config.py).
 
 ## Features
 
@@ -83,7 +92,7 @@ The server listens on 127.0.0.1 only: the SQL lab runs any SQL you type. Setting
   and by unseen questions; in exam mode a filtered set becomes a timed drill.
 - **Confidence and calibration**: rate each answer Sure / Think so / Guessing (keys S, T, G);
   the app tracks how often you are right when you are sure.
-- **Learning engine** (`app/engine.py`): SM-2 spacing for flashcards and questions, mistakes that
+- **Learning engine** (`study/engine.py`): SM-2 spacing for flashcards and questions, mistakes that
   need confident correct answers on two days, mastery per official objective, interleaved
   practice, and a daily plan sized to your exam date and study time.
 - **Readiness**: pass probability with a score range, a "ready to book" checklist, mock trend,
@@ -102,36 +111,50 @@ The server listens on 127.0.0.1 only: the SQL lab runs any SQL you type. Setting
 
 ## Develop
 
-    .venv/bin/pip install -r app/requirements-dev.txt
-    .venv/bin/python -m pytest app/tests                   # database tests skip if Oracle is down
-    .venv/bin/python app/validate_content.py --coverage    # check all content against the database
-    STUDY_DSN=localhost:1522/FREEPDB1 STUDY_PASSWORD=... .venv/bin/python app/validate_content.py  # 1Z0-171 items on 23ai
-    .venv/bin/python app/demo.py /tmp/demo.json            # simulated progress for screenshots
-    STUDY_STATE_FILE=/tmp/demo.json .venv/bin/python app/server.py
+    make check                                  # ruff + content structure + pytest (database tests skip if Oracle is down)
+    .venv/bin/oracle-lab validate --coverage    # check all content against the database
+    STUDY_DSN=localhost:1522/FREEPDB1 STUDY_PASSWORD_FILE=~/.orastudy23_pwd .venv/bin/oracle-lab validate  # 1Z0-171 items on 23ai
+    .venv/bin/oracle-lab demo /tmp/demo.json    # simulated progress for screenshots
+    STUDY_STATE_FILE=/tmp/demo.json .venv/bin/oracle-lab serve
 
-How to write questions, flashcards and exercises: [app/content/AUTHORING.md](app/content/AUTHORING.md).
-CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the tests and the content checks
-against Oracle XE 21c.
+To write questions, flashcards and exercises, see [src/oracle_lab/content/AUTHORING.md](src/oracle_lab/content/AUTHORING.md).
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs the lint, the tests and the content checks
+against Oracle XE 21c and Oracle 23ai Free.
 
-    app/
-    ├── server.py           HTTP server, SQL execution, grading
-    ├── engine.py           spacing, mistakes, mastery, readiness, mock exams, badges
-    ├── errors.py           explanations and hints for Oracle errors
-    ├── sqlviz.py           join and set-operator visualizer
-    ├── sqltext.py          light SQL text analysis used by both
-    ├── report.py           printable readiness report
-    ├── validate_content.py checks content structure and runs it against the database
-    ├── init_db.py          waits for the database and creates the sample schema once
-    ├── demo.py             simulated study history
+### Architecture
+
+The front end talks to a JSON API, and the API is served by layers that depend only on the layers
+below them:
+
+    src/oracle_lab/
+    ├── cli.py              `oracle-lab` command: serve, init-db, validate, demo, healthcheck
+    ├── bootstrap.py        composition root: the only module that picks concrete classes
+    ├── config.py           Settings from the environment (frozen dataclasses, validated)
+    ├── credentials.py      Secret: passwords from *_FILE / Docker secrets, read on demand, never logged
+    ├── web/                HTTP adapter
+    │   ├── http.py         Request / Response / HttpError (no sockets)
+    │   ├── routing.py      Router; controllers register their own routes
+    │   ├── middleware.py   access log, error boundary, basic auth, same-origin check
+    │   ├── controllers/    one per area: study, mock exams, SQL lab + exercises, notes, health
+    │   ├── static.py       the single-page front end
+    │   ├── report.py       printable readiness report
+    │   └── server.py       ThreadingHTTPServer adapter with graceful shutdown
+    ├── services/           use cases: StudyService, MockExamService, SqlLabService, ExerciseService
+    ├── study/              domain: engine (spacing, mastery, readiness, mocks), recording rules,
+    │                       mock exams, exam tracks, notes library, StateStore (atomic JSON file)
+    ├── grading/            run submissions and solutions, compare results row by row
+    ├── database/           connections and the per-track DatabaseCatalog, script runner,
+    │                       value formatting, schema browser, sample schema (init and reset)
+    ├── analysis/           Oracle error explanations, join and set-operator visualizer
+    ├── sqltext/            pure SQL text helpers: statement splitter, clauses, SQL*Plus messages
     ├── content/            questions, flashcards, exercises (one module per topic), objectives
-    ├── sql/                sample schema create, seed and cleanup scripts
-    ├── notes/              study notes; notes/personal holds your saved SQL notes
-    ├── static/             front end, native ES modules, no build step
-    │   ├── index.html      app shell: navigation, icons, vendor scripts
-    │   ├── css/            design tokens and styles in cascade layers (app.css is the entry)
-    │   └── js/             main.js; core/ (state, API, router), ui/ (shared rendering), views/ (one per page)
-    ├── state/              your progress (progress.json)
-    └── tests/              pytest suite
+    ├── tools/              content validator, demo history
+    └── resources/          static/ (front end, ES modules, no build step), sql/ (sample schema), notes/
+    tests/                  pytest suite (unit, HTTP end to end, and database tests)
+    docker/                 container entrypoint, health check, ORASTUDY provisioning, app-only image
+
+Every service gets what it needs through its constructor, such as a `StateStore`, a `DatabaseCatalog`
+or a clock. The tests can therefore swap in an in-memory store or a fixed time.
 
 ## Articles
 

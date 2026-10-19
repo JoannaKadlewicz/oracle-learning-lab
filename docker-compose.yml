@@ -1,41 +1,76 @@
-# One-command setup: Oracle Database XE 21c + Oracle Learning Lab.
-#   docker compose up -d --build      then open http://127.0.0.1:8071
-# With Oracle 23ai for the 1Z0-171 track as well:
-#   STUDY_DSN_23AI=oracle23:1521/FREEPDB1 docker compose --profile 23ai up -d --build
-# See docs/docker.md.
+# Oracle Learning Lab: Oracle Database 19c and the web app in one container.
+#
+#   make secrets            generate the passwords into ./secrets (once)
+#   make up                 build and start; open http://127.0.0.1:8071 (login: study / secrets/study_auth_password)
+#
+# The database files live on the host in ${DATA_DIR}/oradata, the app's progress and notes in
+# ${DATA_DIR}/app, so `docker compose down` (even with -v) never deletes them. See docs/docker.md.
+#
+# Optional, the 1Z0-171 track on Oracle 23ai as well:
+#   STUDY_DSN_23AI=oracle23:1521/FREEPDB1 docker compose --profile 23ai up -d
 
 name: oracle-learning-lab
 
 services:
-  oracle:
-    image: gvenzl/oracle-xe:21-slim-faststart
-    environment:
-      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-orastudy_sys}
-      APP_USER: orastudy
-      APP_USER_PASSWORD: ${STUDY_PASSWORD:-orastudy}
-    # No ports: the database is only reachable from the app container
-    # (another Oracle may already use host port 1521).
+  # Host folders are created by Docker as root; Oracle runs as uid 54321 and must own them.
+  prepare-data:
+    image: busybox:1.37.0
+    user: "0:0"
+    command: ["sh", "-c", "mkdir -p /data/oradata /data/oradata-23ai /data/app && chown 54321:54321 /data/oradata /data/oradata-23ai /data/app"]
     volumes:
-      - oracle-data:/opt/oracle/oradata
-    healthcheck:
-      test: ["CMD", "healthcheck.sh"]
-      interval: 10s
-      timeout: 10s
-      retries: 60
-      start_period: 30s
+      - ${DATA_DIR:-./data}:/data
+    restart: "no"
+
+  lab:
+    build:
+      context: .
+      args:
+        ORACLE_BASE_IMAGE: ${ORACLE_BASE_IMAGE:-oracledb:19.3.0}
+    image: oracle-learning-lab:${LAB_IMAGE_TAG:-latest}
+    depends_on:
+      prepare-data:
+        condition: service_completed_successfully
+    init: true                 # tini as PID 1: forwards signals, reaps Oracle's orphaned processes
+    shm_size: 1g               # Oracle's shared memory
+    stop_grace_period: 3m      # time for SHUTDOWN IMMEDIATE before Docker kills the database
+    environment:
+      STUDY_AUTH_PASSWORD_FILE: /run/secrets/study_auth_password
+      STUDY_LOG_LEVEL: ${STUDY_LOG_LEVEL:-INFO}
+      # Empty: both exam tracks use the 19c database. With --profile 23ai: oracle23:1521/FREEPDB1
+      STUDY_DSN_23AI: ${STUDY_DSN_23AI:-}
+      # Optional memory sizing of the database on first creation (MB, both or neither).
+      INIT_SGA_SIZE: ${ORACLE_SGA_MB:-}
+      INIT_PGA_SIZE: ${ORACLE_PGA_MB:-}
+    secrets:
+      - oracle_pwd
+      - study_db_password
+      - study_auth_password
+    # Localhost only: the SQL lab runs any SQL you type. 1521 is for SQL Developer / SQLcl.
+    ports:
+      - "127.0.0.1:${LAB_PORT:-8071}:8071"
+      - "127.0.0.1:${ORACLE_PORT:-1525}:1521"
+    volumes:
+      - ${DATA_DIR:-./data}/oradata:/opt/oracle/oradata
+      - ${DATA_DIR:-./data}/app:/var/lib/oracle-lab
     restart: unless-stopped
 
   # Optional (profile "23ai"): Oracle 23ai Free for the 1Z0-171 track.
   oracle23:
     image: gvenzl/oracle-free:23-slim-faststart
     profiles: ["23ai"]
+    depends_on:
+      prepare-data:
+        condition: service_completed_successfully
     environment:
-      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-orastudy_sys}
+      ORACLE_PASSWORD_FILE: /run/secrets/oracle_pwd
       APP_USER: orastudy
-      APP_USER_PASSWORD: ${STUDY_PASSWORD:-orastudy}
+      APP_USER_PASSWORD_FILE: /run/secrets/study_db_password
+    secrets:
+      - oracle_pwd
+      - study_db_password
     volumes:
-      - oracle23-data:/opt/oracle/oradata
-      - ./docker/23ai-grants.sql:/container-entrypoint-initdb.d/23ai-grants.sql:ro
+      - ${DATA_DIR:-./data}/oradata-23ai:/opt/oracle/oradata
+      - ./docker/23ai:/container-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh"]
       interval: 10s
@@ -44,30 +79,11 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  app:
-    build: .
-    image: oracle-learning-lab-app
-    depends_on:
-      oracle:
-        condition: service_healthy
-    environment:
-      STUDY_HOST: 0.0.0.0
-      STUDY_PORT: "8071"
-      STUDY_DSN: oracle:1521/XEPDB1
-      STUDY_USER: orastudy
-      STUDY_PASSWORD: ${STUDY_PASSWORD:-orastudy}
-      # Set to oracle23:1521/FREEPDB1 together with --profile 23ai; empty: one database for both tracks.
-      STUDY_DSN_23AI: ${STUDY_DSN_23AI:-}
-    # Localhost only: the SQL lab runs any SQL you type.
-    ports:
-      - "127.0.0.1:${STUDY_PUBLISH_PORT:-8071}:8071"
-    volumes:
-      - study-state:/srv/app/state
-      - study-notes:/srv/app/notes/personal
-    restart: unless-stopped
-
-volumes:
-  oracle-data:
-  oracle23-data:
-  study-state:
-  study-notes:
+# Plain files on the host, mounted read-only at /run/secrets/<name>; never baked into the image.
+secrets:
+  oracle_pwd:
+    file: ./secrets/oracle_pwd
+  study_db_password:
+    file: ./secrets/study_db_password
+  study_auth_password:
+    file: ./secrets/study_auth_password

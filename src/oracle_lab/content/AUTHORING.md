@@ -6,8 +6,8 @@ Content lives in one module per topic (`t01_basic_select.py` …), each with thr
 
 After every change run, from the repository root:
 
-    .venv/bin/python app/validate_content.py --coverage
-    .venv/bin/python -m pytest -q app/tests
+    .venv/bin/oracle-lab validate --coverage
+    .venv/bin/python -m pytest -q
 
 Both must pass. The validator runs your SQL against the ORASTUDY schema and rolls back.
 `--topic t08` limits the database checks to one topic (much faster while authoring).
@@ -27,9 +27,9 @@ The app prepares for two exams: **1Z0-071** (Oracle Database SQL, 19c behavior) 
 - The validator checks 1Z0-171 items when connected to Oracle 23ai or later and 1Z0-071 items
   on older versions. Check against both databases:
 
-      .venv/bin/python app/validate_content.py --topic t15                         # 19c
-      STUDY_DSN=localhost:1522/FREEPDB1 STUDY_PASSWORD=Study23ai \
-          .venv/bin/python app/validate_content.py --topic t15                     # 23ai
+      .venv/bin/oracle-lab validate --topic t15                                    # 19c
+      STUDY_DSN=localhost:1522/FREEPDB1 STUDY_PASSWORD_FILE=~/.orastudy23_pwd \
+          .venv/bin/oracle-lab validate --topic t15                                # 23ai
 
 ## Ground rules
 
@@ -114,7 +114,7 @@ drops the lab's objects before and after grading.
      "cleanup": "DROP TABLE lab_projects PURGE;"}
 
 - Object names created by labs must start with `LAB_` and be unique across all content
-  (search `app/content` before choosing one). Cleanup may only drop `LAB_` objects.
+  (search `src/oracle_lab/content` before choosing one). Cleanup may only drop `LAB_` objects.
 - The check must not depend on system-generated names (`SYS_C…`), sequence values, or
   SYSDATE: the validator runs the solution twice and requires identical results.
 - The check must give a different result without the solution, so doing nothing cannot pass.
@@ -130,8 +130,8 @@ already pass. Start the title with "Fix:".
 
 Tables: departments, employees, customers, products, orders, order_items, salary_grades,
 events (time zones and intervals) and promotions (always empty). The edge cases built into the
-data are listed at the top of `app/sql/02_seed_data.sql`. Never change the sample data or the
-scripts in `app/sql/`: existing answers depend on them.
+data are listed at the top of `src/oracle_lab/resources/sql/02_seed_data.sql`. Never change the sample data or the
+scripts in `src/oracle_lab/resources/sql/`: existing answers depend on them.
 
 Database safety while authoring:
 - Experiment with `server.run_script(sql)` (rolled back) or a connection you roll back.

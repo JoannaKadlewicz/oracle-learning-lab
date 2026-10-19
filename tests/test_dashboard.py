@@ -1,7 +1,7 @@
 import datetime
 
-import content
-import engine
+from oracle_lab import content
+from oracle_lab.study import engine
 
 NOW = datetime.datetime(2026, 10, 17, 20, 0).timestamp()
 DAY = engine.DAY
@@ -81,7 +81,8 @@ def test_ready_to_book_lists_the_definition_of_done():
 
 
 def test_report_renders_for_empty_and_used_progress():
-    import report
+    from oracle_lab.web import report
+
     empty = report.render(content, {}, engine.progress(content, {}, NOW), NOW)
     assert "Not enough evidence yet" in empty and "No mock exams yet." in empty
     state = {"attempts": {QIDS[i]: [answer(NOW - i)] for i in range(40)},
@@ -93,7 +94,8 @@ def test_report_renders_for_empty_and_used_progress():
 
 
 def test_demo_history_is_consistent_and_feeds_every_dashboard_part():
-    import demo
+    from oracle_lab.tools import demo
+
     state = demo.simulate(days=20, seed=3, now=NOW)
     progress = engine.progress(content, state, NOW)
     assert len(progress["mocks"]) == 3 and progress["activity"]["active_days"] >= 10

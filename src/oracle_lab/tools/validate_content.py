@@ -1,10 +1,9 @@
 """Check the study content before using it.
 
-Run from the repository root:
-    .venv/bin/python app/validate_content.py            # structure + database checks
-    .venv/bin/python app/validate_content.py --static   # structure only, no database
-    .venv/bin/python app/validate_content.py --reset    # reset the sample data first
-    .venv/bin/python app/validate_content.py --topic t08  # database checks for one topic only
+    oracle-lab validate               # structure + database checks
+    oracle-lab validate --static      # structure only, no database
+    oracle-lab validate --reset       # reset the sample data first
+    oracle-lab validate --topic t08   # database checks for one topic only
 
 Structure checks: unique IDs, valid topics and objectives, valid answer indexes,
 "Which two/three" prompts matching the number of answers, known fields only,
@@ -24,13 +23,16 @@ Exits with status 1 if any check fails.
 
 import argparse
 import re
-import sys
 from collections import Counter
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import content  # noqa: E402
-import server  # noqa: E402
+from oracle_lab import content
+from oracle_lab.database.connection import Database
+from oracle_lab.database.executor import ScriptRunner
+from oracle_lab.database.query import first_line, format_error, single_query
+from oracle_lab.database.sample_schema import SampleSchema
+from oracle_lab.grading.comparison import compare_results, normalize_rows
+from oracle_lab.grading.labs import DML_LAB_VERBS, LabKind, lab_kind, lab_result, run_cleanup
+from oracle_lab.sqltext.statements import StatementKind, split_statements
 
 QUESTION_KEYS = {"id", "topic", "objective", "prompt", "code", "options", "answer", "explanation",
                  "try_sql", "try_error", "try_error_since", "answer_sql", "equivalent_sql", "exams"}
@@ -81,7 +83,7 @@ def check_fields(kind, item, allowed, required):
     return errors
 
 
-def check_question(q):
+def check_question(q):  # noqa: C901 - a flat checklist, one rule after the other
     errors = check_fields("question", q, QUESTION_KEYS, QUESTION_REQUIRED)
     label = f"question {q.get('id', '?')}"
     topic = q.get("topic", "")
@@ -90,7 +92,8 @@ def check_question(q):
 
     options = q.get("options")
     answer = q.get("answer")
-    if not (isinstance(options, list) and 2 <= len(options) <= MAX_OPTIONS and all(isinstance(o, str) and o.strip() for o in options)):
+    valid_options = isinstance(options, list) and all(isinstance(o, str) and o.strip() for o in options)
+    if not (valid_options and 2 <= len(options) <= MAX_OPTIONS):
         errors.append(f"{label}: options must be 2 to {MAX_OPTIONS} non-empty strings")
         return errors
     if len(set(options)) != len(options):
@@ -121,10 +124,9 @@ def check_question(q):
             str(k).isdigit() and isinstance(v, str) and re.fullmatch(r"ORA-\d{5}", v) for k, v in since.items())):
         errors.append(f'{label}: try_error_since must look like {{"21": "ORA-30926"}} next to try_error')
     if "try_sql" in q:
-        for stmt in server.split_statements(q["try_sql"]):
-            verb = server.first_word(stmt["text"])[0]
-            if stmt["kind"] != "sql" or verb not in TRY_SQL_VERBS:
-                errors.append(f"{label}: try_sql may only use {', '.join(sorted(TRY_SQL_VERBS))}, not {verb or stmt['kind']}"
+        for stmt in split_statements(q["try_sql"]):
+            if stmt.kind is not StatementKind.SQL or stmt.verb not in TRY_SQL_VERBS:
+                errors.append(f"{label}: try_sql may only use {', '.join(sorted(TRY_SQL_VERBS))}, not {stmt.verb or stmt.kind}"
                               " (DDL and COMMIT would change the sample data for good)")
     if "answer_sql" in q and len(answer) != 1:
         errors.append(f"{label}: answer_sql needs exactly one correct option")
@@ -149,12 +151,12 @@ def check_lab(lab):
     if "check" in lab and not re.search(r"\bORDER\s+BY\b", lab["check"], re.IGNORECASE):
         errors.append(f"{label}: the check query needs an ORDER BY, because its row order is graded")
     if kind == "dml":
-        for stmt in server.split_statements(lab.get("solution", "")):
-            if server.first_word(stmt["text"])[0] not in server.DML_LAB_VERBS:
-                errors.append(f"{label}: a dml solution may only use {', '.join(sorted(server.DML_LAB_VERBS))}")
-    for stmt in server.split_statements(lab.get("cleanup", "")):
-        if not CLEANUP_STATEMENT.fullmatch(stmt["text"]):
-            errors.append(f"{label}: cleanup may only drop LAB_ objects, not: {stmt['text']}")
+        for stmt in split_statements(lab.get("solution", "")):
+            if stmt.verb not in DML_LAB_VERBS:
+                errors.append(f"{label}: a dml solution may only use {', '.join(sorted(DML_LAB_VERBS))}")
+    for stmt in split_statements(lab.get("cleanup", "")):
+        if not CLEANUP_STATEMENT.fullmatch(stmt.text):
+            errors.append(f"{label}: cleanup may only drop LAB_ objects, not: {stmt.text}")
     if "starter" in lab and kind == "ddl":
         errors.append(f"{label}: starter is for query and dml exercises only")
     if "hint2" in lab and "hint" not in lab:
@@ -194,16 +196,12 @@ def coverage():
     return table
 
 
-def first_line(text):
-    return text.strip().splitlines()[0] if text.strip() else text
-
-
 def query_or_error(conn, sql):
     """Return (columns, rows) of a single query, or the error text."""
     try:
-        return server.single_query(conn, sql)
+        return single_query(conn, sql)
     except Exception as exc:  # noqa: BLE001
-        return first_line(server.format_error(exc))
+        return first_line(format_error(exc))
     finally:
         conn.rollback()
 
@@ -214,11 +212,11 @@ def expected_error(q, major_version):
     return since[max(since)] if since else q.get("try_error")
 
 
-def question_db_errors(conn, q):
+def question_db_errors(database, conn, q):
     errors = []
     label = f"question {q['id']}"
     if "try_sql" in q:
-        result = server.run_script(q["try_sql"])
+        result = ScriptRunner(database).run(q["try_sql"])
         if not result["ok"]:
             return [f"cannot connect: {result['connect_error']}"]
         raised = [first_line(r["error"]) for r in result["results"] if r["type"] == "error"]
@@ -246,7 +244,7 @@ def question_db_errors(conn, q):
         for i, option in enumerate(q["options"]):
             result = query_or_error(conn, option)
             if (not isinstance(result, str) and len(result[0]) == len(base[0])
-                    and sorted(server.normalize_rows(result[1])) == sorted(server.normalize_rows(base[1]))):
+                    and sorted(normalize_rows(result[1])) == sorted(normalize_rows(base[1]))):
                 same.add(i)
         if same != set(q["answer"]):
             errors.append(f"{label}: options returning the same rows as equivalent_sql are {sorted(same)}, "
@@ -257,10 +255,10 @@ def question_db_errors(conn, q):
 def starter_errors(conn, lab, columns, rows):
     """A "fix the bug" starter must fail or give a different result than the solution."""
     try:
-        got = server.lab_result(conn, lab, lab["starter"])
+        got = lab_result(conn, lab, lab["starter"])
     except Exception:  # noqa: BLE001
         return []
-    if server.compare_results(lab, got[0], got[1], columns, rows)["passed"]:
+    if compare_results(lab, got[0], got[1], columns, rows)["passed"]:
         return [f"lab {lab['id']}: the starter already passes"]
     return []
 
@@ -269,13 +267,13 @@ def lab_db_errors(conn, lab):
     label = f"lab {lab['id']}"
     errors = []
     try:
-        columns, rows = server.lab_result(conn, lab, lab["solution"])
+        columns, rows = lab_result(conn, lab, lab["solution"])
     except Exception as exc:  # noqa: BLE001
-        return [f"{label}: solution failed: {first_line(server.format_error(exc))}"]
+        return [f"{label}: solution failed: {first_line(format_error(exc))}"]
     if "starter" in lab:
         errors += starter_errors(conn, lab, columns, rows)
 
-    if server.lab_kind(lab) == "query":
+    if lab_kind(lab) is LabKind.QUERY:
         named = [c.strip().upper() for c in lab["columns"].split(",")]
         if [c.upper() for c in columns] != named:
             errors.append(f"{label}: solution returns {', '.join(columns)}, task names {lab['columns']}")
@@ -285,12 +283,12 @@ def lab_db_errors(conn, lab):
             errors.append(f"{label}: ordered is True but the solution has no ORDER BY")
         return errors
 
-    again = server.lab_result(conn, lab, lab["solution"])
+    again = lab_result(conn, lab, lab["solution"])
     if again != (columns, rows):
         errors.append(f"{label}: the solution gives a different check result when run twice "
                       "(system-generated names, sequences or SYSDATE in the check?)")
-    if server.lab_kind(lab) == "ddl":
-        server.run_cleanup(conn, lab)
+    if lab_kind(lab) is LabKind.DDL:
+        run_cleanup(conn, lab)
     before = query_or_error(conn, lab["check"])
     if before == (columns, rows):
         errors.append(f"{label}: the check query gives the same result without the solution, so doing nothing passes")
@@ -302,11 +300,11 @@ def track_of(conn):
     return "1Z0-171" if int(conn.version.split(".")[0]) >= 23 else "1Z0-071"
 
 
-def db_errors(topic=None):
+def db_errors(database: Database, topic=None):
     try:
-        conn = server.connect()
+        conn = database.connect()
     except Exception as exc:  # noqa: BLE001
-        return [f"cannot connect: {first_line(server.format_error(exc))}"]
+        return [f"cannot connect: {first_line(format_error(exc))}"]
     errors = []
     track = track_of(conn)
     print(f"Database: Oracle {conn.version}, checking the {track} items"
@@ -317,7 +315,7 @@ def db_errors(topic=None):
 
     try:
         for q in filter(wanted, content.QUESTIONS):
-            errors += question_db_errors(conn, q)
+            errors += question_db_errors(database, conn, q)
         for lab in filter(wanted, content.LABS):
             errors += lab_db_errors(conn, lab)
     finally:
@@ -326,25 +324,19 @@ def db_errors(topic=None):
     return errors
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--static", action="store_true", help="skip the database checks")
-    parser.add_argument("--reset", action="store_true", help="reset the sample data before the database checks")
-    parser.add_argument("--coverage", action="store_true", help="print item counts per objective")
-    parser.add_argument("--topic", help="run the database checks for one topic only, for example t08")
-    args = parser.parse_args()
-
+def run(args: argparse.Namespace, database: Database) -> int:
+    """Print the problems found; returns the exit status (1 if there are any)."""
     errors = static_errors()
     print(f"Structure: {len(content.QUESTIONS)} questions, {len(content.FLASHCARDS)} flashcards, "
           f"{len(content.LABS)} labs, {len(errors)} problem(s).")
 
     if not args.static and not errors:
         if args.reset:
-            reset = server.reset_sample_data()
+            reset = SampleSchema(database).reset()
             if not reset["ok"]:
                 print(f"Reset failed: {reset['error']}")
                 return 1
-        db = db_errors(args.topic)
+        db = db_errors(database, args.topic)
         print(f"Database: {len(db)} problem(s).")
         errors += db
 
@@ -360,7 +352,3 @@ def main():
     print(f"Coverage: {len(table) - len(empty)} of {len(table)} objectives have material"
           + (f"; none yet for {', '.join(empty)}." if empty else "."))
     return 1 if errors else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

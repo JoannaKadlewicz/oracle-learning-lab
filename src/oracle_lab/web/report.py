@@ -16,7 +16,7 @@ def _pct(part, whole):
 def _trend_svg(mocks, passing_pct):
     if not mocks:
         return "<p class='muted'>No mock exams yet.</p>"
-    W, H, L, R, T, B = 560, 180, 36, 150, 10, 26
+    W, H, L, R, T, B = 560, 180, 36, 150, 10, 26  # noqa: N806 - SVG width, height and margins
     n = len(mocks)
 
     def x(i):

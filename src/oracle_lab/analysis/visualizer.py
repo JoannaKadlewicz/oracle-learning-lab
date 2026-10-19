@@ -10,7 +10,7 @@ visualize(conn, sql, run) returns a dict for the front end, or {"error": "..."} 
 query is not supported. `run(conn, sql)` executes a query and returns (columns, rows).
 """
 
-import sqltext
+from oracle_lab.sqltext import clauses as sqltext
 
 ROW_LIMIT = 200
 UNSUPPORTED = ("The visualizer shows one join between exactly two tables, or two queries combined "

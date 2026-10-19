@@ -1,8 +1,9 @@
-from server import split_statements
+from oracle_lab.database.executor import ScriptRunner
+from oracle_lab.sqltext.statements import split_statements
 
 
 def kinds_and_texts(script):
-    return [(s["kind"], s["text"]) for s in split_statements(script)]
+    return [(s.kind, s.text) for s in split_statements(script)]
 
 
 def test_splits_on_semicolons():
@@ -62,7 +63,7 @@ def test_plsql_block_ends_at_slash_line():
 
 def test_create_procedure_is_plsql():
     script = "CREATE OR REPLACE PROCEDURE p AS\nBEGIN\n  NULL;\nEND;\n/"
-    assert [s["kind"] for s in split_statements(script)] == ["plsql"]
+    assert [s.kind for s in split_statements(script)] == ["plsql"]
 
 
 def test_slash_line_ends_a_sql_statement():
@@ -87,10 +88,6 @@ def test_set_transaction_is_sql_not_a_client_command():
     assert kinds_and_texts("SET TRANSACTION READ ONLY;") == [("sql", "SET TRANSACTION READ ONLY")]
 
 
-def test_alter_user_is_blocked_before_reaching_the_database():
-    import server
-
-    result = server.run_script("ALTER USER orastudy IDENTIFIED BY x;")
-    if not result["ok"]:
-        return  # no database: the guard runs after connecting
+def test_alter_user_is_blocked_before_reaching_the_database(database):
+    result = ScriptRunner(database).run("ALTER USER orastudy IDENTIFIED BY x;")
     assert "ALTER USER is blocked" in result["results"][0]["error"]

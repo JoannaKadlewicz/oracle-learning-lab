@@ -1,12 +1,22 @@
 # Python
 .venv/
 __pycache__/
+*.egg-info/
+build/
+dist/
 .pytest_cache/
+.ruff_cache/
 
-# Your own study data (progress, saved SQL notes, AI drafts waiting for review)
-app/state/
-app/notes/personal/
-app/content/review_queue.json
+# Credentials and host data of the Docker stack: never commit these
+secrets/
+data/
+.env
+
+# Study data of older versions (now in $XDG_DATA_HOME/oracle-learning-lab or STUDY_DATA_DIR)
+app/
+
+# AI drafts waiting for review
+src/oracle_lab/content/review_queue.json
 
 # IDE
 .idea/

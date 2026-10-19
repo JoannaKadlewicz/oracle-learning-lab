@@ -1,4 +1,4 @@
-from server import compare_results
+from oracle_lab.grading.comparison import compare_results, diff_rows
 
 LAB = {"columns": "id, name", "ordered": True}
 UNORDERED = {"columns": "id, name", "ordered": False}
@@ -66,26 +66,22 @@ def statuses(diff):
 
 
 def test_diff_marks_extra_and_missing_rows():
-    from server import diff_rows
     diff = diff_rows([["1", "a"], ["3", "c"]], [["1", "a"], ["2", "b"]], ordered=False)
     assert statuses(diff) == [("ok", ["1", "a"]), ("extra", ["3", "c"]), ("missing", ["2", "b"])]
 
 
 def test_diff_pairs_a_row_with_one_wrong_cell():
-    from server import diff_rows
     diff = diff_rows([["1", "a"], ["2", "x"]], ROWS, ordered=True)
     assert diff[1] == {"status": "changed", "cells": ["2", "x"], "expected": ["2", "b"], "diff": [1]}
     assert len(diff) == 2
 
 
 def test_diff_shows_rows_in_the_wrong_position():
-    from server import diff_rows
     diff = diff_rows(ROWS[::-1], ROWS, ordered=True)
     assert [d["status"] for d in diff] == ["moved", "moved"]
 
 
 def test_diff_treats_null_and_the_string_null_as_different():
-    from server import diff_rows
     diff = diff_rows([["1", "NULL"]], [["1", None]], ordered=False)
     assert diff[0]["status"] == "changed" and diff[0]["diff"] == [1]
 
