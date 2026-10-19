@@ -132,9 +132,6 @@ def _state_database(env: Mapping[str, str], study: DatabaseTarget) -> DatabaseTa
     if not user:
         return None
     dsn = env.get("STUDY_STATE_DSN") or study.dsn
-    if user.upper() == study.user.upper() and dsn == study.dsn:
-        raise ConfigurationError("STUDY_STATE_USER must not be the learning user: SQL run in the lab could drop "
-                                 "the progress tables")
     return DatabaseTarget(user, dsn, resolve_secret("STUDY_STATE_PASSWORD", env) or Secret.missing("STUDY_STATE_PASSWORD"))
 
 
