@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oracle-learning-lab"
+description = "Study app for the Oracle SQL exams 1Z0-071 and 1Z0-171: quiz, flashcards, SQL lab, graded exercises"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["oracledb>=2.0,<4"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+oracle-lab = "oracle_lab.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "oracle_lab.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+oracle_lab = ["resources/static/**/*", "resources/sql/*.sql", "resources/notes/**/*", "content/*.md", "content/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 130
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "C90", "BLE"]
+ignore = ["SIM105"]  # try/except/pass reads clearer than contextlib.suppress in the few places it is used
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+"src/oracle_lab/content/t*.py" = ["E501"]  # study material: long prompts and SQL are kept on one line
+"src/oracle_lab/analysis/error_hints.py" = ["E501"]  # the explanation texts
+"src/oracle_lab/web/report.py" = ["E501"]  # an HTML template
