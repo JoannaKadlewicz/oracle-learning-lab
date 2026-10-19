@@ -1,28 +1,29 @@
 # Render Blueprint for Oracle Learning Lab: the app-only image (see docs/docker.md, "Only the app").
-# Render does not host Oracle: point STUDY_DSN at a database reachable from the internet.
+# Render does not host Oracle: point STUDY_DSN at a database reachable from the internet, e.g. an
+# Always Free Oracle Autonomous Database. Progress and saved notes are kept in that database too
+# (STUDY_STATE_USER), so the free plan, which has no persistent disk, loses nothing on a restart.
 services:
   - type: web
     name: oracle-learning-lab
     runtime: docker
     dockerfilePath: ./docker/app.Dockerfile
-    # A persistent disk needs a paid instance; without it every deploy or restart wipes your progress.
-    plan: starter
+    plan: free
     healthCheckPath: /healthz
     autoDeploy: true
-    disk:
-      name: study-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
-      - key: STUDY_DATA_DIR        # progress.json and saved notes, on the disk
-        value: /var/data
+      - key: PORT                  # the port Render routes to; the app listens on STUDY_PORT
+        value: "8071"
       - key: STUDY_HOST
         value: 0.0.0.0
-      - key: STUDY_DSN             # e.g. db.example.com:1521/XEPDB1 or an Easy Connect string
+      - key: STUDY_DSN             # e.g. the TLS connect string of an Autonomous Database (mTLS not required)
         sync: false
       - key: STUDY_USER
         value: orastudy
       - key: STUDY_PASSWORD        # password of the learning user (a Render secret, never in this file)
+        sync: false
+      - key: STUDY_STATE_USER      # owns the progress and notes tables; not the learning user (see docs/docker.md)
+        value: oralab_app
+      - key: STUDY_STATE_PASSWORD
         sync: false
       - key: STUDY_DSN_23AI        # optional: Oracle 23ai database for the 1Z0-171 track
         sync: false
@@ -30,5 +31,5 @@ services:
         value: study
       - key: STUDY_AUTH_PASSWORD   # generated; read it in the Render dashboard
         generateValue: true
-      - key: STUDY_INIT_TIMEOUT    # seconds to wait for the database before the deploy fails
-        value: "180"
+      - key: STUDY_INIT_TIMEOUT    # seconds to wait for the database before the deploy fails;
+        value: "300"               # an idle Always Free database can take a while to answer

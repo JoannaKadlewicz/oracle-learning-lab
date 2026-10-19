@@ -134,6 +134,37 @@ database that runs elsewhere (used by [`render.yaml`](../render.yaml)):
       -e STUDY_PASSWORD_FILE=/run/secrets/db -v "$PWD/secrets/study_db_password:/run/secrets/db:ro" \
       oracle-learning-lab-app
 
+### Progress in the database (no persistent disk)
+
+Hosts like Render's free plan wipe the container's files on every deploy and restart. Set
+`STUDY_STATE_USER` (and `STUDY_STATE_PASSWORD[_FILE]`) and the app keeps progress and saved notes
+in that user's tables, `LAB_STATE` and `LAB_NOTES`, instead of `progress.json` and `notes/`.
+`oracle-lab init-db` creates them on first start. Use a user of its own, not the learning user:
+the SQL lab runs whatever you type as ORASTUDY, and one `DROP TABLE` would take your progress
+with it. `STUDY_STATE_DSN` defaults to `STUDY_DSN`, so both users can share one database.
+
+### Render with an Always Free Autonomous Database
+
+1. In Oracle Cloud, create an Autonomous Database (19c, or 23ai for the 1Z0-171 track). Under
+   Network, allow access from everywhere (or from Render's outbound addresses) and turn off
+   "Require mutual TLS"; then copy a TLS connect string (the `_low` service is enough).
+2. Connect as `ADMIN` (Database Actions, SQL) and create the two users:
+
+       CREATE USER orastudy IDENTIFIED BY "<password 1>" DEFAULT TABLESPACE data QUOTA 100M ON data;
+       GRANT CREATE SESSION, CREATE TABLE, CREATE VIEW, CREATE SEQUENCE, CREATE SYNONYM TO orastudy;
+       -- 23ai only: GRANT CREATE DOMAIN, CREATE PROCEDURE TO orastudy;
+       CREATE USER oralab_app IDENTIFIED BY "<password 2>" DEFAULT TABLESPACE data QUOTA 20M ON data;
+       GRANT CREATE SESSION, CREATE TABLE TO oralab_app;
+
+3. In Render, New > Blueprint, pick this repository. It reads [`render.yaml`](../render.yaml) and
+   asks for `STUDY_DSN` (the connect string), `STUDY_PASSWORD` (password 1) and
+   `STUDY_STATE_PASSWORD` (password 2). The web login is `study`; its generated password is under
+   the service's Environment tab.
+
+A free Render service sleeps after a while without visits, so the first page takes a moment to
+load. An Always Free database that nobody uses for 7 days is stopped by Oracle; start it again in
+the cloud console.
+
 ## Oracle version note
 
 The content was written and verified on Oracle 19c, which this image runs. CI also runs it on

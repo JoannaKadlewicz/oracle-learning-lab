@@ -1,7 +1,8 @@
 """The `oracle-lab` command.
 
     oracle-lab serve          run the web app
-    oracle-lab init-db        wait for the database(s) and create the sample schema if missing
+    oracle-lab init-db        wait for the database(s) and create the sample schema (and the app's
+                              tables, with STUDY_STATE_USER) if missing
     oracle-lab validate       check the study content (see `oracle-lab validate --help`)
     oracle-lab demo PATH      write a simulated study history, for screenshots
     oracle-lab healthcheck    exit 0 when the web app answers on /healthz (for Docker)
@@ -30,7 +31,7 @@ def _serve(settings: Settings, _: argparse.Namespace) -> int:
     app = build_app(settings)
     extra = f"; 1Z0-171 track on {settings.database_23ai}" if settings.database_23ai else ""
     log.info("Oracle Learning Lab %s on http://%s:%d (database %s%s; data in %s; login %s)", __version__,
-             settings.host, settings.port, settings.database, extra, settings.data_dir,
+             settings.host, settings.port, settings.database, extra, settings.state_database or settings.data_dir,
              "required" if settings.auth else "off")
     serve(app, settings.host, settings.port)
     return 0
@@ -38,10 +39,16 @@ def _serve(settings: Settings, _: argparse.Namespace) -> int:
 
 def _init_db(settings: Settings, _: argparse.Namespace) -> int:
     from oracle_lab.bootstrap import build_catalog
+    from oracle_lab.database.connection import OracleDatabase
     from oracle_lab.database.sample_schema import ensure_sample_schema
 
     for database in build_catalog(settings).all():
         if not ensure_sample_schema(database, settings.init_timeout):
+            return 1
+    if settings.state_database is not None:
+        from oracle_lab.database.app_store import ensure_app_schema
+
+        if not ensure_app_schema(OracleDatabase(settings.state_database, settings.call_timeout_ms), settings.init_timeout):
             return 1
     return 0
 
@@ -82,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     commands.add_parser("serve", help="run the web app").set_defaults(run=_serve)
-    commands.add_parser("init-db", help="create the sample schema if it is missing").set_defaults(run=_init_db)
+    commands.add_parser("init-db", help="create the sample schema (and the app's tables) if missing").set_defaults(run=_init_db)
 
     validate = commands.add_parser("validate", help="check the study content (structure, then on the database)")
     validate.add_argument("--static", action="store_true", help="skip the database checks")

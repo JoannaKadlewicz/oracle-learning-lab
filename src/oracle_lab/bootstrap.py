@@ -11,7 +11,7 @@ from oracle_lab.services import Clock
 from oracle_lab.services.mock_exams import MockExamService
 from oracle_lab.services.sql_lab import ExerciseService, SqlLabService
 from oracle_lab.services.study import StudyService
-from oracle_lab.study.notes import NotesLibrary
+from oracle_lab.study.notes import FileNotes, NotesLibrary, PersonalNotes
 from oracle_lab.study.state import JsonStateStore, StateStore
 from oracle_lab.web.application import WebApplication
 from oracle_lab.web.controllers.health import HealthController
@@ -32,11 +32,23 @@ def build_catalog(settings: Settings) -> DatabaseCatalog:
     return DatabaseCatalog(default, by_exam)
 
 
+def build_stores(settings: Settings) -> tuple[StateStore, PersonalNotes]:
+    """Where progress and personal notes are kept: Oracle when STUDY_STATE_USER is set, files otherwise."""
+    if settings.state_database is None:
+        return JsonStateStore(settings.state_file), FileNotes(settings.personal_notes_dir)
+    from oracle_lab.database.app_store import ConnectionPool, OracleNotes, OracleStateStore
+
+    pool = ConnectionPool(settings.state_database, settings.call_timeout_ms)
+    return OracleStateStore(pool), OracleNotes(pool)
+
+
 def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, store: StateStore | None = None,
-              clock: Clock = time.time) -> WebApplication:
-    """The web application. `catalog`, `store` and `clock` can be replaced, e.g. in tests."""
+              notes: PersonalNotes | None = None, clock: Clock = time.time) -> WebApplication:
+    """The web application. `catalog`, `store`, `notes` and `clock` can be replaced, e.g. in tests."""
     catalog = catalog or build_catalog(settings)
-    store = store or JsonStateStore(settings.state_file)
+    if store is None or notes is None:
+        default_store, default_notes = build_stores(settings)
+        store, notes = store or default_store, notes or default_notes
 
     router = Router(fallback=StaticFiles(STATIC_DIR))
     controllers = (
@@ -45,7 +57,7 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         MockExamController(MockExamService(store, clock)),
         SqlLabController(SqlLabService(store, catalog, clock)),
         ExerciseController(ExerciseService(store, catalog, clock)),
-        NotesController(NotesLibrary(NOTES_DIR, settings.personal_notes_dir), clock),
+        NotesController(NotesLibrary(NOTES_DIR, notes), clock),
     )
     for controller in controllers:
         controller.register(router)

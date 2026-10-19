@@ -44,7 +44,7 @@ def test_defaults_and_derived_paths(tmp_path):
     assert str(settings.database) == "orastudy@localhost:1521/ORAPDB1"
     assert settings.state_file == tmp_path / "progress.json"
     assert settings.personal_notes_dir == tmp_path / "notes"
-    assert settings.database_23ai is None and settings.auth is None
+    assert settings.database_23ai is None and settings.state_database is None and settings.auth is None
 
 
 def test_the_23ai_database_reuses_the_main_password_unless_it_has_its_own():
@@ -52,6 +52,20 @@ def test_the_23ai_database_reuses_the_main_password_unless_it_has_its_own():
     assert shared.database_23ai.password.reveal() == "main"
     own = Settings.from_env({"STUDY_PASSWORD": "main", "STUDY_DSN_23AI": "db23", "STUDY_PASSWORD_23AI": "other"})
     assert own.database_23ai.password.reveal() == "other"
+
+
+def test_the_state_user_shares_the_study_database_unless_it_has_its_own():
+    shared = Settings.from_env({"STUDY_DSN": "adb_low", "STUDY_STATE_USER": "oralab_app", "STUDY_STATE_PASSWORD": "s"})
+    assert str(shared.state_database) == "oralab_app@adb_low" and shared.state_database.password.reveal() == "s"
+    own = Settings.from_env({"STUDY_STATE_USER": "orastudy", "STUDY_STATE_DSN": "elsewhere"})
+    assert str(own.state_database) == "orastudy@elsewhere"
+    with pytest.raises(SecretNotFoundError, match="STUDY_STATE_PASSWORD"):
+        own.state_database.password.reveal()
+
+
+def test_progress_cannot_live_in_the_learning_schema():
+    with pytest.raises(ConfigurationError, match="STUDY_STATE_USER"):
+        Settings.from_env({"STUDY_USER": "orastudy", "STUDY_STATE_USER": "ORASTUDY"})
 
 
 def test_an_empty_auth_password_turns_login_off(tmp_path):

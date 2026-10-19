@@ -78,6 +78,8 @@ from files (`*_FILE`) rather than from the code or the command line. Settings:
 | `STUDY_HOST`, `STUDY_PORT` | `127.0.0.1`, `8071` | Where the app listens |
 | `STUDY_DATA_DIR` | `~/.local/share/oracle-learning-lab` | Your progress (`progress.json`) and saved notes (`notes/`) |
 | `STUDY_STATE_FILE` | `$STUDY_DATA_DIR/progress.json` | Progress file, if it should live elsewhere |
+| `STUDY_STATE_USER`, `STUDY_STATE_PASSWORD_FILE` | – | Keep progress and saved notes in this Oracle user's tables instead of files (for hosts without a disk, see [docs/docker.md](docs/docker.md#only-the-app-external-database)) |
+| `STUDY_STATE_DSN` | `STUDY_DSN` | Its database |
 | `STUDY_AUTH_PASSWORD_FILE` | – | Turns on a login (user `STUDY_AUTH_USER`, default `study`) |
 | `STUDY_DSN_23AI` | – | Optional Oracle 23ai database used while the 1Z0-171 track is chosen |
 | `STUDY_USER_23AI`, `STUDY_PASSWORD_23AI_FILE` | the 19c user and password | Its learning user |

@@ -30,6 +30,8 @@ jobs:
       STUDY_DSN: localhost:1521/XEPDB1
       STUDY_USER: orastudy
       STUDY_PASSWORD: orastudy
+      STUDY_TEST_STATE_USER: oralab_test
+      STUDY_TEST_STATE_PASSWORD: oralab_test
       PYTHONUNBUFFERED: "1"
 
     steps:
@@ -52,6 +54,16 @@ jobs:
 
       - name: Create the sample schema
         run: oracle-lab init-db
+
+      # The Oracle state store tests empty the tables of their own user.
+      - name: Create the user for the state store tests
+        run: |
+          docker exec -i ${{ job.services.oracle.id }} sqlplus -s / as sysdba <<'SQL'
+          WHENEVER SQLERROR EXIT FAILURE
+          ALTER SESSION SET CONTAINER = XEPDB1;
+          CREATE USER oralab_test IDENTIFIED BY "oralab_test" QUOTA 20M ON users;
+          GRANT CREATE SESSION, CREATE TABLE TO oralab_test;
+          SQL
 
       - name: Tests (pytest)
         run: python -m pytest -q

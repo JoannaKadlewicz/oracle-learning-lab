@@ -3,7 +3,7 @@
 from oracle_lab.analysis import error_hints as errors
 from oracle_lab.database.executor import DML_TARGET, Transaction
 from oracle_lab.sqltext import clauses as sqltext
-from oracle_lab.study.notes import NotesLibrary
+from oracle_lab.study.notes import FileNotes, NotesLibrary
 from oracle_lab.study.recording import HISTORY_LIMIT, record_history
 
 
@@ -88,7 +88,7 @@ def test_history_moves_repeated_sql_to_the_top_and_is_capped():
 
 
 def test_personal_notes_get_unique_safe_file_names(tmp_path):
-    notes = NotesLibrary(tmp_path / "builtin", tmp_path / "personal")
+    notes = NotesLibrary(tmp_path / "builtin", FileNotes(tmp_path / "personal"))
     first = notes.save("Outer joins: ../../etc", "SELECT 1 FROM dual;", 1_800_000_000)
     second = notes.save("Outer joins: ../../etc", "SELECT 2 FROM dual;", 1_800_000_000)
     assert first.startswith("personal/") and first.endswith("-outer-joins-etc.md")
@@ -102,7 +102,7 @@ def test_only_listed_notes_can_be_read(tmp_path):
     (tmp_path / "builtin" / "docs").mkdir(parents=True)
     (tmp_path / "builtin" / "docs" / "cheat-sheet.md").write_text("# Cheat sheet")
     (tmp_path / "secret.txt").write_text("password")
-    notes = NotesLibrary(tmp_path / "builtin", tmp_path / "personal")
+    notes = NotesLibrary(tmp_path / "builtin", FileNotes(tmp_path / "personal"))
     assert notes.read("docs/cheat-sheet.md") == "# Cheat sheet"
     assert notes.read("../secret.txt") is None and notes.read("personal/../../secret.txt") is None
 
