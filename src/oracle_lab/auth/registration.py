@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import threading
 from collections.abc import Callable
 
 from oracle_lab.accounts.repositories import AppStores, SettingsRepository, UserRepository
@@ -61,24 +62,32 @@ class Registration:
         self._clock = clock
         self._on_user_created = on_user_created
         self._first_user_is_admin = first_user_is_admin
+        # The app is one process: this lock makes "cap check + first-admin decision + users.add" atomic,
+        # so concurrent sign-ups can neither exceed max_users nor create two first admins.
+        self._lock = threading.Lock()
 
     def with_password(self, email: str, password: str, ip: str, user_agent: str) -> LoginResult:
         email = normalise_email(email)
         self._throttle.check_register(ip)
-        self._registration.check()
+        self._registration.check()  # early, cheap; repeated under the lock
         if len(email) > _MAX_EMAIL or not _EMAIL.fullmatch(email):
             raise AuthError("Enter a valid email address.")
         problems = self._policy.problems(password, email)
         if problems:
             raise WeakPassword("Choose a stronger password.", problems)
-        role = "admin" if self._first_user_is_admin and self._users.count() == 0 else "learner"
-        user = User(id=new_id(), email=email, display_name=email.split("@")[0], role=role, status="active",
-                    created_at=self._clock(), last_login_at=None, password_changed_at=self._clock())
-        try:
-            self._users.add(user, Identity("password", user.id, user.id, hash_password(password)))
-        except EmailTaken:
-            self._audit.record("register", "fail", ip=ip, user_agent=user_agent, reason="email_taken")
-            raise
+        encoded = hash_password(password)  # slow: outside the lock
+        with self._lock:
+            self._registration.check()
+            role = "admin" if self._first_user_is_admin and self._users.count() == 0 else "learner"
+            user = User(id=new_id(), email=email, display_name=email.split("@")[0], role=role, status="active",
+                        created_at=self._clock(), last_login_at=None, password_changed_at=self._clock())
+            try:
+                self._users.add(user, Identity("password", user.id, user.id, encoded))
+            except EmailTaken:
+                # Probing taken emails costs a scrypt each, so it counts toward the per-IP limit.
+                self._throttle.registered(ip)
+                self._audit.record("register", "fail", ip=ip, user_agent=user_agent, reason="email_taken")
+                raise
         self._throttle.registered(ip)
         self._on_user_created(user)
         token, _ = self._sessions.start(user.id, ip, user_agent)

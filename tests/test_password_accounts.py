@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import dataclasses
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -18,9 +20,10 @@ from oracle_lab.auth.models import (
     ReauthRequired,
     RegistrationClosed,
     ResetToken,
+    Throttled,
     WeakPassword,
 )
-from oracle_lab.auth.passwords import PasswordPolicy
+from oracle_lab.auth.passwords import PasswordPolicy, _scrypt, needs_rehash
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.auth.throttle import Throttle
@@ -45,7 +48,7 @@ def app():
         registration=Registration(stores, policy, reg_policy, sessions, throttle, audit, clock,
                                   created.append, first_user_is_admin=True),
         login=PasswordLogin(stores, sessions, throttle, audit, clock),
-        settings=AccountSettings(stores, policy, sessions, audit, clock),
+        settings=AccountSettings(stores, policy, sessions, audit, clock, throttle),
     )
 
 
@@ -178,3 +181,153 @@ def test_audit_records_register_login_fail_logout(app):
     events = {(e.event, e.outcome) for e in app.stores.audit.recent()}
     assert {("register", "ok"), ("login", "fail"), ("logout", "ok")} <= events
     assert PW not in repr(app.stores.audit.recent())
+
+
+def reasons(app, event="login"):
+    return [e.detail.get("reason") for e in app.stores.audit.recent(event=event) if e.outcome == "fail"]
+
+
+def test_each_login_failure_is_audited_with_its_reason(app):
+    r = register(app)
+    app.stores.users.add(*_google_only_user())
+    with pytest.raises(InvalidCredentials):
+        app.login.login("nobody@example.org", "whatever whatever", "ip", "ua")
+    with pytest.raises(InvalidCredentials):
+        app.login.login("g@example.org", "whatever whatever", "ip", "ua")
+    with pytest.raises(InvalidCredentials):
+        app.login.login("me@example.org", "whatever whatever", "ip", "ua")
+    app.stores.users.update(dataclasses.replace(r.user, status="locked"))
+    with pytest.raises(InvalidCredentials):
+        app.login.login("me@example.org", PW, "ip", "ua")
+    assert sorted(reasons(app)) == ["bad_password", "locked", "no_password", "unknown_email"]
+
+
+def _google_only_user():
+    from oracle_lab.auth.models import Identity, User
+    u = User("g1", "g@example.org", "g", "learner", "active", 0.0, None, None)
+    return u, Identity("google", "gsub", "g1")
+
+
+def test_email_taken_is_audited(app):
+    register(app)
+    with pytest.raises(EmailTaken):
+        register(app, ip="2.2.2.2")
+    assert reasons(app, "register") == ["email_taken"]
+
+
+def test_old_hash_is_rehashed_on_login(app):
+    r = register(app)
+    salt = b"0" * 16
+    b64 = lambda raw: base64.b64encode(raw).decode()  # noqa: E731
+    old = f"scrypt$1024$8$1${b64(salt)}${b64(_scrypt(PW, salt, 1024, 8, 1))}"
+    app.stores.users.set_password(r.user.id, old, 5.0)
+    result = app.login.login("me@example.org", PW, "ip", "ua")
+    stored = app.stores.users.identities(r.user.id)[0].password_hash
+    assert stored != old and not needs_rehash(stored)
+    assert app.login.login("me@example.org", PW, "ip", "ua")
+    assert result.user.last_login_at == app.t[0]
+
+
+def test_login_does_not_undo_a_concurrent_lock(app):
+    r = register(app)
+    real = app.stores.users.record_login
+
+    def lock_then_record(user_id, t):
+        app.stores.users.update(dataclasses.replace(app.stores.users.get(user_id), status="locked"))
+        real(user_id, t)
+
+    app.stores.users.record_login = lock_then_record
+    app.login.login("me@example.org", PW, "ip", "ua")
+    assert app.stores.users.get(r.user.id).status == "locked"
+
+
+def test_login_is_throttled_after_repeated_failures(app):
+    register(app)
+    for _ in range(5):
+        with pytest.raises(InvalidCredentials):
+            app.login.login("me@example.org", "wrong wrong wrong", "ip", "ua")
+    with pytest.raises(Throttled):
+        app.login.login("me@example.org", PW, "ip", "ua")
+
+
+def test_locked_user_with_correct_password_counts_as_a_failure(app):
+    r = register(app)
+    app.stores.users.update(dataclasses.replace(r.user, status="locked"))
+    for _ in range(5):
+        with pytest.raises(InvalidCredentials):
+            app.login.login("me@example.org", PW, "ip", "ua")
+    with pytest.raises(Throttled):
+        app.login.login("me@example.org", PW, "ip", "ua")
+
+
+def test_taken_email_probing_is_throttled_per_ip(app):
+    register(app)
+    for _ in range(3):
+        with pytest.raises(EmailTaken):
+            register(app, ip="8.8.8.8")
+    with pytest.raises(Throttled):
+        register(app, ip="8.8.8.8")
+
+
+def test_concurrent_signups_respect_the_cap(app):
+    app.reg_policy.set(open=True, max_users=3)
+    outcomes = []
+
+    def go(i):
+        try:
+            register(app, f"u{i}@example.org", f"10.0.0.{i}")
+            outcomes.append("ok")
+        except RegistrationClosed:
+            outcomes.append("closed")
+
+    threads = [threading.Thread(target=go, args=(i,)) for i in range(10)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert outcomes.count("ok") == 3 and app.stores.users.count() == 3
+
+
+def test_concurrent_first_signups_make_exactly_one_admin(app):
+    results = []
+
+    def go(i):
+        results.append(register(app, f"u{i}@example.org", f"10.0.0.{i}"))
+
+    threads = [threading.Thread(target=go, args=(i,)) for i in range(2)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert sorted(r.user.role for r in results) == ["admin", "learner"]
+
+
+def test_weak_reset_password_does_not_burn_the_link(app):
+    r = register(app)
+    app.stores.resets.add(ResetToken(token_hash("tok"), r.user.id, "admin", app.t[0] + 600))
+    with pytest.raises(WeakPassword):
+        app.settings.reset_with_token("tok", "short", "ip", "ua")
+    app.settings.reset_with_token("tok", "brand new passphrase", "ip", "ua")
+
+
+def test_reset_for_a_missing_user_is_audited(app):
+    app.stores.resets.add(ResetToken(token_hash("tok"), "ghost", "admin", app.t[0] + 600))
+    with pytest.raises(AuthError):
+        app.settings.reset_with_token("tok", "brand new passphrase", "ip", "ua")
+    assert reasons(app, "password_reset") == ["user_missing"]
+
+
+def test_wrong_current_password_guesses_are_throttled(app):
+    r = register(app)
+    p = principal(app, r)
+    for _ in range(5):
+        with pytest.raises(InvalidCredentials):
+            app.settings.change_password(p, "nope nope nope nope", "brand new passphrase", r.token, ip="ip")
+    with pytest.raises(Throttled):
+        app.settings.change_password(p, PW, "brand new passphrase", r.token, ip="ip")
+
+
+def test_session_endings_are_audited(app):
+    r = register(app)
+    other = app.login.login("me@example.org", PW, "9.9.9.9", "other")
+    p = principal(app, r)
+    app.settings.end_session(p, token_hash(other.token))
+    app.settings.end_other_sessions(p)
+    events = {e.event for e in app.stores.audit.recent()}
+    assert {"session_ended", "other_sessions_ended"} <= events

@@ -71,6 +71,12 @@ class MemoryUsers:
             if user.id in self._users:
                 self._users[user.id] = user
 
+    def record_login(self, user_id: str, t: float) -> None:
+        with self._lock:
+            user = self._users.get(user_id)
+            if user is not None:
+                self._users[user_id] = dataclasses.replace(user, last_login_at=t)
+
     def set_password(self, user_id: str, password_hash: str, changed_at: float) -> None:
         with self._lock:
             user = self._users.get(user_id)

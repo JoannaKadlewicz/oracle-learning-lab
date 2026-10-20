@@ -240,6 +240,16 @@ def update_persists_changed_fields(stores: AppStores) -> None:
     assert stores.users.by_email(user.email) == changed
 
 
+def record_login_changes_only_last_login(stores: AppStores) -> None:
+    user = make_user()
+    stores.users.add(user, password_identity(user))
+    locked = dataclasses.replace(user, role="admin", status="locked")
+    stores.users.update(locked)
+    stores.users.record_login(user.id, 99.0)
+    assert stores.users.get(user.id) == dataclasses.replace(locked, last_login_at=99.0)
+    stores.users.record_login("nobody", 1.0)  # unknown user: no-op
+
+
 def session_delete_removes_exactly_that_session(stores: AppStores) -> None:
     add_user(stores, "u1")
     stores.sessions.add(make_session("a", "u1"))
@@ -336,6 +346,7 @@ CONTRACT = [
     set_password_changes_only_the_password_identity,
     add_identity_conflict_and_remove_identity,
     update_persists_changed_fields,
+    record_login_changes_only_last_login,
     session_delete_removes_exactly_that_session,
     failed_add_leaves_no_partial_data,
     duplicate_user_id_raises_email_taken,

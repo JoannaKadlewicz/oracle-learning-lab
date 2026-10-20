@@ -243,6 +243,9 @@ class SqliteUsers:
             (*dataclasses.astuple(user)[1:], user.id),
         )
 
+    def record_login(self, user_id: str, t: float) -> None:
+        self._db.conn.execute("UPDATE users SET last_login_at = ? WHERE id = ?", (t, user_id))
+
     def set_password(self, user_id: str, password_hash: str, changed_at: float) -> None:
         with self._db.tx() as conn:
             done = conn.execute("UPDATE users SET password_changed_at = ? WHERE id = ?", (changed_at, user_id))

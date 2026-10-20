@@ -274,6 +274,11 @@ class OracleUsers:
             )
             conn.commit()
 
+    def record_login(self, user_id: str, t: float) -> None:
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute("UPDATE app_users SET last_login_at = :t WHERE id = :u", t=t, u=user_id)
+            conn.commit()
+
     def set_password(self, user_id: str, password_hash: str, changed_at: float) -> None:
         with session(self._db) as conn, conn.cursor() as cur:
             cur.execute("UPDATE app_users SET password_changed_at = :t WHERE id = :u", t=changed_at, u=user_id)

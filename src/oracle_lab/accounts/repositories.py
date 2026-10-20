@@ -39,6 +39,9 @@ class UserRepository(Protocol):
 
     def set_password(self, user_id: str, password_hash: str, changed_at: float) -> None: ...
 
+    def record_login(self, user_id: str, t: float) -> None:
+        """Set last_login_at only; every other field is left as stored."""
+
     def delete(self, user_id: str) -> None:
         """Remove the user and its identities (not its sessions, state or notes)."""
 

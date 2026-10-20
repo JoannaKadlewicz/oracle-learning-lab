@@ -7,13 +7,14 @@ from oracle_lab.auth.audit import AuditLog
 from oracle_lab.auth.models import AuthError, Identity, InvalidCredentials, LoginResult, Principal, ReauthRequired, WeakPassword
 from oracle_lab.auth.passwords import PasswordPolicy, hash_password, verify_password
 from oracle_lab.auth.sessions import SessionManager
+from oracle_lab.auth.throttle import Throttle
 from oracle_lab.auth.tokens import token_hash
 from oracle_lab.services import Clock
 
 
 class AccountSettings:
     def __init__(self, stores: AppStores, policy: PasswordPolicy, sessions: SessionManager, audit: AuditLog,
-                 clock: Clock):
+                 clock: Clock, throttle: Throttle):
         self._users = stores.users
         self._sessions_repo = stores.sessions
         self._resets = stores.resets
@@ -21,6 +22,7 @@ class AccountSettings:
         self._sessions = sessions
         self._audit = audit
         self._clock = clock
+        self._throttle = throttle
 
     def _check_new(self, password: str, email: str) -> None:
         problems = self._policy.problems(password, email)
@@ -30,7 +32,8 @@ class AccountSettings:
     def _rotate(self, principal: Principal, event: str) -> LoginResult:
         """Ends every session of the user and starts a fresh one (the old token must stop working)."""
         user = self._users.get(principal.user_id)
-        assert user is not None
+        if user is None:
+            raise AuthError("This account no longer exists.")
         ip, ua = "", ""
         current = self._sessions_repo.get(principal.session_hash)
         if current is not None:
@@ -40,11 +43,16 @@ class AccountSettings:
         self._audit.record(event, "ok", user_id=user.id, ip=ip, user_agent=ua)
         return LoginResult(token, user)
 
-    def change_password(self, principal: Principal, current: str, new: str, token: str) -> LoginResult:
+    def change_password(self, principal: Principal, current: str, new: str, token: str,
+                        ip: str = "") -> LoginResult:
+        """`token` is the caller's session token; the new session replaces it. `ip` keys the guess throttle."""
+        self._throttle.check_login(principal.email, ip)
         identity = self._password_identity(principal.user_id)
         if identity is None or not identity.password_hash or not verify_password(current, identity.password_hash):
-            self._audit.record("password_changed", "fail", user_id=principal.user_id, reason="bad_current")
+            self._throttle.login_failed(principal.email, ip)
+            self._audit.record("password_changed", "fail", user_id=principal.user_id, ip=ip, reason="bad_current")
             raise InvalidCredentials("Your current password is incorrect.")
+        self._throttle.login_succeeded(principal.email)
         self._check_new(new, principal.email)
         self._users.set_password(principal.user_id, hash_password(new), self._clock())
         return self._rotate(principal, "password_changed")
@@ -55,17 +63,21 @@ class AccountSettings:
         if principal.reauth_until <= self._clock():
             raise ReauthRequired("Confirm with Google first.")
         self._check_new(new, principal.email)
-        self._users.add_identity(Identity("password", principal.user_id, principal.user_id, hash_password(new)))
-        self._users.set_password(principal.user_id, hash_password(new), self._clock())
+        hashed = hash_password(new)
+        self._users.add_identity(Identity("password", principal.user_id, principal.user_id, hashed))
+        self._users.set_password(principal.user_id, hashed, self._clock())
         return self._rotate(principal, "password_set")
 
     def reset_with_token(self, reset_token: str, new_password: str, ip: str, ua: str) -> None:
+        # Email-independent rules first, so a weak password does not burn the single-use link.
+        self._check_new(new_password, "")
         tok = self._resets.take(token_hash(reset_token), self._clock())
         if tok is None:
             self._audit.record("password_reset", "fail", ip=ip, user_agent=ua, reason="invalid_token")
             raise AuthError("This reset link is invalid or has expired.")
         user = self._users.get(tok.user_id)
         if user is None:
+            self._audit.record("password_reset", "fail", ip=ip, user_agent=ua, reason="user_missing")
             raise AuthError("This reset link is invalid or has expired.")
         self._check_new(new_password, user.email)
         hashed = hash_password(new_password)
@@ -84,15 +96,16 @@ class AccountSettings:
         rec = self._sessions_repo.get(session_id)
         if rec is not None and rec.user_id == principal.user_id:
             self._sessions_repo.delete(session_id)
+            self._audit.record("session_ended", "ok", user_id=principal.user_id)
 
     def end_other_sessions(self, principal: Principal) -> None:
-        for rec in self._sessions_repo.for_user(principal.user_id):
-            if rec.token_hash != principal.session_hash:
-                self._sessions_repo.delete(rec.token_hash)
+        self._sessions_repo.delete_for_user(principal.user_id, principal.session_hash)
+        self._audit.record("other_sessions_ended", "ok", user_id=principal.user_id)
 
     def profile(self, principal: Principal) -> dict:
         user = self._users.get(principal.user_id)
-        assert user is not None
+        if user is None:
+            raise AuthError("This account no longer exists.")
         methods = sorted(i.provider for i in self._users.identities(user.id))
         return {"email": user.email, "display_name": user.display_name, "role": user.role, "methods": methods}
 

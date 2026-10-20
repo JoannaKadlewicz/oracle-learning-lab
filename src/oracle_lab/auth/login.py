@@ -50,8 +50,9 @@ class PasswordLogin:
         self._throttle.login_succeeded(email)
         if stored and needs_rehash(stored):
             self._users.set_password(user.id, hash_password(password), self._clock())
-        user = dataclasses.replace(user, last_login_at=self._clock())
-        self._users.update(user)
+        now = self._clock()
+        self._users.record_login(user.id, now)  # only last_login_at: never overwrites a concurrent lock/role change
+        user = dataclasses.replace(user, last_login_at=now)
         token, _ = self._sessions.start(user.id, ip, user_agent)
         self._audit.record("login", "ok", user_id=user.id, ip=ip, user_agent=user_agent)
         return LoginResult(token, user)
