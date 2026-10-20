@@ -5,7 +5,7 @@ Notes are addressed by a path relative to the library, e.g. "docs/cheat-sheet.md
 read, so a path from the browser can never reach other files.
 
 Personal notes are kept as files (FileNotes) or, without a persistent disk, in Oracle
-(database.app_store.OracleNotes).
+(accounts.oracle_store.OracleNotes).
 """
 
 from __future__ import annotations

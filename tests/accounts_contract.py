@@ -305,6 +305,18 @@ def update_of_unknown_user_is_a_no_op(stores: AppStores) -> None:
     assert stores.users.count() == 0
 
 
+def oversized_client_strings_are_stored(stores: AppStores) -> None:
+    add_user(stores, "u1")
+    agent = "ü" * 5000
+    rec = make_session("a", "u1")
+    stores.sessions.add(dataclasses.replace(rec, user_agent=agent, ip="1" * 500))
+    got = stores.sessions.get("a")
+    assert got is not None and agent.startswith(got.user_agent) and ("1" * 500).startswith(got.ip)
+    stores.audit.add(AuditEvent(1.0, "login", "ok", "u1", "1" * 500, agent, {}))
+    event = stores.audit.recent()[0]
+    assert agent.startswith(event.user_agent) and event.user_agent
+
+
 CONTRACT = [
     user_round_trip,
     duplicate_email_raises_email_taken,
@@ -329,4 +341,5 @@ CONTRACT = [
     duplicate_user_id_raises_email_taken,
     user_delete_cascades,
     update_of_unknown_user_is_a_no_op,
+    oversized_client_strings_are_stored,
 ]

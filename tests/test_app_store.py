@@ -31,8 +31,8 @@ def test_ensure_app_schema_migrates_and_leaves_legacy_tables_alone(legacy_tables
     assert ensure_app_schema(legacy_tables, timeout=0)
     assert ensure_app_schema(legacy_tables, timeout=0)
     with session(legacy_tables) as conn, conn.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM app_users")
-        assert cur.fetchone() is not None  # the table exists (other tests may have left rows)
+        cur.execute("SELECT table_name FROM user_tables WHERE table_name IN ('APP_USERS', 'APP_SCHEMA_VERSION')")
+        assert {name for (name,) in cur} == {"APP_USERS", "APP_SCHEMA_VERSION"}
         cur.execute("SELECT COUNT(*) FROM lab_notes")
         assert cur.fetchone()[0] == 1
 

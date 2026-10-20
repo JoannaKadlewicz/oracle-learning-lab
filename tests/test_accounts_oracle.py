@@ -16,9 +16,22 @@ APP_TABLES = [  # children first
 ]
 
 
-@pytest.fixture
-def stores(state_database):
+def drop_app_tables(database):
+    with session(database) as conn, conn.cursor() as cur:
+        cur.execute("SELECT table_name FROM user_tables WHERE table_name LIKE 'APP\\_%' ESCAPE '\\'")
+        for (name,) in list(cur):
+            cur.execute(f"DROP TABLE {name} CASCADE CONSTRAINTS PURGE")
+
+
+@pytest.fixture(scope="module")
+def schema(state_database):
+    drop_app_tables(state_database)  # a clean run, whatever an earlier version left
     migrate(state_database)
+    return state_database
+
+
+@pytest.fixture
+def stores(schema, state_database):
     with session(state_database) as conn, conn.cursor() as cur:
         for table in APP_TABLES:
             cur.execute(f"DELETE FROM {table}")
@@ -31,7 +44,7 @@ def test_contract(check, stores):
     check(stores)
 
 
-def test_migrate_twice_is_a_no_op(state_database):
+def test_migrate_twice_is_a_no_op(schema, state_database):
     migrate(state_database)
     migrate(state_database)
     with session(state_database) as conn, conn.cursor() as cur:
@@ -100,3 +113,36 @@ def test_empty_strings_survive_although_oracle_stores_them_as_null(stores):
     assert stores.audit.recent()[0].ip == ""
     assert stores.settings.get("k") == ""
     assert note.read(name) == "" and note.entries() == [(name, "")]
+
+
+def test_first_state_transactions_of_a_new_user_do_not_race(stores):
+    add_user(stores, "u1")
+    barrier, errors = threading.Barrier(6), []
+
+    def first():
+        try:
+            barrier.wait(20)
+            with stores.states.for_user("u1").transaction() as state:
+                state["n"] = state.get("n", 0) + 1
+        except BaseException as e:  # noqa: BLE001
+            errors.append(e)
+
+    threads = [threading.Thread(target=first) for _ in range(6)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(30)
+    assert not errors
+    assert stores.states.for_user("u1").load()["n"] == 6
+
+
+def test_migrate_resumes_after_a_partial_run(state_database):
+    drop_app_tables(state_database)
+    with session(state_database) as conn, conn.cursor() as cur:
+        cur.execute("CREATE TABLE app_users (id VARCHAR2(64) PRIMARY KEY)")  # as left by a failed first run
+    migrate(state_database)
+    with session(state_database) as conn, conn.cursor() as cur:
+        cur.execute("SELECT version FROM app_schema_version")
+        assert cur.fetchall() == [(len(MIGRATIONS),)]
+        cur.execute("SELECT COUNT(*) FROM user_tables WHERE table_name LIKE 'APP\\_%' ESCAPE '\\'")
+        assert cur.fetchone()[0] == 12
