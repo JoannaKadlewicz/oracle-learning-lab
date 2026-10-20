@@ -31,6 +31,8 @@ class Request:
     target: str  # path and query string, as sent
     headers: Mapping[str, str]  # keys in lower case
     body: bytes = b""
+    client: str = ""  # the peer IP; ClientAddress may replace it behind a trusted proxy
+    principal: object | None = None  # the signed-in account, set by the auth middleware
 
     @property
     def path(self) -> str:
@@ -59,6 +61,7 @@ class Response:
     body: bytes = b""
     content_type: str = JSON_TYPE
     headers: dict[str, str] = field(default_factory=dict)
+    cookies: list[str] = field(default_factory=list)  # raw Set-Cookie values, one header each
 
     @classmethod
     def json(cls, payload: Any, status: int = 200, headers: Mapping[str, str] | None = None) -> Response:
@@ -67,3 +70,7 @@ class Response:
     @classmethod
     def html(cls, text: str, status: int = 200) -> Response:
         return cls(status, text.encode(), HTML_TYPE, {"Cache-Control": "no-store"})
+
+    @classmethod
+    def redirect(cls, location: str, status: int = 302, cookies: list[str] | None = None) -> Response:
+        return cls(status, b"", HTML_TYPE, {"Location": location, "Cache-Control": "no-store"}, list(cookies or []))

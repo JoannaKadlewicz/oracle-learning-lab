@@ -8,6 +8,7 @@ import hmac
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from urllib.parse import urlsplit
 
 from oracle_lab.config import BasicAuthConfig
@@ -69,3 +70,16 @@ def same_origin_only(request: Request, call_next: Handler) -> Response:
     if request.method == "POST" and origin and urlsplit(origin).netloc != request.header("Host"):
         raise HttpError(403, "Cross-origin requests are not allowed.")
     return call_next(request)
+
+
+class ClientAddress:
+    """Use the right-most X-Forwarded-For entry (the one our own proxy appended) as the client, if trusted."""
+
+    def __init__(self, trust_proxy: bool):
+        self.trust_proxy = trust_proxy
+
+    def __call__(self, request: Request, call_next: Handler) -> Response:
+        forwarded = request.header("X-Forwarded-For").rsplit(",", 1)[-1].strip()
+        if self.trust_proxy and forwarded:
+            request = replace(request, client=forwarded)
+        return call_next(request)
