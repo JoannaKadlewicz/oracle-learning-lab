@@ -1,66 +1,57 @@
-"""Progress and personal notes in Oracle. Skipped without a test state user (see conftest)."""
-
-import threading
+"""The legacy single-user tables, and the schema bootstrap. Skipped without a test state user (see conftest)."""
 
 import pytest
 
-from oracle_lab.database.app_store import TABLES, OracleNotes, OracleStateStore, ensure_app_schema
+from oracle_lab.database.app_store import LegacyOracleNotes, LegacyOracleState, ensure_app_schema
 from oracle_lab.database.connection import session
-from oracle_lab.study.notes import NotesLibrary
 from oracle_lab.study.state import new_state
+
+LEGACY_TABLES = {
+    "LAB_STATE": "CREATE TABLE lab_state (id NUMBER(1) PRIMARY KEY, doc CLOB NOT NULL CHECK (doc IS JSON))",
+    "LAB_NOTES": "CREATE TABLE lab_notes (name VARCHAR2(100) PRIMARY KEY, title VARCHAR2(200) NOT NULL, body CLOB NOT NULL)",
+}
 
 
 @pytest.fixture
-def app_schema(state_database):
+def legacy_tables(state_database):
     with session(state_database) as conn, conn.cursor() as cur:
         cur.execute("SELECT table_name FROM user_tables")
         for (name,) in list(cur):
-            if name in TABLES:
+            if name in LEGACY_TABLES:
                 cur.execute(f"DROP TABLE {name} PURGE")
-    assert ensure_app_schema(state_database, timeout=0)
+        for ddl in LEGACY_TABLES.values():
+            cur.execute(ddl)
     return state_database
 
 
-def test_tables_are_created_once_and_start_with_an_empty_state(app_schema):
-    store = OracleStateStore(app_schema)
-    assert store.load() == new_state()
-    with store.transaction() as state:
-        state["settings"]["exam"] = "1Z0-171"
-    assert ensure_app_schema(app_schema, timeout=0)
-    assert store.load()["settings"] == {"exam": "1Z0-171"}
+def test_ensure_app_schema_migrates_and_leaves_legacy_tables_alone(legacy_tables):
+    with session(legacy_tables) as conn, conn.cursor() as cur:
+        cur.execute("INSERT INTO lab_notes (name, title, body) VALUES ('a.md', 'A', 'body')")
+        conn.commit()
+    assert ensure_app_schema(legacy_tables, timeout=0)
+    assert ensure_app_schema(legacy_tables, timeout=0)
+    with session(legacy_tables) as conn, conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM app_users")
+        assert cur.fetchone() is not None  # the table exists (other tests may have left rows)
+        cur.execute("SELECT COUNT(*) FROM lab_notes")
+        assert cur.fetchone()[0] == 1
 
 
-def test_a_failed_change_is_not_saved_and_large_states_fit(app_schema):
-    store = OracleStateStore(app_schema)
-    with store.transaction() as state:
-        state["attempts"] = {f"q{n}": [{"ok": True, "at": 1_800_000_000, "answer": "x" * 50}] for n in range(2000)}
-    with pytest.raises(ValueError), store.transaction() as state:
-        state["attempts"] = {}
-        raise ValueError("invalid input")
-    assert len(store.load()["attempts"]) == 2000
+def test_legacy_state_is_read_and_defaults_to_a_new_state(legacy_tables):
+    reader = LegacyOracleState(legacy_tables)
+    assert reader.load() == new_state()
+    with session(legacy_tables) as conn, conn.cursor() as cur:
+        cur.execute("INSERT INTO lab_state (id, doc) VALUES (1, :doc)", doc='{"settings": {"exam": "1Z0-171"}}')
+        conn.commit()
+    assert reader.load()["settings"] == {"exam": "1Z0-171"}
 
 
-def test_concurrent_transactions_do_not_lose_updates(app_schema):
-    store = OracleStateStore(app_schema)
-
-    def add(n):
-        with store.transaction() as state:
-            state["attempts"][f"q{n}"] = []
-
-    threads = [threading.Thread(target=add, args=(n,)) for n in range(10)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-    assert len(store.load()["attempts"]) == 10
-
-
-def test_personal_notes_get_unique_names_and_only_saved_ones_can_be_read(app_schema, tmp_path):
-    notes = NotesLibrary(tmp_path, OracleNotes(app_schema))
-    first = notes.save("Outer joins", "SELECT 1 FROM dual;", 1_800_000_000)
-    second = notes.save("Outer joins", "SELECT 2 FROM dual;", 1_800_000_000)
-    assert first.endswith("-outer-joins.md") and second.endswith("-outer-joins-2.md")
-    assert "```sql\nSELECT 2 FROM dual;\n```" in notes.read(second)
-    assert [n["path"] for n in notes.list()] == [first, second]  # newest day first, like FileNotes
-    assert {n["title"] for n in notes.list()} == {"My notes / Outer joins"}
-    assert notes.read("personal/missing.md") is None
+def test_legacy_notes_are_listed_newest_name_first_and_read(legacy_tables):
+    with session(legacy_tables) as conn, conn.cursor() as cur:
+        cur.execute("INSERT INTO lab_notes (name, title, body) VALUES ('2026-01-01-a.md', 'A', 'first')")
+        cur.execute("INSERT INTO lab_notes (name, title, body) VALUES ('2026-02-01-b.md', 'B', 'second')")
+        conn.commit()
+    notes = LegacyOracleNotes(legacy_tables)
+    assert notes.entries() == [("2026-02-01-b.md", "B"), ("2026-01-01-a.md", "A")]
+    assert notes.read("2026-01-01-a.md") == "first"
+    assert notes.read("missing.md") is None
