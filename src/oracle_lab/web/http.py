@@ -5,8 +5,11 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
+
+if TYPE_CHECKING:
+    from oracle_lab.auth.models import Principal
 
 JSON_TYPE = "application/json; charset=utf-8"
 HTML_TYPE = "text/html; charset=utf-8"
@@ -32,7 +35,7 @@ class Request:
     headers: Mapping[str, str]  # keys in lower case
     body: bytes = b""
     client: str = ""  # the peer IP; ClientAddress may replace it behind a trusted proxy
-    principal: object | None = None  # the signed-in account, set by the auth middleware
+    principal: Principal | None = None  # the signed-in account, set by the auth middleware
 
     @property
     def path(self) -> str:
