@@ -15,8 +15,7 @@ they can live in secret files. Every variable is optional and has a development 
                                      of files, for hosts without a persistent disk (must not be STUDY_USER)
     STUDY_STATE_DSN                  its database (default: the STUDY_DSN one)
     STUDY_STATE_PASSWORD[_FILE]      its password
-    STUDY_AUTH_USER                  login of the web app (default "study")
-    STUDY_AUTH_PASSWORD[_FILE]       enables HTTP basic auth when set and not empty
+    STUDY_AUTH_PASSWORD[_FILE]       the old basic-auth password: no longer used, only warned about
     STUDY_PUBLIC_URL                 address users reach the app at (default http://HOST:PORT); https turns on
                                      secure cookies
     STUDY_TRUST_PROXY                1, true or yes: believe X-Forwarded-For from a reverse proxy
@@ -42,10 +41,10 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
-from oracle_lab.credentials import Secret, SecretNotFoundError, resolve_secret
+from oracle_lab.credentials import Secret, resolve_secret
 
 EXAM_23AI = "1Z0-171"
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
@@ -65,12 +64,6 @@ class DatabaseTarget:
 
     def __str__(self) -> str:
         return f"{self.user}@{self.dsn}"
-
-
-@dataclass(frozen=True)
-class BasicAuthConfig:
-    user: str
-    password: str = field(repr=False)
 
 
 @dataclass(frozen=True)
@@ -98,7 +91,6 @@ class Settings:
     database: DatabaseTarget
     database_23ai: DatabaseTarget | None
     state_database: DatabaseTarget | None
-    auth: BasicAuthConfig | None
     legacy_basic_auth: bool
     public_url: str
     trust_proxy: bool
@@ -142,7 +134,6 @@ class Settings:
                 resolve_secret("STUDY_PASSWORD_23AI", env) or password,
             ) if dsn_23ai else None,
             state_database=_state_database(env, database, shared_schema=not practice),
-            auth=_basic_auth(env),
             legacy_basic_auth=bool(env.get("STUDY_AUTH_PASSWORD") or env.get("STUDY_AUTH_PASSWORD_FILE")),
             public_url=_public_url(env, f"http://{host}:{port}"),
             trust_proxy=env.get("STUDY_TRUST_PROXY", "").lower() in ("1", "true", "yes"),
@@ -193,18 +184,6 @@ def _state_database(env: Mapping[str, str], study: DatabaseTarget, shared_schema
         raise ConfigurationError("STUDY_STATE_USER must not be the learning user: SQL run in the lab could drop "
                                  "the progress tables")
     return DatabaseTarget(user, dsn, resolve_secret("STUDY_STATE_PASSWORD", env) or Secret.missing("STUDY_STATE_PASSWORD"))
-
-
-def _basic_auth(env: Mapping[str, str]) -> BasicAuthConfig | None:
-    """Basic auth is on when a non-empty password is configured. Read once: it guards every request."""
-    secret = resolve_secret("STUDY_AUTH_PASSWORD", env)
-    if secret is None:
-        return None
-    try:
-        password = secret.reveal()
-    except SecretNotFoundError as exc:
-        raise ConfigurationError(str(exc)) from exc
-    return BasicAuthConfig(env.get("STUDY_AUTH_USER", "study"), password) if password else None
 
 
 def _public_url(env: Mapping[str, str], default: str) -> str:

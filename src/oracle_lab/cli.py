@@ -28,11 +28,12 @@ def _serve(settings: Settings, _: argparse.Namespace) -> int:
     from oracle_lab.bootstrap import build_app
     from oracle_lab.web.server import serve
 
+    if settings.legacy_basic_auth:
+        log.warning("STUDY_AUTH_PASSWORD is set but ignored: the app now has its own login.")
     app = build_app(settings)
     extra = f"; 1Z0-171 track on {settings.database_23ai}" if settings.database_23ai else ""
-    log.info("Oracle Learning Lab %s on http://%s:%d (database %s%s; data in %s; login %s)", __version__,
-             settings.host, settings.port, settings.database, extra, settings.state_database or settings.data_dir,
-             "required" if settings.auth else "off")
+    log.info("Oracle Learning Lab %s on http://%s:%d (database %s%s; data in %s)", __version__,
+             settings.host, settings.port, settings.database, extra, settings.state_database or settings.data_dir)
     serve(app, settings.host, settings.port)
     return 0
 

@@ -4,9 +4,19 @@ from __future__ import annotations
 
 import time
 
-from oracle_lab.config import EXAM_23AI, Settings
+from oracle_lab.accounts.repositories import AppStores
+from oracle_lab.accounts.sqlite_store import sqlite_stores
+from oracle_lab.auth.account_settings import AccountSettings
+from oracle_lab.auth.audit import AuditLog
+from oracle_lab.auth.google import GoogleSignIn, HttpTokenEndpoint, TokenEndpoint
+from oracle_lab.auth.login import PasswordLogin
+from oracle_lab.auth.passwords import PasswordPolicy, load_common_passwords
+from oracle_lab.auth.registration import Registration, RegistrationPolicy
+from oracle_lab.auth.sessions import SessionManager
+from oracle_lab.auth.throttle import Throttle
+from oracle_lab.config import EXAM_23AI, ConfigurationError, Settings
 from oracle_lab.database.connection import DatabaseCatalog, OracleDatabase
-from oracle_lab.resources import NOTES_DIR, STATIC_DIR
+from oracle_lab.resources import COMMON_PASSWORDS, NOTES_DIR, STATIC_DIR
 from oracle_lab.services import Clock
 from oracle_lab.services.mock_exams import MockExamService
 from oracle_lab.services.sql_lab import ExerciseService, SqlLabService
@@ -14,12 +24,27 @@ from oracle_lab.services.study import StudyService
 from oracle_lab.study.notes import FileNotes, NotesLibrary, PersonalNotes
 from oracle_lab.study.state import JsonStateStore, StateStore
 from oracle_lab.web.application import WebApplication
+from oracle_lab.web.controllers.account import AccountController
+from oracle_lab.web.controllers.auth import AuthController
 from oracle_lab.web.controllers.health import HealthController
 from oracle_lab.web.controllers.mock_exams import MockExamController
 from oracle_lab.web.controllers.notes import NotesController
 from oracle_lab.web.controllers.sql_lab import ExerciseController, SqlLabController
 from oracle_lab.web.controllers.study import StudyController
-from oracle_lab.web.middleware import BasicAuth, Middleware, SecurityHeaders, access_log, error_boundary, same_origin_only
+from oracle_lab.web.cookies import CookiePolicy
+from oracle_lab.web.middleware import (
+    PUBLIC_PATHS,
+    PUBLIC_PREFIXES,
+    Authenticate,
+    ClientAddress,
+    Middleware,
+    SecurityHeaders,
+    access_log,
+    csrf,
+    error_boundary,
+    same_origin_only,
+)
+from oracle_lab.web.pages import Pages
 from oracle_lab.web.routing import Router
 from oracle_lab.web.static import StaticFiles, inline_script_hashes
 
@@ -33,26 +58,57 @@ def build_catalog(settings: Settings) -> DatabaseCatalog:
 
 
 def build_stores(settings: Settings) -> tuple[StateStore, PersonalNotes]:
-    """Where progress and personal notes are kept: Oracle when STUDY_STATE_USER is set, files otherwise."""
-    if settings.state_database is None:
-        return JsonStateStore(settings.state_file), FileNotes(settings.personal_notes_dir)
-    from oracle_lab.database.app_store import ConnectionPool, OracleNotes, OracleStateStore
+    """The single progress file and notes folder the study services still use (per-user services come next)."""
+    if settings.state_database is not None:
+        raise ConfigurationError("Per-user progress on Oracle arrives with the per-user services; "
+                                 "run without STUDY_STATE_USER for now.")
+    return JsonStateStore(settings.state_file), FileNotes(settings.personal_notes_dir)
 
-    pool = ConnectionPool(settings.state_database, settings.call_timeout_ms)
-    return OracleStateStore(pool), OracleNotes(pool)
+
+def build_app_stores(settings: Settings) -> AppStores:
+    """Accounts and sessions: in Oracle (STUDY_STATE_USER) or in data_dir/app.db."""
+    if settings.state_database is None:
+        return sqlite_stores(settings.data_dir / "app.db")
+    from oracle_lab.accounts.oracle_store import oracle_stores
+    from oracle_lab.database.app_store import ConnectionPool
+
+    return oracle_stores(ConnectionPool(settings.state_database, settings.call_timeout_ms))
 
 
 def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, store: StateStore | None = None,
-              notes: PersonalNotes | None = None, clock: Clock = time.time) -> WebApplication:
-    """The web application. `catalog`, `store`, `notes` and `clock` can be replaced, e.g. in tests."""
+              notes: PersonalNotes | None = None, stores: AppStores | None = None,
+              google_endpoint: TokenEndpoint | None = None, clock: Clock = time.time) -> WebApplication:
+    """The web application. `catalog`, `store`, `notes`, `stores`, `google_endpoint` and `clock` can be replaced,
+    e.g. in tests."""
     catalog = catalog or build_catalog(settings)
     if store is None or notes is None:
         default_store, default_notes = build_stores(settings)
         store, notes = store or default_store, notes or default_notes
+    stores = stores or build_app_stores(settings)
+
+    cookies = CookiePolicy(settings.secure_cookies)
+    sessions = SessionManager(stores.sessions, clock)
+    throttle = Throttle(stores.throttle, clock)
+    audit = AuditLog(stores.audit, clock)
+    policy = PasswordPolicy(load_common_passwords(COMMON_PASSWORDS))
+    registration_policy = RegistrationPolicy(stores.settings, stores.users, settings.registration_open,
+                                             settings.max_users)
+    registration = Registration(stores, policy, registration_policy, sessions, throttle, audit, clock,
+                                first_user_is_admin=settings.admin_email is None)
+    account = AccountSettings(stores, policy, sessions, audit, clock, throttle)
+    google = None
+    if settings.google is not None:
+        endpoint = google_endpoint or HttpTokenEndpoint(settings.google.client_id, settings.google.client_secret)
+        google = GoogleSignIn(settings.google, settings.public_url, endpoint, stores, sessions, throttle, audit,
+                              clock, registration)
 
     router = Router(fallback=StaticFiles(STATIC_DIR))
     controllers = (
         HealthController(),
+        Pages(STATIC_DIR),
+        AuthController(PasswordLogin(stores, sessions, throttle, audit, clock), registration, registration_policy,
+                       account, sessions, cookies, google),
+        AccountController(account, cookies),
         StudyController(StudyService(store, clock, track_databases=catalog.has_track_databases)),
         MockExamController(MockExamService(store, clock)),
         SqlLabController(SqlLabService(store, catalog, clock)),
@@ -64,9 +120,9 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
 
     pages = (path.read_text(encoding="utf-8") for path in sorted(STATIC_DIR.glob("*.html")))
     script_hashes = tuple(h for page in pages for h in inline_script_hashes(page))
-    middleware: list[Middleware] = [access_log, error_boundary,
-                                    SecurityHeaders(settings.secure_cookies, script_hashes)]
-    if settings.auth is not None:
-        middleware.append(BasicAuth(settings.auth))
-    middleware.append(same_origin_only)
+    middleware: list[Middleware] = [
+        access_log, error_boundary, SecurityHeaders(settings.secure_cookies, script_hashes),
+        ClientAddress(settings.trust_proxy), Authenticate(sessions, stores.users, cookies, PUBLIC_PATHS, PUBLIC_PREFIXES),
+        csrf, same_origin_only,
+    ]
     return WebApplication(router, middleware)

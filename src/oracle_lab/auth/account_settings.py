@@ -102,6 +102,13 @@ class AccountSettings:
         self._sessions_repo.delete_for_user(principal.user_id, principal.session_hash)
         self._audit.record("other_sessions_ended", "ok", user_id=principal.user_id)
 
+    def unlink_google(self, principal: Principal) -> None:
+        """Refused without a password: the account would have no way to sign in."""
+        if self._password_identity(principal.user_id) is None:
+            raise AuthError("Set a password before disconnecting Google.")
+        self._users.remove_identity(principal.user_id, "google")
+        self._audit.record("google_unlinked", "ok", user_id=principal.user_id)
+
     def profile(self, principal: Principal) -> dict:
         user = self._users.get(principal.user_id)
         if user is None:

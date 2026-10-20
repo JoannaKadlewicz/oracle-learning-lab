@@ -44,7 +44,7 @@ def test_defaults_and_derived_paths(tmp_path):
     assert str(settings.database) == "orastudy@localhost:1521/ORAPDB1"
     assert settings.state_file == tmp_path / "progress.json"
     assert settings.personal_notes_dir == tmp_path / "notes"
-    assert settings.database_23ai is None and settings.state_database is None and settings.auth is None
+    assert settings.database_23ai is None and settings.state_database is None
 
 
 def test_the_23ai_database_reuses_the_main_password_unless_it_has_its_own():
@@ -131,15 +131,6 @@ def test_legacy_basic_auth_is_flagged_while_it_is_configured(tmp_path):
     pw = tmp_path / "pw"
     pw.write_text("pw\n")
     assert Settings.from_env({"STUDY_AUTH_PASSWORD_FILE": str(pw)}).legacy_basic_auth is True
-
-
-def test_an_empty_auth_password_turns_login_off(tmp_path):
-    empty = tmp_path / "auth"
-    empty.write_text("\n")
-    assert Settings.from_env({"STUDY_AUTH_PASSWORD_FILE": str(empty)}).auth is None
-    assert Settings.from_env({"STUDY_AUTH_PASSWORD": "pw", "STUDY_AUTH_USER": "me"}).auth.user == "me"
-    with pytest.raises(ConfigurationError):
-        Settings.from_env({"STUDY_AUTH_PASSWORD_FILE": str(tmp_path / "missing")})
 
 
 @pytest.mark.parametrize("port", ["eighty", "0", "70000"])
