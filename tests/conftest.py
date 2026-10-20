@@ -6,6 +6,7 @@ and STUDY_TEST_STATE_PASSWORD[_FILE], on STUDY_TEST_STATE_DSN (default: STUDY_DS
 the user that keeps your progress.
 """
 
+import http.client
 import json
 import os
 import threading
@@ -78,6 +79,7 @@ class Client:
     `headers` set on the client (by sign_in) go with every request."""
 
     def __init__(self, port: int):
+        self.port = port
         self.base = f"http://127.0.0.1:{port}"
         self.origin = self.base
         self.headers: dict[str, str] = {}
@@ -91,6 +93,16 @@ class Client:
             resp = exc
         with resp:
             return resp.status, resp.headers, resp.read()
+
+    def raw(self, method, target, headers=None):
+        """Sends `target` verbatim (no client-side normalisation); returns (status, headers, body)."""
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        try:
+            conn.request(method, target, headers={**self.headers, **(headers or {})})
+            resp = conn.getresponse()
+            return resp.status, resp.headers, resp.read()
+        finally:
+            conn.close()
 
     def sign_in(self, email="learner@example.org", password=PASSWORD):
         """Registers an account and keeps its cookie, CSRF token and Origin for the next requests."""

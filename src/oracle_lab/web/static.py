@@ -7,7 +7,7 @@ import hashlib
 import re
 from pathlib import Path
 
-from oracle_lab.web.http import HttpError, Request, Response
+from oracle_lab.web.http import HttpError, Request, Response, is_clean_path
 
 CONTENT_TYPES = {".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml"}
 
@@ -27,6 +27,8 @@ class StaticFiles:
 
     def __call__(self, request: Request) -> Response:
         path = request.path
+        if not is_clean_path(path):  # defence in depth: Authenticate refuses these first
+            raise HttpError(404, "Not found")
         target = (self.root / path.lstrip("/")).resolve()
         if path in ("", "/"):
             target = self.index

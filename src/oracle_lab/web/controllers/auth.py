@@ -2,43 +2,22 @@
 
 from __future__ import annotations
 
-from functools import wraps
 from urllib.parse import quote
 
 from oracle_lab.auth.account_settings import AccountSettings
 from oracle_lab.auth.google import GoogleSignIn
 from oracle_lab.auth.login import PasswordLogin
-from oracle_lab.auth.models import AuthError, LoginResult, Principal, Throttled, WeakPassword
+from oracle_lab.auth.models import AuthError, LoginResult, Principal
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.web.cookies import CookiePolicy
 from oracle_lab.web.http import HttpError, Request, Response
-from oracle_lab.web.middleware import safe_next
-from oracle_lab.web.routing import Handler, Router
+from oracle_lab.web.middleware import auth_error_response, safe_next
+from oracle_lab.web.routing import Router
 
 SESSION_MAX_AGE = 30 * 86400
 GOOGLE_FAILED = "/login?error=google"
 _LOCATION_SAFE = "/?&=#%:@!$'()*+,;~"  # keeps a URL's structure; spaces and non-ASCII get percent-encoded
-
-
-def auth_errors(handler: Handler) -> Handler:
-    """The one place an AuthError becomes a response: its status and {"error": message}, plus Retry-After for
-    Throttled and the list of problems for WeakPassword."""
-
-    @wraps(handler)
-    def wrapped(request: Request) -> Response:
-        try:
-            return handler(request)
-        except AuthError as exc:
-            payload: dict = {"error": str(exc)}
-            headers = {}
-            if isinstance(exc, WeakPassword):
-                payload["problems"] = exc.problems
-            if isinstance(exc, Throttled):
-                headers["Retry-After"] = str(exc.retry_after)
-            return Response.json(payload, exc.status, headers)
-
-    return wrapped
 
 
 def principal_of(request: Request) -> Principal:
@@ -67,14 +46,14 @@ class AuthController:
         self.google = google
 
     def register(self, router: Router) -> None:
-        router.post("/api/auth/login", auth_errors(self.sign_in))
-        router.post("/api/auth/register", auth_errors(self.sign_up))
+        router.post("/api/auth/login", self.sign_in)
+        router.post("/api/auth/register", self.sign_up)
         router.post("/api/auth/logout", self.sign_out)
-        router.get("/api/auth/me", auth_errors(self.me))
+        router.get("/api/auth/me", self.me)
         router.get("/api/auth/config", self.config)
-        router.post("/api/auth/reset", auth_errors(self.reset))
-        router.get("/auth/google/start", auth_errors(self.google_start))
-        router.get("/auth/google/callback", auth_errors(self.google_callback))
+        router.post("/api/auth/reset", self.reset)
+        router.get("/auth/google/start", self.google_start)
+        router.get("/auth/google/callback", self.google_callback)
 
     def sign_in(self, request: Request) -> Response:
         data = request.json()
@@ -131,15 +110,23 @@ class AuthController:
 
     def google_callback(self, request: Request) -> Response:
         google = self._google()
-        outcome = google.finish(self.cookies.read(request, self.cookies.flow_name) or "", request.query("state"),
-                                request.query("code"), request.client, request.header("User-Agent"),
-                                request.principal)
+        try:
+            outcome = google.finish(self.cookies.read(request, self.cookies.flow_name) or "", request.query("state"),
+                                    request.query("code"), request.client, request.header("User-Agent"),
+                                    request.principal)
+        except AuthError as exc:  # the flow is single-use: clear its cookie on every way out
+            response = auth_error_response(exc)
+            response.cookies.append(self.cookies.clear_flow())
+            return response
         cookies = [self.cookies.clear_flow()]
+        location = safe_next(outcome.next_path)
         if outcome.message is not None:
-            return Response.redirect(GOOGLE_FAILED, cookies=cookies)
+            if outcome.intent == "login":
+                return Response.redirect(GOOGLE_FAILED, cookies=cookies)
+            location += ("&" if "?" in location else "?") + "google_error=1"  # a signed-in user stays where they were
         if outcome.token is not None:
             cookies.append(self.new_session_cookie(request, outcome.token))
-        return Response.redirect(quote(safe_next(outcome.next_path), safe=_LOCATION_SAFE), cookies=cookies)
+        return Response.redirect(quote(location, safe=_LOCATION_SAFE), cookies=cookies)
 
     def _google(self) -> GoogleSignIn:
         if self.google is None:

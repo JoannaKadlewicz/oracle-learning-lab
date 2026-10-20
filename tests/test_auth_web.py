@@ -10,10 +10,11 @@ import pytest
 from conftest import NOW, PASSWORD, session_cookie, settings_for
 from oracle_lab import cli
 from oracle_lab.accounts.memory import memory_stores
-from oracle_lab.auth.models import Identity
+from oracle_lab.auth.models import Identity, LoginRequired, Principal, Throttled, WeakPassword
 from oracle_lab.bootstrap import build_app
 from oracle_lab.config import ConfigurationError
-from oracle_lab.web.middleware import safe_next
+from oracle_lab.web.http import HttpError, Request, Response
+from oracle_lab.web.middleware import csrf, error_boundary, safe_next
 
 GOOGLE_ENV = {"STUDY_GOOGLE_CLIENT_ID": "client-1", "STUDY_GOOGLE_CLIENT_SECRET": "shh"}
 
@@ -263,3 +264,61 @@ def test_serve_warns_about_the_old_basic_auth_password(tmp_path, monkeypatch, ca
     monkeypatch.setattr("oracle_lab.bootstrap.build_app", lambda settings: None)
     cli._serve(settings_for(tmp_path, STUDY_AUTH_PASSWORD="old"), None)
     assert "STUDY_AUTH_PASSWORD is set but ignored: the app now has its own login." in caplog.text
+
+
+@pytest.mark.parametrize("target", [
+    "/css/../js/main.js", "/js/auth/../main.js", "/js/core/dom.js/../../main.js", "/css/../index.html",
+    "/css/%2e%2e/js/main.js", "/css/..%2fjs/main.js", "/css/%2E%2E%5Cjs/main.js", "/css/./app.css", "/css//app.css",
+    "/css\\..\\js/main.js", "/js/core/dom.jsx", "/css/../api/progress",
+])
+def test_public_prefixes_cannot_be_escaped(serve, target):
+    status, _, body = serve().raw("GET", target)
+    assert status in (401, 404) and b"<html" not in body.lower() and b"import" not in body
+
+
+def test_public_assets_stay_public(serve):
+    http = serve()
+    assert http.raw("GET", "/js/core/dom.js")[0] == 200 and http.raw("GET", "/css/app.css")[0] == 200
+
+
+def test_csrf_is_checked_on_every_method_but_get():
+    principal = Principal("u1", "a@example.org", "learner", "hash", "the-token", 0.0)
+    for method in ("HEAD", "POST", "DELETE"):
+        with pytest.raises(HttpError) as err:
+            csrf(Request(method, "/api/state", {"x-csrf-token": "wrong"}, principal=principal), lambda _: Response())
+        assert err.value.status == 403
+    assert csrf(Request("GET", "/api/state", {}, principal=principal), lambda _: Response()).status == 200
+
+
+def test_auth_errors_are_mapped_by_the_error_boundary():
+    def raising(exc):
+        return error_boundary(Request("POST", "/any", {}), lambda _: (_ for _ in ()).throw(exc))
+
+    throttled = raising(Throttled("Too many attempts.", retry_after=7))
+    assert (throttled.status, throttled.headers["Retry-After"]) == (429, "7")
+    weak = raising(WeakPassword("Choose a stronger password.", ["Use at least 12 characters."]))
+    assert weak.status == 400 and json.loads(weak.body) == {"error": "Choose a stronger password.",
+                                                            "problems": ["Use at least 12 characters."]}
+    assert json.loads(raising(LoginRequired("Login required")).body) == {"error": "Login required"}
+
+
+def test_failed_google_link_returns_to_the_page_with_a_flag(serve, tmp_path):
+    endpoint = FakeGoogle()
+    http = serve(settings_for(tmp_path, **GOOGLE_ENV), stores=memory_stores(), google_endpoint=endpoint).sign_in()
+    status, headers, _ = http("/auth/google/start?intent=link&next=/settings")
+    flow = next(v.split(";", 1)[0] for v in headers.get_all("Set-Cookie") if "oll_flow=" in v)
+    status, headers, _ = http("/auth/google/callback?state=wrong&code=c",
+                              headers={"Cookie": http.headers["Cookie"] + "; " + flow})
+    assert status == 302 and headers["Location"] == "/settings?google_error=1"
+    assert any("oll_flow=;" in v for v in headers.get_all("Set-Cookie"))
+
+
+def test_flow_cookie_is_cleared_when_the_callback_raises(serve, tmp_path):
+    endpoint = FakeGoogle()
+    endpoint.exchange = lambda *args: (_ for _ in ()).throw(Throttled("Too many attempts.", retry_after=3))
+    http = serve(settings_for(tmp_path, **GOOGLE_ENV), stores=memory_stores(), google_endpoint=endpoint)
+    _, headers, _ = http("/auth/google/start")
+    state = parse_qs(urlsplit(headers["Location"]).query)["state"][0]
+    flow = next(v.split(";", 1)[0] for v in headers.get_all("Set-Cookie") if "oll_flow=" in v)
+    status, headers, _ = http(f"/auth/google/callback?state={state}&code=c", headers={"Cookie": flow})
+    assert status == 429 and any("oll_flow=;" in v for v in headers.get_all("Set-Cookie") or [])

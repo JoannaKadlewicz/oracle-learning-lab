@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from oracle_lab.auth.account_settings import AccountSettings
 from oracle_lab.auth.models import LoginResult
-from oracle_lab.web.controllers.auth import SESSION_MAX_AGE, auth_errors, principal_of, text
+from oracle_lab.web.controllers.auth import SESSION_MAX_AGE, principal_of, text
 from oracle_lab.web.cookies import CookiePolicy
 from oracle_lab.web.http import Request, Response
 from oracle_lab.web.routing import Router
@@ -18,12 +18,12 @@ class AccountController:
         self.cookies = cookies
 
     def register(self, router: Router) -> None:
-        router.post("/api/account/password", auth_errors(self.change_password))
-        router.post("/api/account/set-password", auth_errors(self.set_password))
+        router.post("/api/account/password", self.change_password)
+        router.post("/api/account/set-password", self.set_password)
         router.get("/api/account/sessions", self.sessions)
         router.post("/api/account/sessions/end", self.end_session)
         router.post("/api/account/sessions/end-others", self.end_other_sessions)
-        router.post("/api/account/google/unlink", auth_errors(self.unlink_google))
+        router.post("/api/account/google/unlink", self.unlink_google)
         router.post("/api/account/delete", lambda _: Response.json({"error": "Not implemented yet"}, 501))
 
     def change_password(self, request: Request) -> Response:

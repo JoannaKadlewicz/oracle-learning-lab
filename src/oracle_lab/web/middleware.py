@@ -11,10 +11,10 @@ from pathlib import PurePosixPath
 from urllib.parse import quote, urlsplit
 
 from oracle_lab.accounts.repositories import UserRepository
-from oracle_lab.auth.models import Principal
+from oracle_lab.auth.models import AuthError, Principal, Throttled, WeakPassword
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.web.cookies import CookiePolicy
-from oracle_lab.web.http import HttpError, Request, Response
+from oracle_lab.web.http import HttpError, Request, Response, is_clean_path
 from oracle_lab.web.routing import Handler
 
 Middleware = Callable[[Request, Handler], Response]
@@ -23,14 +23,25 @@ log = logging.getLogger("oracle_lab.access")
 
 
 def error_boundary(request: Request, call_next: Handler) -> Response:
-    """Turn HttpError into its response and unexpected exceptions into a logged 500."""
+    """Turn HttpError and AuthError into their responses and unexpected exceptions into a logged 500."""
     try:
         return call_next(request)
     except HttpError as exc:
         return exc.to_response()
+    except AuthError as exc:
+        return auth_error_response(exc)
     except Exception:
         logging.getLogger(__name__).exception("unhandled error in %s %s", request.method, request.path)
         return Response.json({"error": "Internal server error"}, 500)
+
+
+def auth_error_response(exc: AuthError) -> Response:
+    """Its status and {"error": message}, plus the problems of a WeakPassword and Retry-After for Throttled."""
+    payload: dict = {"error": str(exc)}
+    if isinstance(exc, WeakPassword):
+        payload["problems"] = exc.problems
+    headers = {"Retry-After": str(exc.retry_after)} if isinstance(exc, Throttled) else {}
+    return Response.json(payload, exc.status, headers)
 
 
 def access_log(request: Request, call_next: Handler) -> Response:
@@ -44,9 +55,9 @@ def access_log(request: Request, call_next: Handler) -> Response:
 PUBLIC_PATHS = frozenset({
     "/login", "/register", "/reset", "/healthz",
     "/api/auth/login", "/api/auth/register", "/api/auth/reset", "/api/auth/config",
-    "/auth/google/start", "/auth/google/callback",
+    "/auth/google/start", "/auth/google/callback", "/js/core/dom.js",
 })
-PUBLIC_PREFIXES = ("/css/", "/js/auth/", "/js/core/dom.js")  # all that the auth pages load
+PUBLIC_PREFIXES = ("/css/", "/js/auth/")  # directories only; with PUBLIC_PATHS, all that the auth pages load
 _LOGGED_OUT_ONLY = ("/login", "/register")
 
 
@@ -70,8 +81,10 @@ class Authenticate:
         self.public_prefixes = public_prefixes
 
     def __call__(self, request: Request, call_next: Handler) -> Response:
-        principal = self._principal(request)
         path = request.path
+        if not is_clean_path(path):  # "/css/../js/main.js" must not pass as "/css/"
+            raise HttpError(404, "Not found")
+        principal = self._principal(request)
         if principal is not None:
             if request.method == "GET" and path in _LOGGED_OUT_ONLY:
                 return Response.redirect("/")
@@ -97,7 +110,7 @@ class Authenticate:
 def csrf(request: Request, call_next: Handler) -> Response:
     """A signed-in request that changes something must echo the session's CSRF token in X-CSRF-Token."""
     principal = request.principal
-    if principal is not None and request.method not in ("GET", "HEAD"):
+    if principal is not None and request.method != "GET":
         given = request.header("X-CSRF-Token").encode()
         if not hmac.compare_digest(given, principal.csrf_token.encode()):
             raise HttpError(403, "Invalid CSRF token")

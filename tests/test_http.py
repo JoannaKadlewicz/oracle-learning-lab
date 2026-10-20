@@ -7,7 +7,7 @@ import urllib.request
 
 import pytest
 
-from oracle_lab.web.http import Request, Response
+from oracle_lab.web.http import HttpError, Request, Response
 from oracle_lab.web.middleware import ClientAddress, SecurityHeaders
 from oracle_lab.web.server import create_server
 from oracle_lab.web.static import StaticFiles, inline_script_hashes
@@ -99,3 +99,12 @@ def test_every_cdn_script_and_stylesheet_has_an_integrity_hash():
     assert len(tags) >= 9
     for tag in tags:
         assert re.search(r'integrity="sha384-[A-Za-z0-9+/]+=*"', tag) and 'crossorigin="anonymous"' in tag, tag
+
+
+@pytest.mark.parametrize("path", ["/css/../index.html", "/./index.html", "//index.html", "/css/%2e%2e/index.html"])
+def test_static_files_refuse_dot_segments(tmp_path, path):
+    (tmp_path / "css").mkdir()
+    (tmp_path / "index.html").write_text("<html></html>")
+    with pytest.raises(HttpError) as err:
+        StaticFiles(tmp_path)(Request("GET", path, {}))
+    assert err.value.status == 404

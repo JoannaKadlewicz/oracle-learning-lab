@@ -134,8 +134,9 @@ def _local_path(path: str) -> str:
 @dataclass(frozen=True)
 class GoogleOutcome:
     token: str | None
-    next_path: str
+    next_path: str  # on a failed link or reauth, the page the user came from (they are signed in)
     message: str | None
+    intent: str = "login"
 
 
 class GoogleSignIn:
@@ -182,6 +183,8 @@ class GoogleSignIn:
 
         def fail(reason: str, message: str = GENERIC) -> GoogleOutcome:
             self._audit.record(event, "fail", user_id=user_id, ip=ip, user_agent=user_agent, reason=reason)
+            if flow is not None and flow.intent != "login":
+                return GoogleOutcome(None, flow.next_path, message, flow.intent)
             return GoogleOutcome(None, "/login", message)
 
         if flow is None or flow.expires_at <= self._clock():
