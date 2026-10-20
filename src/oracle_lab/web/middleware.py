@@ -87,7 +87,7 @@ class ClientAddress:
 
 CSP_TEMPLATE = (
     "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com{hashes}; "
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
+    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
     "img-src 'self' data:; connect-src 'self'; form-action 'self' https://accounts.google.com; "
     "frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
 )

@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import re
 import threading
 import urllib.error
 import urllib.request
@@ -70,6 +71,7 @@ def test_every_response_carries_the_security_headers():
                  "frame-ancestors 'none'", "form-action 'self' https://accounts.google.com", "object-src 'none'",
                  "base-uri 'none'", "font-src https://fonts.gstatic.com"):
         assert part in csp
+    assert "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com" in csp
     assert resp.headers["Strict-Transport-Security"] == "max-age=31536000; includeSubDomains"
     assert resp.headers["X-Frame-Options"] == "DENY" and resp.headers["Referrer-Policy"] == "same-origin"
     assert resp.headers["Cross-Origin-Opener-Policy"] == "same-origin"
@@ -88,3 +90,12 @@ def test_html_pages_are_never_cached(tmp_path):
     static = StaticFiles(tmp_path)
     assert static(Request("GET", "/", {})).headers["Cache-Control"] == "no-store"
     assert static(Request("GET", "/app.js", {})).headers["Cache-Control"] == "no-cache"
+
+
+def test_every_cdn_script_and_stylesheet_has_an_integrity_hash():
+    from oracle_lab.resources import STATIC_DIR
+    page = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    tags = [t for t in re.findall(r"<(?:script|link)\b[^>]*>", page) if "cdnjs.cloudflare.com" in t]
+    assert len(tags) >= 9
+    for tag in tags:
+        assert re.search(r'integrity="sha384-[A-Za-z0-9+/]+=*"', tag) and 'crossorigin="anonymous"' in tag, tag

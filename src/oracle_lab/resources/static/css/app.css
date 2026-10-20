@@ -1,11 +1,10 @@
-/* Entry stylesheet. Cascade layers keep the order explicit: vendor CSS (CodeMirror) sits in the
-   lowest layer so our editor theme always wins, and views can override components without
-   specificity tricks. */
+/* Entry stylesheet. Cascade layers keep the order explicit, and views can override components
+   without specificity tricks. CodeMirror's CSS is linked (with SRI) from index.html: a <link> cannot
+   join a layer, so it is unlayered and beats these layers; the editor theme lives in
+   codemirror-theme.css, also unlayered and linked after it. */
 
-@layer vendor, tokens, base, components, shell, views;
+@layer tokens, base, components, shell, views;
 
-@import url("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css") layer(vendor);
-@import url("https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css") layer(vendor);
 @import url("tokens.css") layer(tokens);
 @import url("base.css") layer(base);
 @import url("components.css") layer(components);

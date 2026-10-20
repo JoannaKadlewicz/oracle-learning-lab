@@ -1,0 +1,31 @@
+/* The SQL editor theme. CodeMirror's own CSS is linked from index.html and so cannot sit in a cascade
+   layer; this sheet is linked right after it, also unlayered, so these rules beat the vendor ones. */
+
+.editor-wrap .CodeMirror {
+  height: auto;
+  min-height: 220px;
+  font-family: var(--mono);
+  font-size: 14.5px;
+  line-height: 1.65;
+  background: var(--paper);
+  color: var(--ink);
+}
+.editor-wrap .CodeMirror-scroll { min-height: 220px; }
+.editor-wrap .CodeMirror-lines { padding: 12px 0; }
+.editor-wrap .CodeMirror-gutters { background: var(--paper-2); border-right: 1px solid var(--rule); }
+.editor-wrap .CodeMirror-linenumber { color: var(--muted); padding: 0 10px 0 6px; }
+.editor-wrap .CodeMirror-cursor { border-left: 2px solid var(--ink); }
+.editor-wrap .CodeMirror-selected, .editor-wrap .CodeMirror-focused .CodeMirror-selected { background: color-mix(in srgb, var(--focus) 22%, transparent); }
+.editor-wrap .CodeMirror-matchingbracket { color: inherit !important; outline: 1.5px solid var(--focus); }
+.editor-wrap .cm-keyword { color: var(--link); font-weight: 700; }
+.editor-wrap .cm-builtin, .editor-wrap .cm-type { color: var(--margin); }
+.editor-wrap .cm-string { color: var(--good); }
+.editor-wrap .cm-number { color: #B07A0C; }
+.editor-wrap .cm-comment { color: var(--muted); font-style: italic; }
+.editor-wrap .cm-operator { color: var(--ink); }
+.editor-wrap .cm-variable-2, .editor-wrap .cm-variable-3 { color: var(--ink-2); }
+.CodeMirror-hints { z-index: 70; background: var(--paper); border: 1px solid var(--rule-strong); border-radius: var(--r-s); box-shadow: var(--shadow-pop); font: 13px var(--mono); padding: 4px; }
+.CodeMirror-hint { color: var(--ink); border-radius: 4px; padding: 2px 8px; }
+li.CodeMirror-hint-active { background: var(--focus); color: #fff; }
+.card-try .CodeMirror { min-height: 180px; height: auto; }
+.card-try .CodeMirror-scroll { min-height: 180px; max-height: 340px; }
