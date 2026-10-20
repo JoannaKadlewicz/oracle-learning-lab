@@ -83,3 +83,33 @@ class ClientAddress:
         if self.trust_proxy and forwarded:
             request = replace(request, client=forwarded)
         return call_next(request)
+
+
+CSP_TEMPLATE = (
+    "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com{hashes}; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
+    "img-src 'self' data:; connect-src 'self'; form-action 'self' https://accounts.google.com; "
+    "frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
+)
+PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
+
+class SecurityHeaders:
+    """Add the browser hardening headers to every response; HSTS only when the site is served over https."""
+
+    def __init__(self, hsts: bool, inline_script_hashes: tuple[str, ...]):
+        hashes = "".join(f" '{h}'" for h in inline_script_hashes)
+        self.headers = {
+            "Content-Security-Policy": CSP_TEMPLATE.format(hashes=hashes),
+            "Referrer-Policy": "same-origin",
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Permissions-Policy": PERMISSIONS_POLICY,
+            "X-Frame-Options": "DENY",
+        }
+        if hsts:
+            self.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    def __call__(self, request: Request, call_next: Handler) -> Response:
+        response = call_next(request)
+        response.headers.update(self.headers)
+        return response

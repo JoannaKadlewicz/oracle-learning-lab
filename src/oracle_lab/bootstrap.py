@@ -19,9 +19,9 @@ from oracle_lab.web.controllers.mock_exams import MockExamController
 from oracle_lab.web.controllers.notes import NotesController
 from oracle_lab.web.controllers.sql_lab import ExerciseController, SqlLabController
 from oracle_lab.web.controllers.study import StudyController
-from oracle_lab.web.middleware import BasicAuth, Middleware, access_log, error_boundary, same_origin_only
+from oracle_lab.web.middleware import BasicAuth, Middleware, SecurityHeaders, access_log, error_boundary, same_origin_only
 from oracle_lab.web.routing import Router
-from oracle_lab.web.static import StaticFiles
+from oracle_lab.web.static import StaticFiles, inline_script_hashes
 
 
 def build_catalog(settings: Settings) -> DatabaseCatalog:
@@ -62,7 +62,10 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
     for controller in controllers:
         controller.register(router)
 
-    middleware: list[Middleware] = [access_log, error_boundary]
+    pages = (path.read_text(encoding="utf-8") for path in sorted(STATIC_DIR.glob("*.html")))
+    script_hashes = tuple(h for page in pages for h in inline_script_hashes(page))
+    middleware: list[Middleware] = [access_log, error_boundary,
+                                    SecurityHeaders(settings.secure_cookies, script_hashes)]
     if settings.auth is not None:
         middleware.append(BasicAuth(settings.auth))
     middleware.append(same_origin_only)

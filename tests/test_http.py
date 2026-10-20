@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import threading
 import urllib.error
 import urllib.request
@@ -5,8 +7,9 @@ import urllib.request
 import pytest
 
 from oracle_lab.web.http import Request, Response
-from oracle_lab.web.middleware import ClientAddress
+from oracle_lab.web.middleware import ClientAddress, SecurityHeaders
 from oracle_lab.web.server import create_server
+from oracle_lab.web.static import StaticFiles, inline_script_hashes
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -58,3 +61,30 @@ def test_redirect_and_cookies_reach_the_wire(serve_app):
     status, headers, _ = get("/x")
     assert status == 302 and headers["Location"] == "/login"
     assert headers.get_all("Set-Cookie") == ["a=1; Path=/", "b=2; Path=/"]
+
+
+def test_every_response_carries_the_security_headers():
+    resp = SecurityHeaders(hsts=True, inline_script_hashes=("sha256-abc=",))(Request("GET", "/", {}), lambda r: Response())
+    csp = resp.headers["Content-Security-Policy"]
+    for part in ("default-src 'self'", "script-src 'self' https://cdnjs.cloudflare.com 'sha256-abc='",
+                 "frame-ancestors 'none'", "form-action 'self' https://accounts.google.com", "object-src 'none'",
+                 "base-uri 'none'", "font-src https://fonts.gstatic.com"):
+        assert part in csp
+    assert resp.headers["Strict-Transport-Security"] == "max-age=31536000; includeSubDomains"
+    assert resp.headers["X-Frame-Options"] == "DENY" and resp.headers["Referrer-Policy"] == "same-origin"
+    assert resp.headers["Cross-Origin-Opener-Policy"] == "same-origin"
+    assert "camera=()" in resp.headers["Permissions-Policy"]
+    assert "Strict-Transport-Security" not in SecurityHeaders(False, ())(Request("GET", "/", {}), lambda r: Response()).headers
+
+
+def test_inline_script_hash_matches_the_page():
+    h = inline_script_hashes("<script>let a=1;</script><script src='/x.js'></script>")
+    assert h == ("sha256-" + base64.b64encode(hashlib.sha256(b"let a=1;").digest()).decode(),)
+
+
+def test_html_pages_are_never_cached(tmp_path):
+    (tmp_path / "index.html").write_text("<p>hi</p>")
+    (tmp_path / "app.js").write_text("1")
+    static = StaticFiles(tmp_path)
+    assert static(Request("GET", "/", {})).headers["Cache-Control"] == "no-store"
+    assert static(Request("GET", "/app.js", {})).headers["Cache-Control"] == "no-cache"
