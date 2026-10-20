@@ -1,10 +1,12 @@
 import json
 
+import pytest
+
 from conftest import PASSWORD
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.memory import memory_stores
 from oracle_lab.auth.audit import AuditLog
-from oracle_lab.auth.models import Identity, PracticeSchema, User
+from oracle_lab.auth.models import AuthError, Identity, PracticeSchema, User
 from oracle_lab.auth.sessions import SessionManager
 
 
@@ -15,6 +17,9 @@ def test_delete_removes_everything_and_ends_sessions():
                      Identity("password", "u1", "u1", "h"))
     stores.users.add(User("u2", "b@example.org", "B", "learner", "active", 1.0, None, None),
                      Identity("password", "u2", "u2", "h"))
+    with stores.states.for_user("u2").transaction() as s:
+        s["settings"]["keep"] = 1
+    stores.notes.for_user("u2").add("m", "M", "kept")
     token, _ = sessions.start("u1", "ip", "ua")
     other, _ = sessions.start("u2", "ip", "ua")
     with stores.states.for_user("u1").transaction() as s:
@@ -29,13 +34,21 @@ def test_delete_removes_everything_and_ends_sessions():
     assert sessions.resolve(token) is None and sessions.resolve(other) is not None
     assert stores.states.for_user("u1").load()["settings"] == {} and stores.notes.for_user("u1").entries() == []
     assert stores.schemas.for_user("u1") == [] and stores.users.get("u2")
+    assert stores.states.for_user("u2").load()["settings"] == {"keep": 1}
+    assert stores.notes.for_user("u2").read("m.md") == "kept"
     (event,) = stores.audit.recent(event="account_deleted")
     assert event.detail["actor"] == "admin-9"
+
+
+def _admin(stores):
+    stores.users.add(User("boss", "boss@example.org", "Boss", "admin", "active", 1.0, None, None),
+                     Identity("password", "boss", "boss", "h"))
 
 
 def test_delete_needs_password_or_recent_reauth(tmp_path, serve):
     from conftest import settings_for
     stores = memory_stores()
+    _admin(stores)
     http = serve(settings_for(tmp_path), stores=stores).sign_in("me@example.org")
     post = lambda data: http("/api/account/delete", data)  # noqa: E731
 
@@ -51,6 +64,7 @@ def test_delete_needs_password_or_recent_reauth(tmp_path, serve):
 def test_google_only_account_needs_recent_reauth(tmp_path, serve):
     from conftest import settings_for
     stores = memory_stores()
+    _admin(stores)
     http = serve(settings_for(tmp_path), stores=stores).sign_in("g@example.org")
     user = stores.users.by_email("g@example.org")
     stores.users.add_identity(Identity("google", "sub-g", user.id, None))
@@ -61,3 +75,16 @@ def test_google_only_account_needs_recent_reauth(tmp_path, serve):
     stores.sessions.set_reauth(rec.token_hash, 1_800_000_000 + 300)
     assert http("/api/account/delete", {})[0] == 200
     assert stores.users.get(user.id) is None
+
+
+def test_the_only_admin_cannot_be_deleted():
+    stores = memory_stores()
+    sessions = SessionManager(stores.sessions, lambda: 1.0)
+    for uid, role in (("a1", "admin"), ("a2", "admin")):
+        stores.users.add(User(uid, f"{uid}@example.org", uid, role, "active", 1.0, None, None),
+                         Identity("password", uid, uid, "h"))
+    deletion = AccountDeletion(stores, sessions, AuditLog(stores.audit, lambda: 1.0))
+    deletion.delete("a1", "a2")
+    with pytest.raises(AuthError, match="only admin"):
+        deletion.delete("a2", "a2")
+    assert stores.users.get("a2")

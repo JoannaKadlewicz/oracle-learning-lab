@@ -48,35 +48,81 @@ def ensure_first_admin(stores: AppStores, settings: Settings, clock: Clock, audi
     on_user_created(user)
 
 
+Sources = Callable[[], tuple[StateStore | None, PersonalNotes | None]]
+
+
 def import_legacy(stores: AppStores, user_id: str, legacy_state: StateStore | None,
                   legacy_notes: PersonalNotes | None) -> bool:
     """Copies the single-user progress and personal notes into the account, once (setting `legacy_imported`).
     The sources are left alone. A source that does not exist, such as the LAB_STATE and LAB_NOTES tables of
-    a fresh Oracle install (ORA-00942), counts as empty. Returns False when the import was done before."""
+    a fresh Oracle install (ORA-00942), counts as empty. Returns False when the import was done before.
+    When copying fails the account's state and notes are emptied again (it must have had none), so a
+    retry starts clean, and the error is re-raised."""
     if stores.settings.get(LEGACY_IMPORTED) == "1":
         return False
-    state = _read(legacy_state.load, new_state()) if legacy_state is not None else new_state()
-    if state != new_state():
-        with stores.states.for_user(user_id).transaction() as target:
-            target.clear()
-            target.update(state)
-    if legacy_notes is not None:
-        target_notes = stores.notes.for_user(user_id)
-        for name, title in _read(legacy_notes.entries, []):
-            text = legacy_notes.read(name)
-            if text is not None:
-                target_notes.add(name.removesuffix(".md"), title, text)
+    try:
+        state = _read(legacy_state.load, new_state()) if legacy_state is not None else new_state()
+        if state != new_state():
+            with stores.states.for_user(user_id).transaction() as target:
+                target.clear()
+                target.update(state)
+        if legacy_notes is not None:
+            target_notes = stores.notes.for_user(user_id)
+            for name, title in _read(legacy_notes.entries, []):
+                text = legacy_notes.read(name)
+                if text is not None:
+                    target_notes.add(name.removesuffix(".md"), title, text)
+    except Exception:
+        try:
+            stores.states.delete(user_id)
+            stores.notes.delete(user_id)
+        except Exception:  # noqa: BLE001
+            log.exception("could not undo the partial legacy import for %s", user_id)
+        raise
     stores.settings.set(LEGACY_IMPORTED, "1")
     return True
 
 
-def legacy_hook(stores: AppStores, legacy_state: StateStore | None,
-                legacy_notes: PersonalNotes | None) -> Callable[[User], None]:
-    """The on_user_created hook: the first admin receives the legacy data."""
-    def on_user_created(user: User) -> None:
-        if user.role == "admin" and import_legacy(stores, user.id, legacy_state, legacy_notes):
+def _try_import(stores: AppStores, audit: AuditLog, user: User, sources: Sources) -> None:
+    """Never raises: a failure is logged and audited, and the import is retried at the next start."""
+    try:
+        state, notes = sources()
+        if import_legacy(stores, user.id, state, notes):
             log.info("imported the single-user progress and notes into %s", user.id)
+    except Exception as exc:  # noqa: BLE001 - sign-up and start-up must complete
+        log.exception("importing the single-user progress into %s failed", user.id)
+        try:
+            audit.record("legacy_import", "fail", user_id=user.id, reason=type(exc).__name__)
+        except Exception:  # noqa: BLE001
+            log.exception("could not audit the failed legacy import")
+
+
+def legacy_hook(stores: AppStores, sources: Sources, audit: AuditLog) -> Callable[[User], None]:
+    """The on_user_created hook: the first admin receives the legacy data. `sources` is called lazily."""
+    def on_user_created(user: User) -> None:
+        if user.role == "admin" and stores.settings.get(LEGACY_IMPORTED) != "1":
+            _try_import(stores, audit, user, sources)
     return on_user_created
+
+
+def retry_legacy_import(stores: AppStores, sources: Sources, audit: AuditLog) -> None:
+    """At start-up: an import that failed earlier goes to the earliest admin, but only while that account
+    has no progress and no notes (a retry can neither overwrite nor duplicate); else it is marked done."""
+    try:
+        if stores.settings.get(LEGACY_IMPORTED) == "1":
+            return
+        admins = [u for u in stores.users.all() if u.role == "admin"]
+        if not admins:
+            return
+        admin = min(admins, key=lambda u: u.created_at)
+        if stores.states.for_user(admin.id).load() != new_state() or stores.notes.for_user(admin.id).entries():
+            stores.settings.set(LEGACY_IMPORTED, "1")
+            log.warning("legacy import skipped: the admin account %s already has progress or notes", admin.id)
+            return
+    except Exception:  # noqa: BLE001 - e.g. the state database is not reachable yet; the next start retries
+        log.exception("could not check whether the legacy import is pending")
+        return
+    _try_import(stores, audit, admin, sources)
 
 
 def _read(read: Callable, default):

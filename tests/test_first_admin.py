@@ -1,17 +1,20 @@
 import logging
 from urllib.parse import parse_qs, urlparse
 
+import pytest
+
 from conftest import PASSWORD, settings_for
-from oracle_lab.accounts.first_admin import ensure_first_admin, import_legacy, legacy_hook
+from oracle_lab.accounts.first_admin import ensure_first_admin, import_legacy, legacy_hook, retry_legacy_import
 from oracle_lab.accounts.memory import memory_stores
 from oracle_lab.auth.audit import AuditLog
 from oracle_lab.auth.google import GoogleSignIn
+from oracle_lab.auth.models import Identity, User
 from oracle_lab.auth.passwords import PasswordPolicy, verify_password
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.auth.throttle import Throttle
 from oracle_lab.bootstrap import build_app
-from oracle_lab.config import GoogleConfig
+from oracle_lab.config import ConfigurationError, GoogleConfig
 from oracle_lab.credentials import Secret
 from oracle_lab.study.notes import FileNotes
 from oracle_lab.study.state import JsonStateStore, new_state
@@ -54,7 +57,7 @@ def test_admin_email_without_password_is_claimed_by_google(tmp_path):
     state = JsonStateStore(tmp_path / "legacy.json")
     with state.transaction() as s:
         s["settings"]["marker"] = 1
-    hook = legacy_hook(stores, state, None)
+    hook = legacy_hook(stores, lambda: (state, None), audit)
     sessions, throttle = SessionManager(stores.sessions, CLOCK), Throttle(stores.throttle, CLOCK)
     reg = Registration(stores, PasswordPolicy(frozenset()), RegistrationPolicy(stores.settings, stores.users, True, 9),
                        sessions, throttle, audit, CLOCK, hook, first_user_is_admin=False)
@@ -130,3 +133,80 @@ def test_empty_legacy_still_marks_imported_and_missing_oracle_tables_count_as_em
     assert import_legacy(stores, "u1", NoTables(), NoTables()) is True
     assert stores.settings.get("legacy_imported") == "1"
     assert import_legacy(stores, "u2", JsonStateStore(tmp_path / "none.json"), None) is False
+
+
+def test_admin_email_with_existing_users_does_nothing(tmp_path):
+    stores = memory_stores()
+    stores.users.add(User("u", "x@example.org", "X", "learner", "active", 1.0, None, None),
+                     Identity("password", "u", "u", "h"))
+    ensure_first_admin(stores, settings_for(tmp_path, STUDY_ADMIN_EMAIL="a@example.org",
+                                            STUDY_ADMIN_PASSWORD=PASSWORD), CLOCK, AuditLog(stores.audit, CLOCK))
+    assert stores.users.count() == 1 and not stores.settings.get("admin_email_claim")
+
+
+def test_weak_admin_password_is_a_configuration_error(tmp_path):
+    with pytest.raises(ConfigurationError, match="STUDY_ADMIN_PASSWORD"):
+        build_app(settings_for(tmp_path, STUDY_ADMIN_EMAIL="a@example.org", STUDY_ADMIN_PASSWORD="short"),
+                  stores=memory_stores())
+
+
+class Broken:
+    def load(self):
+        raise OSError("disk gone")
+
+    def entries(self):
+        return []
+
+
+def test_failing_legacy_source_does_not_break_sign_up_and_is_retried(tmp_path, serve, monkeypatch):
+    stores = memory_stores()
+    settings = settings_for(tmp_path)
+    good = JsonStateStore(tmp_path / "progress.json")
+    with good.transaction() as s:
+        s["settings"]["marker"] = 1
+    monkeypatch.setattr("oracle_lab.bootstrap.JsonStateStore", lambda path: Broken())
+    http = serve(settings, stores=stores)
+    http.sign_in("first@example.org")  # asserts 200 and a session cookie
+    first = stores.users.by_email("first@example.org")
+    (event,) = stores.audit.recent(event="legacy_import")
+    assert event.outcome == "fail" and event.detail == {"reason": "OSError"}
+    assert stores.settings.get("legacy_imported") is None
+
+    monkeypatch.undo()
+    build_app(settings, stores=stores)  # next start: the source works now
+    assert stores.states.for_user(first.id).load()["settings"] == {"marker": 1}
+    assert stores.settings.get("legacy_imported") == "1"
+
+
+def test_retry_never_overwrites_existing_progress(tmp_path, caplog):
+    stores = memory_stores()
+    audit = AuditLog(stores.audit, CLOCK)
+    stores.users.add(User("a", "a@example.org", "A", "admin", "active", 1.0, None, None),
+                     Identity("password", "a", "a", "h"))
+    with stores.states.for_user("a").transaction() as s:
+        s["settings"]["mine"] = 1
+    legacy = JsonStateStore(tmp_path / "progress.json")
+    with legacy.transaction() as s:
+        s["settings"]["old"] = 1
+    with caplog.at_level(logging.WARNING):
+        retry_legacy_import(stores, lambda: (legacy, None), audit)
+    assert stores.states.for_user("a").load()["settings"] == {"mine": 1}
+    assert stores.settings.get("legacy_imported") == "1" and "already has progress" in caplog.text
+
+
+def test_partial_import_is_undone(tmp_path):
+    stores = memory_stores()
+    state = JsonStateStore(tmp_path / "progress.json")
+    with state.transaction() as s:
+        s["settings"]["x"] = 1
+
+    class BadNotes:
+        def entries(self):
+            return [("n.md", "N")]
+
+        def read(self, name):
+            raise OSError("boom")
+
+    with pytest.raises(OSError):
+        import_legacy(stores, "u1", state, BadNotes())
+    assert stores.states.for_user("u1").load() == new_state() and not stores.settings.get("legacy_imported")

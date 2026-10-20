@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.audit import AuditLog
+from oracle_lab.auth.models import AuthError
 from oracle_lab.auth.sessions import SessionManager
 
 
@@ -18,6 +19,9 @@ class AccountDeletion:
         self._drop_schemas = drop_schemas
 
     def delete(self, user_id: str, actor_id: str) -> None:
+        user = self._stores.users.get(user_id)
+        if user is not None and user.role == "admin" and sum(u.role == "admin" for u in self._stores.users.all()) <= 1:
+            raise AuthError("You can't delete the only admin account.")
         self._drop_schemas(user_id)  # first: the records say what exists in the practice databases
         self._sessions.end_all(user_id)
         self._stores.schemas.delete_for_user(user_id)

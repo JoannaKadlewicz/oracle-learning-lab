@@ -164,6 +164,7 @@ def test_account_password_change_rotates_the_session(serve):
 
 def test_account_sessions_and_unlink(serve):
     stores = memory_stores()
+    serve(stores=stores).sign_in("admin@example.org")  # the first account is the admin, who cannot be deleted
     http = serve(stores=stores).sign_in()
     login = {"email": "learner@example.org", "password": PASSWORD}
     other = session_cookie(http("/api/auth/login", login, headers={"Cookie": ""})[1])  # a second device
