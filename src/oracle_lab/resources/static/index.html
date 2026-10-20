@@ -8,7 +8,6 @@
   <meta name="theme-color" content="#EDF1F6" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0E1522" media="(prefers-color-scheme: dark)">
   <script>
-    // Apply the saved theme before first paint, so dark mode never flashes light.
     try { const t = JSON.parse(localStorage.getItem("study:theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
