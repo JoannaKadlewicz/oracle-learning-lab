@@ -634,6 +634,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Czym różnią się widoki USER_, ALL_ i DBA_?",
         "back": "USER_: obiekty, których jesteś właścicielem. ALL_: obiekty, do których masz dostęp (Twoje i udostępnione Ci). DBA_: wszystko w bazie, ale potrzebujesz specjalnych uprawnień. V$ to widoki dynamiczne, pokazują bieżący stan instancji.",
+        "try_sql": "-- ALL_ pokazuje więcej niż USER_: także obiekty udostępnione Ci przez innych\nSELECT 'USER_TABLES' AS widok, COUNT(*) AS tabele FROM user_tables\nUNION ALL\nSELECT 'ALL_TABLES', COUNT(*) FROM all_tables;",
     },
     {
         "id": "c072",
@@ -641,6 +642,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Jak nazwy obiektów są zapisane w słowniku danych?",
         "back": "Wielkimi literami (gdy nazwy nie podano w cudzysłowie). Dlatego pisz WHERE table_name = 'EMPLOYEES'. Z 'employees' nic nie znajdziesz.",
+        "try_sql": "-- Małe litery nic nie znajdą, wielkie – tak\nSELECT COUNT(*) AS male_litery FROM user_tables WHERE table_name = 'employees';\nSELECT COUNT(*) AS wielkie_litery FROM user_tables WHERE table_name = 'EMPLOYEES';",
     },
     {
         "id": "c073",
@@ -648,6 +650,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Co oznaczają kody CONSTRAINT_TYPE?",
         "back": "P — klucz główny (primary key), U — unikalny (unique), R — klucz obcy (referential), C — CHECK oraz NOT NULL (tak, NOT NULL to też C).",
+        "try_sql": "-- Zwróć uwagę: NOT NULL i CHECK mają ten sam typ C\nSELECT constraint_name, constraint_type, search_condition_vc\nFROM   user_constraints\nWHERE  table_name = 'EMPLOYEES'\nORDER  BY constraint_type, constraint_name;",
     },
     {
         "id": "c074",
@@ -655,6 +658,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Gdzie są komentarze do tabel i kolumn?",
         "back": "Dodajesz je przez COMMENT ON TABLE/COLUMN ... IS '...'. Czytasz z USER_TAB_COMMENTS (tabele i widoki) i USER_COL_COMMENTS (kolumny).",
+        "try_sql": "-- Komentarze tabel i kolumn (COMMENTS jest NULL, gdy nikt go nie dodał)\nSELECT table_name, table_type, comments FROM user_tab_comments WHERE table_name = 'EMPLOYEES';\nSELECT column_name, comments FROM user_col_comments WHERE table_name = 'EMPLOYEES';",
     },
     {
         "id": "c075",
@@ -662,6 +666,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Jak znaleźć listę wszystkich widoków słownika danych?",
         "back": "SELECT table_name, comments FROM dictionary (krótka nazwa: DICT). Np. dodaj WHERE table_name LIKE '%CONSTRAINTS', żeby znaleźć widoki o więzach.",
+        "try_sql": "-- Widoki słownika o więzach\nSELECT table_name, comments\nFROM   dictionary\nWHERE  table_name LIKE '%CONSTRAINTS'\nORDER  BY table_name;",
     },
     {
         "id": "c606",
@@ -669,6 +674,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Jak sprawdzić, do której tabeli odwołuje się klucz obcy?",
         "back": "W USER_CONSTRAINTS kolumna R_CONSTRAINT_NAME trzyma nazwę klucza PK/UK, na który wskazuje FK — nie nazwę tabeli. Złącz USER_CONSTRAINTS r ON r.constraint_name = c.r_constraint_name i odczytaj r.table_name.",
+        "try_sql": "-- R_CONSTRAINT_NAME to nazwa PK, a tabelę rodzica daje dopiero złączenie\nSELECT c.constraint_name, c.r_constraint_name, r.table_name AS tabela_rodzica\nFROM   user_constraints c\nJOIN   user_constraints r ON r.constraint_name = c.r_constraint_name\nWHERE  c.constraint_type = 'R'\nORDER  BY c.constraint_name;",
     },
     {
         "id": "c607",
@@ -676,6 +682,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Gdzie sprawdzisz, z jakich kolumn składa się więz albo indeks?",
         "back": "Więz: USER_CONS_COLUMNS (constraint_name, column_name, position). Indeks: USER_IND_COLUMNS (index_name, column_name, column_position). Każda kolumna to osobny wiersz.",
+        "try_sql": "-- Klucz z dwóch kolumn: dwa wiersze, kolejność w POSITION / COLUMN_POSITION\nSELECT constraint_name, column_name, position FROM user_cons_columns WHERE constraint_name = 'ORDER_ITEMS_PK' ORDER BY position;\nSELECT index_name, column_name, column_position FROM user_ind_columns WHERE index_name = 'ORDER_ITEMS_PK' ORDER BY column_position;",
     },
     {
         "id": "c608",
@@ -683,6 +690,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Ile wynosi DATA_LENGTH dla DATE i dla NUMBER(8,2)?",
         "back": "DATE: 7, NUMBER: 22 — to bajty, nie cyfry. Liczby 8 i 2 z NUMBER(8,2) znajdziesz w DATA_PRECISION i DATA_SCALE.",
+        "try_sql": "-- DATE ma DATA_LENGTH 7, NUMBER 22; 8 i 2 są w DATA_PRECISION i DATA_SCALE\nSELECT column_name, data_type, data_length, data_precision, data_scale\nFROM   user_tab_columns\nWHERE  table_name = 'EMPLOYEES'\nAND    column_name IN ('HIRE_DATE', 'SALARY');",
     },
     {
         "id": "c609",
@@ -690,6 +698,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Czy więzy (constraints) są w USER_OBJECTS?",
         "back": "Nie. USER_OBJECTS pokazuje obiekty schematu (tabele, widoki, indeksy, sekwencje, synonimy…) wraz ze STATUS. Więzy znajdziesz w USER_CONSTRAINTS.",
+        "try_sql": "-- W USER_OBJECTS nie ma typu CONSTRAINT, więzy są w USER_CONSTRAINTS\nSELECT object_type, COUNT(*) AS obiekty FROM user_objects GROUP BY object_type ORDER BY object_type;\nSELECT COUNT(*) AS wiezy FROM user_constraints;",
     },
     {
         "id": "c1650",
@@ -697,6 +706,8 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Co da SELECT owner FROM user_tables?",
         "back": "Błąd ORA-00904. USER_TABLES nie ma kolumny OWNER — właścicielem zawsze jesteś Ty. Kolumnę OWNER mają ALL_TABLES i DBA_TABLES.",
+        "try_sql": "-- USER_TABLES nie ma kolumny OWNER\nSELECT owner FROM user_tables;",
+        "try_error": "ORA-00904",
     },
     {
         "id": "c1651",
@@ -704,6 +715,8 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Co się stanie, gdy zapytasz DBA_TABLES bez uprawnień?",
         "back": "Dostaniesz ORA-00942, tak jakby widok nie istniał. Widoki DBA_ wymagają SELECT ANY DICTIONARY albo SELECT_CATALOG_ROLE. Żeby zobaczyć to, do czego masz dostęp, użyj widoków ALL_.",
+        "try_sql": "-- Bez uprawnień widok DBA_ \"nie istnieje\"; ALL_ działa\nSELECT COUNT(*) AS wszystkie FROM all_tables;\nSELECT COUNT(*) AS w_bazie FROM dba_tables;",
+        "try_error": "ORA-00942",
     },
     {
         "id": "c1652",
@@ -711,6 +724,8 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Które kolumny słownika są typu LONG i jakie mają odpowiedniki VARCHAR2?",
         "back": "USER_VIEWS.TEXT -> TEXT_VC, USER_CONSTRAINTS.SEARCH_CONDITION -> SEARCH_CONDITION_VC. Kolumny LONG nie użyjesz w LIKE ani w funkcjach (ORA-00932). Wersję _VC — możesz.",
+        "try_sql": "-- Wersja _VC działa w LIKE, kolumna LONG – nie\nSELECT constraint_name FROM user_constraints WHERE search_condition_vc LIKE '%salary%';\nSELECT constraint_name FROM user_constraints WHERE search_condition LIKE '%salary%';",
+        "try_error": "ORA-00932",
     },
     {
         "id": "c1653",
@@ -718,6 +733,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "USER_CATALOG (CAT) a USER_OBJECTS — co pokazują?",
         "back": "USER_CATALOG: tylko tabele, widoki, synonimy i sekwencje (kolumny TABLE_NAME, TABLE_TYPE). USER_OBJECTS: każdy typ obiektu, także indeksy, razem ze STATUS i datami.",
+        "try_sql": "-- USER_CATALOG nie pokazuje indeksów, USER_OBJECTS – tak\nSELECT table_name, table_type FROM user_catalog ORDER BY table_name;\nSELECT object_name, object_type, status FROM user_objects WHERE object_type = 'INDEX' ORDER BY object_name;",
     },
     {
         "id": "c1654",
@@ -725,6 +741,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Jakie są krótkie synonimy publiczne widoków słownika?",
         "back": "DICT = DICTIONARY, CAT = USER_CATALOG, TABS = USER_TABLES, COLS = USER_TAB_COLUMNS, IND = USER_INDEXES, OBJ = USER_OBJECTS, SEQ = USER_SEQUENCES, SYN = USER_SYNONYMS. Np. SELECT * FROM tabs działa tak samo jak SELECT * FROM user_tables.",
+        "try_sql": "-- TABS i USER_TABLES to ten sam widok\nSELECT COUNT(*) AS tabs FROM tabs;\nSELECT COUNT(*) AS user_tables FROM user_tables;",
     },
     {
         "id": "c1655",
@@ -732,6 +749,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Jaki NULLABLE ma kolumna klucza głównego, jeśli nie dopisano NOT NULL?",
         "back": "N. Klucz główny sam oznacza NOT NULL, choć w USER_CONSTRAINTS nie ma osobnego więzu NOT NULL.",
+        "try_sql": "-- DEPARTMENT_ID ma NULLABLE = 'N', choć jedyny więz na niej to PK (P)\nSELECT column_name, nullable FROM user_tab_columns WHERE table_name = 'DEPARTMENTS' ORDER BY column_id;\nSELECT constraint_name, constraint_type, search_condition_vc FROM user_constraints WHERE table_name = 'DEPARTMENTS';",
     },
     {
         "id": "c1656",
@@ -739,6 +757,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Co oznacza STATUS w USER_CONSTRAINTS, a co w USER_OBJECTS?",
         "back": "Więzy: ENABLED/DISABLED (czy stare wiersze sprawdzono, mówi osobna kolumna VALIDATED: VALIDATED/NOT VALIDATED). Obiekty: VALID/INVALID.",
+        "try_sql": "-- Więzy: ENABLED/DISABLED i VALIDATED; obiekty: VALID/INVALID\nSELECT constraint_name, status, validated FROM user_constraints WHERE table_name = 'ORDERS' ORDER BY constraint_name;\nSELECT object_name, object_type, status FROM user_objects WHERE object_name LIKE 'ORDERS%' ORDER BY object_name;",
     },
     {
         "id": "c1657",
@@ -746,6 +765,8 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Jak zmienić albo usunąć komentarz?",
         "back": "COMMENT ON TABLE/COLUMN ... IS 'nowy tekst' nadpisuje stary komentarz, a IS '' go usuwa. COMMENT to DDL, więc od razu robi COMMIT. Indeksom komentarza nie dodasz (ORA-32594).",
+        "try_sql": "-- Drugi COMMENT nadpisuje pierwszy, a IS '' usuwa komentarz\nCREATE TABLE lab_c1657_t (id NUMBER);\nCOMMENT ON TABLE lab_c1657_t IS 'stary opis';\nCOMMENT ON TABLE lab_c1657_t IS 'nowy opis';\nSELECT comments FROM user_tab_comments WHERE table_name = 'LAB_C1657_T';\nCOMMENT ON TABLE lab_c1657_t IS '';\nSELECT NVL(comments, '(brak)') AS comments FROM user_tab_comments WHERE table_name = 'LAB_C1657_T';",
+        "cleanup": "DROP TABLE lab_c1657_t PURGE;",
     },
     {
         "id": "c1658",
@@ -753,6 +774,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Ile wierszy ma USER_COL_COMMENTS?",
         "back": "Po jednym na każdą kolumnę Twoich tabel i widoków — także bez komentarza (wtedy COMMENTS jest NULL). Same prawdziwe komentarze pokaże WHERE comments IS NOT NULL.",
+        "try_sql": "-- Wierszy jest tyle, ile kolumn, choć prawdziwych komentarzy może nie być wcale\nSELECT COUNT(*) AS wiersze, COUNT(comments) AS z_komentarzem FROM user_col_comments;\nSELECT COUNT(*) AS kolumny FROM user_tab_columns;",
     },
     {
         "id": "c1659",
@@ -760,6 +782,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Gdzie sprawdzisz, które kolumny widoku można zmieniać?",
         "back": "W USER_UPDATABLE_COLUMNS: UPDATABLE, INSERTABLE, DELETABLE (YES/NO) dla każdej kolumny. Czy widok ma WITH READ ONLY, pokaże USER_VIEWS.READ_ONLY.",
+        "try_sql": "-- Dla każdej kolumny: czy da się ją zmieniać, wstawiać i usuwać\nSELECT column_name, updatable, insertable, deletable\nFROM   user_updatable_columns\nWHERE  table_name = 'EMPLOYEES'\nORDER  BY column_name;",
     },
     {
         "id": "c1660",
@@ -767,6 +790,8 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Jak indeks funkcyjny wygląda w słowniku danych?",
         "back": "USER_INDEXES.INDEX_TYPE = 'FUNCTION-BASED NORMAL'. USER_IND_COLUMNS pokazuje ukrytą kolumnę o nazwie SYS_NC...$, a samo wyrażenie jest w USER_IND_EXPRESSIONS.",
+        "try_sql": "-- Indeks funkcyjny w trzech widokach słownika\nCREATE TABLE lab_c1660_emp AS SELECT employee_id, salary FROM employees;\nCREATE INDEX lab_c1660_ix ON lab_c1660_emp (salary * 12);\nSELECT index_name, index_type FROM user_indexes WHERE index_name = 'LAB_C1660_IX';\nSELECT column_name FROM user_ind_columns WHERE index_name = 'LAB_C1660_IX';\nSELECT column_expression FROM user_ind_expressions WHERE index_name = 'LAB_C1660_IX';",
+        "cleanup": "DROP TABLE lab_c1660_emp PURGE;",
     },
     {
         "id": "c1661",
@@ -774,6 +799,7 @@ FLASHCARDS = [
         "objective": "15.1",
         "front": "Jak kolumny IDENTITY wyglądają w słowniku danych?",
         "back": "USER_TAB_COLUMNS.IDENTITY_COLUMN = 'YES'. USER_TAB_IDENTITY_COLS pokazuje GENERATION_TYPE (ALWAYS / BY DEFAULT) i nazwę sekwencji ISEQ$$_.",
+        "try_sql": "-- IDENTITY_COLUMN w USER_TAB_COLUMNS (tu wszędzie NO) i szczegóły w USER_TAB_IDENTITY_COLS\nSELECT column_name, identity_column FROM user_tab_columns WHERE table_name = 'EMPLOYEES' ORDER BY column_id;\nSELECT table_name, column_name, generation_type, sequence_name FROM user_tab_identity_cols;",
     },
 ]
 

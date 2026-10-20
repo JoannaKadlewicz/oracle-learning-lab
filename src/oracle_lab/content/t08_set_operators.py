@@ -802,6 +802,7 @@ FLASHCARDS = [
         "objective": "9.2",
         "front": "UNION a UNION ALL — czym się różnią?",
         "back": "UNION usuwa duplikaty (dawniej przy okazji sortował). UNION ALL zostawia wszystkie wiersze i jest tańszy, bo nie szuka duplikatów.",
+        "try_sql": "-- UNION usuwa duplikaty, UNION ALL zostawia wszystkie wiersze\nSELECT\n  (SELECT COUNT(*) FROM (SELECT department_id FROM employees UNION SELECT department_id FROM departments)) AS u,\n  (SELECT COUNT(*) FROM (SELECT department_id FROM employees UNION ALL SELECT department_id FROM departments)) AS u_all\nFROM dual;",
     },
     {
         "id": "c044",
@@ -809,6 +810,7 @@ FLASHCARDS = [
         "objective": "9.5",
         "front": "ORDER BY w zapytaniu złożonym (np. z UNION)?",
         "back": "Tylko raz, na samym końcu. Użyj nazw kolumn lub aliasów z pierwszego SELECT albo numerów pozycji, np. ORDER BY 1.",
+        "try_sql": "-- Jedno ORDER BY na samym końcu: alias z pierwszego SELECT albo numer pozycji\nSELECT last_name AS name FROM employees\nUNION\nSELECT customer_name FROM customers\nORDER BY 1;",
     },
     {
         "id": "c045",
@@ -816,6 +818,7 @@ FLASHCARDS = [
         "objective": "9.1",
         "front": "Skąd biorą się nazwy kolumn w wyniku zapytania złożonego?",
         "back": "Z pierwszego SELECT.",
+        "try_sql": "-- Kolumna wyniku nazywa się NAME (z pierwszego SELECT), a nie CUSTOMER\nSELECT last_name AS name FROM employees\nUNION\nSELECT customer_name AS customer FROM customers;",
     },
     {
         "id": "c046",
@@ -823,6 +826,7 @@ FLASHCARDS = [
         "objective": "9.1",
         "front": "Operatory zbiorowe a NULL?",
         "back": "Przy porównywaniu wierszy NULL jest traktowany jak równy innemu NULL (inaczej niż przy =). Np. UNION zostawi tylko jeden NULL.",
+        "try_sql": "-- Grant ma dział NULL, dual dokłada drugi NULL: w wyniku jest tylko jeden\nSELECT department_id FROM employees\nUNION\nSELECT NULL FROM dual\nORDER BY 1;",
     },
     {
         "id": "c047",
@@ -830,6 +834,7 @@ FLASHCARDS = [
         "objective": "9.1",
         "front": "Kolejność działania operatorów zbiorowych?",
         "back": "Wszystkie mają ten sam priorytet i działają po kolei, od lewej do prawej. Nawiasy pozwalają zmienić kolejność.",
+        "try_sql": "-- Od lewej: (1 UNION ALL 1) MINUS 2 daje jeden wiersz. Z nawiasami: dwa\nSELECT 1 AS x FROM dual UNION ALL SELECT 1 FROM dual MINUS SELECT 2 FROM dual;\nSELECT 1 AS x FROM dual UNION ALL (SELECT 1 FROM dual MINUS SELECT 2 FROM dual);",
     },
     {
         "id": "c406",
@@ -837,6 +842,7 @@ FLASHCARDS = [
         "objective": "9.3",
         "front": "INTERSECT a IN / złączenie?",
         "back": "INTERSECT zwraca wiersze bez duplikatów i dopasowuje NULL do NULL. IN i złączenie używają =, więc NULL nigdy nie pasuje, a złączenie może powtarzać wiersze.",
+        "try_sql": "-- Klienci 1 (US) i 5 (NULL): INTERSECT daje US i NULL bez powtórzeń, IN daje US dwa razy\nSELECT country_code FROM customers\nINTERSECT\nSELECT country_code FROM customers WHERE customer_id IN (1, 5);\nSELECT c.country_code FROM customers c\nWHERE c.country_code IN (SELECT country_code FROM customers WHERE customer_id IN (1, 5));",
     },
     {
         "id": "c407",
@@ -844,6 +850,7 @@ FLASHCARDS = [
         "objective": "9.3",
         "front": "A UNION B INTERSECT C w Oracle 19c?",
         "back": "Liczy się jako (A UNION B) INTERSECT C: ten sam priorytet, od lewej do prawej. Standard SQL liczyłby najpierw INTERSECT.",
+        "try_sql": "-- (1 UNION 2) INTERSECT 2 daje tylko 2. Z nawiasami wokół INTERSECT: 1 i 2\nSELECT 1 AS x FROM dual UNION SELECT 2 FROM dual INTERSECT SELECT 2 FROM dual;\nSELECT 1 AS x FROM dual UNION (SELECT 2 FROM dual INTERSECT SELECT 2 FROM dual);",
     },
     {
         "id": "c408",
@@ -851,6 +858,7 @@ FLASHCARDS = [
         "objective": "9.4",
         "front": "MINUS: kierunek, duplikaty, NULL?",
         "back": "A MINUS B ≠ B MINUS A — kolejność ma znaczenie. Wynik nie ma duplikatów. NULL w B usuwa tylko wiersze z NULL w A; nie czyści całego wyniku, jak robi to NOT IN.",
+        "try_sql": "-- Kierunek ma znaczenie: departments MINUS employees daje 40, odwrotnie daje NULL (Grant)\nSELECT department_id FROM departments MINUS SELECT department_id FROM employees;\nSELECT department_id FROM employees MINUS SELECT department_id FROM departments;",
     },
     {
         "id": "c409",
@@ -865,6 +873,8 @@ FLASHCARDS = [
         "objective": "9.5",
         "front": "ORDER BY z aliasem z drugiego SELECT albo z aliasem tabeli (e.col)?",
         "back": "Oba kończą się błędem ORA-00904. Użyj nazwy lub aliasu z pierwszego SELECT albo numeru pozycji.",
+        "try_sql": "-- Alias z drugiego SELECT w ORDER BY: błąd\nSELECT last_name AS name FROM employees\nUNION\nSELECT customer_name AS cust FROM customers\nORDER BY cust;",
+        "try_error": "ORA-00904",
     },
     {
         "id": "c411",
@@ -872,6 +882,8 @@ FLASHCARDS = [
         "objective": "9.1",
         "front": "ORA-01789 a ORA-01790?",
         "back": "01789: SELECT-y zwracają różną liczbę kolumn. 01790: w tej samej pozycji mieszasz grupy typów (np. NUMBER i VARCHAR2). Naprawa: dopisz NULL jako brakującą kolumnę albo użyj TO_CHAR.",
+        "try_sql": "-- Pierwsze: różna liczba kolumn (01789). Drugie: DATE i tekst (01790)\nSELECT employee_id, last_name FROM employees UNION SELECT department_id FROM departments;\nSELECT hire_date FROM employees UNION SELECT last_name FROM employees;",
+        "try_error": "ORA-01789",
     },
     {
         "id": "c1450",
@@ -879,6 +891,7 @@ FLASHCARDS = [
         "objective": "9.3",
         "front": "INTERSECT na dwóch kolumnach: kiedy wiersz przechodzi?",
         "back": "Gdy cały wiersz (obie wartości razem) jest w obu częściach. (20, Sales Rep) od Russella i od Partners pasuje, choć to różne osoby — porównuje się wiersze, nie ludzi.",
+        "try_sql": "-- Russell (105) i Partners (106) to różne osoby, ale wiersz (20, Sales Rep) jest ten sam\nSELECT department_id, job_title FROM employees WHERE employee_id = 105\nINTERSECT\nSELECT department_id, job_title FROM employees WHERE employee_id = 106;",
     },
     {
         "id": "c1451",
@@ -886,6 +899,7 @@ FLASHCARDS = [
         "objective": "9.3",
         "front": "INTERSECT a IN, gdy kolumna ma NULL-e?",
         "back": "INTERSECT traktuje NULL jak równy NULL i może zwrócić wiersz z NULL. IN używa =, więc NULL nigdy nie pasuje. Przykład: country_code INTERSECT ... zwraca US i NULL, a IN tylko US.",
+        "try_sql": "-- INTERSECT zwraca US i NULL, IN tylko US (NULL = NULL to UNKNOWN)\nSELECT country_code FROM customers\nINTERSECT\nSELECT country_code FROM customers WHERE customer_id IN (3, 5);\nSELECT DISTINCT c.country_code FROM customers c\nWHERE c.country_code IN (SELECT country_code FROM customers WHERE customer_id IN (3, 5));",
     },
     {
         "id": "c1452",
@@ -893,6 +907,7 @@ FLASHCARDS = [
         "objective": "9.3",
         "front": "order_date INTERSECT DATE '2024-03-31', gdy zamówienie złożono o 23:30?",
         "back": "Brak wiersza: operatory zbiorowe porównują całą datę razem z godziną, a 23:30 to nie północ. Użyj TRUNC(order_date) w tej części zapytania.",
+        "try_sql": "-- Zamówienie 1006 ma godzinę 23:30: bez TRUNC brak wiersza, z TRUNC jest\nSELECT order_date FROM orders INTERSECT SELECT DATE '2024-03-31' FROM dual;\nSELECT TRUNC(order_date) FROM orders INTERSECT SELECT DATE '2024-03-31' FROM dual;",
     },
     {
         "id": "c1453",
@@ -900,6 +915,7 @@ FLASHCARDS = [
         "objective": "9.3",
         "front": "Czy A UNION B INTERSECT C w Oracle znaczy A UNION (B INTERSECT C)?",
         "back": "Nie. Wszystkie operatory zbiorowe mają ten sam priorytet i działają z góry na dół: (A UNION B) INTERSECT C — w 19c i nadal w 23ai. Inną kolejność wymusisz nawiasami.",
+        "try_sql": "-- Bez nawiasów: (A UNION B) INTERSECT C = 10, 20, 30. Z nawiasami pojawia się też 40\nSELECT department_id FROM departments\nUNION SELECT department_id FROM employees\nINTERSECT SELECT department_id FROM employees WHERE salary > 10000;\nSELECT department_id FROM departments\nUNION (SELECT department_id FROM employees\n       INTERSECT SELECT department_id FROM employees WHERE salary > 10000);",
     },
     {
         "id": "c1454",
@@ -921,6 +937,7 @@ FLASHCARDS = [
         "objective": "9.4",
         "front": "A MINUS (SELECT z NULL) a NOT IN (SELECT z NULL)?",
         "back": "MINUS: NULL usuwa z A tylko wiersz z NULL, reszta zostaje. NOT IN: nie zwraca nic, bo porównanie z NULL daje UNKNOWN.",
+        "try_sql": "-- B ma NULL (Grant). MINUS: zostaje dział 40. NOT IN: nic\nSELECT department_id FROM departments MINUS SELECT department_id FROM employees;\nSELECT department_id FROM departments\nWHERE department_id NOT IN (SELECT department_id FROM employees);",
     },
     {
         "id": "c1457",
@@ -928,6 +945,7 @@ FLASHCARDS = [
         "objective": "9.4",
         "front": "ORA-01789 w (id, name) MINUS (id): czy dopisanie NULL w drugiej części to naprawa?",
         "back": "Zapytanie ruszy, ale (id, name) nigdy nie równa się (id, NULL), więc nic nie zostanie odjęte. Zrób te same kolumny w obu częściach (nazwę dołącz złączeniem) albo zrób MINUS na samym kluczu w podzapytaniu IN.",
+        "try_sql": "-- Z NULL zapytanie rusza, ale nic nie odejmuje (5 klientów). MINUS na kluczu: tylko Umbrella\nSELECT customer_id, customer_name FROM customers\nMINUS SELECT customer_id, NULL FROM orders;\nSELECT customer_id, customer_name FROM customers\nWHERE customer_id IN (SELECT customer_id FROM customers MINUS SELECT customer_id FROM orders);",
     },
     {
         "id": "c1458",
@@ -935,6 +953,7 @@ FLASHCARDS = [
         "objective": "9.2",
         "front": "A UNION ALL B UNION C: czy duplikaty z A i B zostaną?",
         "back": "Nie. Po kolei: (A UNION ALL B) UNION C, a końcowy UNION usuwa duplikaty z całego dotychczasowego wyniku. Za to A UNION B UNION ALL C zachowuje wszystkie wiersze z C.",
+        "try_sql": "-- Końcowy UNION usuwa duplikaty z całości: 1, 2. Końcowy UNION ALL zostawia powtórkę: 1, 1\nSELECT 1 AS x FROM dual UNION ALL SELECT 1 FROM dual UNION SELECT 2 FROM dual;\nSELECT 1 AS x FROM dual UNION SELECT 1 FROM dual UNION ALL SELECT 1 FROM dual;",
     },
     {
         "id": "c1459",
@@ -942,6 +961,8 @@ FLASHCARDS = [
         "objective": "9.1",
         "front": "Które pary typów kolumn pasują do siebie w zapytaniu złożonym?",
         "back": "Te z tej samej grupy typów: NUMBER/BINARY_DOUBLE, CHAR/VARCHAR2, DATE/TIMESTAMP, a NULL pasuje do wszystkiego. NUMBER albo DATE z literałem tekstowym: ORA-01790 (brak automatycznej konwersji).",
+        "try_sql": "-- NUMBER z NULL działa; DATE z literałem tekstowym daje ORA-01790\nSELECT salary FROM employees UNION SELECT NULL FROM dual;\nSELECT hire_date FROM employees UNION SELECT '2024-01-01' FROM dual;",
+        "try_error": "ORA-01790",
     },
     {
         "id": "c1460",
@@ -949,6 +970,8 @@ FLASHCARDS = [
         "objective": "9.5",
         "front": "ORDER BY UPPER(name) na końcu UNION?",
         "back": "ORA-01785: ORDER BY item must be the number of a SELECT-list expression. Wolno tylko nazwy/aliasy kolumn wyniku albo pozycje. Żeby sortować po wyrażeniu, opakuj całe zapytanie złożone w widok inline.",
+        "try_sql": "-- Wyrażenie w ORDER BY zapytania złożonego: błąd. Widok inline: działa\nSELECT last_name AS name FROM employees UNION SELECT customer_name FROM customers ORDER BY UPPER(name);\nSELECT name FROM (SELECT last_name AS name FROM employees UNION SELECT customer_name FROM customers)\nORDER BY UPPER(name);",
+        "try_error": "ORA-01785",
     },
     {
         "id": "c1461",
@@ -956,6 +979,8 @@ FLASHCARDS = [
         "objective": "9.5",
         "front": "(SELECT ... ORDER BY x) UNION SELECT ...: czy tak można?",
         "back": "Nie: ORA-00907 missing right parenthesis. ORDER BY wolno dać w widoku inline w FROM, ale wynik zapytania złożonego i tak nie ma kolejności bez końcowego ORDER BY.",
+        "try_sql": "-- ORDER BY w nawiasie w części zapytania złożonego: błąd\nSELECT customer_name FROM customers\nUNION\n(SELECT last_name FROM employees ORDER BY last_name);",
+        "try_error": "ORA-00907",
     },
 ]
 

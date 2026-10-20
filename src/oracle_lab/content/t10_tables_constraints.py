@@ -761,6 +761,8 @@ FLASHCARDS = [
         "objective": "12.3",
         "front": "Które constrainty kopiuje CTAS?",
         "back": "Tylko jawnie zdefiniowane NOT NULL. Bez PK, UNIQUE, FK, CHECK, indeksów i wartości DEFAULT.",
+        "try_sql": "-- Skopiuj employees przez CTAS i porównaj constrainty obu tabel\nCREATE TABLE lab_c055_emp AS SELECT * FROM employees;\nSELECT table_name, constraint_type, COUNT(*) AS ile\nFROM   user_constraints\nWHERE  table_name IN ('EMPLOYEES', 'LAB_C055_EMP')\nGROUP  BY table_name, constraint_type\nORDER  BY table_name, constraint_type;",
+        "cleanup": "DROP TABLE lab_c055_emp PURGE;",
     },
     {
         "id": "c056",
@@ -768,6 +770,10 @@ FLASHCARDS = [
         "objective": "12.8",
         "front": "Gdzie można zdefiniować NOT NULL?",
         "back": "Tylko przy kolumnie (inline). Pozostałe constrainty mogą być przy kolumnie albo na poziomie tabeli. Klucz z kilku kolumn musi być na poziomie tabeli.",
+        "try_sql": "-- NOT NULL na poziomie tabeli jest błędem składni\nCREATE TABLE lab_c056_t (a NUMBER, b NUMBER, CONSTRAINT lab_c056_nn NOT NULL (a));\n-- NOT NULL przy kolumnie, klucz z dwóch kolumn na poziomie tabeli\nCREATE TABLE lab_c056_t (a NUMBER CONSTRAINT lab_c056_nn NOT NULL, b NUMBER,\n                         CONSTRAINT lab_c056_pk PRIMARY KEY (a, b));\nSELECT constraint_name, constraint_type, search_condition_vc\nFROM   user_constraints\nWHERE  table_name = 'LAB_C056_T';",
+        "try_error": "ORA-00904",
+        "try_error_since": {"23": "ORA-03050"},
+        "cleanup": "DROP TABLE lab_c056_t PURGE;",
     },
     {
         "id": "c057",
@@ -775,6 +781,8 @@ FLASHCARDS = [
         "objective": "12.8",
         "front": "ON DELETE CASCADE czy SET NULL?",
         "back": "CASCADE usuwa dzieci razem z rodzicem. SET NULL wpisuje NULL do kolumny FK w dzieciach. Domyślnie usunięcie rodzica z dziećmi jest odrzucane (ORA-02292).",
+        "try_sql": "-- ORDER_ITEMS ma FK z ON DELETE CASCADE: pozycje zamówienia znikną razem z nim\nDELETE FROM orders WHERE order_id = 1001;\nSELECT COUNT(*) AS pozycje_1001 FROM order_items WHERE order_id = 1001;\n-- EMPLOYEES ma domyślny FK (NO ACTION): usunięcie działu z pracownikami jest odrzucane\nDELETE FROM departments WHERE department_id = 30;",
+        "try_error": "ORA-02292",
     },
     {
         "id": "c058",
@@ -782,6 +790,8 @@ FLASHCARDS = [
         "objective": "12.2",
         "front": "Jaki zakres ma NUMBER(5,2)?",
         "back": "Od -999.99 do 999.99. Nadmiarowe miejsca po przecinku są zaokrąglane, np. 12.345 → 12.35. Za dużo cyfr przed przecinkiem → ORA-01438.",
+        "try_sql": "-- 12.345 zaokrągli się do 12.35, a 1000 ma za dużo cyfr przed przecinkiem\nSELECT CAST(12.345 AS NUMBER(5,2)) AS zaokraglone FROM dual;\nSELECT CAST(1000 AS NUMBER(5,2)) AS za_duzo FROM dual;",
+        "try_error": "ORA-01438",
     },
     {
         "id": "c059",
@@ -789,6 +799,7 @@ FLASHCARDS = [
         "objective": "12.2",
         "front": "VARCHAR2 czy CHAR?",
         "back": "VARCHAR2: zmienna długość, maks. 4000 bajtów (standardowo). CHAR: stała długość, dopełniany spacjami, maks. 2000 bajtów.",
+        "try_sql": "-- CHAR(5) dopełnia spacjami do 5 znaków, VARCHAR2(5) trzyma tylko 2\nSELECT LENGTH(CAST('ab' AS CHAR(5)))     AS dlugosc_char,\n       LENGTH(CAST('ab' AS VARCHAR2(5))) AS dlugosc_varchar2\nFROM   dual;",
     },
     {
         "id": "c060",
@@ -803,6 +814,8 @@ FLASHCARDS = [
         "objective": "12.4",
         "front": "Co robi SET UNUSED?",
         "back": "Logicznie usuwa kolumnę – szybko i na zawsze (nie da się cofnąć). Później ALTER TABLE ... DROP UNUSED COLUMNS usuwa ją fizycznie.",
+        "try_sql": "-- SET UNUSED ukrywa kolumnę, DROP UNUSED COLUMNS usuwa ją fizycznie\nCREATE TABLE lab_c061_emp AS SELECT employee_id, last_name, email FROM employees;\nALTER TABLE lab_c061_emp SET UNUSED (email);\nSELECT * FROM user_unused_col_tabs WHERE table_name = 'LAB_C061_EMP';\nALTER TABLE lab_c061_emp DROP UNUSED COLUMNS;\nSELECT column_name FROM user_tab_cols WHERE table_name = 'LAB_C061_EMP';",
+        "cleanup": "DROP TABLE lab_c061_emp PURGE;",
     },
     {
         "id": "c062",
@@ -810,6 +823,9 @@ FLASHCARDS = [
         "objective": "12.1",
         "front": "Tabele tylko do odczytu?",
         "back": "ALTER TABLE t READ ONLY blokuje DML. DROP TABLE dalej działa. ALTER TABLE t READ WRITE przywraca zapis.",
+        "try_sql": "-- Tabela READ ONLY odrzuca DML (ORA-12081), READ WRITE przywraca zapis\nCREATE TABLE lab_c062_t AS SELECT department_id, department_name FROM departments;\nALTER TABLE lab_c062_t READ ONLY;\nSELECT table_name, read_only FROM user_tables WHERE table_name = 'LAB_C062_T';\nDELETE FROM lab_c062_t;\nALTER TABLE lab_c062_t READ WRITE;\nDELETE FROM lab_c062_t;",
+        "try_error": "ORA-12081",
+        "cleanup": "DROP TABLE lab_c062_t PURGE;",
     },
     {
         "id": "c510",
@@ -817,6 +833,9 @@ FLASHCARDS = [
         "objective": "12.2",
         "front": "ALTER TABLE ... MODIFY kolumny: co wolno, gdy są dane?",
         "back": "Poszerzyć – zawsze. Zwęzić – tylko gdy każda wartość się zmieści (inaczej ORA-01441). Zmienić typ danych – tylko gdy kolumna jest pusta (inaczej ORA-01439).",
+        "try_sql": "-- Poszerzenie przechodzi, zwężenie poniżej danych nie (ORA-01441), pusta kolumna może zmienić typ\nCREATE TABLE lab_c510_t AS SELECT last_name, salary, CAST(NULL AS VARCHAR2(10)) AS note FROM employees;\nALTER TABLE lab_c510_t MODIFY (last_name VARCHAR2(50));\nALTER TABLE lab_c510_t MODIFY (last_name VARCHAR2(3));\nALTER TABLE lab_c510_t MODIFY (note DATE);\nSELECT column_name, data_type, data_length\nFROM   user_tab_columns\nWHERE  table_name = 'LAB_C510_T'\nORDER  BY column_id;",
+        "try_error": "ORA-01441",
+        "cleanup": "DROP TABLE lab_c510_t PURGE;",
     },
     {
         "id": "c511",
@@ -824,6 +843,8 @@ FLASHCARDS = [
         "objective": "12.3",
         "front": "DEFAULT czy DEFAULT ON NULL?",
         "back": "DEFAULT działa tylko, gdy pominiesz kolumnę (albo napiszesz DEFAULT). Jawny NULL zostaje NULL-em. DEFAULT ON NULL (12c+) zamienia też jawny NULL na wartość domyślną.",
+        "try_sql": "-- Kolumna a: DEFAULT, kolumna b: DEFAULT ON NULL. Porównaj wiersz 2 (jawny NULL)\nCREATE TABLE lab_c511_t (id NUMBER, a VARCHAR2(10) DEFAULT 'domyslna', b VARCHAR2(10) DEFAULT ON NULL 'domyslna');\nINSERT INTO lab_c511_t (id) VALUES (1);\nINSERT INTO lab_c511_t VALUES (2, NULL, NULL);\nSELECT * FROM lab_c511_t ORDER BY id;",
+        "cleanup": "DROP TABLE lab_c511_t PURGE;",
     },
     {
         "id": "c512",
@@ -831,6 +852,9 @@ FLASHCARDS = [
         "objective": "12.4",
         "front": "Jakie ograniczenia ma DROP COLUMN?",
         "back": "Nie usuniesz ostatniej kolumny (ORA-12983). Kolumna klucza, na który wskazuje FK, wymaga CASCADE CONSTRAINTS. Kilka kolumn naraz: DROP (a, b). To DDL, więc bez ROLLBACK.",
+        "try_sql": "-- Dwie kolumny naraz można usunąć, ostatniej już nie (ORA-12983)\nCREATE TABLE lab_c512_t (a NUMBER, b NUMBER, c NUMBER);\nALTER TABLE lab_c512_t DROP (b, c);\nALTER TABLE lab_c512_t DROP COLUMN a;\nSELECT column_name FROM user_tab_columns WHERE table_name = 'LAB_C512_T';",
+        "try_error": "ORA-12983",
+        "cleanup": "DROP TABLE lab_c512_t PURGE;",
     },
     {
         "id": "c513",
@@ -838,6 +862,8 @@ FLASHCARDS = [
         "objective": "12.6",
         "front": "Prywatna tabela tymczasowa (18c+)?",
         "back": "CREATE PRIVATE TEMPORARY TABLE ora$ptt_name ...: definicja i dane są tylko dla Twojej sesji, w pamięci. Domyślnie ON COMMIT DROP DEFINITION (znika po transakcji). PRESERVE DEFINITION trzyma ją do końca sesji.",
+        "try_sql": "-- Domyślna PTT (ON COMMIT DROP DEFINITION) znika z końcem transakcji: CREATE TABLE robi COMMIT\nCREATE PRIVATE TEMPORARY TABLE ora$ptt_lab_c513_tx (id NUMBER);\nCREATE PRIVATE TEMPORARY TABLE ora$ptt_lab_c513_sesja (id NUMBER) ON COMMIT PRESERVE DEFINITION;\nCREATE TABLE lab_c513_t (id NUMBER);\n-- Została tylko tabela z PRESERVE DEFINITION (DURATION = SESSION)\nSELECT table_name, duration FROM user_private_temp_tables;",
+        "cleanup": "DROP TABLE lab_c513_t PURGE;",
     },
     {
         "id": "c514",
@@ -852,6 +878,7 @@ FLASHCARDS = [
         "objective": "12.8",
         "front": "ENABLE NOVALIDATE czy ENABLE VALIDATE?",
         "back": "NOVALIDATE: sprawdza tylko przyszły DML, stare wiersze mogą łamać regułę. VALIDATE (domyślne przy ENABLE): sprawdza wszystkie wiersze. DISABLE ... CASCADE wyłącza też zależne klucze obce.",
+        "try_sql": "-- Bez dodatkowych opcji więzy są ENABLED i VALIDATED (sprawdzone wszystkie wiersze)\nSELECT constraint_name, constraint_type, status, validated\nFROM   user_constraints\nWHERE  table_name = 'EMPLOYEES'\nORDER  BY constraint_name;",
     },
     {
         "id": "c1550",
@@ -859,6 +886,9 @@ FLASHCARDS = [
         "objective": "12.6",
         "front": "Czego nie może mieć prywatna tabela tymczasowa?",
         "back": "Constraintów (nawet NOT NULL), wartości DEFAULT i indeksów: ORA-14451. CTAS działa. Nazwa musi zaczynać się od ORA$PTT_. Jej utworzenie nie robi COMMIT.",
+        "try_sql": "-- PTT z constraintem: ORA-14451. CTAS działa i nie robi COMMIT\nCREATE TABLE lab_c1550_t (id NUMBER);\nINSERT INTO lab_c1550_t VALUES (1);\nCREATE PRIVATE TEMPORARY TABLE ora$ptt_lab_c1550_pk (id NUMBER PRIMARY KEY);\nCREATE PRIVATE TEMPORARY TABLE ora$ptt_lab_c1550_emp AS SELECT employee_id, last_name FROM employees;\nROLLBACK;\n-- 0: INSERT nie został zatwierdzony przez utworzenie PTT\nSELECT COUNT(*) AS wiersze FROM lab_c1550_t;",
+        "try_error": "ORA-14451",
+        "cleanup": "DROP TABLE lab_c1550_t PURGE;",
     },
     {
         "id": "c1551",
@@ -866,6 +896,7 @@ FLASHCARDS = [
         "objective": "12.6",
         "front": "Gdzie w słowniku danych znajdziesz prywatne tabele tymczasowe?",
         "back": "W USER_PRIVATE_TEMP_TABLES (DURATION TRANSACTION albo SESSION). Nie ma ich w USER_TABLES. Globalne tabele tymczasowe są w USER_TABLES z TEMPORARY = 'Y'.",
+        "try_sql": "-- Globalne tabele tymczasowe mają TEMPORARY = 'Y' w USER_TABLES\nSELECT table_name, temporary FROM user_tables ORDER BY table_name;\n-- Prywatne tabele tymczasowe są tylko tutaj (DURATION)\nSELECT table_name, duration FROM user_private_temp_tables;",
     },
     {
         "id": "c1552",
@@ -873,6 +904,9 @@ FLASHCARDS = [
         "objective": "12.6",
         "front": "ALTER albo DROP globalnej tabeli tymczasowej, gdy sesje mają w niej wiersze?",
         "back": "Nie przejdzie: ORA-14450 (ALTER) / ORA-14452 (DROP). Każda sesja musi najpierw zrobić COMMIT (DELETE ROWS) albo się zakończyć / zrobić TRUNCATE (PRESERVE ROWS). TRUNCATE czyści tylko Twoje wiersze.",
+        "try_sql": "-- Twoja sesja ma wiersz w GTT (PRESERVE ROWS): ALTER daje ORA-14450, po TRUNCATE przechodzi\nCREATE GLOBAL TEMPORARY TABLE lab_c1552_gtt (id NUMBER) ON COMMIT PRESERVE ROWS;\nINSERT INTO lab_c1552_gtt VALUES (1);\nALTER TABLE lab_c1552_gtt ADD (note VARCHAR2(10));\nTRUNCATE TABLE lab_c1552_gtt;\nALTER TABLE lab_c1552_gtt ADD (note VARCHAR2(10));\nSELECT column_name FROM user_tab_columns WHERE table_name = 'LAB_C1552_GTT';",
+        "try_error": "ORA-14450",
+        "cleanup": "DROP TABLE lab_c1552_gtt PURGE;",
     },
     {
         "id": "c1553",
@@ -880,6 +914,9 @@ FLASHCARDS = [
         "objective": "12.6",
         "front": "Globalne tabele tymczasowe a klucze obce?",
         "back": "Niedozwolone: ORA-14455. PRIMARY KEY, UNIQUE, CHECK i NOT NULL są na GTT dozwolone.",
+        "try_sql": "-- FK na GTT: ORA-14455. PRIMARY KEY, CHECK i NOT NULL są dozwolone\nCREATE TABLE lab_c1553_parent (id NUMBER CONSTRAINT lab_c1553_parent_pk PRIMARY KEY);\nCREATE GLOBAL TEMPORARY TABLE lab_c1553_gtt (id NUMBER CONSTRAINT lab_c1553_pk PRIMARY KEY,\n  parent_id NUMBER CONSTRAINT lab_c1553_fk REFERENCES lab_c1553_parent);\nCREATE GLOBAL TEMPORARY TABLE lab_c1553_gtt (id NUMBER CONSTRAINT lab_c1553_pk PRIMARY KEY,\n  qty NUMBER NOT NULL CONSTRAINT lab_c1553_ck CHECK (qty > 0));\nSELECT constraint_name, constraint_type FROM user_constraints WHERE table_name = 'LAB_C1553_GTT';",
+        "try_error": "ORA-14455",
+        "cleanup": "DROP TABLE lab_c1553_gtt PURGE;\nDROP TABLE lab_c1553_parent PURGE;",
     },
     {
         "id": "c1554",
@@ -887,6 +924,9 @@ FLASHCARDS = [
         "objective": "12.7",
         "front": "Tabela zewnętrzna: co jest sprawdzane przy CREATE, a co przy zapytaniu?",
         "back": "CREATE sprawdza składnię i obiekt DIRECTORY (brak: ORA-06564). Sam plik jest otwierany dopiero, gdy pytasz o tabelę.",
+        "try_sql": "-- CREATE sprawdza obiekt DIRECTORY: tu go nie ma, więc ORA-06564 (pliku jeszcze nikt nie szuka)\nCREATE TABLE lab_c1554_ext (id NUMBER, name VARCHAR2(30))\nORGANIZATION EXTERNAL (\n  TYPE ORACLE_LOADER\n  DEFAULT DIRECTORY lab_c1554_dir\n  LOCATION ('dane.csv')\n);",
+        "try_error": "ORA-06564",
+        "cleanup": "DROP TABLE lab_c1554_ext PURGE;",
     },
     {
         "id": "c1555",
@@ -908,6 +948,9 @@ FLASHCARDS = [
         "objective": "12.4",
         "front": "Usunąć kolumnę, która jest częścią constraintu z kilku kolumn?",
         "back": "ORA-12991 (to samo dla SET UNUSED). Dodaj CASCADE CONSTRAINTS: cały constraint zostaje usunięty, a nie zmniejszony do reszty kolumn.",
+        "try_sql": "-- Kolumna a jest w UNIQUE (a, b): DROP daje ORA-12991, CASCADE CONSTRAINTS usuwa cały constraint\nCREATE TABLE lab_c1557_t (a NUMBER, b NUMBER, c NUMBER, CONSTRAINT lab_c1557_uk UNIQUE (a, b));\nALTER TABLE lab_c1557_t DROP COLUMN a;\nALTER TABLE lab_c1557_t DROP COLUMN a CASCADE CONSTRAINTS;\nSELECT constraint_name FROM user_constraints WHERE table_name = 'LAB_C1557_T';",
+        "try_error": "ORA-12991",
+        "cleanup": "DROP TABLE lab_c1557_t PURGE;",
     },
     {
         "id": "c1558",
@@ -915,6 +958,9 @@ FLASHCARDS = [
         "objective": "12.4",
         "front": "Po SET UNUSED (note): czy dodasz nową kolumnę note? Czy zrobisz DROP COLUMN note?",
         "back": "Dodasz – tak, nazwa jest od razu wolna (stara kolumna dostaje ukrytą nazwę SYS_C...$). DROP COLUMN note: ORA-00904; użyj DROP UNUSED COLUMNS.",
+        "try_sql": "-- Po SET UNUSED: DROP COLUMN note daje ORA-00904, ale nową kolumnę note dodasz\nCREATE TABLE lab_c1558_t (id NUMBER, note VARCHAR2(10));\nALTER TABLE lab_c1558_t SET UNUSED (note);\nALTER TABLE lab_c1558_t DROP COLUMN note;\nALTER TABLE lab_c1558_t ADD (note DATE);\n-- Stara kolumna jest ukryta pod nazwą SYS_C...$\nSELECT column_name, data_type, hidden_column\nFROM   user_tab_cols\nWHERE  table_name = 'LAB_C1558_T'\nORDER  BY internal_column_id;",
+        "try_error": "ORA-00904",
+        "cleanup": "DROP TABLE lab_c1558_t PURGE;",
     },
     {
         "id": "c1559",
@@ -922,6 +968,9 @@ FLASHCARDS = [
         "objective": "12.8",
         "front": "DEFERRABLE INITIALLY DEFERRED: kiedy constraint jest sprawdzany?",
         "back": "Przy COMMIT (albo przy SET CONSTRAINT ... IMMEDIATE). Złamanie reguły przy COMMIT daje ORA-02091 i cofa całą transakcję. Odroczalności nie da się dodać później.",
+        "try_sql": "-- Klucz odroczony: duplikat przechodzi aż do COMMIT\nCREATE TABLE lab_c1559_t (id NUMBER CONSTRAINT lab_c1559_pk PRIMARY KEY DEFERRABLE INITIALLY DEFERRED);\nINSERT INTO lab_c1559_t VALUES (1);\nINSERT INTO lab_c1559_t VALUES (1);\nSELECT COUNT(*) AS przed_commit FROM lab_c1559_t;\n-- DDL robi COMMIT: ORA-02091 i cała transakcja jest cofnięta\nALTER TABLE lab_c1559_t ADD (note VARCHAR2(10));\nSELECT COUNT(*) AS po_commit FROM lab_c1559_t;",
+        "try_error": "ORA-02091",
+        "cleanup": "DROP TABLE lab_c1559_t PURGE;",
     },
     {
         "id": "c1560",
@@ -929,6 +978,9 @@ FLASHCARDS = [
         "objective": "12.3",
         "front": "Opcje kolumny identity?",
         "back": "GENERATED ALWAYS: nie podasz własnej wartości (ORA-32795 przy INSERT, ORA-32796 przy UPDATE). BY DEFAULT: własna wartość OK, jawny NULL nie. BY DEFAULT ON NULL: NULL dostaje kolejną wartość. Jedna kolumna identity na tabelę.",
+        "try_sql": "-- GENERATED ALWAYS: własna wartość id daje ORA-32795\nCREATE TABLE lab_c1560_t (id NUMBER GENERATED ALWAYS AS IDENTITY, name VARCHAR2(10));\nINSERT INTO lab_c1560_t (name) VALUES ('auto');\nINSERT INTO lab_c1560_t (id, name) VALUES (99, 'wlasne');\nSELECT * FROM lab_c1560_t;",
+        "try_error": "ORA-32795",
+        "cleanup": "DROP TABLE lab_c1560_t PURGE;",
     },
     {
         "id": "c1561",
@@ -936,6 +988,9 @@ FLASHCARDS = [
         "objective": "12.3",
         "front": "CTAS z listą kolumn: co może być na tej liście?",
         "back": "Nowe nazwy kolumn i constrainty (np. id PRIMARY KEY), po jednej nazwie na każdą wybraną kolumnę (inaczej ORA-01730). Bez typów danych (ORA-01773). DEFAULT i identity nigdy nie są kopiowane.",
+        "try_sql": "-- Lista kolumn w CTAS: nowe nazwy i constraint działają, typ danych daje ORA-01773\nCREATE TABLE lab_c1561_dept (id PRIMARY KEY, nazwa) AS SELECT department_id, department_name FROM departments;\nSELECT constraint_type, COUNT(*) AS ile FROM user_constraints WHERE table_name = 'LAB_C1561_DEPT' GROUP BY constraint_type;\nCREATE TABLE lab_c1561_bad (id NUMBER, nazwa) AS SELECT department_id, department_name FROM departments;",
+        "try_error": "ORA-01773",
+        "cleanup": "DROP TABLE lab_c1561_dept PURGE;\nDROP TABLE lab_c1561_bad PURGE;",
     },
 ]
 

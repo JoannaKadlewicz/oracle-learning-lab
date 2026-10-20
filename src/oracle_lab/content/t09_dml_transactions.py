@@ -731,6 +731,8 @@ FLASHCARDS = [
         "objective": "10.5",
         "front": "Co DDL robi z otwartą transakcją?",
         "back": "Zatwierdza ją (COMMIT) sam z siebie, przed i po poleceniu DDL. Nawet DDL, które padnie w trakcie wykonania (np. ORA-00955, nazwa zajęta), i tak robi COMMIT. Błąd składni nie robi COMMIT. Wszystkie savepointy znikają.",
+        "try_sql": "-- DDL (tu COMMENT) zatwierdza otwartą transakcję: wiersz przetrwa ROLLBACK\nCREATE TABLE lab_c048_t (n NUMBER);\nINSERT INTO lab_c048_t VALUES (1);\nCOMMENT ON TABLE lab_c048_t IS 'DDL robi COMMIT';\nROLLBACK;\nSELECT n FROM lab_c048_t;",
+        "cleanup": "DROP TABLE lab_c048_t PURGE;",
     },
     {
         "id": "c049",
@@ -738,6 +740,7 @@ FLASHCARDS = [
         "objective": "12.5",
         "front": "TRUNCATE czy DELETE – czym się różnią?",
         "back": "TRUNCATE to DDL: nie da się go cofnąć ROLLBACK, nie odpala triggerów DML i resetuje high-water mark. DELETE to DML: zapisuje undo, odpala triggery i można go cofnąć ROLLBACK.",
+        "try_sql": "-- DELETE to DML: ROLLBACK przywraca wiersze (TRUNCATE by tego nie pozwolił)\nDELETE FROM order_items;\nSELECT COUNT(*) FROM order_items;\nROLLBACK;\nSELECT COUNT(*) FROM order_items;",
     },
     {
         "id": "c050",
@@ -745,6 +748,7 @@ FLASHCARDS = [
         "objective": "10.2",
         "front": "INSERT ALL czy INSERT FIRST?",
         "back": "ALL: wstawia dla każdego WHEN, które jest prawdziwe. FIRST: tylko dla pierwszego prawdziwego WHEN i dalej nie sprawdza. INSERT ALL bez WHEN wstawia do każdego INTO.",
+        "try_sql": "-- Oba WHEN są prawdziwe: ALL wstawia 2 wiersze, FIRST tylko 1\nINSERT ALL\n  WHEN x > 0 THEN INTO promotions VALUES (x, 'ALL-1', 5)\n  WHEN x > 0 THEN INTO promotions VALUES (x + 10, 'ALL-2', 5)\nSELECT 1 AS x FROM dual;\nINSERT FIRST\n  WHEN x > 0 THEN INTO promotions VALUES (x, 'FIRST-1', 5)\n  WHEN x > 0 THEN INTO promotions VALUES (x + 10, 'FIRST-2', 5)\nSELECT 2 AS x FROM dual;\nSELECT * FROM promotions ORDER BY promo_id;",
     },
     {
         "id": "c051",
@@ -752,6 +756,8 @@ FLASHCARDS = [
         "objective": "10.3",
         "front": "Jakie ograniczenia ma MERGE?",
         "back": "Nie możesz zmieniać kolumn użytych w ON (ORA-38104). Każda klauzula WHEN jest opcjonalna. W WHEN MATCHED możesz dodać DELETE WHERE.",
+        "try_sql": "-- Kolumna z ON w UPDATE SET: błąd\nMERGE INTO departments d\nUSING (SELECT 10 AS id FROM dual) s\nON (d.department_id = s.id)\nWHEN MATCHED THEN UPDATE SET d.department_id = 11;",
+        "try_error": "ORA-38104",
     },
     {
         "id": "c052",
@@ -759,6 +765,7 @@ FLASHCARDS = [
         "objective": "10.5",
         "front": "Co robi ROLLBACK TO SAVEPOINT?",
         "back": "Cofa zmiany zrobione po savepoincie. Wcześniejsze zmiany zostają, a transakcja dalej trwa. Savepointy utworzone później znikają.",
+        "try_sql": "-- Zmiana przed savepointem zostaje, zmiana po nim znika\nUPDATE employees SET salary = 25000 WHERE employee_id = 100;\nSAVEPOINT s1;\nUPDATE employees SET salary = 1 WHERE employee_id = 100;\nROLLBACK TO s1;\nSELECT salary FROM employees WHERE employee_id = 100;",
     },
     {
         "id": "c053",
@@ -780,6 +787,8 @@ FLASHCARDS = [
         "objective": "10.1",
         "front": "INSERT: co dostają kolumny, których nie ma na liście kolumn?",
         "back": "Swoją wartość DEFAULT, a jeśli jej nie ma – NULL. Kolumna NOT NULL bez DEFAULT daje ORA-01400. Bez listy kolumn VALUES musi podać wartość dla każdej kolumny, w kolejności z tabeli (inaczej ORA-00947).",
+        "try_sql": "-- location nie ma DEFAULT: dostaje NULL. Brak department_name (NOT NULL): ORA-01400\nINSERT INTO departments (department_id, department_name) VALUES (50, 'Test');\nSELECT * FROM departments WHERE department_id = 50;\nINSERT INTO departments (department_id) VALUES (60);",
+        "try_error": "ORA-01400",
     },
     {
         "id": "c501",
@@ -787,6 +796,7 @@ FLASHCARDS = [
         "objective": "10.1",
         "front": "UPDATE ... SET col = (subquery): co, gdy podzapytanie zwróci zero wierszy? A dwa?",
         "back": "Zero wierszy: kolumna dostaje NULL. Więcej niż jeden wiersz: ORA-01427. Podzapytanie widzi dane takie, jakie były na starcie polecenia.",
+        "try_sql": "-- Podzapytanie nic nie znajduje: commission_pct Kochhara staje się NULL\nUPDATE employees e\nSET e.commission_pct = (SELECT x.commission_pct FROM employees x WHERE x.employee_id = 999)\nWHERE e.employee_id = 101;\nSELECT last_name, commission_pct FROM employees WHERE employee_id = 101;",
     },
     {
         "id": "c502",
@@ -794,6 +804,8 @@ FLASHCARDS = [
         "objective": "10.4",
         "front": "Jedno polecenie w transakcji kończy się błędem. Co zostaje cofnięte?",
         "back": "Tylko to jedno polecenie (statement-level rollback). Wcześniejsze zmiany dalej czekają na COMMIT, a transakcja trwa.",
+        "try_sql": "-- INSERT pada (ORA-00001), ale wcześniejszy UPDATE zostaje: pensja 24001\nUPDATE employees SET salary = salary + 1 WHERE employee_id = 100;\nINSERT INTO departments VALUES (10, 'Duplikat', NULL);\nSELECT salary FROM employees WHERE employee_id = 100;",
+        "try_error": "ORA-00001",
     },
     {
         "id": "c503",
@@ -801,6 +813,7 @@ FLASHCARDS = [
         "objective": "10.3",
         "front": "MERGE ... UPDATE SET ... DELETE WHERE cond: które wiersze mogą zostać usunięte?",
         "back": "Tylko wiersze docelowe zmienione przez ten MERGE, sprawdzane już z nowymi wartościami. Wiersze bez dopasowania nigdy nie są usuwane. Wiersz dopasowany dwa razy: ORA-30926.",
+        "try_sql": "-- Dopasowane jest tylko zamówienie 1001. Po /20 obie jego linie mają cenę < 100 i znikają;\n-- linie 1004/1 i 1006/2 (cena < 100) zostają, bo nie były dopasowane\nMERGE INTO order_items t\nUSING (SELECT 1001 AS oid FROM dual) s\nON (t.order_id = s.oid)\nWHEN MATCHED THEN UPDATE SET t.unit_price = t.unit_price / 20\n  DELETE WHERE t.unit_price < 100;\nSELECT order_id, line_no, unit_price FROM order_items WHERE unit_price < 100 OR order_id = 1001;",
     },
     {
         "id": "c504",
@@ -808,6 +821,9 @@ FLASHCARDS = [
         "objective": "12.5",
         "front": "TRUNCATE tabeli-rodzica, na którą wskazuje klucz obcy?",
         "back": "ORA-02266, dopóki wiersze dziecka wskazują na nią przez włączony FK (w 19c przeszło, gdy tabela-dziecko była pusta). TRUNCATE ... CASCADE (12c+) czyści też dzieci, ale tylko gdy FK są ON DELETE CASCADE (inaczej ORA-14705).",
+        "try_sql": "-- Dziecko wskazuje na rodzica: TRUNCATE daje ORA-02266, a CASCADE bez ON DELETE CASCADE ORA-14705\nCREATE TABLE lab_c504_p (id NUMBER CONSTRAINT lab_c504_p_pk PRIMARY KEY);\nCREATE TABLE lab_c504_c (pid NUMBER CONSTRAINT lab_c504_c_fk REFERENCES lab_c504_p);\nINSERT INTO lab_c504_p VALUES (1);\nINSERT INTO lab_c504_c VALUES (1);\nTRUNCATE TABLE lab_c504_p;\nTRUNCATE TABLE lab_c504_p CASCADE;\nSELECT (SELECT COUNT(*) FROM lab_c504_p) AS rodzic, (SELECT COUNT(*) FROM lab_c504_c) AS dziecko FROM dual;",
+        "cleanup": "DROP TABLE lab_c504_c PURGE;\nDROP TABLE lab_c504_p PURGE;",
+        "try_error": "ORA-02266",
     },
     {
         "id": "c505",
@@ -815,6 +831,9 @@ FLASHCARDS = [
         "objective": "10.2",
         "front": "Jakie ograniczenia ma wielotabelowy INSERT?",
         "back": "Celem nie może być widok ani tabela zdalna. W podzapytaniu nie użyjesz sekwencji. INSERT FIRST zawsze potrzebuje WHEN. ELSE jest tylko w wersji warunkowej (z WHEN).",
+        "try_sql": "-- INSERT FIRST bez WHEN: błąd składni\nINSERT FIRST\n  INTO promotions VALUES (1, 'A', 5)\nSELECT * FROM dual;",
+        "try_error": "ORA-00905",
+        "try_error_since": {"23": "ORA-02000"},
     },
     {
         "id": "c1500",
@@ -822,6 +841,8 @@ FLASHCARDS = [
         "objective": "10.2",
         "front": "Wielotabelowy INSERT: których kolumn mogą używać WHEN i VALUES?",
         "back": "Tylko kolumn (albo aliasów kolumn) z listy SELECT podzapytania. Kolumna tabeli, której nie wybrałeś, albo alias tabeli jak e.salary daje ORA-00904.",
+        "try_sql": "-- salary nie ma na liście SELECT podzapytania: ORA-00904\nINSERT ALL\n  WHEN salary > 10000 THEN INTO promotions VALUES (employee_id, last_name, 10)\nSELECT employee_id, last_name FROM employees;",
+        "try_error": "ORA-00904",
     },
     {
         "id": "c1501",
@@ -829,6 +850,7 @@ FLASHCARDS = [
         "objective": "10.2",
         "front": "Jak wstawić kilka wierszy z literałami jednym poleceniem?",
         "back": "19c: INSERT ALL INTO t VALUES (...) INTO t VALUES (...) SELECT * FROM dual, albo INSERT INTO t SELECT ... FROM dual UNION ALL SELECT ... FROM dual. 23ai pozwala też na VALUES (...), (...) (na 19c to ORA-00933).",
+        "try_sql": "-- Kilka wierszy z literałami jednym poleceniem (działa na 19c i 23ai)\nINSERT ALL\n  INTO promotions VALUES (1, 'Wiosna', 10)\n  INTO promotions VALUES (2, 'Lato', 15)\nSELECT * FROM dual;\nINSERT INTO promotions\nSELECT 3, 'Jesień', 20 FROM dual UNION ALL SELECT 4, 'Zima', 25 FROM dual;\nSELECT * FROM promotions ORDER BY promo_id;",
     },
     {
         "id": "c1502",
@@ -836,6 +858,8 @@ FLASHCARDS = [
         "objective": "10.2",
         "front": "Jeden wiersz wielotabelowego INSERT łamie constraint. Co zostaje?",
         "back": "Nic z tego polecenia: to jedno polecenie, więc cofa się w całości (statement-level rollback). Wcześniejsze polecenia transakcji dalej czekają na COMMIT.",
+        "try_sql": "-- Drugi INTO łamie klucz główny: nie zostaje nawet pierwszy wiersz (COUNT = 0)\nINSERT ALL\n  INTO promotions VALUES (1, 'A', 5)\n  INTO promotions VALUES (1, 'B', 5)\nSELECT * FROM dual;\nSELECT COUNT(*) FROM promotions;",
+        "try_error": "ORA-00001",
     },
     {
         "id": "c1503",
@@ -843,6 +867,7 @@ FLASHCARDS = [
         "objective": "10.2",
         "front": "WHEN x < 100 ... WHEN x >= 100 ... ELSE ...: kiedy działa ELSE?",
         "back": "Gdy żadne WHEN nie jest TRUE. Tak jest też dla x IS NULL, bo oba warunki dają UNKNOWN. ELSE wolno użyć w warunkowym INSERT ALL i w INSERT FIRST.",
+        "try_sql": "-- x jest NULL: oba WHEN dają UNKNOWN, wiersz trafia do ELSE\nINSERT FIRST\n  WHEN x < 100 THEN INTO promotions VALUES (1, 'mniej', x)\n  WHEN x >= 100 THEN INTO promotions VALUES (2, 'wiecej', x)\n  ELSE INTO promotions VALUES (3, 'ELSE', x)\nSELECT CAST(NULL AS NUMBER) AS x FROM dual;\nSELECT * FROM promotions;",
     },
     {
         "id": "c1504",
@@ -850,6 +875,8 @@ FLASHCARDS = [
         "objective": "10.3",
         "front": "MERGE ... ON (1 = 0) – co to daje?",
         "back": "Żaden wiersz nigdy się nie dopasuje, więc każdy wiersz źródła trafia do WHEN NOT MATCHED. MERGE działa wtedy jak INSERT ... SELECT.",
+        "try_sql": "-- ON (1 = 0): dział 10 istnieje, a i tak idzie do INSERT (ORA-00001)\nMERGE INTO departments d\nUSING (SELECT 10 AS id, 'Admin 2' AS name FROM dual) s\nON (1 = 0)\nWHEN MATCHED THEN UPDATE SET d.department_name = s.name\nWHEN NOT MATCHED THEN INSERT (department_id, department_name) VALUES (s.id, s.name);",
+        "try_error": "ORA-00001",
     },
     {
         "id": "c1505",
@@ -857,6 +884,8 @@ FLASHCARDS = [
         "objective": "10.3",
         "front": "MERGE: warunek ON porównuje dwa NULL-e. Dopasowane czy nie?",
         "back": "Nie. NULL = NULL to UNKNOWN, a nie TRUE. Wiersz idzie do gałęzi INSERT i może dostać ORA-00001, jeśli taki klucz już istnieje.",
+        "try_sql": "-- Hooli (5) ma country_code NULL: NULL = NULL nie pasuje, więc INSERT i ORA-00001\nMERGE INTO customers c\nUSING (SELECT 5 AS id, 'Hooli' AS name, CAST(NULL AS CHAR(2)) AS cc FROM dual) s\nON (c.customer_id = s.id AND c.country_code = s.cc)\nWHEN MATCHED THEN UPDATE SET c.credit_limit = 0\nWHEN NOT MATCHED THEN INSERT (customer_id, customer_name) VALUES (s.id, s.name);",
+        "try_error": "ORA-00001",
     },
     {
         "id": "c1506",
@@ -864,6 +893,7 @@ FLASHCARDS = [
         "objective": "10.3",
         "front": "MERGE: UPDATE SET ... WHERE cond1 DELETE WHERE cond2. Które wiersze mogą zostać usunięte?",
         "back": "Tylko dopasowane wiersze, które przeszły cond1 i zostały zmienione. cond2 widzi już nowe wartości. Wiersz pominięty przez WHERE w UPDATE nigdy nie jest usuwany.",
+        "try_sql": "-- Linia 2 (cena 25) pasuje do DELETE WHERE, ale WHERE w UPDATE ją pominął: zostaje\nMERGE INTO order_items t\nUSING (SELECT 1001 AS oid FROM dual) s\nON (t.order_id = s.oid)\nWHEN MATCHED THEN UPDATE SET t.unit_price = t.unit_price WHERE t.line_no = 1\n  DELETE WHERE t.unit_price < 2000;\nSELECT order_id, line_no, unit_price FROM order_items WHERE order_id = 1001;",
     },
     {
         "id": "c1507",
@@ -871,6 +901,9 @@ FLASHCARDS = [
         "objective": "10.3",
         "front": "Czy WHEN MATCHED THEN DELETE WHERE ... może stać samo?",
         "back": "Nie. DELETE WHERE jest częścią gałęzi UPDATE: WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ... (bez UPDATE: ORA-00905 na 19c, ORA-02000 na 23ai).",
+        "try_sql": "-- WHEN MATCHED THEN DELETE bez UPDATE: błąd składni\nMERGE INTO order_items t\nUSING (SELECT 1001 AS oid FROM dual) s\nON (t.order_id = s.oid)\nWHEN MATCHED THEN DELETE WHERE t.unit_price < 100;",
+        "try_error": "ORA-00905",
+        "try_error_since": {"23": "ORA-02000"},
     },
     {
         "id": "c1508",
@@ -878,6 +911,7 @@ FLASHCARDS = [
         "objective": "10.5",
         "front": "Czy można zrobić ROLLBACK TO do tego samego savepointu dwa razy?",
         "back": "Tak. ROLLBACK TO s zostawia s (znikają tylko późniejsze savepointy), więc drugi ROLLBACK TO s działa i cofa to, co zrobiłeś od pierwszego.",
+        "try_sql": "-- s zostaje po ROLLBACK TO, więc drugi ROLLBACK TO s też działa: pensja wraca do 24000\nSAVEPOINT s;\nUPDATE employees SET salary = 1 WHERE employee_id = 100;\nROLLBACK TO s;\nUPDATE employees SET salary = 2 WHERE employee_id = 100;\nROLLBACK TO s;\nSELECT salary FROM employees WHERE employee_id = 100;",
     },
     {
         "id": "c1509",
@@ -899,6 +933,9 @@ FLASHCARDS = [
         "objective": "12.5",
         "front": "Czy DDL, które skończyło się błędem, i tak robi COMMIT?",
         "back": "Tak, jeśli padło w trakcie wykonania: TRUNCATE nieistniejącej tabeli (ORA-00942) albo CREATE z zajętą nazwą (ORA-00955) najpierw zatwierdza czekający DML. Błąd składni nie robi COMMIT. W 23ai DDL z IF [NOT] EXISTS, które nic nie robi, też robi COMMIT.",
+        "try_sql": "-- ORA-00955 (błąd wykonania) zatwierdza wiersz 1; błąd składni nie, więc ROLLBACK cofa wiersz 2\nCREATE TABLE lab_c1511_t (n NUMBER);\nINSERT INTO lab_c1511_t VALUES (1);\nCREATE TABLE lab_c1511_t (n NUMBER);\nINSERT INTO lab_c1511_t VALUES (2);\nCREATE TABLE lab_c1511_x (n NUMBER,);\nROLLBACK;\nSELECT n FROM lab_c1511_t;",
+        "cleanup": "DROP TABLE lab_c1511_t PURGE;",
+        "try_error": "ORA-00955",
     },
 ]
 

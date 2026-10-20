@@ -1,11 +1,15 @@
-/* Flashcards with spaced repetition: pick a deck, flip, rate. */
+/* Flashcards with spaced repetition: pick a deck, flip, rate. Beside the card, a SQL editor
+   holds the card's sample (try_sql), so the rule on the card can be tried at once. */
 
 import { $, $$, esc, inlineCode, plural, shuffle } from "../core/dom.js";
 import { api } from "../core/api.js";
-import { C, P, apply, dueCards, cardLearned, topicLabel } from "../core/state.js";
+import { C, P, DB, apply, dueCards, cardLearned, topicLabel, blockedOn23ai } from "../core/state.js";
 import { main, go } from "../core/router.js";
 import { toast, toastError } from "../ui/feedback.js";
-import { meter, pageHead, section } from "../ui/widgets.js";
+import { meter, pageHead, section, loading } from "../ui/widgets.js";
+import { makeEditor } from "../ui/editor.js";
+import { resultsHtml, errorBox } from "../ui/sql.js";
+import { labDraft } from "./lab.js";
 
 let deck = null;
 
@@ -70,6 +74,7 @@ function renderCard() {
   const progress = deck.total ? (deck.done / deck.total) * 100 : 0;
   main.innerHTML = `
     <h1 class="sr-only">Flashcards</h1>
+    <div class="deck-split">
     <div class="deck">
       <div class="deck-top">
         <div class="deck-stats" aria-live="polite">
@@ -98,10 +103,54 @@ function renderCard() {
         <button class="btn" data-rating="good" ${deck.flipped ? "" : "disabled"}>Good <small>I knew it (2)</small></button>
         <button class="btn secondary" data-rating="easy" ${deck.flipped ? "" : "disabled"}>Easy <small>Too easy (3)</small></button>
       </div>
+    </div>
+    ${tryPanel(card)}
     </div>`;
   $("#card").addEventListener("click", flipCard);
   $$("[data-rating]", main).forEach(b => b.addEventListener("click", () => rateCard(b.dataset.rating)));
   $("#deck-quit").addEventListener("click", () => { deck = null; render(); });
+  bindTry(card);
+}
+
+/* ---------------------------------------------------------------- try it */
+
+function tryPanel(card) {
+  const note = blockedOn23ai(card)
+    ? `This sample uses Oracle 23ai syntax, and your database is Oracle ${esc(DB.version)}.`
+    : card.cleanup ? "A sample for this card. Predict the result, then run it. Its LAB_ objects are dropped before and after each run."
+    : card.try_sql ? "A sample for this card. Predict the result, then run it. Changes are rolled back."
+      : "No sample for this card. Write your own query; changes are rolled back.";
+  return `<section class="card-try panel" aria-label="Try it in SQL">
+    <div class="card-try-head"><h2>Try it</h2><p>${note}</p></div>
+    <div class="editor-wrap">
+      <textarea class="editor" id="card-sql" aria-label="SQL for this card" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(card.try_sql || "")}</textarea>
+      <div class="editor-bar">
+        <button class="btn" id="card-run"><span>Run</span> <span class="kbd">Ctrl+Enter</span></button>
+        ${card.try_sql ? `<button class="link-btn quiet" id="card-restore">Restore the sample</button>` : ""}
+        <span class="links"><button class="link-btn" id="card-lab">Open in SQL lab</button></span>
+      </div>
+    </div>
+    <div class="results" id="card-results" aria-live="polite"></div>
+  </section>`;
+}
+
+function bindTry(card) {
+  const results = $("#card-results");
+  const editor = makeEditor($("#card-sql"), { onRun: () => run() });
+  editor.onSelection(has => { $("#card-run span").textContent = has ? "Run selection" : "Run"; });
+  const run = async () => {
+    const sql = editor.selection() || editor.get();
+    if (!sql.trim()) return toast("Type some SQL first.");
+    const btn = $("#card-run");
+    btn.disabled = true;
+    results.innerHTML = loading("Running");
+    try { results.innerHTML = resultsHtml(await api("/api/run", { sql, keep: false, card: card.id })); }
+    catch (err) { results.innerHTML = errorBox(err.message); }
+    btn.disabled = false;
+  };
+  $("#card-run").addEventListener("click", run);
+  $("#card-restore")?.addEventListener("click", () => { editor.set(card.try_sql); results.innerHTML = ""; editor.focus(); });
+  $("#card-lab").addEventListener("click", () => { labDraft(editor.get()); go("/lab"); });
 }
 
 function flipCard() {

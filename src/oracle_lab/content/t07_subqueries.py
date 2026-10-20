@@ -871,6 +871,7 @@ FLASHCARDS = [
         "objective": "8.2",
         "front": "Co się stanie, gdy w liście NOT IN jest NULL?",
         "back": "Zapytanie nie zwróci żadnego wiersza. x NOT IN (1, NULL) nigdy nie jest TRUE, bo porównanie z NULL daje UNKNOWN. Użyj NOT EXISTS albo odfiltruj NULL-e w podzapytaniu (WHERE ... IS NOT NULL).",
+        "try_sql": "-- manager_id zawiera NULL (King): NOT IN nie zwraca nic, NOT EXISTS działa\nSELECT e.last_name FROM employees e\nWHERE e.employee_id NOT IN (SELECT m.manager_id FROM employees m);\nSELECT e.last_name FROM employees e\nWHERE NOT EXISTS (SELECT 1 FROM employees m WHERE m.manager_id = e.employee_id);",
     },
     {
         "id": "c038",
@@ -878,6 +879,7 @@ FLASHCARDS = [
         "objective": "8.2",
         "front": "> ALL i > ANY, gdy podzapytanie nie zwraca żadnego wiersza?",
         "back": "> ALL (pusty zbiór) jest TRUE dla każdego wiersza — nie ma z czym „przegrać”. > ANY (pusty zbiór) jest FALSE — nie ma z czym „wygrać”, więc 0 wierszy.",
+        "try_sql": "-- Pusty zbiór: > ALL przepuszcza wszystkie 9 wierszy, > ANY żadnego\nSELECT\n  (SELECT COUNT(*) FROM employees e WHERE e.salary > ALL (SELECT salary FROM employees WHERE 1 = 0)) AS all_cnt,\n  (SELECT COUNT(*) FROM employees e WHERE e.salary > ANY (SELECT salary FROM employees WHERE 1 = 0)) AS any_cnt\nFROM dual;",
     },
     {
         "id": "c039",
@@ -885,6 +887,7 @@ FLASHCARDS = [
         "objective": "8.2",
         "front": "Czemu odpowiadają ANY i ALL?",
         "back": "= ANY to to samo co IN. <> ALL to to samo co NOT IN. > ALL znaczy: większe od MAX. < ANY znaczy: mniejsze od MAX.",
+        "try_sql": "-- > ALL daje to samo co > MAX: porównaj oba wyniki\nSELECT e.last_name, e.salary FROM employees e\nWHERE e.salary > ALL (SELECT salary FROM employees WHERE department_id = 20);\nSELECT e.last_name, e.salary FROM employees e\nWHERE e.salary > (SELECT MAX(salary) FROM employees WHERE department_id = 20);",
     },
     {
         "id": "c040",
@@ -892,6 +895,8 @@ FLASHCARDS = [
         "objective": "8.1",
         "front": "Podzapytanie skalarne zwraca 0 wierszy albo 2 i więcej. Co wtedy?",
         "back": "0 wierszy → wynik to NULL. 2 lub więcej wierszy → błąd ORA-01427.",
+        "try_sql": "-- Dział 40 nie ma pracowników: NULL. Dział 30 ma czterech: ORA-01427\nSELECT (SELECT last_name FROM employees WHERE department_id = 40) AS zero_wierszy FROM dual;\nSELECT (SELECT last_name FROM employees WHERE department_id = 30) AS wiele_wierszy FROM dual;",
+        "try_error": "ORA-01427",
     },
     {
         "id": "c041",
@@ -899,6 +904,7 @@ FLASHCARDS = [
         "objective": "8.1",
         "front": "Co to jest podzapytanie skorelowane?",
         "back": "To podzapytanie, które używa kolumny z zapytania zewnętrznego, np. WHERE e2.department_id = e.department_id. Logicznie liczy się je od nowa dla każdego wiersza zapytania zewnętrznego.",
+        "try_sql": "-- Podzapytanie używa e.department_id: średnia liczona dla działu każdego pracownika\nSELECT e.last_name, e.department_id, e.salary\nFROM employees e\nWHERE e.salary > (SELECT AVG(e2.salary) FROM employees e2\n                  WHERE e2.department_id = e.department_id);",
     },
     {
         "id": "c042",
@@ -906,6 +912,7 @@ FLASHCARDS = [
         "objective": "8.3",
         "front": "Gdzie można wstawić podzapytanie?",
         "back": "W liście SELECT (skalarne), w FROM (widok inline), w WHERE i w HAVING. W DML: INSERT ... SELECT, UPDATE SET kolumna = (podzapytanie), a także jako cel instrukcji DML.",
+        "try_sql": "-- Podzapytania w SELECT (skalarne), w FROM (widok inline) i w WHERE\nSELECT d.department_name,\n       (SELECT COUNT(*) FROM employees e WHERE e.department_id = d.department_id) AS cnt\nFROM (SELECT department_id, department_name FROM departments) d\nWHERE d.department_id IN (SELECT department_id FROM employees);",
     },
     {
         "id": "c400",
@@ -913,6 +920,7 @@ FLASHCARDS = [
         "objective": "8.3",
         "front": "Skorelowany UPDATE bez WHERE: co z wierszami, dla których podzapytanie nic nie znajdzie?",
         "back": "Też zostaną zmienione — dostaną NULL (albo 0, gdy podzapytanie używa COUNT). Żeby zmienić tylko pasujące wiersze, dodaj WHERE EXISTS z tym samym warunkiem korelacji.",
+        "try_sql": "-- Umbrella (4) nie ma zamówień: bez WHERE EXISTS też zostanie zmieniona (NULL)\nUPDATE customers c\nSET c.credit_limit = (SELECT MAX(o.order_id) FROM orders o WHERE o.customer_id = c.customer_id);\nSELECT customer_id, customer_name, credit_limit FROM customers ORDER BY customer_id;",
     },
     {
         "id": "c401",
@@ -920,6 +928,7 @@ FLASHCARDS = [
         "objective": "8.3",
         "front": "Czy skorelowany UPDATE/DELETE widzi w podzapytaniu swoje wcześniejsze zmiany?",
         "back": "Nie. Każde wykonanie podzapytania widzi dane takie, jakie były na początku instrukcji (spójność odczytu na poziomie instrukcji).",
+        "try_sql": "-- Gdyby podzapytanie widziało zmiany, pensje by rosły. Wszyscy dostają 24001\nUPDATE employees e SET e.salary = (SELECT MAX(e2.salary) + 1 FROM employees e2);\nSELECT DISTINCT salary FROM employees;",
     },
     {
         "id": "c402",
@@ -927,6 +936,7 @@ FLASHCARDS = [
         "objective": "8.3",
         "front": "Jak ustawić dwie kolumny jednym skorelowanym podzapytaniem?",
         "back": "UPDATE t a SET (a.c1, a.c2) = (SELECT b.x, b.y FROM s b WHERE b.id = a.id). Nawiasy wokół listy kolumn są obowiązkowe, a liczba kolumn musi się zgadzać (inaczej ORA-00947 albo ORA-00913).",
+        "try_sql": "-- Dwie kolumny z jednego skorelowanego podzapytania (nawiasy wokół listy!)\nUPDATE employees e\nSET (e.salary, e.commission_pct) = (SELECT MAX(e2.salary), MAX(e2.commission_pct)\n                                    FROM employees e2 WHERE e2.department_id = e.department_id)\nWHERE e.department_id = 20;\nSELECT last_name, salary, commission_pct FROM employees WHERE department_id = 20;",
     },
     {
         "id": "c403",
@@ -934,6 +944,7 @@ FLASHCARDS = [
         "objective": "8.3",
         "front": "Skorelowany DELETE: jak usunąć wiersze, które nie mają pary w innej tabeli?",
         "back": "DELETE FROM t a WHERE NOT EXISTS (SELECT 1 FROM s b WHERE b.id = a.id). NOT IN zadziała tylko wtedy, gdy podzapytanie nie zwraca żadnego NULL.",
+        "try_sql": "-- Usuń klientów bez zamówień (zostanie usunięty tylko Umbrella)\nDELETE FROM customers c\nWHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id);\nSELECT customer_id, customer_name FROM customers ORDER BY customer_id;",
     },
     {
         "id": "c404",
@@ -941,6 +952,8 @@ FLASHCARDS = [
         "objective": "8.1",
         "front": "Czy podzapytanie w WHERE może mieć ORDER BY?",
         "back": "Nie — dostaniesz ORA-00907 missing right parenthesis. ORDER BY wolno dać w widoku inline (w FROM) i na końcu zapytania zewnętrznego.",
+        "try_sql": "-- ORDER BY w podzapytaniu w WHERE: błąd\nSELECT last_name FROM employees\nWHERE department_id IN (SELECT department_id FROM departments ORDER BY 1);",
+        "try_error": "ORA-00907",
     },
     {
         "id": "c405",
@@ -948,6 +961,8 @@ FLASHCARDS = [
         "objective": "8.2",
         "front": "Jakie operatory działają z podzapytaniem, które zwraca wiele wierszy?",
         "back": "IN, NOT IN, EXISTS, NOT EXISTS oraz każdy operator porównania z dopiskiem ANY (SOME) albo ALL, np. > ALL. Zwykłe = < > LIKE BETWEEN potrzebują jednego wiersza.",
+        "try_sql": "-- IN i = ANY działają z wieloma wierszami, zwykłe = nie (ORA-01427)\nSELECT last_name, salary FROM employees\nWHERE salary = ANY (SELECT salary FROM employees WHERE job_title = 'Programmer');\nSELECT last_name, salary FROM employees\nWHERE salary = (SELECT salary FROM employees WHERE job_title = 'Programmer');",
+        "try_error": "ORA-01427",
     },
     {
         "id": "c1400",
@@ -955,6 +970,8 @@ FLASHCARDS = [
         "objective": "8.1",
         "front": "Podzapytanie skalarne w SELECT znajduje dwa wiersze dla jednego wiersza zewnętrznego. Co się dzieje?",
         "back": "Całe zapytanie kończy się błędem ORA-01427. Oracle nie powiela wiersza (to robi złączenie) i nie wybiera jednego z dwóch. Tylko pusty wynik zamienia się na NULL.",
+        "try_sql": "-- Działy 20 i 30 mają po kilku pracowników: całe zapytanie kończy się błędem\nSELECT d.department_name,\n       (SELECT e.last_name FROM employees e WHERE e.department_id = d.department_id) AS emp\nFROM departments d;",
+        "try_error": "ORA-01427",
     },
     {
         "id": "c1401",
@@ -962,6 +979,7 @@ FLASHCARDS = [
         "objective": "8.1",
         "front": "Klauzula WITH (subquery factoring): co można zrobić z nazwanym zapytaniem?",
         "back": "Użyć go kilka razy w głównym zapytaniu (w FROM i w podzapytaniach). Może go też użyć kolejne nazwane zapytanie z tej samej listy: WITH a AS (...), b AS (SELECT ... FROM a).",
+        "try_sql": "-- avg_sal korzysta z dept_sal, a główne zapytanie z obu\nWITH dept_sal AS (SELECT department_id, SUM(salary) AS total\n                  FROM employees GROUP BY department_id),\n     avg_sal AS (SELECT AVG(total) AS avg_total FROM dept_sal)\nSELECT d.department_id, d.total\nFROM dept_sal d\nWHERE d.total > (SELECT avg_total FROM avg_sal);",
     },
     {
         "id": "c1402",
@@ -969,6 +987,8 @@ FLASHCARDS = [
         "objective": "8.1",
         "front": "Widok inline (SELECT order_id, SUM(qty) FROM ... GROUP BY order_id) v: czy zapytanie zewnętrzne może użyć v.total?",
         "back": "Nie: ORA-00904 \"V\".\"TOTAL\": invalid identifier. Takiej kolumny po prostu nie ma. Nadaj wyrażeniu alias w środku widoku: SUM(qty) AS total.",
+        "try_sql": "-- Wyrażenie SUM(quantity) nie ma aliasu, więc kolumny v.total nie ma\nSELECT v.order_id, v.total\nFROM (SELECT order_id, SUM(quantity) FROM order_items GROUP BY order_id) v;",
+        "try_error": "ORA-00904",
     },
     {
         "id": "c1403",
@@ -976,6 +996,8 @@ FLASHCARDS = [
         "objective": "8.1",
         "front": "Czy DISTINCT w podzapytaniu naprawia ORA-01427?",
         "back": "Tylko wtedy, gdy zostanie jedna wartość. Pensje programistów 9000, 6000, 4800 to dalej trzy wiersze. Użyj IN / = ANY albo funkcji agregującej, jeśli naprawdę chodzi o jedną wartość.",
+        "try_sql": "-- DISTINCT zostawia 9000, 6000, 4800: nadal trzy wiersze\nSELECT last_name FROM employees\nWHERE salary = (SELECT DISTINCT salary FROM employees WHERE job_title = 'Programmer');",
+        "try_error": "ORA-01427",
     },
     {
         "id": "c1404",
@@ -983,6 +1005,7 @@ FLASHCARDS = [
         "objective": "8.2",
         "front": "x NOT IN (podzapytanie bez NULL-i), a samo x jest NULL?",
         "back": "Wynik to UNKNOWN, więc wiersz nie wraca. department_id NOT IN (20) pomija Granta (dział NULL): 5 wierszy, a nie 6.",
+        "try_sql": "-- Grant (dział NULL) nie wraca: 5 wierszy, nie 6\nSELECT last_name, department_id FROM employees\nWHERE department_id NOT IN (SELECT department_id FROM departments\n                            WHERE department_name = 'Sales');",
     },
     {
         "id": "c1405",
@@ -990,6 +1013,7 @@ FLASHCARDS = [
         "objective": "8.2",
         "front": "Co znaczy <> ANY (20, 30)?",
         "back": "„Różne od co najmniej jednej wartości”. Gdy lista ma dwie różne wartości, to jest TRUE dla każdej wartości, która nie jest NULL. NOT IN to <> ALL, a nie <> ANY.",
+        "try_sql": "-- <> ANY (20, 30): wszyscy z działem (8). NOT IN (20, 30): tylko King\nSELECT COUNT(*) FROM employees WHERE department_id <> ANY (20, 30);\nSELECT last_name FROM employees WHERE department_id NOT IN (20, 30);",
     },
     {
         "id": "c1406",
@@ -997,6 +1021,7 @@ FLASHCARDS = [
         "objective": "8.2",
         "front": "> ALL i > ANY, gdy podzapytanie zwraca NULL obok innych wartości?",
         "back": "> ALL: nigdy TRUE (to AND z UNKNOWN), więc 0 wierszy. > ANY: wystarczy jedno TRUE, więc NULL nie przeszkadza.",
+        "try_sql": "-- commission_pct ma NULL-e: > ALL daje 0 wierszy, > ANY wszystkie 9\nSELECT\n  (SELECT COUNT(*) FROM employees e WHERE e.salary > ALL (SELECT commission_pct FROM employees)) AS all_cnt,\n  (SELECT COUNT(*) FROM employees e WHERE e.salary > ANY (SELECT commission_pct FROM employees)) AS any_cnt\nFROM dual;",
     },
     {
         "id": "c1407",
@@ -1004,6 +1029,7 @@ FLASHCARDS = [
         "objective": "8.2",
         "front": "Porównanie parami (pairwise) a osobno (non-pairwise)?",
         "back": "Parami: (a, b) IN (SELECT x, y ...) — para musi pasować razem. Osobno: a IN (...) AND b IN (...) — każda kolumna jest sprawdzana oddzielnie, więc mogą wyjść dodatkowe wiersze (dopasowania „na krzyż”).",
+        "try_sql": "-- Pary (6000, 30) i (4800, 20): parami 2 wiersze, osobno 4 (Russell i Lorentz „na krzyż”)\nSELECT last_name, salary, department_id FROM employees\nWHERE (salary, department_id) IN (SELECT salary, department_id FROM employees WHERE employee_id IN (104, 106));\nSELECT last_name, salary, department_id FROM employees\nWHERE salary IN (SELECT salary FROM employees WHERE employee_id IN (104, 106))\n  AND department_id IN (SELECT department_id FROM employees WHERE employee_id IN (104, 106));",
     },
     {
         "id": "c1408",
@@ -1011,6 +1037,7 @@ FLASHCARDS = [
         "objective": "8.2",
         "front": "EXISTS z podzapytaniem, które nie odwołuje się do zapytania zewnętrznego?",
         "back": "Wynik jest taki sam dla każdego wiersza: wszystkie wiersze, jeśli podzapytanie cokolwiek znajdzie, albo żaden. Zwykle to znak, że zapomniano warunku korelacji.",
+        "try_sql": "-- Brak korelacji: EXISTS jest prawdziwe zawsze, więc wracają wszystkie 4 działy\nSELECT d.department_name FROM departments d\nWHERE EXISTS (SELECT 1 FROM employees e WHERE e.salary > 20000);\nSELECT d.department_name FROM departments d\nWHERE EXISTS (SELECT 1 FROM employees e WHERE e.salary > 20000\n              AND e.department_id = d.department_id);",
     },
     {
         "id": "c1409",
@@ -1018,6 +1045,8 @@ FLASHCARDS = [
         "objective": "8.3",
         "front": "SET (a, b) = (SELECT x ...) i SET (a) = (SELECT x, y ...): jakie błędy?",
         "back": "Za mało kolumn w podzapytaniu: ORA-00947 not enough values. Za dużo: ORA-00913 too many values. Oracle nie dopełnia braków NULL-ami.",
+        "try_sql": "-- Dwie kolumny, jedna wartość: ORA-00947\nUPDATE employees e\nSET (e.salary, e.commission_pct) = (SELECT MAX(salary) FROM employees)\nWHERE e.employee_id = 108;",
+        "try_error": "ORA-00947",
     },
     {
         "id": "c1410",
@@ -1025,6 +1054,7 @@ FLASHCARDS = [
         "objective": "8.3",
         "front": "UPDATE ... SET col = (SELECT val ...) WHERE EXISTS (SELECT ...): czy col może dalej dostać NULL?",
         "back": "Tak. EXISTS sprawdza tylko, czy pasujący wiersz istnieje, a nie czy wartość nie jest NULL (np. produkt 15 ma list_price NULL). Dodaj warunek val IS NOT NULL albo użyj NVL.",
+        "try_sql": "-- Produkt 15 istnieje, ale ma list_price NULL: linia 1004/2 dostaje NULL\nUPDATE order_items oi\nSET oi.unit_price = (SELECT p.list_price FROM products p WHERE p.product_id = oi.product_id)\nWHERE EXISTS (SELECT 1 FROM products p WHERE p.product_id = oi.product_id);\nSELECT order_id, line_no, product_id, unit_price FROM order_items WHERE unit_price IS NULL;",
     },
     {
         "id": "c1411",
@@ -1032,6 +1062,8 @@ FLASHCARDS = [
         "objective": "8.3",
         "front": "Skorelowany DELETE ma usunąć trzy wiersze, ale jeden z nich ma jeszcze wiersze podrzędne. Co się stanie?",
         "back": "Błąd ORA-02292 (child record found) i cała instrukcja jest wycofana: nic nie zostanie usunięte. Oracle nie pomija „kłopotliwego” wiersza.",
+        "try_sql": "-- Umbrella i Hooli nie mają zamówień NEW, ale Hooli ma inne zamówienie: ORA-02292, nic nie znika\nDELETE FROM customers c\nWHERE NOT EXISTS (SELECT 1 FROM orders o\n                  WHERE o.customer_id = c.customer_id AND o.status = 'NEW');\nSELECT COUNT(*) FROM customers;",
+        "try_error": "ORA-02292",
     },
 ]
 

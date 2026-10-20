@@ -967,6 +967,7 @@ FLASHCARDS = [
         "objective": "5.1",
         "front": "Czym różnią się NVL, NVL2, COALESCE i NULLIF?",
         "back": "NVL(a,b): b, gdy a jest NULL. NVL2(a,x,y): x, gdy a NIE jest NULL, inaczej y. COALESCE: pierwsza wartość, która nie jest NULL; argumenty muszą być z tej samej rodziny typów, a liczenie kończy się na pierwszej znalezionej. NULLIF(a,b): NULL, gdy a=b, inaczej a.",
+        "try_sql": "-- Przewidź każdą kolumnę: NVL, NVL2, COALESCE, NULLIF\nSELECT NVL(NULL, 'b') AS nvl_r,\n       NVL2(1, 'x', 'y') AS nvl2_r,\n       COALESCE(NULL, NULL, 'c') AS coalesce_r,\n       NULLIF(5, 5) AS nullif_r\nFROM   dual;",
     },
     {
         "id": "c019",
@@ -974,6 +975,7 @@ FLASHCARDS = [
         "objective": "5.1",
         "front": "Jak DECODE i CASE traktują NULL?",
         "back": "DECODE uznaje NULL i NULL za równe, więc pasują. Prosty CASE porównuje przez =, więc WHEN NULL nigdy nie pasuje. Użyj CASE WHEN x IS NULL.",
+        "try_sql": "-- Pracownik 108 nie ma działu: DECODE trafia w NULL, prosty CASE nie\nSELECT e.employee_id,\n       DECODE(e.department_id, NULL, 'brak', 'jest') AS by_decode,\n       CASE e.department_id WHEN NULL THEN 'brak' ELSE 'jest' END AS by_case,\n       CASE WHEN e.department_id IS NULL THEN 'brak' ELSE 'jest' END AS by_is_null\nFROM   employees e\nWHERE  e.employee_id IN (107, 108);",
     },
     {
         "id": "c020",
@@ -981,6 +983,7 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "Co robi fm w formacie?",
         "back": "Fill mode: usuwa zera z przodu i dopełniające spacje (np. przy nazwach z Month i Day). Działa jak przełącznik: drugie fm znowu to wyłącza.",
+        "try_sql": "-- Porównaj nawiasy: bez fm, z fm i z fm włączonym drugi raz (wyłącza)\nSELECT '[' || TO_CHAR(DATE '2024-03-05', 'DD Month YYYY') || ']' AS bez_fm,\n       '[' || TO_CHAR(DATE '2024-03-05', 'fmDD Month YYYY') || ']' AS z_fm,\n       '[' || TO_CHAR(DATE '2024-03-05', 'fmDD fmMonth YYYY') || ']' AS fm_dwa_razy\nFROM   dual;",
     },
     {
         "id": "c021",
@@ -988,6 +991,7 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "Co zwraca TO_CHAR(1234.5, '999.99')?",
         "back": "####### (7 znaków, bez błędu): maska jest za mała na tę liczbę. Maska liczby ma też z przodu jedno miejsce na znak, więc szerokość to długość maski plus jeden.",
+        "try_sql": "-- Maska za wąska: same # zamiast błędu\nSELECT TO_CHAR(1234.5, '999.99') AS za_mala,\n       TO_CHAR(1234.5, '9999.99') AS pasuje\nFROM   dual;",
     },
     {
         "id": "c022",
@@ -995,6 +999,8 @@ FLASHCARDS = [
         "objective": "5.2",
         "front": "Dlaczego lepiej unikać WHERE d > '31/03/2024'?",
         "back": "Bo tekst zamieni się na datę według NLS_DATE_FORMAT sesji. W innej sesji format może być inny i będzie błąd. Użyj DATE '2024-03-31' albo TO_DATE('31/03/2024', 'DD/MM/YYYY').",
+        "try_sql": "-- Literał tekstowy zamienia się według NLS_DATE_FORMAT sesji (tu YYYY-MM-DD ...), więc tu jest błąd\nSELECT COUNT(*) FROM orders o WHERE o.order_date > TO_DATE('31/03/2024', 'DD/MM/YYYY');\nSELECT COUNT(*) FROM orders o WHERE o.order_date > '31/03/2024';",
+        "try_error": "ORA-01861",
     },
     {
         "id": "c023",
@@ -1002,6 +1008,7 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "Czy wielkość liter w formacie ma znaczenie?",
         "back": "Tak. Wielkość liter elementu ustala wielkość liter wyniku: MONTH → MARCH, Month → March, month → march. Końcówka th: DDth → 05TH. sp pisze liczbę słowami: DDSP → FIVE.",
+        "try_sql": "-- Wielkość liter elementu = wielkość liter wyniku; th i sp\nSELECT TO_CHAR(DATE '2024-03-05', 'MONTH') AS up,\n       TO_CHAR(DATE '2024-03-05', 'Month') AS cap,\n       TO_CHAR(DATE '2024-03-05', 'month') AS low,\n       TO_CHAR(DATE '2024-03-05', 'DDth') AS th,\n       TO_CHAR(DATE '2024-03-05', 'DDSP') AS sp\nFROM   dual;",
     },
     {
         "id": "c024",
@@ -1009,6 +1016,7 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "Czym różni się RR od YY w formacie roku?",
         "back": "Przy roku z 2 cyfr RR wybiera wiek zależnie od bieżącego roku (zasada 00–49 i 50–99). YY zawsze bierze bieżący wiek.",
+        "try_sql": "-- Rok '99': RR wybiera poprzedni wiek, YY bierze bieżący\nSELECT TO_CHAR(TO_DATE('99', 'RR'), 'YYYY') AS rr,\n       TO_CHAR(TO_DATE('99', 'YY'), 'YYYY') AS yy\nFROM   dual;",
     },
     {
         "id": "c210",
@@ -1016,6 +1024,7 @@ FLASHCARDS = [
         "objective": "5.4",
         "front": "W jakiej kolejności liczą się zagnieżdżone funkcje i jak głęboko można je zagnieżdżać?",
         "back": "Od środka na zewnątrz: każda funkcja dostaje wynik funkcji, która jest w niej. Funkcje jednowierszowe można zagnieżdżać dowolnie głęboko, a funkcje grupowe tylko na dwa poziomy.",
+        "try_sql": "-- Od środka na zewnątrz: SUBSTR, potem UPPER, potem LPAD\nSELECT LPAD(UPPER(SUBSTR(e.last_name, 1, 3)), 5, '*') AS nested\nFROM   employees e\nWHERE  e.employee_id = 100;\n-- Funkcje grupowe: najwyżej dwa poziomy (MAX z AVG per dział)\nSELECT MAX(AVG(e.salary)) AS max_avg FROM employees e GROUP BY e.department_id;",
     },
     {
         "id": "c211",
@@ -1023,6 +1032,8 @@ FLASHCARDS = [
         "objective": "5.4",
         "front": "Jak pokazać 'No manager', gdy kolumna NUMBER manager_id jest NULL?",
         "back": "NVL(TO_CHAR(e.manager_id), 'No manager'). Wewnętrzne TO_CHAR sprawia, że oba argumenty są tekstem. NVL(e.manager_id, 'No manager') da ORA-01722.",
+        "try_sql": "-- Pierwsze zapytanie działa (TO_CHAR w środku), drugie daje błąd\nSELECT e.employee_id, NVL(TO_CHAR(e.manager_id), 'No manager') AS manager\nFROM   employees e\nWHERE  e.employee_id IN (100, 101);\nSELECT NVL(e.manager_id, 'No manager') AS manager\nFROM   employees e\nWHERE  e.employee_id = 100;",
+        "try_error": "ORA-01722",
     },
     {
         "id": "c212",
@@ -1030,6 +1041,8 @@ FLASHCARDS = [
         "objective": "5.2",
         "front": "Kolumna VARCHAR2 porównana z liczbą: która strona jest zamieniana?",
         "back": "Strona tekstowa zamienia się na NUMBER: WHERE email = 100 zamienia każdy email i daje ORA-01722, gdy trafi na tekst, który nie jest liczbą. O kierunku decyduje operator: '10' + 5 = 15, '10' || 5 = '105'.",
+        "try_sql": "-- O kierunku decyduje operator: + daje liczbę, || daje tekst\nSELECT '10' + 5 AS plus, '10' || 5 AS concat FROM dual;\n-- Każdy email zamienia się na NUMBER: błąd\nSELECT COUNT(*) FROM employees e WHERE e.email = 100;",
+        "try_error": "ORA-01722",
     },
     {
         "id": "c213",
@@ -1037,6 +1050,7 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "TO_CHAR(1234.5, 'fm9,999.99') a 'fm9,999.00' — co wyjdzie?",
         "back": "'1,234.5' i '1,234.50'. W maskach liczb fm usuwa spację na znak i zera na końcu w miejscach 9. Miejsca 0 są zawsze drukowane.",
+        "try_sql": "-- fm z 9 obcina zero na końcu, 0 zawsze się drukuje\nSELECT TO_CHAR(1234.5, 'fm9,999.99') AS z_9,\n       TO_CHAR(1234.5, 'fm9,999.00') AS z_0\nFROM   dual;",
     },
     {
         "id": "c214",
@@ -1044,6 +1058,8 @@ FLASHCARDS = [
         "objective": "5.1",
         "front": "DECODE bez wartości domyślnej i typy wyników w CASE?",
         "back": "DECODE zwraca NULL, gdy nic nie pasuje i nie ma wartości domyślnej. Typ wyniku DECODE bierze się z pierwszego wyniku. Wszystkie wyniki CASE muszą być z tej samej rodziny typów, inaczej ORA-00932.",
+        "try_sql": "-- DECODE bez wartości domyślnej daje NULL poza działem 10\nSELECT e.employee_id, DECODE(e.department_id, 10, 'Admin') AS dept\nFROM   employees e\nWHERE  e.employee_id IN (100, 101);\n-- CASE z NUMBER i tekstem w wynikach: błąd\nSELECT CASE WHEN 1 = 1 THEN 1 ELSE 'x' END AS r FROM dual;",
+        "try_error": "ORA-00932",
     },
     {
         "id": "c215",
@@ -1051,6 +1067,8 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "Kiedy TO_DATE odrzuci tekst?",
         "back": "Gdy taka data nie istnieje (TO_DATE('2024-02-30', 'YYYY-MM-DD'): ORA-01839) oraz, z modyfikatorem fx, gdy tekst nie pasuje dokładnie ('2024-3-5' z fxYYYY-MM-DD). Bez fx przyjmie inne znaki rozdzielające i brak zer z przodu.",
+        "try_sql": "-- Bez fx: inne separatory i brak zer z przodu są OK\nSELECT TO_DATE('2024/3/5', 'YYYY-MM-DD') AS ok FROM dual;\n-- 30 lutego nie istnieje: błąd\nSELECT TO_DATE('2024-02-30', 'YYYY-MM-DD') AS bad FROM dual;",
+        "try_error": "ORA-01839",
     },
     {
         "id": "c1250",
@@ -1058,6 +1076,8 @@ FLASHCARDS = [
         "objective": "5.1",
         "front": "COALESCE(1, 1/0) a NVL(1, 1/0) — co wyjdzie?",
         "back": "1 oraz błąd ORA-01476. COALESCE zatrzymuje się na pierwszym argumencie, który nie jest NULL, i dalej nie liczy. NVL zawsze liczy oba argumenty.",
+        "try_sql": "-- COALESCE kończy na 1, a NVL liczy też 1/0\nSELECT COALESCE(1, 1/0) AS c FROM dual;\nSELECT NVL(1, 1/0) AS n FROM dual;",
+        "try_error": "ORA-01476",
     },
     {
         "id": "c1251",
@@ -1065,6 +1085,8 @@ FLASHCARDS = [
         "objective": "5.1",
         "front": "Co da DECODE(e.department_id, 10, 100, 'n/a')?",
         "back": "ORA-01722 dla wierszy spoza działu 10. Typ wyniku DECODE to typ pierwszego wyniku (NUMBER), więc 'n/a' musi stać się liczbą, a się nie da. CASE z różnymi typami daje zamiast tego ORA-00932.",
+        "try_sql": "-- Typ wyniku = NUMBER (pierwszy wynik), więc 'n/a' daje błąd\nSELECT e.employee_id, DECODE(e.department_id, 10, 100, 'n/a') AS r\nFROM   employees e;",
+        "try_error": "ORA-01722",
     },
     {
         "id": "c1252",
@@ -1072,6 +1094,8 @@ FLASHCARDS = [
         "objective": "5.2",
         "front": "DATE '2024-03-01' + '1' a '2024-03-01' + 1 — co wyjdzie?",
         "back": "2024-03-02 oraz ORA-01722. Przy + tekst zamienia się na NUMBER, nigdy na DATE.",
+        "try_sql": "-- Przy + tekst staje się NUMBER: pierwsze działa, drugie nie\nSELECT DATE '2024-03-01' + '1' AS d FROM dual;\nSELECT '2024-03-01' + 1 AS d FROM dual;",
+        "try_error": "ORA-01722",
     },
     {
         "id": "c1253",
@@ -1079,6 +1103,7 @@ FLASHCARDS = [
         "objective": "5.2",
         "front": "Czy działa e.salary LIKE '6%' i e.hire_date LIKE '%-01-%' (salary NUMBER, hire_date DATE)?",
         "back": "Oba działają, bo Oracle sam zamienia wartość na tekst: liczba staje się '6000', a data jest zapisana według NLS_DATE_FORMAT. Dlatego wynik drugiego zależy od ustawień sesji.",
+        "try_sql": "-- LIKE na NUMBER i DATE: niejawna zamiana na tekst (data według NLS_DATE_FORMAT)\nSELECT e.last_name, e.salary FROM employees e WHERE e.salary LIKE '6%';\nSELECT e.last_name, e.hire_date FROM employees e WHERE e.hire_date LIKE '%-01-%';",
     },
     {
         "id": "c1254",
@@ -1086,6 +1111,8 @@ FLASHCARDS = [
         "objective": "5.2",
         "front": "Co da WHERE e.employee_id IN ('100', 'abc')?",
         "back": "ORA-01722: każda wartość z listy jest zamieniana na NUMBER, a 'abc' się nie da. Oracle nie pomija złych wartości.",
+        "try_sql": "-- 'abc' nie da się zamienić na NUMBER: błąd dla całego zapytania\nSELECT e.employee_id FROM employees e WHERE e.employee_id IN ('100', 'abc');",
+        "try_error": "ORA-01722",
     },
     {
         "id": "c1255",
@@ -1093,6 +1120,8 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "Co znaczą elementy formatu liczb MI, PR, S, L, C, G, D?",
         "back": "MI: minus na końcu (1,234.50-). PR: liczby ujemne w nawiasach <1,234.50>. S: znak + albo -. L: lokalna waluta (NLS_CURRENCY), C: kod ISO (USD). G/D: separator tysięcy i dziesiętny z NLS; nie mieszaj ich z , i . (ORA-01481).",
+        "try_sql": "-- Przewidź każdy wynik; na końcu mieszanie G z . daje błąd\nSELECT TO_CHAR(-1234.5, '9,999.00MI') AS mi,\n       TO_CHAR(-1234.5, '9,999.00PR') AS pr,\n       TO_CHAR(1234.5, 'S9,999.00') AS s,\n       TO_CHAR(1234.5, 'fmL9,999.00') AS l,\n       TO_CHAR(1234.5, 'fmC9,999.00') AS c,\n       TO_CHAR(1234.5, '9G999D00') AS gd\nFROM   dual;\nSELECT TO_CHAR(1234.5, '9G999.00') AS mix FROM dual;",
+        "try_error": "ORA-01481",
     },
     {
         "id": "c1256",
@@ -1100,6 +1129,7 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "TO_CHAR(1234.5, 'L9,999.00') a 'fmL9,999.00' — co wyjdzie?",
         "back": "'          $1,234.50' (L dopełnia spacjami do stałej szerokości) oraz '$1,234.50'. fm usuwa te spacje.",
+        "try_sql": "-- L dopełnia spacjami do stałej szerokości, fm je usuwa\nSELECT '[' || TO_CHAR(1234.5, 'L9,999.00') || ']' AS l,\n       '[' || TO_CHAR(1234.5, 'fmL9,999.00') || ']' AS fm_l\nFROM   dual;",
     },
     {
         "id": "c1257",
@@ -1107,6 +1137,7 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "Co zwraca TO_DATE('2024', 'YYYY')?",
         "back": "1. dzień BIEŻĄCEGO miesiąca w 2024 roku, o północy. Brakujące elementy dostają wartości domyślne: bieżący rok i miesiąc, dzień 1 i godzina 00:00:00.",
+        "try_sql": "-- Brakujące elementy: bieżący miesiąc, dzień 1, północ\nSELECT TO_DATE('2024', 'YYYY') AS d, SYSDATE AS teraz FROM dual;",
     },
     {
         "id": "c1258",
@@ -1114,6 +1145,7 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "RR dla 49, 50 i roku z czterech cyfr (bieżący rok 2000-2049)?",
         "back": "'49' -> 2049, '50' -> 1950, '1950' zostaje 1950. YY zawsze bierze bieżący wiek: '99' -> 2099.",
+        "try_sql": "-- RR: 49 -> 20xx, 50 -> 19xx, 4 cyfry bez zmian; YY: bieżący wiek\nSELECT TO_CHAR(TO_DATE('49', 'RR'), 'YYYY') AS rr49,\n       TO_CHAR(TO_DATE('50', 'RR'), 'YYYY') AS rr50,\n       TO_CHAR(TO_DATE('1950', 'RR'), 'YYYY') AS rr1950,\n       TO_CHAR(TO_DATE('99', 'YY'), 'YYYY') AS yy99\nFROM   dual;",
     },
     {
         "id": "c1259",
@@ -1121,6 +1153,8 @@ FLASHCARDS = [
         "objective": "5.3",
         "front": "Co da TO_DATE('2024-03-05 10:30', 'YYYY-MM-DD')?",
         "back": "ORA-01830: format kończy się, zanim cały tekst zostanie przeczytany. Odwrotnie jest OK: format dłuższy niż tekst (z HH24:MI) działa i daje północ.",
+        "try_sql": "-- Format dłuższy niż tekst działa (północ), krótszy daje błąd\nSELECT TO_DATE('2024-03-05', 'YYYY-MM-DD HH24:MI') AS ok FROM dual;\nSELECT TO_DATE('2024-03-05 10:30', 'YYYY-MM-DD') AS bad FROM dual;",
+        "try_error": "ORA-01830",
     },
     {
         "id": "c1260",
@@ -1128,6 +1162,7 @@ FLASHCARDS = [
         "objective": "5.4",
         "front": "Co zwraca NVL(TO_CHAR(NULL) || '%', 'none')?",
         "back": "'%'. Łączenie przez || pomija NULL, więc NVL nigdy nie dostaje NULL. Sprawdzaj samą kolumnę: NVL2(col, TO_CHAR(col) || '%', 'none').",
+        "try_sql": "-- || pomija NULL, więc NVL nie widzi NULL; NVL2 sprawdza samą kolumnę\nSELECT e.employee_id,\n       NVL(TO_CHAR(e.commission_pct) || '%', 'none') AS zle,\n       NVL2(e.commission_pct, TO_CHAR(e.commission_pct) || '%', 'none') AS dobrze\nFROM   employees e\nWHERE  e.employee_id IN (100, 101);",
     },
     {
         "id": "c1261",
@@ -1135,6 +1170,7 @@ FLASHCARDS = [
         "objective": "5.4",
         "front": "LENGTH(TO_CHAR(DATE '2024-05-05', 'Month')) a to samo z fmMonth?",
         "back": "9 i 3. Month jest dopełniany spacjami do 9 znaków (September), a fm usuwa te spacje. Najpierw liczy się funkcja w środku, potem LENGTH.",
+        "try_sql": "-- Month ma 9 znaków ze spacjami, fmMonth tylko 3\nSELECT LENGTH(TO_CHAR(DATE '2024-05-05', 'Month')) AS month_len,\n       LENGTH(TO_CHAR(DATE '2024-05-05', 'fmMonth')) AS fm_len\nFROM   dual;",
     },
 ]
 

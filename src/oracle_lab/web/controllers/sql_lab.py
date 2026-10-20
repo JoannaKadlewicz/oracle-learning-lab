@@ -31,7 +31,7 @@ class SqlLabController:
 
     def run(self, request: Request) -> Response:
         data = request.json()
-        return Response.json(self.lab.run(str(data.get("sql", "")), keep=bool(data.get("keep"))))
+        return Response.json(self.lab.run(str(data.get("sql", "")), keep=bool(data.get("keep")), card_id=data.get("card")))
 
     def visualize(self, request: Request) -> Response:
         try:

@@ -115,3 +115,21 @@ def test_detects_malformed_try_error_since(broken_question):
     broken_question["try_sql"] = "SELECT 1 FROM dual"
     broken_question["try_error_since"] = {"21": "30926"}
     assert any("try_error_since must look like" in e for e in errors_for(broken_question))
+
+
+def test_flashcards_may_carry_a_sample_with_the_question_rules():
+    card = {"id": "c999", "topic": "t03", "objective": "4.3", "front": "?", "back": "!",
+            "try_sql": "SELECT ROUND(1234.5, -2) FROM dual;"}
+    assert validate_content.check_card(card) == []
+    assert any("try_sql may only use" in e for e in validate_content.check_card({**card, "try_sql": "DROP TABLE x;"}))
+    assert any("try_error must look like" in e for e in validate_content.check_card({**card, "try_error": "1400"}))
+
+
+def test_flashcard_ddl_samples_only_touch_their_own_objects():
+    card = {"id": "c998", "topic": "t10", "objective": "12.3", "front": "?", "back": "!",
+            "try_sql": "CREATE TABLE lab_c998_t AS SELECT * FROM employees;", "cleanup": "DROP TABLE lab_c998_t PURGE;"}
+    assert validate_content.check_card(card) == []
+    assert validate_content.check_card({k: v for k, v in card.items() if k != "cleanup"})  # DDL needs a cleanup
+    assert validate_content.check_card({**card, "try_sql": "DROP TABLE employees;"})
+    assert validate_content.check_card({**card, "try_sql": "CREATE TABLE lab_other (x NUMBER);"})
+    assert validate_content.check_card({**card, "cleanup": "DROP TABLE employees PURGE;"})

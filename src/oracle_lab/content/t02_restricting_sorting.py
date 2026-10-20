@@ -761,6 +761,7 @@ FLASHCARDS = [
         "objective": "3.1",
         "front": "W jakiej kolejności działają operatory logiczne?",
         "back": "Najpierw NOT, potem AND, na końcu OR. Porównania (=, >, LIKE…) liczą się jeszcze wcześniej. a OR b AND c to a OR (b AND c). Gdy masz wątpliwość, dodaj nawiasy.",
+        "try_sql": "-- AND wiąże mocniej niż OR: porównaj wyniki\nSELECT last_name, job_title, salary FROM employees\nWHERE  job_title = 'Programmer' OR job_title = 'Sales Rep' AND salary > 5000;\nSELECT last_name, job_title, salary FROM employees\nWHERE  (job_title = 'Programmer' OR job_title = 'Sales Rep') AND salary > 5000;",
     },
     {
         "id": "c006",
@@ -768,6 +769,7 @@ FLASHCARDS = [
         "objective": "3.5",
         "front": "Gdzie domyślnie lądują NULL-e przy sortowaniu?",
         "back": "Oracle traktuje NULL jak największą wartość. Przy ASC NULL-e są na końcu, przy DESC na początku. Możesz to zmienić: NULLS FIRST albo NULLS LAST.",
+        "try_sql": "-- Gdzie są NULL-e w commission_pct?\nSELECT last_name, commission_pct FROM employees ORDER BY commission_pct;\nSELECT last_name, commission_pct FROM employees ORDER BY commission_pct DESC;\nSELECT last_name, commission_pct FROM employees ORDER BY commission_pct DESC NULLS LAST;",
     },
     {
         "id": "c007",
@@ -775,6 +777,7 @@ FLASHCARDS = [
         "objective": "3.2",
         "front": "Jak wygląda klauzula ograniczania wierszy (od 12c)?",
         "back": "ORDER BY ... OFFSET n ROWS FETCH {FIRST|NEXT} m [PERCENT] ROWS {ONLY|WITH TIES}. OFFSET pomija n wierszy, FETCH bierze m kolejnych. WITH TIES wymaga ORDER BY.",
+        "try_sql": "-- Pomiń 1 wiersz, weź 3 kolejne\nSELECT last_name, salary FROM employees ORDER BY salary DESC\nOFFSET 1 ROWS FETCH NEXT 3 ROWS ONLY;\n-- WITH TIES: 5 wierszy + remis na 6000\nSELECT last_name, salary FROM employees ORDER BY salary DESC\nFETCH FIRST 5 ROWS WITH TIES;",
     },
     {
         "id": "c008",
@@ -782,6 +785,7 @@ FLASHCARDS = [
         "objective": "3.2",
         "front": "Jak w LIKE szukać prawdziwego znaku % albo _?",
         "back": "Zadeklaruj znak ucieczki przez ESCAPE: name LIKE '%\\_%' ESCAPE '\\'. Wtedy \\_ znaczy zwykły podkreślnik, a nie „dowolny jeden znak”.",
+        "try_sql": "-- Bez ESCAPE _ to dowolny znak; z ESCAPE to prawdziwy podkreślnik\nWITH t AS (SELECT 'job_code' AS name FROM dual UNION ALL SELECT 'jobcode' FROM dual)\nSELECT name FROM t WHERE name LIKE '%_%';\nWITH t AS (SELECT 'job_code' AS name FROM dual UNION ALL SELECT 'jobcode' FROM dual)\nSELECT name FROM t WHERE name LIKE '%\\_%' ESCAPE '\\';",
     },
     {
         "id": "c009",
@@ -796,6 +800,7 @@ FLASHCARDS = [
         "objective": "3.2",
         "front": "Czemu równa się x BETWEEN a AND b?",
         "back": "x >= a AND x <= b. Obie granice są wliczone. Jeśli a > b (np. BETWEEN 10 AND 5), nic nie pasuje.",
+        "try_sql": "-- Obie granice są wliczone...\nSELECT last_name, salary FROM employees WHERE salary BETWEEN 4800 AND 6000;\n-- ...a odwrócone granice nie dają nic\nSELECT last_name, salary FROM employees WHERE salary BETWEEN 6000 AND 4800;",
     },
     {
         "id": "c106",
@@ -803,6 +808,8 @@ FLASHCARDS = [
         "objective": "3.3",
         "front": "Dlaczego dla tekstu piszesz '&name', a nie &name?",
         "back": "SQL*Plus tylko wkleja tekst przed wysłaniem polecenia. Bez apostrofów King staje się nazwą kolumny i dostajesz ORA-00904. Liczby nie potrzebują apostrofów.",
+        "try_sql": "-- Tak wygląda polecenie po podstawieniu &name bez apostrofów\nSELECT last_name FROM employees WHERE last_name = King;",
+        "try_error": "ORA-00904",
     },
     {
         "id": "c107",
@@ -831,6 +838,8 @@ FLASHCARDS = [
         "objective": "3.5",
         "front": "Do czego może odwoływać się ORDER BY?",
         "back": "Do kolumny (nawet niewybranej w SELECT), wyrażenia, aliasu albo numeru pozycji z listy SELECT. Przy DISTINCT lub operatorach zbiorowych (UNION…) tylko do tego, co jest w SELECT (inaczej ORA-01791). Zły numer pozycji: ORA-01785.",
+        "try_sql": "-- Sortowanie po kolumnie spoza SELECT działa...\nSELECT last_name FROM employees ORDER BY salary;\n-- ...ale nie przy DISTINCT (ORA-01791)\nSELECT DISTINCT job_title FROM employees ORDER BY salary;",
+        "try_error": "ORA-01791",
     },
     {
         "id": "c111",
@@ -838,6 +847,7 @@ FLASHCARDS = [
         "objective": "3.2",
         "front": "Co zwraca col NOT IN (1, 2, NULL)?",
         "back": "Żadnych wierszy. To znaczy col <> 1 AND col <> 2 AND col <> NULL, a ostatni test zawsze daje UNKNOWN. IN (1, 2, NULL) działa normalnie.",
+        "try_sql": "-- IN z NULL działa, NOT IN z NULL nie zwraca nic\nSELECT last_name, department_id FROM employees WHERE department_id IN (10, 20, NULL);\nSELECT last_name, department_id FROM employees WHERE department_id NOT IN (10, 20, NULL);",
     },
     {
         "id": "c1100",
@@ -845,6 +855,8 @@ FLASHCARDS = [
         "objective": "3.1",
         "front": "Co zwraca 'Total: ' || 10 + 5?",
         "back": "Błąd ORA-01722. || oraz + i - mają tę samą siłę i działają od lewej do prawej, więc najpierw powstaje 'Total: 10', a potem 'Total: 10' + 5 się wywala. Napisz 'Total: ' || (10 + 5). Za to 5 + 10 || ' total' daje 15 total.",
+        "try_sql": "-- Od lewej: (5 + 10) || ' total' działa...\nSELECT 5 + 10 || ' total' AS ok FROM dual;\n-- ...a ('Total: ' || 10) + 5 już nie\nSELECT 'Total: ' || 10 + 5 AS zle FROM dual;",
+        "try_error": "ORA-01722",
     },
     {
         "id": "c1101",
@@ -852,6 +864,7 @@ FLASHCARDS = [
         "objective": "3.1",
         "front": "Czemu równa się NOT (a OR b)? A NOT (a AND b)?",
         "back": "NOT (a OR b) = NOT a AND NOT b. NOT (a AND b) = NOT a OR NOT b (prawa De Morgana). NOT bez nawiasów zaprzecza tylko najbliższemu warunkowi.",
+        "try_sql": "-- De Morgan: oba zapytania zwracają te same wiersze\nSELECT last_name FROM employees WHERE NOT (department_id = 30 OR salary > 10000);\nSELECT last_name FROM employees WHERE department_id <> 30 AND salary <= 10000;",
     },
     {
         "id": "c1102",
@@ -859,6 +872,7 @@ FLASHCARDS = [
         "objective": "3.2",
         "front": "FETCH FIRST 2.7 ROWS ONLY, FETCH FIRST 0 ROWS ONLY, OFFSET 20 ROWS przy 9 wierszach?",
         "back": "2 wiersze (część ułamkowa jest obcinana), 0 wierszy, 0 wierszy. Żadne z nich nie daje błędu.",
+        "try_sql": "-- Przewidź: 2 wiersze, 0 wierszy, 0 wierszy — bez błędów\nSELECT last_name FROM employees ORDER BY salary FETCH FIRST 2.7 ROWS ONLY;\nSELECT last_name FROM employees ORDER BY salary FETCH FIRST 0 ROWS ONLY;\nSELECT last_name FROM employees ORDER BY salary OFFSET 20 ROWS;",
     },
     {
         "id": "c1103",
@@ -866,6 +880,7 @@ FLASHCARDS = [
         "objective": "3.2",
         "front": "Ile wierszy zwraca FETCH FIRST n PERCENT ROWS?",
         "back": "CEIL(n / 100 * liczba wierszy), czyli zaokrąglenie w górę. Przykład: 25 PERCENT z 9 wierszy to 2,25, więc dostajesz 3. WITH TIES może dodać wiersze remisujące z ostatnim.",
+        "try_sql": "-- 25% z 9 wierszy = 2,25 -> zaokrąglone w górę do 3\nSELECT COUNT(*) AS wszystkie FROM employees;\nSELECT last_name, salary FROM employees ORDER BY salary FETCH FIRST 25 PERCENT ROWS ONLY;",
     },
     {
         "id": "c1104",
@@ -873,6 +888,9 @@ FLASHCARDS = [
         "objective": "3.2",
         "front": "W jakiej kolejności piszesz ORDER BY, OFFSET i FETCH?",
         "back": "ORDER BY ... OFFSET n ROWS FETCH NEXT m ROWS ONLY. FETCH przed OFFSET daje ORA-00933 (w 23ai ORA-03049). Oracle nie ma LIMIT.",
+        "try_sql": "-- Dobra kolejność: OFFSET, potem FETCH...\nSELECT last_name FROM employees ORDER BY salary OFFSET 1 ROWS FETCH NEXT 2 ROWS ONLY;\n-- ...odwrotna daje błąd\nSELECT last_name FROM employees ORDER BY salary FETCH NEXT 2 ROWS ONLY OFFSET 1 ROWS;",
+        "try_error": "ORA-00933",
+        "try_error_since": {"23": "ORA-03049"},
     },
     {
         "id": "c1105",
@@ -880,6 +898,7 @@ FLASHCARDS = [
         "objective": "3.2",
         "front": "Co zwraca WHERE ROWNUM <= 3 ORDER BY salary?",
         "back": "Trzy przypadkowe wiersze, dopiero potem posortowane — ROWNUM jest nadawany przed ORDER BY. Posortuj w podzapytaniu i filtruj ROWNUM na zewnątrz albo użyj ORDER BY ... FETCH FIRST 3 ROWS ONLY.",
+        "try_sql": "-- ROWNUM przed ORDER BY: to nie są 3 najniższe pensje\nSELECT last_name, salary FROM employees WHERE ROWNUM <= 3 ORDER BY salary;\n-- Poprawnie: najpierw sortuj, potem obcinaj\nSELECT last_name, salary FROM employees ORDER BY salary FETCH FIRST 3 ROWS ONLY;",
     },
     {
         "id": "c1106",
@@ -887,6 +906,7 @@ FLASHCARDS = [
         "objective": "3.2",
         "front": "Czy NULL pasuje do NOT BETWEEN 20 AND 30?",
         "back": "Nie. NOT BETWEEN to col < 20 OR col > 30, a dla NULL wynik to UNKNOWN. Wiersz z NULL odpada przy BETWEEN, NOT BETWEEN, IN i NOT IN.",
+        "try_sql": "-- Grant (department_id NULL) nie pasuje ani do BETWEEN, ani do NOT BETWEEN\nSELECT last_name, department_id FROM employees WHERE department_id BETWEEN 20 AND 30;\nSELECT last_name, department_id FROM employees WHERE department_id NOT BETWEEN 20 AND 30;",
     },
     {
         "id": "c1107",
@@ -922,6 +942,7 @@ FLASHCARDS = [
         "objective": "3.5",
         "front": "ORDER BY w dla 'apple', 'Banana', 'cherry' (NLS_SORT = BINARY)?",
         "back": "Banana, apple, cherry. Sortowanie binarne stawia wszystkie wielkie litery przed małymi. Żeby sortować bez względu na wielkość liter, użyj ORDER BY UPPER(w).",
+        "try_sql": "-- BINARY: wielkie litery przed małymi; UPPER sortuje bez względu na wielkość\nWITH t AS (SELECT 'apple' AS w FROM dual UNION ALL SELECT 'Banana' FROM dual UNION ALL SELECT 'cherry' FROM dual)\nSELECT w FROM t ORDER BY w;\nWITH t AS (SELECT 'apple' AS w FROM dual UNION ALL SELECT 'Banana' FROM dual UNION ALL SELECT 'cherry' FROM dual)\nSELECT w FROM t ORDER BY UPPER(w);",
     },
 ]
 

@@ -18,6 +18,7 @@ from oracle_lab.study.state import StateStore
 from oracle_lab.study.tracks import exam_code
 
 LABS_BY_ID = {lab["id"]: lab for lab in content.LABS}
+CARDS_BY_ID = {card["id"]: card for card in content.FLASHCARDS}
 
 
 class _TrackDatabase:
@@ -33,8 +34,18 @@ class _TrackDatabase:
 
 
 class SqlLabService(_TrackDatabase):
-    def run(self, sql: str, keep: bool) -> dict[str, Any]:
-        result = ScriptRunner(self.current_database()).run(sql, keep_changes=keep, inspect=True)
+    def run(self, sql: str, keep: bool, card_id: str | None = None) -> dict[str, Any]:
+        """Run a script. From a flashcard with DDL in its sample, the card's cleanup runs before
+        and after, so the sample can be run again and leaves none of its LAB_ objects behind."""
+        database = self.current_database()
+        card = CARDS_BY_ID.get(card_id, {})
+        if card.get("cleanup"):
+            with session(database) as conn:
+                labs.run_cleanup(conn, card)
+        result = ScriptRunner(database).run(sql, keep_changes=keep, inspect=True)
+        if card.get("cleanup"):
+            with session(database) as conn:
+                labs.run_cleanup(conn, card)
         with self.store.transaction() as state:
             recording.record_history(state, sql, result, self.clock())
         return {**result, "history": state["history"]}

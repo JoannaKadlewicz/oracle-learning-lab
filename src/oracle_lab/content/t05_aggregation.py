@@ -889,6 +889,7 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Czym różnią się COUNT(*), COUNT(col) i COUNT(DISTINCT col)?",
         "back": "COUNT(*) liczy wszystkie wiersze. COUNT(col) liczy tylko wartości, które nie są NULL. COUNT(DISTINCT col) liczy różne wartości, też bez NULL. Wszystkie funkcje grupujące poza COUNT(*) pomijają NULL.",
+        "try_sql": "-- Trzy różne liczniki na tej samej kolumnie z NULL-ami\nSELECT COUNT(*) AS all_rows,\n       COUNT(e.commission_pct) AS not_null,\n       COUNT(DISTINCT e.commission_pct) AS distinct_vals\nFROM   employees e;",
     },
     {
         "id": "c026",
@@ -896,6 +897,8 @@ FLASHCARDS = [
         "objective": "6.3",
         "front": "Czy funkcja grupująca (np. COUNT, AVG) może być w WHERE?",
         "back": "Nie, dostaniesz ORA-00934. WHERE sprawdza pojedyncze wiersze, zanim powstaną grupy. Warunek na grupę wpisz w HAVING albo policz agregat w podzapytaniu.",
+        "try_sql": "-- Warunek na grupę działa w HAVING, a w WHERE daje błąd\nSELECT e.department_id, AVG(e.salary) AS avg_sal\nFROM   employees e\nGROUP  BY e.department_id\nHAVING AVG(e.salary) > 8000;\nSELECT e.department_id FROM employees e WHERE AVG(e.salary) > 8000 GROUP BY e.department_id;",
+        "try_error": "ORA-00934",
     },
     {
         "id": "c027",
@@ -903,6 +906,8 @@ FLASHCARDS = [
         "objective": "6.2",
         "front": "Jaka jest zasada dla listy SELECT przy GROUP BY?",
         "back": "Każda kolumna lub wyrażenie w SELECT, które nie siedzi w funkcji grupującej, musi być w GROUP BY. W drugą stronę nie trzeba: kolumna z GROUP BY nie musi być w SELECT.",
+        "try_sql": "-- Kolumna z GROUP BY nie musi być w SELECT (OK), ale kolumna z SELECT musi być w GROUP BY (błąd)\nSELECT COUNT(*) AS cnt FROM employees e GROUP BY e.department_id;\nSELECT e.department_id, e.job_title, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id;",
+        "try_error": "ORA-00979",
     },
     {
         "id": "c028",
@@ -910,6 +915,8 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Jak działa zagnieżdżanie funkcji grupujących?",
         "back": "Najwyżej dwa poziomy, np. MAX(AVG(sal)). Potrzebne jest GROUP BY, a w SELECT nie może być wtedy żadnej zwykłej kolumny: SELECT MAX(AVG(sal)) ... GROUP BY dept.",
+        "try_sql": "-- Dwa poziomy działają; zwykła kolumna obok MAX(AVG(...)) daje błąd\nSELECT MAX(AVG(e.salary)) AS max_avg FROM employees e GROUP BY e.department_id;\nSELECT e.department_id, MAX(AVG(e.salary)) FROM employees e GROUP BY e.department_id;",
+        "try_error": "ORA-00937",
     },
     {
         "id": "c029",
@@ -917,6 +924,7 @@ FLASHCARDS = [
         "objective": "6.2",
         "front": "Co GROUP BY robi z wartościami NULL?",
         "back": "Wszystkie NULL w kolumnie z GROUP BY trafiają do jednej, wspólnej grupy.",
+        "try_sql": "-- Pracownik 108 (bez działu) tworzy własną grupę NULL\nSELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id\nORDER  BY e.department_id;",
     },
     {
         "id": "c030",
@@ -924,6 +932,7 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Jak wygląda składnia LISTAGG?",
         "back": "LISTAGG(col, ', ') WITHIN GROUP (ORDER BY col). Skleja wartości z grupy w jeden tekst, oddzielone przez ', '. Od 19c można napisać LISTAGG(DISTINCT ...), żeby usunąć powtórki.",
+        "try_sql": "-- Zwykły LISTAGG zostawia powtórki, LISTAGG(DISTINCT ...) je usuwa\nSELECT e.department_id,\n       LISTAGG(e.job_title, ', ') WITHIN GROUP (ORDER BY e.job_title) AS jobs,\n       LISTAGG(DISTINCT e.job_title, ', ') WITHIN GROUP (ORDER BY e.job_title) AS distinct_jobs\nFROM   employees e\nGROUP  BY e.department_id;",
     },
     {
         "id": "c300",
@@ -931,6 +940,8 @@ FLASHCARDS = [
         "objective": "6.3",
         "front": "W jakiej kolejności Oracle logicznie wykonuje zapytanie z grupowaniem?",
         "back": "FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY. Dlatego WHERE nie zna funkcji grupujących, a alias z SELECT działa dopiero w ORDER BY.",
+        "try_sql": "-- Alias z SELECT działa w ORDER BY, ale WHERE liczy się wcześniej i go nie zna\nSELECT e.last_name, e.salary * 12 AS annual FROM employees e ORDER BY annual DESC;\nSELECT e.last_name, e.salary * 12 AS annual FROM employees e WHERE annual > 100000;",
+        "try_error": "ORA-00904",
     },
     {
         "id": "c301",
@@ -938,6 +949,7 @@ FLASHCARDS = [
         "objective": "6.3",
         "front": "Czy HAVING może być bez GROUP BY?",
         "back": "Tak. Cała tabela jest wtedy jedną grupą, więc wynik to jeden wiersz albo żaden. Np. SELECT COUNT(*) FROM employees HAVING COUNT(*) > 5.",
+        "try_sql": "-- Bez GROUP BY cała tabela to jedna grupa: jeden wiersz albo żaden\nSELECT COUNT(*) AS cnt FROM employees e HAVING COUNT(*) > 5;\nSELECT COUNT(*) AS cnt FROM employees e HAVING COUNT(*) > 50;",
     },
     {
         "id": "c302",
@@ -945,6 +957,7 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Co zwracają funkcje grupujące na pustej tabeli?",
         "back": "Bez GROUP BY: jeden wiersz, COUNT = 0, a SUM/AVG/MIN/MAX = NULL. Z GROUP BY: zero wierszy, bo nie ma żadnej grupy.",
+        "try_sql": "-- promotions jest pusta: bez GROUP BY jeden wiersz, z GROUP BY zero wierszy\nSELECT COUNT(*) AS cnt, SUM(p.discount_pct) AS s, MAX(p.discount_pct) AS mx FROM promotions p;\nSELECT COUNT(*) AS cnt FROM promotions p GROUP BY p.promo_name;",
     },
     {
         "id": "c303",
@@ -952,6 +965,7 @@ FLASHCARDS = [
         "objective": "6.2",
         "front": "GROUP BY z aliasem z SELECT albo z numerem kolumny (19c)?",
         "back": "Alias daje błąd ORA-00904. GROUP BY 1 nie znaczy „pierwsza kolumna” — grupuje po stałej 1. Wpisz całe wyrażenie. (23ai pozwala na aliasy.)",
+        "try_sql": "-- GROUP BY 1 grupuje po stałej: jedna grupa ze wszystkimi wierszami\nSELECT COUNT(*) AS cnt FROM employees e GROUP BY 1;\n-- Pewny sposób: całe wyrażenie w GROUP BY\nSELECT EXTRACT(YEAR FROM e.hire_date) AS yr, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY EXTRACT(YEAR FROM e.hire_date)\nORDER  BY yr;",
     },
     {
         "id": "c304",
@@ -959,6 +973,8 @@ FLASHCARDS = [
         "objective": "6.2",
         "front": "Czego może użyć ORDER BY w zapytaniu z grupowaniem?",
         "back": "Wyrażeń z GROUP BY, funkcji grupujących (nawet takich, których nie ma w SELECT), stałych oraz aliasów i numerów kolumn z SELECT. Zwykła kolumna spoza GROUP BY daje ORA-00979.",
+        "try_sql": "-- ORDER BY po agregacie spoza SELECT działa; po zwykłej kolumnie spoza GROUP BY nie\nSELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id\nORDER  BY MAX(e.salary) DESC;\nSELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id\nORDER  BY e.last_name;",
+        "try_error": "ORA-00979",
     },
     {
         "id": "c1300",
@@ -966,6 +982,7 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Czym różni się AVG(DISTINCT salary) od AVG(salary)?",
         "back": "DISTINCT najpierw usuwa powtórzone wartości, a potem liczy średnią. Przykład: 73300 / 7 = 10471.43 zamiast 84100 / 9 = 9344.44. DISTINCT działa w każdej funkcji grupującej.",
+        "try_sql": "-- DISTINCT usuwa powtórzone pensje przed liczeniem średniej\nSELECT AVG(DISTINCT e.salary) AS avg_distinct,\n       AVG(e.salary) AS avg_all,\n       SUM(DISTINCT e.salary) AS sum_distinct,\n       SUM(e.salary) AS sum_all\nFROM   employees e;",
     },
     {
         "id": "c1301",
@@ -973,6 +990,7 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Ile da SUM(salary + salary * commission_pct), gdy większość commission_pct to NULL?",
         "back": "Gdy commission_pct jest NULL, całe wyrażenie w tym wierszu jest NULL, a SUM taki wiersz po prostu pomija (34945 zamiast 90745). Żeby policzyć wszystkich, wpisz w środku NVL(commission_pct, 0).",
+        "try_sql": "-- Wiersze z NULL w commission_pct wypadają z pierwszej sumy\nSELECT SUM(e.salary + e.salary * e.commission_pct) AS bez_nvl,\n       SUM(e.salary + e.salary * NVL(e.commission_pct, 0)) AS z_nvl\nFROM   employees e;",
     },
     {
         "id": "c1302",
@@ -980,6 +998,7 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Co LISTAGG robi z NULL?",
         "back": "Pomija je: nie ma wartości ani dodatkowego separatora. Np. kody US, GB, US, PL i NULL dają 'GB,PL,US,US'. Powtórki zostają, chyba że napiszesz LISTAGG(DISTINCT ...).",
+        "try_sql": "-- NULL (Hooli) znika bez śladu, powtórki zostają bez DISTINCT\nSELECT LISTAGG(c.country_code, ',') WITHIN GROUP (ORDER BY c.country_code) AS codes,\n       LISTAGG(DISTINCT c.country_code, ',') WITHIN GROUP (ORDER BY c.country_code) AS distinct_codes\nFROM   customers c;",
     },
     {
         "id": "c1303",
@@ -987,6 +1006,8 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Czy można napisać COUNT(DISTINCT col1, col2)?",
         "back": "Nie: ORA-00909: invalid number of arguments. COUNT przyjmuje jeden argument. Zamiast tego policz wiersze podzapytania SELECT DISTINCT col1, col2.",
+        "try_sql": "-- Zamiennik działa, COUNT z dwoma argumentami daje błąd\nSELECT COUNT(*) AS pairs\nFROM   (SELECT DISTINCT e.department_id, e.job_title FROM employees e);\nSELECT COUNT(DISTINCT e.department_id, e.job_title) FROM employees e;",
+        "try_error": "ORA-00909",
     },
     {
         "id": "c1304",
@@ -994,6 +1015,7 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Co dają COUNT(1), COUNT('x') i COUNT(NULL)?",
         "back": "COUNT(1) i COUNT('x') dają to samo co COUNT(*), bo taka stała nigdy nie jest NULL. COUNT(NULL) = 0. Jedynka to zwykła wartość, a nie numer kolumny.",
+        "try_sql": "-- Stała nigdy nie jest NULL, a NULL zawsze jest\nSELECT COUNT(*) AS star, COUNT(1) AS one, COUNT('x') AS x, COUNT(NULL) AS nul\nFROM   employees e;",
     },
     {
         "id": "c1305",
@@ -1001,6 +1023,7 @@ FLASHCARDS = [
         "objective": "6.1",
         "front": "Co zwraca COUNT(COUNT(*)) ... GROUP BY dept?",
         "back": "Liczbę grup. Wewnętrzna funkcja liczy się osobno dla każdej grupy, a zewnętrzna na wynikach grup. Np. employees po department_id daje 4 (grupa NULL też się liczy).",
+        "try_sql": "-- Zewnętrzny COUNT liczy grupy (łącznie z grupą NULL)\nSELECT COUNT(COUNT(*)) AS groups_cnt FROM employees e GROUP BY e.department_id;",
     },
     {
         "id": "c1306",
@@ -1008,6 +1031,8 @@ FLASHCARDS = [
         "objective": "6.2",
         "front": "ORA-00937 czy ORA-00979 — kiedy który?",
         "back": "ORA-00937: nie ma GROUP BY, a obok funkcji grupującej (albo zagnieżdżonej) stoi zwykła kolumna. ORA-00979: GROUP BY jest, ale brakuje w nim kolumny użytej w SELECT, HAVING lub ORDER BY.",
+        "try_sql": "-- Bez GROUP BY: ORA-00937; z GROUP BY bez job_title: ORA-00979\nSELECT e.department_id, COUNT(*) FROM employees e;\nSELECT e.department_id, e.job_title, COUNT(*) FROM employees e GROUP BY e.department_id;",
+        "try_error": "ORA-00937",
     },
     {
         "id": "c1307",
@@ -1015,6 +1040,8 @@ FLASHCARDS = [
         "objective": "6.2",
         "front": "Co może być w GROUP BY?",
         "back": "Kolumny i wyrażenia liczone na wierszu, np. EXTRACT(YEAR FROM hire_date) albo UPPER(job). Nie mogą być: funkcje grupujące (ORA-00934), podzapytania skalarne (ORA-22818), a w 19c także aliasy z SELECT (ORA-00904) i numery kolumn.",
+        "try_sql": "-- Wyrażenie liczone na wierszu jest OK, funkcja grupująca w GROUP BY to błąd\nSELECT UPPER(e.job_title) AS job, COUNT(*) AS cnt FROM employees e GROUP BY UPPER(e.job_title);\nSELECT COUNT(*) FROM employees e GROUP BY COUNT(*);",
+        "try_error": "ORA-00934",
     },
     {
         "id": "c1308",
@@ -1022,6 +1049,7 @@ FLASHCARDS = [
         "objective": "6.3",
         "front": "HAVING AVG(commission_pct) > .1, a w grupie wszystkie commission_pct to NULL?",
         "back": "AVG zwraca NULL, a NULL > .1 to „nieznane”, więc grupa odpada. Grupę z samymi NULL znajdziesz przez COUNT(col) = 0 albo MAX(col) IS NULL. SUM(col) = 0 nigdy nie trafi, bo SUM da NULL.",
+        "try_sql": "-- Działy bez prowizji: AVG i SUM to NULL, COUNT(col) = 0\nSELECT e.department_id, AVG(e.commission_pct) AS avg_c,\n       SUM(e.commission_pct) AS sum_c, COUNT(e.commission_pct) AS cnt_c\nFROM   employees e\nGROUP  BY e.department_id;\nSELECT e.department_id\nFROM   employees e\nGROUP  BY e.department_id\nHAVING COUNT(e.commission_pct) = 0;",
     },
     {
         "id": "c1309",
@@ -1029,6 +1057,7 @@ FLASHCARDS = [
         "objective": "6.3",
         "front": "Jak znaleźć grupy ze średnią wyższą niż średnia całej tabeli?",
         "back": "HAVING AVG(e.salary) > (SELECT AVG(salary) FROM employees). Podzapytanie liczy się raz, dla całej tabeli. W WHERE nie można użyć AVG bezpośrednio.",
+        "try_sql": "-- Podzapytanie w HAVING liczy średnią całej tabeli raz\nSELECT e.department_id, AVG(e.salary) AS avg_sal\nFROM   employees e\nGROUP  BY e.department_id\nHAVING AVG(e.salary) > (SELECT AVG(salary) FROM employees);",
     },
     {
         "id": "c1310",
@@ -1037,6 +1066,7 @@ FLASHCARDS = [
         "objective": "6.2",
         "front": "GROUP BY / HAVING z aliasami i numerami kolumn w Oracle 23ai?",
         "back": "W 23ai GROUP BY dept i HAVING cnt > 1 mogą używać aliasów z SELECT. GROUP BY ALL grupuje po wszystkich wyrażeniach z SELECT, które nie są agregatami. GROUP BY 1 działa jako numer kolumny tylko przy group_by_position_enabled = TRUE, inaczej jest ORA-03162. WHERE dalej nie zna aliasów.",
+        "try_sql": "-- 23ai: aliasy w GROUP BY i HAVING oraz GROUP BY ALL\nSELECT e.department_id AS dept, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY dept\nHAVING cnt > 1;\nSELECT e.department_id, e.job_title, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY ALL;",
     },
     {
         "id": "c1311",
@@ -1044,6 +1074,7 @@ FLASHCARDS = [
         "objective": "6.3",
         "front": "Warunek wpisać w WHERE czy w HAVING?",
         "back": "Warunek na pojedynczy wiersz (salary > 5000) idzie do WHERE — działa przed grupowaniem i zmienia liczniki. Warunek na grupę (COUNT(*) >= 2) idzie do HAVING. Warunek na kolumnę z GROUP BY zadziała w obu miejscach, ale WHERE jest tańsze.",
+        "try_sql": "-- WHERE odrzuca wiersze przed grupowaniem (zmienia liczniki), HAVING odrzuca grupy\nSELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nWHERE  e.salary > 5000\nGROUP  BY e.department_id\nHAVING COUNT(*) >= 2;",
     },
 ]
 

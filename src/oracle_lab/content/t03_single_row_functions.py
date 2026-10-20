@@ -898,6 +898,7 @@ FLASHCARDS = [
         "objective": "4.3",
         "front": "Jak działają ROUND i TRUNC z ujemną precyzją?",
         "back": "Ujemna liczba działa na lewo od przecinka. ROUND zaokrągla: ROUND(1234.5, -2) = 1200. TRUNC tylko obcina: TRUNC(1789, -2) = 1700. Na datach też działają: ROUND/TRUNC(d, 'MM'), 'YYYY', 'DD'... Samo TRUNC(d) usuwa godzinę (zostaje północ).",
+        "try_sql": "-- Porównaj: ROUND zaokrągla, TRUNC obcina (też na datach)\nSELECT ROUND(1234.5, -2) AS r, TRUNC(1789, -2) AS t FROM dual;\nSELECT SYSDATE AS teraz, TRUNC(SYSDATE) AS polnoc, TRUNC(SYSDATE, 'MM') AS pocz_miesiaca, ROUND(SYSDATE, 'YYYY') AS rok FROM dual;",
     },
     {
         "id": "c012",
@@ -905,6 +906,7 @@ FLASHCARDS = [
         "objective": "4.1",
         "front": "Co robi SUBSTR z ujemną pozycją startu?",
         "back": "Liczy od końca tekstu: SUBSTR('ORACLE', -3) = 'CLE'. Jak nie podasz długości, bierze wszystko do końca.",
+        "try_sql": "-- Ujemny start liczy od końca\nSELECT SUBSTR('ORACLE', -3) AS a, SUBSTR('ORACLE', -3, 2) AS b FROM dual;",
     },
     {
         "id": "c013",
@@ -912,6 +914,7 @@ FLASHCARDS = [
         "objective": "4.1",
         "front": "Jakie argumenty ma INSTR?",
         "back": "INSTR(str, search, start_pos, occurrence): w czym szukasz, czego szukasz, od której pozycji i które wystąpienie. Gdy nic nie znajdzie, zwraca 0. Ujemny start szuka od końca, wstecz.",
+        "try_sql": "-- Pierwsze, drugie wystąpienie, brak trafienia i szukanie od końca\nSELECT INSTR('BANANA', 'A') AS pierwsze, INSTR('BANANA', 'A', 1, 2) AS drugie,\n       INSTR('BANANA', 'X') AS brak, INSTR('BANANA', 'A', -1) AS od_konca\nFROM dual;",
     },
     {
         "id": "c014",
@@ -919,6 +922,7 @@ FLASHCARDS = [
         "objective": "4.4",
         "front": "Jaki znak ma wynik MONTHS_BETWEEN(d1, d2)?",
         "back": "Dodatni, gdy d1 jest późniejsza niż d2 (ujemny, gdy wcześniejsza). Wynik jest liczbą całkowitą, gdy obie daty to ten sam dzień miesiąca albo obie to ostatnie dni miesiąca. W innym razie wychodzi ułamek, liczony tak, jakby miesiąc miał 31 dni.",
+        "try_sql": "-- Znak zależy od kolejności; ten sam dzień miesiąca -> liczba całkowita\nSELECT MONTHS_BETWEEN(DATE '2024-03-15', DATE '2024-01-15') AS a,\n       MONTHS_BETWEEN(DATE '2024-01-15', DATE '2024-03-15') AS b,\n       MONTHS_BETWEEN(DATE '2024-03-20', DATE '2024-01-15') AS c\nFROM dual;",
     },
     {
         "id": "c015",
@@ -926,6 +930,7 @@ FLASHCARDS = [
         "objective": "4.4",
         "front": "Co robią NEXT_DAY i LAST_DAY?",
         "back": "NEXT_DAY(d, 'FRIDAY'): pierwszy piątek po dacie d, zawsze później niż d (nazwa dnia zależy od języka sesji). LAST_DAY(d): ostatni dzień miesiąca daty d; godzina zostaje ta sama.",
+        "try_sql": "-- 2024-03-01 to piątek: NEXT_DAY daje następny piątek; LAST_DAY zachowuje godzinę\nSELECT NEXT_DAY(DATE '2024-03-01', 'FRIDAY') AS nast_piatek,\n       LAST_DAY(TO_DATE('2024-02-10 14:30', 'YYYY-MM-DD HH24:MI')) AS koniec_lutego\nFROM dual;",
     },
     {
         "id": "c016",
@@ -933,6 +938,7 @@ FLASHCARDS = [
         "objective": "4.1",
         "front": "Czym różnią się TRIM, LTRIM, RTRIM i LPAD?",
         "back": "TRIM([LEADING|TRAILING|BOTH] 'x' FROM s) usuwa tylko jeden znak (z początku, z końca albo z obu stron). LTRIM/RTRIM usuwają dowolne znaki z podanego zestawu, z lewej albo z prawej. LPAD(s, n, 'x') dopełnia z lewej do długości n, a za długi tekst przycina do n.",
+        "try_sql": "-- TRIM usuwa jeden znak, LTRIM/RTRIM zestaw znaków, LPAD dopełnia albo przycina\nSELECT TRIM(BOTH 'x' FROM 'xxabcxx') AS t, LTRIM('xyxabc', 'xy') AS l,\n       RTRIM('abc123', '0123456789') AS r, LPAD('abc', 6, '*') AS p, LPAD('abcdef', 3) AS p2\nFROM dual;",
     },
     {
         "id": "c017",
@@ -940,6 +946,7 @@ FLASHCARDS = [
         "objective": "4.3",
         "front": "Ile to MOD(-7, 3)?",
         "back": "-1. W Oracle wynik MOD ma taki sam znak jak dzielna (pierwsza liczba). Python dałby tu 2, Oracle nie.",
+        "try_sql": "-- Znak wyniku jak dzielnej\nSELECT MOD(-7, 3) AS a, MOD(7, 3) AS b FROM dual;",
     },
     {
         "id": "c200",
@@ -947,6 +954,8 @@ FLASHCARDS = [
         "objective": "4.2",
         "front": "Jakie typy dają działania na DATE?",
         "back": "DATE + n i DATE - n dają DATE (n to dni, może być ułamek, np. 0.5 = 12 godzin). DATE - DATE daje NUMBER, czyli liczbę dni. DATE + DATE to błąd ORA-00975.",
+        "try_sql": "-- DATE +/- n to DATE, DATE - DATE to liczba dni...\nSELECT hire_date + 0.5 AS plus_12h, hire_date - 1 AS dzien_wczesniej, SYSDATE - hire_date AS dni FROM employees;\n-- ...a DATE + DATE to błąd\nSELECT SYSDATE + hire_date FROM employees;",
+        "try_error": "ORA-00975",
     },
     {
         "id": "c201",
@@ -954,6 +963,7 @@ FLASHCARDS = [
         "objective": "4.2",
         "front": "Jak dodać 90 minut do DATE i jak policzyć godziny między dwiema datami?",
         "back": "Doba ma 1440 minut, więc: d + 90/1440 albo d + 1.5/24. Godziny między datami: (d2 - d1) * 24, minuty: (d2 - d1) * 1440.",
+        "try_sql": "-- +90 minut na dwa sposoby i godziny między datami\nSELECT DATE '2024-01-01' + 90/1440 AS a, DATE '2024-01-01' + 1.5/24 AS b,\n       (DATE '2024-01-02' - DATE '2024-01-01') * 24 AS godziny\nFROM dual;",
     },
     {
         "id": "c202",
@@ -961,6 +971,7 @@ FLASHCARDS = [
         "objective": "4.4",
         "front": "Ile to ADD_MONTHS(DATE '2023-02-28', 1)?",
         "back": "2023-03-31. Gdy data startowa to ostatni dzień miesiąca, wynik to ostatni dzień miesiąca docelowego. W 2024 (rok przestępny) 28 lutego nie jest końcem miesiąca, więc ADD_MONTHS daje 2024-03-28.",
+        "try_sql": "-- Koniec miesiąca przechodzi na koniec miesiąca (2023), a w 2024 nie\nSELECT ADD_MONTHS(DATE '2023-02-28', 1) AS r2023, ADD_MONTHS(DATE '2024-02-28', 1) AS r2024 FROM dual;",
     },
     {
         "id": "c203",
@@ -968,6 +979,7 @@ FLASHCARDS = [
         "objective": "4.4",
         "front": "Kiedy ROUND(d, 'MM') albo ROUND(d, 'YYYY') zaokrągla w górę?",
         "back": "'MM': od 16. dnia miesiąca (wychodzi 1. dzień następnego miesiąca). 'YYYY': od 1 lipca. TRUNC z tym samym formatem zawsze cofa do pierwszego dnia.",
+        "try_sql": "-- 'MM' od 16. dnia, 'YYYY' od 1 lipca zaokrągla w górę; TRUNC zawsze w dół\nSELECT ROUND(DATE '2024-05-15', 'MM') AS m15, ROUND(DATE '2024-05-16', 'MM') AS m16,\n       ROUND(DATE '2024-06-30', 'YYYY') AS y_cze, ROUND(DATE '2024-07-01', 'YYYY') AS y_lip,\n       TRUNC(DATE '2024-07-01', 'YYYY') AS t_lip\nFROM dual;",
     },
     {
         "id": "c204",
@@ -975,6 +987,7 @@ FLASHCARDS = [
         "objective": "4.3",
         "front": "Ile to ROUND(-2.5), TRUNC(-2.7) i MOD(10, 0)?",
         "back": "-3 (połówki idą dalej od zera), -2 (TRUNC obcina w stronę zera), 10 (MOD z dzielnikiem 0 zwraca dzielną, bez błędu).",
+        "try_sql": "-- Przewidź: -3, -2, 10\nSELECT ROUND(-2.5) AS r, TRUNC(-2.7) AS t, MOD(10, 0) AS m FROM dual;",
     },
     {
         "id": "c205",
@@ -982,6 +995,7 @@ FLASHCARDS = [
         "objective": "4.1",
         "front": "Pułapki CONCAT, LENGTH('') i INITCAP?",
         "back": "W 19c CONCAT bierze dokładnie 2 argumenty (3 dają ORA-00909); w 23ai przyjmuje ich więcej. LENGTH('') to NULL, bo w Oracle '' to NULL. INITCAP zaczyna nowe słowo po każdym znaku, który nie jest literą ani cyfrą: O'Neil Mc-Donald.",
+        "try_sql": "-- '' to NULL; INITCAP po apostrofie i myślniku zaczyna nowe słowo\nSELECT CONCAT('ab', 'cd') AS c, LENGTH('') AS len, INITCAP('o''neil mc-donald') AS i FROM dual;",
     },
     {
         "id": "c1200",
@@ -989,6 +1003,7 @@ FLASHCARDS = [
         "objective": "4.1",
         "front": "Ile to INSTR('MISSISSIPPI', 'SS', -1)?",
         "back": "6. Ujemny start każe szukać od końca, wstecz, więc INSTR znajduje ostatnie SS. Pozycja i tak jest liczona od lewej.",
+        "try_sql": "-- Ostatnie SS, ale pozycja liczona od lewej\nSELECT INSTR('MISSISSIPPI', 'SS', -1) AS ostatnie, INSTR('MISSISSIPPI', 'SS') AS pierwsze FROM dual;",
     },
     {
         "id": "c1201",
@@ -996,6 +1011,7 @@ FLASHCARDS = [
         "objective": "4.1",
         "front": "Co zwraca LPAD('Oracle', 10, 'xy')?",
         "back": "xyxyOracle. 10 to długość całego wyniku. Tekst do dopełniania jest powtarzany od początku i ucinany, gdy brakuje miejsca: LPAD('Oracle', 9, 'xy') = xyxOracle.",
+        "try_sql": "-- Dopełnienie powtarzane i ucinane\nSELECT LPAD('Oracle', 10, 'xy') AS a, LPAD('Oracle', 9, 'xy') AS b FROM dual;",
     },
     {
         "id": "c1202",
@@ -1003,6 +1019,7 @@ FLASHCARDS = [
         "objective": "4.1",
         "front": "Co zwracają TRIM('   '), RPAD('abc', 0) i SUBSTR('abc', 4)?",
         "back": "Wszystkie NULL. Zostaje pusty tekst, a Oracle traktuje '' jak NULL. Ale REPLACE('abc', NULL, 'x') i CONCAT('abc', NULL) zwracają abc.",
+        "try_sql": "-- Pusty wynik to NULL; REPLACE i CONCAT z NULL zwracają abc\nSELECT TRIM('   ') AS t, RPAD('abc', 0) AS r, SUBSTR('abc', 4) AS s,\n       REPLACE('abc', NULL, 'x') AS rep, CONCAT('abc', NULL) AS c\nFROM dual;",
     },
     {
         "id": "c1203",
@@ -1010,6 +1027,7 @@ FLASHCARDS = [
         "objective": "4.1",
         "front": "Co jest nie tak z LOWER(e.last_name) LIKE 'K%'?",
         "back": "Kolumna jest zamieniona na małe litery, a wzorzec ma wielkie K, więc nic nie pasuje. Obie strony muszą mieć tę samą wielkość liter: LOWER(...) LIKE 'k%' albo UPPER(...) LIKE 'K%'.",
+        "try_sql": "-- Pierwsze nic nie zwraca, drugie znajduje Kinga i Kochhar\nSELECT last_name FROM employees e WHERE LOWER(e.last_name) LIKE 'K%';\nSELECT last_name FROM employees e WHERE LOWER(e.last_name) LIKE 'k%';",
     },
     {
         "id": "c1204",
@@ -1017,6 +1035,8 @@ FLASHCARDS = [
         "objective": "4.2",
         "front": "Których operatorów arytmetycznych można użyć z DATE?",
         "back": "Tylko + i -: DATE +/- liczba (dni) = DATE, DATE - DATE = NUMBER. DATE * 2 albo 1 - DATE dają ORA-00932, a DATE + DATE daje ORA-00975.",
+        "try_sql": "-- DATE - liczba działa, DATE * 2 nie\nSELECT hire_date - 7 AS tydzien_wczesniej FROM employees;\nSELECT hire_date * 2 FROM employees;",
+        "try_error": "ORA-00932",
     },
     {
         "id": "c1205",
@@ -1024,6 +1044,7 @@ FLASHCARDS = [
         "objective": "4.2",
         "front": "Co zwraca DATE '2024-03-02' - TIMESTAMP '2024-03-01 00:00:00'?",
         "back": "INTERVAL DAY TO SECOND (+01 00:00:00), a nie NUMBER. Gdy w działaniu jest TIMESTAMP, Oracle liczy jak na znacznikach czasu i wynikiem jest interwał.",
+        "try_sql": "-- Wynik to INTERVAL DAY TO SECOND, nie liczba\nSELECT DATE '2024-03-02' - TIMESTAMP '2024-03-01 00:00:00' AS roznica,\n       DATE '2024-03-02' - DATE '2024-03-01' AS dni\nFROM dual;",
     },
     {
         "id": "c1206",
@@ -1031,6 +1052,7 @@ FLASHCARDS = [
         "objective": "4.2",
         "front": "Jak policzyć minuty od północy dla daty d?",
         "back": "(d - TRUNC(d)) * 1440. TRUNC(d) to północ tego samego dnia, więc różnica to kawałek doby. Np. dla 23:30 wychodzi 1410; * 24 da godziny (23.5).",
+        "try_sql": "-- Dla 23:30: 1410 minut, 23.5 godziny\nWITH t AS (SELECT TO_DATE('2024-05-10 23:30', 'YYYY-MM-DD HH24:MI') AS d FROM dual)\nSELECT (d - TRUNC(d)) * 1440 AS minuty, (d - TRUNC(d)) * 24 AS godziny FROM t;",
     },
     {
         "id": "c1207",
@@ -1038,6 +1060,7 @@ FLASHCARDS = [
         "objective": "4.3",
         "front": "Ile to ROUND(15.5, -1), TRUNC(-15.5, -1) i ROUND(1499.99, -3)?",
         "back": "20, -10, 1000. Ujemna precyzja działa na lewo od przecinka. TRUNC obcina w stronę zera. ROUND patrzy na oryginalne cyfry i nie zaokrągla po kawałku (1499.99 nie staje się najpierw 1500).",
+        "try_sql": "-- Przewidź: 20, -10, 1000\nSELECT ROUND(15.5, -1) AS a, TRUNC(-15.5, -1) AS b, ROUND(1499.99, -3) AS c FROM dual;",
     },
     {
         "id": "c1208",
@@ -1045,6 +1068,7 @@ FLASHCARDS = [
         "objective": "4.3",
         "front": "Ile to MOD(7, -3) i MOD(5.5, 2)?",
         "back": "1 i 1.5. MOD(m, n) = m - n * TRUNC(m / n): wynik ma znak dzielnej, a liczby z ułamkiem też działają.",
+        "try_sql": "-- Przewidź: 1 i 1.5\nSELECT MOD(7, -3) AS a, MOD(5.5, 2) AS b, 7 - (-3) * TRUNC(7 / -3) AS wzor FROM dual;",
     },
     {
         "id": "c1209",
@@ -1052,6 +1076,7 @@ FLASHCARDS = [
         "objective": "4.3",
         "front": "Czym różni się ROUND(2.5) od ROUND(TO_BINARY_DOUBLE(2.5))?",
         "back": "3 i 2. Dla NUMBER połówki idą dalej od zera. Dla BINARY_FLOAT/BINARY_DOUBLE połówki idą do najbliższej liczby parzystej. Precyzja z ułamkiem jest obcinana: ROUND(15.193, 1.9) = 15.2.",
+        "try_sql": "-- NUMBER: od zera; BINARY_DOUBLE: do parzystej; precyzja 1.9 obcięta do 1\nSELECT ROUND(2.5) AS num, ROUND(TO_BINARY_DOUBLE(2.5)) AS bin, ROUND(15.193, 1.9) AS prec FROM dual;",
     },
     {
         "id": "c1210",
@@ -1059,6 +1084,7 @@ FLASHCARDS = [
         "objective": "4.4",
         "front": "Od kiedy ROUND(d, 'Q') zaokrągla w górę?",
         "back": "Od 16. dnia drugiego miesiąca kwartału: ROUND(DATE '2024-02-16', 'Q') = 2024-04-01, a 15 lutego daje 2024-01-01. ROUND(d) bez formatu zaokrągla w górę od 12:00.",
+        "try_sql": "-- 16 lutego -> kwiecień, 15 lutego -> styczeń; ROUND(d) od południa\nSELECT ROUND(DATE '2024-02-16', 'Q') AS q16, ROUND(DATE '2024-02-15', 'Q') AS q15,\n       ROUND(TO_DATE('2024-02-15 12:00', 'YYYY-MM-DD HH24:MI')) AS poludnie\nFROM dual;",
     },
     {
         "id": "c1211",
@@ -1066,6 +1092,7 @@ FLASHCARDS = [
         "objective": "4.4",
         "front": "Co zwracają ADD_MONTHS(DATE '2024-02-29', 12) i ADD_MONTHS(d, 1.9)?",
         "back": "2025-02-28 (koniec miesiąca przechodzi na koniec miesiąca, nigdy nie ma błędu) oraz d plus 1 miesiąc (liczba miesięcy jest obcinana, nie zaokrąglana).",
+        "try_sql": "-- Koniec lutego -> koniec lutego; 1.9 miesiąca obcięte do 1\nSELECT ADD_MONTHS(DATE '2024-02-29', 12) AS a, ADD_MONTHS(DATE '2024-01-15', 1.9) AS b FROM dual;",
     },
 ]
 

@@ -903,6 +903,8 @@ FLASHCARDS = [
         "objective": "7.1",
         "front": "Jaka jest zasada dla NATURAL JOIN i USING?",
         "back": "Łączą tabele po kolumnach o tej samej nazwie. Takiej kolumny nie wolno nigdzie w zapytaniu poprzedzić aliasem tabeli (np. e.department_id) — będzie błąd (ORA-25155 przy NATURAL JOIN, ORA-25154 przy USING).",
+        "try_sql": "-- Bez aliasu przy kolumnie wspólnej działa; z aliasem (e.department_id) jest błąd\nSELECT department_id, e.last_name, d.department_name\nFROM   employees e JOIN departments d USING (department_id)\nWHERE  department_id = 10;\nSELECT e.department_id, e.last_name\nFROM   employees e NATURAL JOIN departments d;",
+        "try_error": "ORA-25155",
     },
     {
         "id": "c032",
@@ -910,6 +912,7 @@ FLASHCARDS = [
         "objective": "7.4",
         "front": "Filtr przy złączeniu zewnętrznym: w ON czy w WHERE?",
         "back": "Warunek na tabelę dołączaną zewnętrznie wpisany w ON zachowuje wiersze bez pary. Ten sam warunek w WHERE je usuwa — złączenie zamienia się wtedy w zwykłe (wewnętrzne).",
+        "try_sql": "-- Ten sam warunek: w ON zostaje dział bez pary, w WHERE znika (złączenie wewnętrzne)\nSELECT d.department_name, e.last_name\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id AND e.salary > 10000\nORDER  BY d.department_name;\nSELECT d.department_name, e.last_name\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id\nWHERE  e.salary > 10000\nORDER  BY d.department_name;",
     },
     {
         "id": "c033",
@@ -917,6 +920,7 @@ FLASHCARDS = [
         "objective": "7.3",
         "front": "Co to jest non-equijoin?",
         "back": "Złączenie z warunkiem innym niż =, np. e.salary BETWEEN g.min_salary AND g.max_salary (pensja mieści się w przedziale).",
+        "try_sql": "-- Pensja mieści się w przedziale stopnia: warunek BETWEEN zamiast =\nSELECT e.last_name, e.salary, g.grade\nFROM   employees e\nJOIN   salary_grades g ON e.salary BETWEEN g.min_salary AND g.max_salary\nORDER  BY e.salary DESC;",
     },
     {
         "id": "c034",
@@ -924,6 +928,7 @@ FLASHCARDS = [
         "objective": "7.4",
         "front": "Jak działa operator (+) w Oracle?",
         "back": "Stawiasz (+) po tej stronie, której wierszy może brakować. Nie zrobisz nim FULL OUTER JOIN. W 19c nie można go też łączyć z OR ani IN w warunku złączenia (23ai przyjmuje OR, gdy każdy człon ma (+)).",
+        "try_sql": "-- (+) po stronie employees (może brakować): Research zostaje z NULL\nSELECT d.department_name, e.last_name\nFROM   departments d, employees e\nWHERE  d.department_id = e.department_id(+)\nORDER  BY d.department_name;",
     },
     {
         "id": "c035",
@@ -931,6 +936,7 @@ FLASHCARDS = [
         "objective": "7.5",
         "front": "Ile wierszy daje CROSS JOIN?",
         "back": "Liczba wierszy A × liczba wierszy B, np. 4 × 4 = 16. Nie wolno dopisać ON.",
+        "try_sql": "-- 4 działy × 4 stopnie płacowe\nSELECT COUNT(*) AS cnt FROM departments d CROSS JOIN salary_grades g;",
     },
     {
         "id": "c036",
@@ -938,6 +944,7 @@ FLASHCARDS = [
         "objective": "7.2",
         "front": "Czego potrzebuje self-join (złączenie tabeli z samą sobą)?",
         "back": "Dwóch różnych aliasów tej samej tabeli: employees e JOIN employees m ON e.manager_id = m.employee_id.",
+        "try_sql": "-- Dwa aliasy tej samej tabeli: e to pracownik, m to kierownik\nSELECT e.last_name AS employee, m.last_name AS manager\nFROM   employees e\nJOIN   employees m ON e.manager_id = m.employee_id\nORDER  BY e.employee_id;",
     },
     {
         "id": "c310",
@@ -945,6 +952,8 @@ FLASHCARDS = [
         "objective": "7.1",
         "front": "ON vs USING vs NATURAL JOIN — czym się różnią?",
         "back": "ON: dowolny warunek; kolumny z obu tabel zostają osobno, więc kolumnę o wspólnej nazwie trzeba poprzedzić aliasem (inaczej ORA-00918). USING (col): równość po wskazanych kolumnach o tej samej nazwie; zostaje jedna kopia bez aliasu (alias daje ORA-25154). NATURAL: równość po wszystkich kolumnach o tej samej nazwie; nie dopisuje się ON ani USING.",
+        "try_sql": "-- USING: jedna kopia bez aliasu; ON: kolumna bez aliasu jest niejednoznaczna (błąd)\nSELECT department_id, d.department_name FROM employees e JOIN departments d USING (department_id) WHERE e.employee_id = 100;\nSELECT department_id, d.department_name FROM employees e JOIN departments d ON e.department_id = d.department_id;",
+        "try_error": "ORA-00918",
     },
     {
         "id": "c311",
@@ -952,6 +961,7 @@ FLASHCARDS = [
         "objective": "7.5",
         "front": "Cztery sposoby na iloczyn kartezjański?",
         "back": "1) CROSS JOIN. 2) Złączenie przecinkiem bez warunku złączenia. 3) JOIN ... ON z warunkiem zawsze prawdziwym (np. ON 1 = 1). 4) NATURAL JOIN tabel, które nie mają żadnej wspólnej nazwy kolumny.",
+        "try_sql": "-- Każdy sposób daje 4 × 4 = 16 (departments i salary_grades nie mają wspólnych nazw kolumn)\nSELECT (SELECT COUNT(*) FROM departments d CROSS JOIN salary_grades g) AS cross_j,\n       (SELECT COUNT(*) FROM departments d, salary_grades g) AS comma_j,\n       (SELECT COUNT(*) FROM departments d JOIN salary_grades g ON 1 = 1) AS on_true,\n       (SELECT COUNT(*) FROM departments d NATURAL JOIN salary_grades g) AS natural_j\nFROM   dual;",
     },
     {
         "id": "c312",
@@ -959,6 +969,7 @@ FLASHCARDS = [
         "objective": "7.2",
         "front": "Self-join: który alias jest kierownikiem?",
         "back": "Decyduje warunek złączenia. e.manager_id = m.employee_id — m jest kierownikiem e. e.employee_id = m.manager_id — m jest podwładnym e.",
+        "try_sql": "-- Ten sam pracownik 101: najpierw jego kierownik, potem jego podwładni\nSELECT e.last_name, m.last_name AS manager\nFROM   employees e JOIN employees m ON e.manager_id = m.employee_id\nWHERE  e.employee_id = 101;\nSELECT e.last_name, m.last_name AS subordinate\nFROM   employees e JOIN employees m ON e.employee_id = m.manager_id\nWHERE  e.employee_id = 101;",
     },
     {
         "id": "c313",
@@ -966,6 +977,7 @@ FLASHCARDS = [
         "objective": "7.3",
         "front": "Ile wierszy daje złączenie po przedziale (non-equijoin)?",
         "back": "Wiersz pojawia się raz na każdy pasujący przedział. Luka między przedziałami — wiersz znika. Przedziały zachodzą na siebie — wiersz się powtarza. Warunek tylko z jednej strony (>=) może pasować do wielu przedziałów.",
+        "try_sql": "-- Warunek tylko z jednej strony (>=): wysoka pensja pasuje do kilku stopni naraz\nSELECT e.last_name, e.salary, g.grade\nFROM   employees e\nJOIN   salary_grades g ON e.salary >= g.min_salary\nWHERE  e.employee_id IN (100, 108)\nORDER  BY e.last_name, g.grade;",
     },
     {
         "id": "c314",
@@ -973,6 +985,7 @@ FLASHCARDS = [
         "objective": "7.4",
         "front": "Jak złączeniem zewnętrznym znaleźć wiersze bez pary (anti-join)?",
         "back": "a LEFT JOIN b ON ... WHERE b.<kolumna NOT NULL> IS NULL — zostają tylko te wiersze z a, które nie mają pary w b.",
+        "try_sql": "-- Zostają tylko działy bez pracowników\nSELECT d.department_name\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id\nWHERE  e.employee_id IS NULL;",
     },
     {
         "id": "c315",
@@ -980,6 +993,8 @@ FLASHCARDS = [
         "objective": "7.4",
         "front": "Czy można mieszać (+) ze składnią ANSI JOIN?",
         "back": "Nie w WHERE: (+) w WHERE zapytania, które używa ANSI JOIN, daje ORA-25156. (19c przyjmuje (+) wewnątrz ANSI ON, ale lepiej tak nie pisać.) (+) po obu stronach jednego warunku to ORA-01468, więc pełne złączenie wymaga FULL OUTER JOIN.",
+        "try_sql": "-- (+) w WHERE zapytania z ANSI JOIN: ORA-25156; (+) po obu stronach: ORA-01468\nSELECT e.last_name, d.department_name, g.grade\nFROM   employees e JOIN departments d ON e.department_id = d.department_id,\n       salary_grades g\nWHERE  e.salary = g.min_salary(+);\nSELECT e.last_name, d.department_name\nFROM   employees e, departments d\nWHERE  e.department_id(+) = d.department_id(+);",
+        "try_error": "ORA-25156",
     },
     {
         "id": "c1350",
@@ -987,6 +1002,8 @@ FLASHCARDS = [
         "objective": "7.1",
         "front": "Co się stanie przy SELECT e.* z JOIN ... USING (department_id)?",
         "back": "Błąd ORA-25154, bo e.* zawiera kolumnę z USING poprzedzoną aliasem. Użyj SELECT * (kolumna z USING pojawi się raz, na początku) albo wypisz kolumny ręcznie.",
+        "try_sql": "-- SELECT * działa (department_id raz, na początku), e.* daje błąd\nSELECT * FROM employees e JOIN departments d USING (department_id) WHERE e.employee_id = 100;\nSELECT e.* FROM employees e JOIN departments d USING (department_id);",
+        "try_error": "ORA-25154",
     },
     {
         "id": "c1351",
@@ -994,6 +1011,7 @@ FLASHCARDS = [
         "objective": "7.1",
         "front": "Jaka wartość jest w kolumnie z USING przy FULL OUTER JOIN?",
         "back": "Ta ze strony, która istnieje — jak COALESCE(e.col, d.col). Np. dział Research bez pracowników pokazuje 40. NULL jest tylko tam, gdzie wartości brak po obu stronach (np. Grant, pracownik bez działu).",
+        "try_sql": "-- Research ma 40 (z departments), Grant ma NULL (brak po obu stronach)\nSELECT department_id, e.last_name, d.department_name\nFROM   employees e\nFULL OUTER JOIN departments d USING (department_id)\nORDER  BY department_id, e.last_name;",
     },
     {
         "id": "c1352",
@@ -1001,6 +1019,8 @@ FLASHCARDS = [
         "objective": "7.1",
         "front": "Do których tabel może się odwołać klauzula ON?",
         "back": "Tylko do tabel złączonych przed nią (po jej lewej stronie). Odwołanie do tabeli dołączanej później daje ORA-00904 invalid identifier.",
+        "try_sql": "-- ON pierwszego JOIN odwołuje się do c, które jest dołączane później: błąd\nSELECT o.order_id, e.last_name, c.customer_name\nFROM   orders o\nJOIN   employees e ON e.employee_id = o.sales_rep_id AND c.country_code = 'US'\nJOIN   customers c ON c.customer_id = o.customer_id;",
+        "try_error": "ORA-00904",
     },
     {
         "id": "c1353",
@@ -1008,6 +1028,7 @@ FLASHCARDS = [
         "objective": "7.2",
         "front": "Self-join: jak wypisać raz każdą parę pracowników z tą samą pensją?",
         "back": "ON a.salary = b.salary AND a.employee_id < b.employee_id. Z <> każda para wyjdzie dwa razy. Bez warunku na id każdy wiersz połączy się też sam ze sobą.",
+        "try_sql": "-- < daje każdą parę raz; <> daje każdą parę dwa razy\nSELECT a.employee_id AS a_id, b.employee_id AS b_id, a.salary\nFROM   employees a JOIN employees b ON a.salary = b.salary AND a.employee_id < b.employee_id;\nSELECT a.employee_id AS a_id, b.employee_id AS b_id, a.salary\nFROM   employees a JOIN employees b ON a.salary = b.salary AND a.employee_id <> b.employee_id;",
     },
     {
         "id": "c1354",
@@ -1015,6 +1036,7 @@ FLASHCARDS = [
         "objective": "7.2",
         "front": "Jak pokazać pracownika, jego kierownika i kierownika kierownika?",
         "back": "Złącz employees trzy razy: e JOIN m ON e.manager_id = m.employee_id JOIN g ON m.manager_id = g.employee_id. Zwykły JOIN gubi każdego, komu brakuje poziomu; żeby ich zachować, użyj LEFT JOIN.",
+        "try_sql": "-- Trzy poziomy; LEFT JOIN zachowuje Kinga, Kochhar i De Haana, którym brakuje poziomu\nSELECT e.last_name AS employee, m.last_name AS manager, g.last_name AS grand_manager\nFROM   employees e\nLEFT JOIN employees m ON e.manager_id = m.employee_id\nLEFT JOIN employees g ON m.manager_id = g.employee_id\nORDER  BY e.employee_id;",
     },
     {
         "id": "c1355",
@@ -1022,6 +1044,7 @@ FLASHCARDS = [
         "objective": "7.2",
         "front": "Stara składnia: zewnętrzny self-join z filtrem na kierownika?",
         "back": "Każdy warunek na opcjonalny alias potrzebuje (+): AND m.salary(+) > 13000 zachowuje wszystkich pracowników. AND m.salary > 13000 (bez (+)) robi z tego zwykłe złączenie i gubi wiersze.",
+        "try_sql": "-- Z (+) przy m.salary: wszyscy pracownicy; bez (+): tylko ci z kierownikiem > 13000\nSELECT e.last_name, m.last_name AS manager\nFROM   employees e, employees m\nWHERE  e.manager_id = m.employee_id(+) AND m.salary(+) > 13000\nORDER  BY e.employee_id;\nSELECT e.last_name, m.last_name AS manager\nFROM   employees e, employees m\nWHERE  e.manager_id = m.employee_id(+) AND m.salary > 13000\nORDER  BY e.employee_id;",
     },
     {
         "id": "c1356",
@@ -1029,6 +1052,7 @@ FLASHCARDS = [
         "objective": "7.3",
         "front": "Czy non-equijoin może być złączeniem zewnętrznym?",
         "back": "Tak: salary_grades g LEFT JOIN employees e ON e.salary BETWEEN g.min_salary AND g.max_salary, albo w starej składni (+) przy obu granicach. Przedział bez pary wraca raz, z NULL po drugiej stronie.",
+        "try_sql": "-- Zewnętrzny non-equijoin: stopień D nie ma nikogo z działu 30, wraca raz z NULL\nSELECT g.grade, e.last_name\nFROM   salary_grades g\nLEFT JOIN employees e ON e.salary BETWEEN g.min_salary AND g.max_salary\n                     AND e.department_id = 30\nORDER  BY g.grade, e.last_name;",
     },
     {
         "id": "c1357",
@@ -1036,6 +1060,7 @@ FLASHCARDS = [
         "objective": "7.3",
         "front": "NULL w warunku złączenia z przedziałem albo z <?",
         "back": "Każde porównanie z NULL daje „nieznane”, więc taki wiersz do niczego nie pasuje. Np. pozycja zamówienia produktu z list_price = NULL nigdy nie spełni unit_price < list_price.",
+        "try_sql": "-- Produkt 15 ma list_price NULL: jego pozycja (1004/2) nie trafia ani do <, ani do >=\nSELECT oi.order_id, oi.line_no, oi.product_id, oi.unit_price, p.list_price\nFROM   order_items oi JOIN products p ON p.product_id = oi.product_id AND oi.unit_price < p.list_price;\nSELECT oi.order_id, oi.line_no, oi.product_id, oi.unit_price, p.list_price\nFROM   order_items oi JOIN products p ON p.product_id = oi.product_id AND oi.unit_price >= p.list_price;",
     },
     {
         "id": "c1358",
@@ -1043,6 +1068,7 @@ FLASHCARDS = [
         "objective": "7.4",
         "front": "a LEFT JOIN b ... JOIN c ON c.x = b.x — co się dzieje?",
         "back": "Zwykły JOIN do c wyrzuca wiersze b uzupełnione NULL-ami, więc efekt LEFT JOIN znika. Dla każdej tabeli dołączanej po opcjonalnej też pisz LEFT JOIN.",
+        "try_sql": "-- Zwykły JOIN po LEFT JOIN gubi Research (i Kinga bez kierownika); drugi LEFT JOIN ich zachowuje\nSELECT d.department_name, e.last_name, m.last_name AS manager\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id\nJOIN   employees m ON m.employee_id = e.manager_id\nORDER  BY d.department_name, e.last_name;\nSELECT d.department_name, e.last_name, m.last_name AS manager\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id\nLEFT JOIN employees m ON m.employee_id = e.manager_id\nORDER  BY d.department_name, e.last_name;",
     },
     {
         "id": "c1359",
@@ -1051,6 +1077,8 @@ FLASHCARDS = [
         "objective": "7.4",
         "front": "(+) razem z OR (19c)?",
         "back": "ORA-01719: outer join operator (+) not allowed in operand of OR or IN. Użyj LEFT JOIN ... ON (a = b OR ...). (Oracle 23ai przyjmuje OR, gdy każdy człon ma (+).)",
+        "try_sql": "-- 19c: (+) w członie OR daje błąd\nSELECT e.last_name, d.department_name\nFROM   employees e, departments d\nWHERE  e.department_id = d.department_id(+) OR e.manager_id = d.department_id(+);",
+        "try_error": "ORA-01719",
     },
     {
         "id": "c1360",
@@ -1058,6 +1086,7 @@ FLASHCARDS = [
         "objective": "7.5",
         "front": "Iloczyn kartezjański z pustą tabelą?",
         "back": "0 wierszy, bo wiersze(A) × wiersze(B) × 0 = 0. CROSS JOIN nigdy nie dokleja wierszy z NULL — robią to tylko złączenia zewnętrzne.",
+        "try_sql": "-- promotions jest pusta: 9 × 0 = 0 wierszy\nSELECT COUNT(*) AS cnt FROM employees e CROSS JOIN promotions p;",
     },
     {
         "id": "c1361",
@@ -1065,6 +1094,7 @@ FLASHCARDS = [
         "objective": "7.5",
         "front": "Trzy tabele, a tylko jeden warunek złączenia?",
         "back": "Złączona para mnoży się przez tabelę bez warunku: employees ⋈ departments (8 wierszy) × 4 stopnie płacowe = 32. N tabel potrzebuje co najmniej N − 1 warunków złączenia.",
+        "try_sql": "-- Trzy tabele, jeden warunek: 8 par pracownik-dział × 4 stopnie = 32\nSELECT COUNT(*) AS cnt\nFROM   employees e, departments d, salary_grades g\nWHERE  e.department_id = d.department_id;",
     },
 ]
 

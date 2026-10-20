@@ -80,7 +80,29 @@ The app prepares for two exams: **1Z0-071** (Oracle Database SQL, 19c behavior) 
 
     {"id": "c123", "topic": "t06", "objective": "7.4", "front": "Question?", "back": "Answer."}
 
+    {"id": "c124", ..., "try_sql": "SELECT ROUND(1234.5, -2) FROM dual;"}   # optional
+
 IDs are `c` plus three or four digits and never change once published (progress is stored by ID).
+
+`try_sql` (optional) is the sample loaded into the SQL editor beside the card, so the rule on
+the card can be tried at once. Same rules as a question's `try_sql`: SELECT, WITH, DML,
+SAVEPOINT and ROLLBACK only, rolled back after the run, and `try_error` (plus
+`try_error_since`) when the sample is meant to fail. Add it whenever the card states something
+a statement can show (a function, a clause, NULL handling, an error); keep the sample short,
+on the sample tables or `dual`, with a `--` comment saying what to look at. Leave it out for
+cards about theory (the editor then starts empty).
+
+For a card about DDL, the sample may create and change its own objects, named after the card
+(`lab_c055_emp` for card c055), when the card also has a `cleanup` that drops all of them:
+
+    {"id": "c055", ...,
+     "try_sql": "CREATE TABLE lab_c055_emp AS SELECT * FROM employees;\nSELECT ... FROM user_constraints ...;",
+     "cleanup": "DROP TABLE lab_c055_emp PURGE;"}
+
+The app runs the cleanup before and after every run of the sample, so it can be run again.
+DDL commits, including any DML before it, so DML in such a sample may only change the card's
+own tables. The validator runs the sample between two cleanups and fails it if anything else
+in the schema or the sample data changed, or one of its objects is left behind.
 Use only the ID range you were given. New cards of topic tNN use `c(1000 + NN * 50)` to
 `c(1049 + NN * 50)`: t01 c1050-c1099, t02 c1100-c1149, ... t15 c1750-c1799.
 

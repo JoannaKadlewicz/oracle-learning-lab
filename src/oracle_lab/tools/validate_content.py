@@ -7,9 +7,11 @@
 
 Structure checks: unique IDs, valid topics and objectives, valid answer indexes,
 "Which two/three" prompts matching the number of answers, known fields only,
-try_sql without DDL or COMMIT, lab cleanup that only drops LAB_ objects.
+try_sql (questions and flashcards) without DDL or COMMIT, lab cleanup that only drops LAB_ objects,
+flashcard samples whose DDL only touches the card's own LAB_C<id>_ objects, dropped by its cleanup.
 Database checks:
-  - every try_sql runs, or raises exactly its try_error
+  - every try_sql of a question or flashcard runs, or raises exactly its try_error
+  - a flashcard sample with DDL leaves the schema and the sample data as it found them
   - answer_sql returns exactly the text of the correct option
   - equivalent_sql: exactly the correct options return the same rows as this query
   - query labs: the solution runs, returns rows and the columns the task names
@@ -38,7 +40,7 @@ QUESTION_KEYS = {"id", "topic", "objective", "prompt", "code", "options", "answe
                  "try_sql", "try_error", "try_error_since", "answer_sql", "equivalent_sql", "exams"}
 QUESTION_REQUIRED = {"id", "topic", "objective", "prompt", "options", "answer", "explanation"}
 CARD_KEYS = {"id", "topic", "objective", "front", "back"}
-CARD_OPTIONAL = {"exams"}
+CARD_OPTIONAL = {"exams", "try_sql", "try_error", "try_error_since", "cleanup"}
 LAB_COMMON = {"id", "topic", "objective", "title", "task", "solution"}
 LAB_REQUIRED = {
     "query": LAB_COMMON | {"columns", "ordered"},
@@ -47,6 +49,9 @@ LAB_REQUIRED = {
 }
 LAB_OPTIONAL = {"hint", "hint2", "exams", "starter"}
 TRY_SQL_VERBS = {"SELECT", "WITH", "INSERT", "UPDATE", "DELETE", "MERGE", "SAVEPOINT", "ROLLBACK"}
+# DDL a flashcard sample may run on its own objects (it commits, so the card's cleanup drops them)
+CARD_DDL_VERBS = {"CREATE", "ALTER", "DROP", "TRUNCATE", "COMMENT", "RENAME", "GRANT", "REVOKE"}
+SQL_COMMENT = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
 CLEANUP_STATEMENT = re.compile(
     r"\s*DROP\s+((TABLE|VIEW|SEQUENCE|INDEX|SYNONYM)\s+LAB_\w+(\s+CASCADE\s+CONSTRAINTS)?(\s+PURGE)?"
     r"|DOMAIN\s+LAB_\w+(\s+FORCE)?)\s*;?\s*",
@@ -83,6 +88,31 @@ def check_fields(kind, item, allowed, required):
     return errors
 
 
+def try_sql_problems(label, item, ddl_prefix=None):
+    """try_sql and its expected error, shared by questions and flashcards. With ddl_prefix
+    (a flashcard with a cleanup), DDL is allowed on objects whose names start with it."""
+    errors = []
+    if "try_error" in item:
+        if "try_sql" not in item:
+            errors.append(f"{label}: try_error without try_sql")
+        if not re.fullmatch(r"ORA-\d{5}", item["try_error"]):
+            errors.append(f"{label}: try_error must look like ORA-00904")
+    since = item.get("try_error_since", {})
+    if since and ("try_error" not in item or not isinstance(since, dict) or not all(
+            str(k).isdigit() and isinstance(v, str) and re.fullmatch(r"ORA-\d{5}", v) for k, v in since.items())):
+        errors.append(f'{label}: try_error_since must look like {{"21": "ORA-30926"}} next to try_error')
+    if "try_sql" in item:
+        for stmt in split_statements(item["try_sql"]):
+            if ddl_prefix and stmt.kind is StatementKind.SQL and stmt.verb in CARD_DDL_VERBS:
+                if ddl_prefix not in SQL_COMMENT.sub("", stmt.text).lower():
+                    errors.append(f"{label}: {stmt.verb} in try_sql must work on the card's own objects ({ddl_prefix}...)")
+                continue
+            if stmt.kind is not StatementKind.SQL or stmt.verb not in TRY_SQL_VERBS:
+                errors.append(f"{label}: try_sql may only use {', '.join(sorted(TRY_SQL_VERBS))}, not {stmt.verb or stmt.kind}"
+                              " (DDL and COMMIT would change the sample data for good)")
+    return errors
+
+
 def check_question(q):  # noqa: C901 - a flat checklist, one rule after the other
     errors = check_fields("question", q, QUESTION_KEYS, QUESTION_REQUIRED)
     label = f"question {q.get('id', '?')}"
@@ -114,20 +144,7 @@ def check_question(q):  # noqa: C901 - a flat checklist, one rule after the othe
     if len(answer) > 1 and not stated:
         errors.append(f"{label}: {len(answer)} answers are marked but the prompt does not say 'Which {len(answer)}...'")
 
-    if "try_error" in q:
-        if "try_sql" not in q:
-            errors.append(f"{label}: try_error without try_sql")
-        if not re.fullmatch(r"ORA-\d{5}", q["try_error"]):
-            errors.append(f"{label}: try_error must look like ORA-00904")
-    since = q.get("try_error_since", {})
-    if since and ("try_error" not in q or not isinstance(since, dict) or not all(
-            str(k).isdigit() and isinstance(v, str) and re.fullmatch(r"ORA-\d{5}", v) for k, v in since.items())):
-        errors.append(f'{label}: try_error_since must look like {{"21": "ORA-30926"}} next to try_error')
-    if "try_sql" in q:
-        for stmt in split_statements(q["try_sql"]):
-            if stmt.kind is not StatementKind.SQL or stmt.verb not in TRY_SQL_VERBS:
-                errors.append(f"{label}: try_sql may only use {', '.join(sorted(TRY_SQL_VERBS))}, not {stmt.verb or stmt.kind}"
-                              " (DDL and COMMIT would change the sample data for good)")
+    errors += try_sql_problems(label, q)
     if "answer_sql" in q and len(answer) != 1:
         errors.append(f"{label}: answer_sql needs exactly one correct option")
     return errors
@@ -137,7 +154,19 @@ def check_card(card):
     errors = check_fields("flashcard", card, CARD_KEYS | CARD_OPTIONAL, CARD_KEYS)
     if not re.fullmatch(r"c\d{3,4}", card.get("id", "")):
         errors.append(f"flashcard {card.get('id', '?')}: id should look like c000")
-    return errors
+    label = f"flashcard {card.get('id', '?')}"
+    if "cleanup" not in card:
+        return errors + try_sql_problems(label, card)
+    prefix = f"lab_{card.get('id', '?').lower()}_"
+    if "try_sql" not in card:
+        errors.append(f"{label}: cleanup without try_sql")
+    for stmt in split_statements(card["cleanup"]):
+        if not CLEANUP_STATEMENT.fullmatch(stmt.text) or prefix not in stmt.text.lower():
+            errors.append(f"{label}: cleanup may only drop the card's own objects (DROP TABLE {prefix}...), not: {stmt.text}")
+    names = set(re.findall(r"\blab_\w+", SQL_COMMENT.sub("", card.get("try_sql", "") + "\n" + card["cleanup"]).lower()))
+    if foreign := sorted(n for n in names if not n.startswith(prefix)):
+        errors.append(f"{label}: LAB_ objects of a card must be named {prefix}..., not {', '.join(foreign)}")
+    return errors + try_sql_problems(label, card, ddl_prefix=prefix)
 
 
 def check_lab(lab):
@@ -212,19 +241,72 @@ def expected_error(q, major_version):
     return since[max(since)] if since else q.get("try_error")
 
 
+def try_sql_db_errors(database, conn, label, item):
+    """try_sql runs without errors, or raises exactly its try_error."""
+    if "try_sql" not in item:
+        return []
+    result = ScriptRunner(database).run(item["try_sql"])
+    if not result["ok"]:
+        return [f"cannot connect: {result['connect_error']}"]
+    raised = [first_line(r["error"]) for r in result["results"] if r["type"] == "error"]
+    expected = expected_error(item, int(conn.version.split(".")[0]))
+    if expected and not any(e.startswith(expected) for e in raised):
+        return [f"{label}: try_sql should raise {expected}, got {raised[0] if raised else 'no error'}"]
+    if not expected and raised:
+        return [f"{label}: try_sql failed: {raised[0]}"]
+    return []
+
+
+def schema_snapshot(conn, own_prefix):
+    """The schema's objects, columns and constraints, and the rows of every table: what a
+    flashcard sample with DDL (which commits) must leave as it found it. Other LAB_ objects
+    (other items, the app's own tables) and system-named ones are left out, so checks may run
+    side by side."""
+    def kept(col):
+        return (f"{col} NOT LIKE 'BIN$%' AND {col} NOT LIKE 'ISEQ$$%' AND {col} NOT LIKE 'SYS\\_%' ESCAPE '\\' "
+                f"AND ({col} NOT LIKE 'LAB\\_%' ESCAPE '\\' OR {col} LIKE :own ESCAPE '\\')")
+    own = own_prefix.upper().replace("_", "\\_") + "%"
+    with conn.cursor() as cur:
+        cur.execute(f"SELECT object_type, object_name FROM user_objects WHERE {kept('object_name')} ORDER BY 1, 2", own=own)
+        objects = cur.fetchall()
+        cur.execute("SELECT table_name, column_name, data_type, data_length, nullable FROM user_tab_columns "
+                    f"WHERE {kept('table_name')} ORDER BY 1, 2", own=own)
+        columns = cur.fetchall()
+        cur.execute("SELECT table_name, constraint_type, status, r_constraint_name FROM user_constraints "
+                    f"WHERE {kept('table_name')} ORDER BY 1, 2, 3, 4", own=own)
+        constraints = cur.fetchall()
+        rows = {}
+        cur.execute(f"SELECT table_name FROM user_tables WHERE {kept('table_name')} "
+                    "AND temporary = 'N' AND external = 'NO' ORDER BY 1", own=own)
+        for (name,) in cur.fetchall():
+            cur.execute("SELECT column_name, data_type FROM user_tab_columns WHERE table_name = :t ORDER BY column_id", t=name)
+            # Named time zones cannot be fetched in thin mode, so those columns are compared as text
+            select = ", ".join(f"TO_CHAR(\"{col}\", 'YYYY-MM-DD HH24:MI:SS.FF TZR')" if "TIME ZONE" in dtype else f'"{col}"'
+                               for col, dtype in cur.fetchall())
+            cur.execute(f'SELECT {select} FROM "{name}"')
+            rows[name] = sorted(map(repr, cur.fetchall()))
+    return objects, columns, constraints, rows
+
+
+def card_db_errors(database, conn, card):
+    """A sample with DDL runs between two cleanups and must leave the schema as it found it."""
+    label = f"flashcard {card['id']}"
+    if "cleanup" not in card:
+        return try_sql_db_errors(database, conn, label, card)
+    prefix = f"lab_{card['id']}_"
+    run_cleanup(conn, card)
+    before = schema_snapshot(conn, prefix)
+    errors = try_sql_db_errors(database, conn, label, card)
+    run_cleanup(conn, card)
+    if schema_snapshot(conn, prefix) != before:
+        errors.append(f"{label}: try_sql changed the schema or the sample data for good "
+                      "(DDL commits: change only the card's own LAB_ objects, and drop them all in cleanup)")
+    return errors
+
+
 def question_db_errors(database, conn, q):
-    errors = []
     label = f"question {q['id']}"
-    if "try_sql" in q:
-        result = ScriptRunner(database).run(q["try_sql"])
-        if not result["ok"]:
-            return [f"cannot connect: {result['connect_error']}"]
-        raised = [first_line(r["error"]) for r in result["results"] if r["type"] == "error"]
-        expected = expected_error(q, int(conn.version.split(".")[0]))
-        if expected and not any(e.startswith(expected) for e in raised):
-            errors.append(f"{label}: try_sql should raise {expected}, got {raised[0] if raised else 'no error'}")
-        elif not expected and raised:
-            errors.append(f"{label}: try_sql failed: {raised[0]}")
+    errors = try_sql_db_errors(database, conn, label, q)
 
     if "answer_sql" in q:
         result = query_or_error(conn, q["answer_sql"])
@@ -316,6 +398,8 @@ def db_errors(database: Database, topic=None):
     try:
         for q in filter(wanted, content.QUESTIONS):
             errors += question_db_errors(database, conn, q)
+        for card in filter(wanted, content.FLASHCARDS):
+            errors += card_db_errors(database, conn, card)
         for lab in filter(wanted, content.LABS):
             errors += lab_db_errors(conn, lab)
     finally:

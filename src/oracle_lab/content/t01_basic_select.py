@@ -818,6 +818,7 @@ FLASHCARDS = [
         "objective": "2.3",
         "front": "Jak wstawić apostrof (') do tekstu w SQL?",
         "back": "Wpisz go dwa razy: 'It''s'. Albo użyj q'[It's]' — wtedy apostrof w środku niczego nie psuje. Zamiast [] możesz użyć {}, (), <> albo dowolnego znaku powtórzonego na końcu, np. q'!It's!'.",
+        "try_sql": "-- Trzy sposoby na apostrof w tekście — wynik ten sam\nSELECT 'It''s' AS a, q'[It's]' AS b, q'!It's!' AS c FROM dual;",
     },
     {
         "id": "c001",
@@ -825,6 +826,7 @@ FLASHCARDS = [
         "objective": "2.1",
         "front": "Co to jest DUAL?",
         "back": "Mała tabela z jednym wierszem i jedną kolumną (DUMMY), należy do SYS. Używasz jej, żeby policzyć coś bez prawdziwej tabeli: SELECT SYSDATE FROM dual. W 19c FROM jest obowiązkowe, w 23ai można je pominąć.",
+        "try_sql": "-- DUAL: jeden wiersz, jedna kolumna DUMMY\nSELECT * FROM dual;\nSELECT SYSDATE AS teraz FROM dual;",
     },
     {
         "id": "c002",
@@ -832,6 +834,7 @@ FLASHCARDS = [
         "objective": "2.5",
         "front": "salary + NULL = ?   'A' || NULL = ?",
         "back": "salary + NULL daje NULL (rachunek z NULL zawsze daje NULL). 'A' || NULL daje 'A', bo przy łączeniu tekstów || traktuje NULL jak pusty tekst.",
+        "try_sql": "-- Przewidź: rachunek z NULL daje NULL, a || pomija NULL\nSELECT 1000 + NULL AS suma, 'A' || NULL AS tekst FROM dual;",
     },
     {
         "id": "c003",
@@ -839,6 +842,8 @@ FLASHCARDS = [
         "objective": "2.2",
         "front": "Gdzie można użyć aliasu kolumny?",
         "back": "W ORDER BY — tak. W WHERE, HAVING i GROUP BY (w 19c) tego samego zapytania — nie, bo te klauzule działają, zanim alias powstanie. Alias w cudzysłowie (\"Annual Pay\") zachowuje wielkość liter i spacje.",
+        "try_sql": "-- Alias działa w ORDER BY...\nSELECT salary * 12 AS \"Annual Pay\" FROM employees ORDER BY \"Annual Pay\";\n-- ...ale nie w WHERE (ORA-00904)\nSELECT salary * 12 AS annual FROM employees WHERE annual > 100000;",
+        "try_error": "ORA-00904",
     },
     {
         "id": "c004",
@@ -846,6 +851,7 @@ FLASHCARDS = [
         "objective": "2.4",
         "front": "Do czego odnosi się DISTINCT?",
         "back": "Do całego wiersza, a nie tylko do pierwszej kolumny. SELECT DISTINCT a, b usuwa tylko wiersze, w których powtarza się para (a, b). DISTINCT pisze się zaraz po SELECT.",
+        "try_sql": "-- DISTINCT dotyczy całego wiersza: porównaj liczbę wierszy\nSELECT DISTINCT department_id FROM employees;\nSELECT DISTINCT department_id, job_title FROM employees ORDER BY 1, 2;",
     },
     {
         "id": "c100",
@@ -853,6 +859,8 @@ FLASHCARDS = [
         "objective": "1.1",
         "front": "Klucz główny a klucz obcy — czym się różnią?",
         "back": "Klucz główny (primary key) wskazuje dokładnie jeden wiersz: wartości są unikalne i nie mogą być NULL (UNIQUE + NOT NULL). Tabela ma najwyżej jeden. Klucz obcy (foreign key) musi pasować do istniejącej wartości w tabeli nadrzędnej albo być NULL. Jeśli rodzica nie ma, dostaniesz ORA-02291.",
+        "try_sql": "-- Klucz obcy: działu 99 nie ma w DEPARTMENTS -> ORA-02291\nINSERT INTO employees (employee_id, last_name, hire_date, department_id)\nVALUES (300, 'Test', SYSDATE, 99);",
+        "try_error": "ORA-02291",
     },
     {
         "id": "c101",
@@ -867,6 +875,7 @@ FLASHCARDS = [
         "objective": "1.2",
         "front": "Projekcja, selekcja, złączenie — która klauzula co robi?",
         "back": "Projekcja (wybór kolumn): lista SELECT. Selekcja (wybór wierszy): WHERE. Złączenie (przejście po relacji między tabelami): FROM z kilkoma tabelami i warunkiem złączenia.",
+        "try_sql": "-- Projekcja (lista SELECT), selekcja (WHERE), złączenie (FROM + ON)\nSELECT e.last_name, d.department_name\nFROM   employees e JOIN departments d ON e.department_id = d.department_id\nWHERE  e.salary > 10000;",
     },
     {
         "id": "c103",
@@ -881,6 +890,7 @@ FLASHCARDS = [
         "objective": "1.3",
         "front": "Co w Oracle SQL rozróżnia wielkość liter?",
         "back": "Dane (np. 'King' to nie 'KING') i nazwy w cudzysłowie (\"Name\"). Słowa kluczowe i nazwy bez cudzysłowu nie rozróżniają wielkości liter — Oracle zapisuje je WIELKIMI LITERAMI.",
+        "try_sql": "-- Słowa kluczowe i nazwy: bez znaczenia; dane: wielkość liter ma znaczenie\nselect LAST_NAME from EMPLOYEES where last_name = 'KING';\nSELECT last_name AS \"Name\" FROM employees WHERE last_name = 'King';",
     },
     {
         "id": "c105",
@@ -888,6 +898,7 @@ FLASHCARDS = [
         "objective": "2.5",
         "front": "Jaka jest kolejność działań arytmetycznych?",
         "back": "Najpierw * i /, potem + i -. Działania o tej samej sile idą od lewej do prawej. Przykład: salary + 100 * 12 = salary + 1200. Dzielenie przez 0 daje błąd ORA-01476, a dzielenie przez NULL daje po prostu NULL.",
+        "try_sql": "-- Najpierw *, potem +: porównaj obie kolumny\nSELECT salary, salary + 100 * 12 AS bez_nawiasow, (salary + 100) * 12 AS z_nawiasami\nFROM employees WHERE employee_id = 100;",
     },
     {
         "id": "c1050",
@@ -895,6 +906,8 @@ FLASHCARDS = [
         "objective": "2.2",
         "front": "Jakie są zasady dla aliasu kolumny bez cudzysłowu?",
         "back": "Musi zaczynać się od litery. Może mieć tylko litery, cyfry, _, $ i #. Nie może być słowem zastrzeżonym. 2024_pay, annual-pay i 'pay' dają błąd ORA-00923. Jeśli chcesz coś innego, weź alias w cudzysłów: \"2024 pay\".",
+        "try_sql": "-- Alias w cudzysłowie może zaczynać się od cyfry...\nSELECT salary AS \"2024 pay\" FROM employees;\n-- ...bez cudzysłowu już nie\nSELECT salary AS 2024_pay FROM employees;",
+        "try_error": "ORA-00923",
     },
     {
         "id": "c1051",
@@ -902,6 +915,7 @@ FLASHCARDS = [
         "objective": "2.2",
         "front": "SELECT -e.salary AS salary ... ORDER BY salary — po czym sortuje?",
         "back": "Po aliasie, czyli po wyrażeniu -e.salary. W ORDER BY nazwa bez prefiksu najpierw pasuje do aliasu z listy SELECT. Żeby sortować po kolumnie z tabeli, napisz ORDER BY e.salary.",
+        "try_sql": "-- ORDER BY salary to alias (-e.salary), ORDER BY e.salary to kolumna\nSELECT e.last_name, -e.salary AS salary FROM employees e ORDER BY salary;\nSELECT e.last_name, -e.salary AS salary FROM employees e ORDER BY e.salary;",
     },
     {
         "id": "c1052",
@@ -909,6 +923,7 @@ FLASHCARDS = [
         "objective": "1.2",
         "front": "employees.manager_id wskazuje na employees.employee_id. Co to jest?",
         "back": "Relacja rekurencyjna (tabela wskazuje sama na siebie), typu jeden do wielu: jeden szef ma wielu pracowników. manager_id może się powtarzać, może być NULL u osoby na samej górze (King) i nadal jest sprawdzany — nieistniejący szef daje ORA-02291.",
+        "try_sql": "-- Relacja rekurencyjna: szef pracownika jest w tej samej tabeli (King nie ma szefa)\nSELECT e.last_name, e.manager_id, m.last_name AS manager\nFROM   employees e LEFT JOIN employees m ON e.manager_id = m.employee_id\nORDER  BY e.employee_id;",
     },
     {
         "id": "c1053",
@@ -916,6 +931,7 @@ FLASHCARDS = [
         "objective": "2.1",
         "front": "Co zwraca SELECT e.last_name first_name FROM employees e?",
         "back": "Jedną kolumnę o nagłówku FIRST_NAME, ale z nazwiskami. Brakuje przecinka, więc drugie słowo staje się aliasem. Błędu nie ma — i dlatego łatwo to przeoczyć.",
+        "try_sql": "-- Brak przecinka: nagłówek FIRST_NAME, a w środku nazwiska\nSELECT e.last_name first_name FROM employees e;",
     },
     {
         "id": "c1054",
@@ -923,6 +939,8 @@ FLASHCARDS = [
         "objective": "2.1",
         "front": "Najczęstsze przyczyny ORA-00923 (FROM keyword not found where expected)?",
         "back": "Zła lista SELECT: *, col; alias w apostrofach albo zaczynający się od cyfry; myślnik w aliasie; albo brak FROM w 19c (SELECT 1). W 23ai SELECT bez FROM działa.",
+        "try_sql": "-- Alias w apostrofach to nie alias -> ORA-00923\nSELECT salary 'pay' FROM employees;",
+        "try_error": "ORA-00923",
     },
     {
         "id": "c1055",
@@ -930,6 +948,9 @@ FLASHCARDS = [
         "objective": "2.1",
         "front": "W jakiej kolejności pisze się klauzule SELECT?",
         "back": "SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY, a na końcu OFFSET/FETCH. WHERE po ORDER BY daje błąd ORA-00933 (w 23ai ORA-03048).",
+        "try_sql": "-- WHERE po ORDER BY: zła kolejność klauzul\nSELECT last_name FROM employees ORDER BY last_name WHERE salary > 5000;",
+        "try_error": "ORA-00933",
+        "try_error_since": {"23": "ORA-03048"},
     },
     {
         "id": "c1056",
@@ -937,6 +958,9 @@ FLASHCARDS = [
         "objective": "2.4",
         "front": "SELECT e.department_id, DISTINCT e.job_title ... — co się stanie?",
         "back": "Błąd ORA-00936: missing expression (w 23ai ORA-03045). DISTINCT pisze się tylko raz, zaraz po SELECT, i zawsze dotyczy całego wiersza.",
+        "try_sql": "-- DISTINCT w środku listy SELECT\nSELECT e.department_id, DISTINCT e.job_title FROM employees e;",
+        "try_error": "ORA-00936",
+        "try_error_since": {"23": "ORA-03045"},
     },
     {
         "id": "c1057",
@@ -944,6 +968,8 @@ FLASHCARDS = [
         "objective": "2.5",
         "front": "DATE + n, DATE - DATE, DATE + DATE, DATE * 2 — co dostaniesz?",
         "back": "DATE + n: data o n dni późniejsza. DATE - DATE: liczba dni między datami (NUMBER). DATE + DATE: błąd ORA-00975. DATE * 2: błąd ORA-00932.",
+        "try_sql": "-- DATE + n i DATE - DATE działają...\nSELECT hire_date + 30 AS plus_30, SYSDATE - hire_date AS dni FROM employees;\n-- ...DATE + DATE już nie\nSELECT hire_date + hire_date FROM employees;",
+        "try_error": "ORA-00975",
     },
     {
         "id": "c1058",
@@ -951,6 +977,8 @@ FLASHCARDS = [
         "objective": "2.5",
         "front": "Ile wynosi NULL / 0?",
         "back": "NULL. Jeśli w działaniu jest NULL, wynik to NULL i nic nie jest naprawdę dzielone. Dopiero zwykła liczba / 0 daje błąd ORA-01476.",
+        "try_sql": "-- NULL / 0 to po prostu NULL...\nSELECT NULL / 0 AS wynik FROM dual;\n-- ...a liczba / 0 to błąd\nSELECT salary / 0 FROM employees;",
+        "try_error": "ORA-01476",
     },
     {
         "id": "c1059",
@@ -958,6 +986,7 @@ FLASHCARDS = [
         "objective": "2.3",
         "front": "Co zwraca SELECT q'[x]y]' FROM dual?",
         "back": "x]y. Tekst q'[...]' kończy się dopiero tam, gdzie po ] stoi apostrof (]'). Znak ], po którym jest coś innego, to zwykła litera w tekście.",
+        "try_sql": "-- ] bez apostrofu za nim to zwykły znak\nSELECT q'[x]y]' AS t FROM dual;",
     },
     {
         "id": "c1060",
@@ -965,6 +994,8 @@ FLASHCARDS = [
         "objective": "1.1",
         "front": "Złożony klucz główny (order_id, line_no) — co musi być unikalne?",
         "back": "Para wartości razem. order_id albo line_no osobno mogą się powtarzać. Powtórzona para daje ORA-00001, a NULL w którejkolwiek kolumnie daje ORA-01400.",
+        "try_sql": "-- Nowa para (1001, 3) przechodzi, powtórzona (1001, 1) daje ORA-00001\nINSERT INTO order_items (order_id, line_no, product_id, quantity, unit_price) VALUES (1001, 3, 11, 1, 10);\nINSERT INTO order_items (order_id, line_no, product_id, quantity, unit_price) VALUES (1001, 1, 11, 1, 10);",
+        "try_error": "ORA-00001",
     },
     {
         "id": "c1061",
@@ -972,6 +1003,8 @@ FLASHCARDS = [
         "objective": "1.1",
         "front": "Czy kolumna UNIQUE może mieć NULL w kilku wierszach?",
         "back": "Tak. NULL nigdy nie jest równy innemu NULL, więc się nie gryzą. Błąd ORA-00001 dają tylko powtórzone zwykłe wartości. Żeby zabronić NULL, dodaj NOT NULL (albo użyj klucza głównego).",
+        "try_sql": "-- Drugi NULL w kolumnie UNIQUE (email) przechodzi...\nINSERT INTO employees (employee_id, last_name, hire_date) VALUES (301, 'Nowy', SYSDATE);\nSELECT employee_id, last_name, email FROM employees WHERE email IS NULL;\n-- ...ale powtórzona wartość już nie\nINSERT INTO employees (employee_id, last_name, email, hire_date) VALUES (302, 'Kopia', 'SKING', SYSDATE);",
+        "try_error": "ORA-00001",
     },
 ]
 

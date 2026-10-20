@@ -794,6 +794,7 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "SYSDATE czy CURRENT_DATE – czym się różnią?",
         "back": "SYSDATE bierze czas z systemu operacyjnego serwera bazy. CURRENT_DATE bierze czas w strefie czasowej Twojej sesji. Obie zwracają typ DATE.",
+        "try_sql": "-- SYSDATE: zegar serwera; CURRENT_DATE: strefa sesji (porównaj z SESSIONTIMEZONE)\nSELECT SYSDATE, CURRENT_DATE, SESSIONTIMEZONE FROM dual;",
     },
     {
         "id": "c082",
@@ -801,6 +802,7 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "TIMESTAMP WITH TIME ZONE a WITH LOCAL TIME ZONE – czym się różnią?",
         "back": "WITH TIME ZONE zapisuje razem z wartością jej strefę (offset albo region). WITH LOCAL TIME ZONE strefy nie zapisuje: przelicza wartość do DBTIMEZONE, a przy odczycie pokazuje ją w strefie Twojej sesji.",
+        "try_sql": "-- starts_at (WITH TIME ZONE) pamięta swoją strefę; logged_at (WITH LOCAL TIME ZONE) jest pokazany w strefie sesji\nSELECT e.event_id, TO_CHAR(e.starts_at, 'YYYY-MM-DD HH24:MI TZR') AS starts_at,\n       e.logged_at, SESSIONTIMEZONE AS sesja\nFROM   events e\nWHERE  e.event_id IN (1, 3);",
     },
     {
         "id": "c083",
@@ -808,6 +810,8 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "Co można wyciągnąć przez EXTRACT z wartości DATE?",
         "back": "Tylko YEAR, MONTH i DAY. HOUR, MINUTE i SECOND wymagają TIMESTAMP, np. EXTRACT(HOUR FROM CAST(d AS TIMESTAMP)). Inaczej dostaniesz ORA-30076.",
+        "try_sql": "-- Z DATE: YEAR/MONTH/DAY działa, HOUR dopiero po CAST na TIMESTAMP\nSELECT EXTRACT(DAY FROM DATE '2024-03-31') AS d,\n       EXTRACT(HOUR FROM CAST(TO_DATE('2024-03-31 14:45', 'YYYY-MM-DD HH24:MI') AS TIMESTAMP)) AS h\nFROM   dual;\nSELECT EXTRACT(HOUR FROM SYSDATE) FROM dual;",
+        "try_error": "ORA-30076",
     },
     {
         "id": "c084",
@@ -815,6 +819,7 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "Jak wyglądają literały interwałów?",
         "back": "INTERVAL '1-6' YEAR TO MONTH = 1 rok i 6 miesięcy. INTERVAL '2 10:30:00' DAY TO SECOND = 2 dni, 10 godzin i 30 minut. INTERVAL '90' MINUTE = 90 minut.",
+        "try_sql": "-- Trzy literały interwałów: 1 rok 6 mies., 2 dni 10:30, 90 minut\nSELECT INTERVAL '1-6' YEAR TO MONTH AS a, INTERVAL '2 10:30:00' DAY TO SECOND AS b, INTERVAL '90' MINUTE AS c FROM dual;",
     },
     {
         "id": "c085",
@@ -822,6 +827,8 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "31 stycznia + 1 miesiąc: ADD_MONTHS czy + INTERVAL MONTH?",
         "back": "ADD_MONTHS(DATE '2024-01-31', 1) daje ostatni dzień lutego (2024-02-29). + INTERVAL '1' MONTH daje błąd ORA-01839, bo 31 lutego nie istnieje.",
+        "try_sql": "-- ADD_MONTHS daje koniec lutego, + INTERVAL '1' MONTH daje błąd\nSELECT ADD_MONTHS(DATE '2024-01-31', 1) AS am FROM dual;\nSELECT DATE '2024-01-31' + INTERVAL '1' MONTH FROM dual;",
+        "try_error": "ORA-01839",
     },
     {
         "id": "c086",
@@ -829,6 +836,7 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "Jak pokazać TIMESTAMP w innej strefie czasowej?",
         "back": "ts AT TIME ZONE 'Europe/Warsaw' – ta sama chwila, inny zegar. FROM_TZ(ts, 'UTC') tylko dokleja strefę do zwykłego TIMESTAMP (godzina się nie zmienia). TZ_OFFSET('Europe/Warsaw') zwraca przesunięcie od UTC, np. +01:00.",
+        "try_sql": "-- AT TIME ZONE zmienia zegar (ta sama chwila), FROM_TZ tylko dokleja strefę\nSELECT TO_CHAR(TIMESTAMP '2024-07-01 12:00:00 UTC' AT TIME ZONE 'Europe/Warsaw', 'HH24:MI TZR') AS at_tz,\n       TO_CHAR(FROM_TZ(TIMESTAMP '2024-07-01 12:00:00', 'UTC'), 'HH24:MI TZR') AS from_tz,\n       TZ_OFFSET('Europe/Warsaw') AS offset_dzis\nFROM   dual;",
     },
     {
         "id": "c710",
@@ -836,6 +844,7 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "Jaki typ dają: TIMESTAMP - TIMESTAMP, DATE - DATE, TIMESTAMP + 1?",
         "back": "TIMESTAMP - TIMESTAMP → INTERVAL DAY TO SECOND. DATE - DATE → NUMBER (liczba dni). TIMESTAMP + 1 → DATE, bo dodanie liczby zamienia wynik na DATE.",
+        "try_sql": "-- Typy wyników: INTERVAL DAY TO SECOND, NUMBER (dni) i DATE (bez ułamków sekund)\nSELECT TIMESTAMP '2024-03-10 12:00:00' - TIMESTAMP '2024-03-08 09:30:00' AS ts_minus_ts,\n       DATE '2024-03-10' - DATE '2024-03-08' AS date_minus_date,\n       TIMESTAMP '2024-03-10 12:00:00.5' + 1 AS ts_plus_1\nFROM   dual;",
     },
     {
         "id": "c711",
@@ -843,6 +852,8 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "Jakie jednostki przyjmują NUMTOYMINTERVAL i NUMTODSINTERVAL?",
         "back": "NUMTOYMINTERVAL: 'YEAR', 'MONTH'. NUMTODSINTERVAL: 'DAY', 'HOUR', 'MINUTE', 'SECOND'. Zła jednostka daje ORA-01760.",
+        "try_sql": "-- Poprawne jednostki działają, 'DAY' w NUMTOYMINTERVAL daje błąd\nSELECT NUMTOYMINTERVAL(18, 'MONTH') AS ym, NUMTODSINTERVAL(36, 'HOUR') AS ds FROM dual;\nSELECT NUMTOYMINTERVAL(2, 'DAY') FROM dual;",
+        "try_error": "ORA-01760",
     },
     {
         "id": "c712",
@@ -850,6 +861,8 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "INTERVAL '1' DAY + INTERVAL '1' MONTH – co się stanie?",
         "back": "Błąd ORA-30081. Interwałów YEAR TO MONTH i DAY TO SECOND nie da się łączyć, bo miesiąc nie ma stałej liczby dni.",
+        "try_sql": "-- Przewidź: czy da się dodać dzień do miesiąca?\nSELECT INTERVAL '1' DAY + INTERVAL '1' MONTH FROM dual;",
+        "try_error": "ORA-30081",
     },
     {
         "id": "c713",
@@ -857,6 +870,8 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "INTERVAL '123' DAY – co się stanie?",
         "back": "Błąd ORA-01873. Domyślnie pierwsze pole interwału może mieć tylko 2 cyfry. Napisz INTERVAL '123' DAY(3).",
+        "try_sql": "-- DAY(3) pozwala na 3 cyfry, domyślne DAY(2) już nie\nSELECT INTERVAL '123' DAY(3) AS ok FROM dual;\nSELECT INTERVAL '123' DAY FROM dual;",
+        "try_error": "ORA-01873",
     },
     {
         "id": "c714",
@@ -864,6 +879,7 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "EXTRACT(HOUR FROM ...) z TIMESTAMP WITH TIME ZONE – jaką godzinę zwraca?",
         "back": "Godzinę w UTC, a nie lokalną. Np. 23:30 w Nowym Jorku przy UTC-4 da 3. Lokalną godzinę dostaniesz przez TO_CHAR(ts, 'HH24').",
+        "try_sql": "-- 23:30 w Nowym Jorku: EXTRACT daje godzinę UTC, TO_CHAR lokalną\nSELECT TO_CHAR(e.starts_at, 'YYYY-MM-DD HH24:MI TZR') AS starts_at,\n       EXTRACT(HOUR FROM e.starts_at) AS extract_hour,\n       TO_CHAR(e.starts_at, 'HH24') AS local_hour\nFROM   events e\nWHERE  e.event_id = 3;",
     },
     {
         "id": "c715",
@@ -871,6 +887,7 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "Jakie typy zwracają CURRENT_DATE, CURRENT_TIMESTAMP, LOCALTIMESTAMP, SYSDATE i SYSTIMESTAMP?",
         "back": "CURRENT_DATE: DATE. CURRENT_TIMESTAMP: TIMESTAMP WITH TIME ZONE. LOCALTIMESTAMP: TIMESTAMP. SYSDATE: DATE. SYSTIMESTAMP: TIMESTAMP WITH TIME ZONE.",
+        "try_sql": "-- Które wartości mają strefę czasową (WITH TIME ZONE), a które nie?\nSELECT CURRENT_DATE, CURRENT_TIMESTAMP, LOCALTIMESTAMP, SYSDATE, SYSTIMESTAMP FROM dual;",
     },
     {
         "id": "c1725",
@@ -878,6 +895,7 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "Globalna aplikacja: każdy użytkownik ma widzieć tę samą chwilę w swojej strefie. Jaki typ danych?",
         "back": "TIMESTAMP WITH LOCAL TIME ZONE – sam pokazuje czas w strefie sesji. Jeśli chcesz zachować oryginalną strefę, użyj TIMESTAMP WITH TIME ZONE.",
+        "try_sql": "-- logged_at (WITH LOCAL TIME ZONE) jest pokazany w strefie Twojej sesji; obok ta sama chwila w UTC\nSELECT e.event_id, e.logged_at, SESSIONTIMEZONE AS sesja,\n       TO_CHAR(SYS_EXTRACT_UTC(e.logged_at), 'YYYY-MM-DD HH24:MI') AS utc\nFROM   events e\nWHERE  e.event_id IN (1, 3);",
     },
     {
         "id": "c1726",
@@ -885,6 +903,7 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "Jak porównuje się i odejmuje dwie wartości TIMESTAMP WITH TIME ZONE?",
         "back": "Jako chwile w UTC, a nie jako godziny na zegarze. Przykład: w dniu zmiany czasu w Warszawie 03:00 CEST - 01:00 CET = +00 01:00:00, bo minęła tylko 1 godzina.",
+        "try_sql": "-- Dzień zmiany czasu w Warszawie: na zegarze 2 godziny, naprawdę minęła 1\nSELECT TIMESTAMP '2024-03-31 03:00:00 Europe/Warsaw' - TIMESTAMP '2024-03-31 01:00:00 Europe/Warsaw' AS diff,\n       CASE WHEN TIMESTAMP '2024-03-31 03:00:00 Europe/Warsaw' = TIMESTAMP '2024-03-31 01:00:00 UTC' THEN 'ta sama chwila' END AS cmp\nFROM   dual;",
     },
     {
         "id": "c1727",
@@ -892,6 +911,7 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "FROM_TZ(ts, 'UTC') AT TIME ZONE 'Europe/Warsaw' – co to robi?",
         "back": "FROM_TZ mówi „ta godzina jest w UTC” i nie zmienia zegara. Potem AT TIME ZONE przelicza tę chwilę na Warszawę. Np. 12:00 UTC w lipcu → 14:00 (czas letni, UTC+2).",
+        "try_sql": "-- 12:00 UTC w lipcu to 14:00 w Warszawie (czas letni)\nSELECT TO_CHAR(FROM_TZ(TIMESTAMP '2024-07-01 12:00:00', 'UTC'), 'HH24:MI TZR') AS utc,\n       TO_CHAR(FROM_TZ(TIMESTAMP '2024-07-01 12:00:00', 'UTC') AT TIME ZONE 'Europe/Warsaw', 'HH24:MI TZR TZD') AS warsaw\nFROM   dual;",
     },
     {
         "id": "c1728",
@@ -899,6 +919,7 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "Co zwraca TZ_OFFSET('Asia/Kolkata')?",
         "back": "Tekst '+05:30'. Indie nie mają czasu letniego. Dla regionów z czasem letnim wynik zależy od dzisiejszej daty.",
+        "try_sql": "-- Kolkata zawsze +05:30; wynik dla Warszawy zależy od dzisiejszej daty\nSELECT TZ_OFFSET('Asia/Kolkata') AS kolkata, TZ_OFFSET('Europe/Warsaw') AS warsaw FROM dual;",
     },
     {
         "id": "c1729",
@@ -906,6 +927,8 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "EXTRACT(SECOND FROM ...) z TIMESTAMP – co zwraca?",
         "back": "Sekundy razem z ułamkiem, np. 30.5. Z DATE wolno wyciągnąć tylko YEAR, MONTH i DAY (inaczej ORA-30076).",
+        "try_sql": "-- Z TIMESTAMP sekundy z ułamkiem; z DATE SECOND daje błąd\nSELECT EXTRACT(SECOND FROM TIMESTAMP '2024-03-31 10:15:30.5') AS s FROM dual;\nSELECT EXTRACT(SECOND FROM SYSDATE) FROM dual;",
+        "try_error": "ORA-30076",
     },
     {
         "id": "c1730",
@@ -913,6 +936,8 @@ FLASHCARDS = [
         "objective": "16.1",
         "front": "Z jakich wartości EXTRACT wyciągnie TIMEZONE_HOUR?",
         "back": "Z TIMESTAMP WITH TIME ZONE, np. SYSTIMESTAMP albo CURRENT_TIMESTAMP. LOCALTIMESTAMP i zwykły TIMESTAMP nie mają strefy – dostaniesz ORA-30076.",
+        "try_sql": "-- TIMEZONE_HOUR tylko z wartości ze strefą; LOCALTIMESTAMP jej nie ma\nSELECT EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2024-07-01 12:00:00 Europe/Warsaw') AS warsaw,\n       EXTRACT(TIMEZONE_HOUR FROM SYSTIMESTAMP) AS sys\nFROM   dual;\nSELECT EXTRACT(TIMEZONE_HOUR FROM LOCALTIMESTAMP) FROM dual;",
+        "try_error": "ORA-30076",
     },
     {
         "id": "c1731",
@@ -920,6 +945,8 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "Jakie formaty tekstu przyjmuje TO_DSINTERVAL?",
         "back": "'1 12:00:00' (dni gg:mi:ss) albo ISO 'PT36H'. '36:00:00' (bez dni) → ORA-01867. '1 25:00:00' (25 godzin) → ORA-01850.",
+        "try_sql": "-- Format 'dni gg:mi:ss' i ISO działają; '36:00:00' bez dni już nie\nSELECT TO_DSINTERVAL('1 12:00:00') AS a, TO_DSINTERVAL('PT36H') AS b FROM dual;\nSELECT TO_DSINTERVAL('36:00:00') FROM dual;",
+        "try_error": "ORA-01867",
     },
     {
         "id": "c1732",
@@ -927,6 +954,7 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "Co zwraca NUMTOYMINTERVAL(2.5, 'YEAR')?",
         "back": "+02-06. Ułamek zamienia się na miesiące: 2,5 roku = 30 miesięcy = 2 lata i 6 miesięcy.",
+        "try_sql": "-- Przewidź: 2,5 roku jako YEAR TO MONTH\nSELECT NUMTOYMINTERVAL(2.5, 'YEAR') AS i FROM dual;",
     },
     {
         "id": "c1733",
@@ -934,6 +962,7 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "Co zwraca EXTRACT(MONTH FROM INTERVAL '30' MONTH)?",
         "back": "6. Literał zamienia się na +02-06 (2 lata i 6 miesięcy), a EXTRACT zwraca jedno pole, a nie sumę wszystkich miesięcy.",
+        "try_sql": "-- 30 miesięcy to +02-06: EXTRACT(MONTH) daje 6, nie 30\nSELECT INTERVAL '30' MONTH AS i,\n       EXTRACT(YEAR FROM INTERVAL '30' MONTH) AS y,\n       EXTRACT(MONTH FROM INTERVAL '30' MONTH) AS m\nFROM   dual;",
     },
     {
         "id": "c1734",
@@ -941,6 +970,8 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "Jak dostać ostatni dzień poprzedniego miesiąca bez ORA-01839?",
         "back": "ADD_MONTHS(d, -1) dla dat z końca miesiąca albo TRUNC(d, 'MM') - 1. Uwaga: DATE '2024-03-31' - INTERVAL '1' MONTH daje błąd, bo 31 lutego nie istnieje.",
+        "try_sql": "-- Dwa bezpieczne sposoby, a potem odejmowanie INTERVAL, które się wywraca\nSELECT ADD_MONTHS(DATE '2024-03-31', -1) AS a, TRUNC(DATE '2024-03-31', 'MM') - 1 AS b FROM dual;\nSELECT DATE '2024-03-31' - INTERVAL '1' MONTH FROM dual;",
+        "try_error": "ORA-01839",
     },
     {
         "id": "c1735",
@@ -948,6 +979,8 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "Kolumna INTERVAL DAY(2) TO SECOND(0): co, gdy wartość jest za duża? A gdy ma za dużo ułamków sekund?",
         "back": "Za duże pierwsze pole (np. 120 dni) → błąd ORA-01873. Za dużo ułamków sekund → wartość jest zaokrąglana do precyzji SECOND(p), bez błędu (15.75 s → 16 s).",
+        "try_sql": "-- duration to INTERVAL DAY(2) TO SECOND(0): 15.75 s zaokrągla się do 16 s, 120 dni to błąd\nUPDATE events e SET e.duration = INTERVAL '0 00:00:15.75' DAY TO SECOND WHERE e.event_id = 4;\nSELECT e.duration FROM events e WHERE e.event_id = 4;\nUPDATE events e SET e.duration = INTERVAL '120' DAY(3) WHERE e.event_id = 4;",
+        "try_error": "ORA-01873",
     },
     {
         "id": "c1736",
@@ -955,6 +988,8 @@ FLASHCARDS = [
         "objective": "16.2",
         "front": "duration > 1 na kolumnie typu INTERVAL – zadziała?",
         "back": "Nie, błąd ORA-00932: Oracle nie zamienia sam NUMBER na INTERVAL. Napisz duration > INTERVAL '1' DAY.",
+        "try_sql": "-- Porównanie z literałem INTERVAL działa, z liczbą 1 nie\nSELECT e.event_id, e.duration FROM events e WHERE e.duration > INTERVAL '1' HOUR;\nSELECT e.event_id FROM events e WHERE e.duration > 1;",
+        "try_error": "ORA-00932",
     },
 ]
 

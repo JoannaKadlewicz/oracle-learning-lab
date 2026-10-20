@@ -705,6 +705,8 @@ FLASHCARDS = [
         "objective": "13.1",
         "front": "Kiedy przez widok nie da się zmieniać danych?",
         "back": "Gdy widok ma funkcje grupujące (np. SUM), GROUP BY, DISTINCT, ROWNUM albo operatory zbiorów (UNION…). Wtedy jeden wiersz widoku nie odpowiada jednemu wierszowi tabeli. INSERT nie zadziała też, gdy widok pomija kolumnę NOT NULL bez wartości DEFAULT.",
+        "try_sql": "-- Widok z GROUP BY i MAX: jeden wiersz widoku to wiele wierszy tabeli\nUPDATE (SELECT department_id, MAX(salary) AS max_sal\n        FROM   employees\n        GROUP  BY department_id)\nSET    department_id = 50;",
+        "try_error": "ORA-01732",
     },
     {
         "id": "c064",
@@ -712,6 +714,8 @@ FLASHCARDS = [
         "objective": "13.1",
         "front": "Czym różni się WITH CHECK OPTION od WITH READ ONLY?",
         "back": "WITH CHECK OPTION: możesz zmieniać dane przez widok, ale nowy lub zmieniony wiersz musi dalej spełniać WHERE widoku. WITH READ ONLY: przez widok nie zmienisz niczego — żaden INSERT, UPDATE ani DELETE nie przejdzie.",
+        "try_sql": "-- Wiersz po zmianie wypadłby z WHERE widoku, więc CHECK OPTION go odrzuci\nUPDATE (SELECT employee_id, department_id\n        FROM   employees\n        WHERE  department_id = 30\n        WITH CHECK OPTION)\nSET    department_id = 20\nWHERE  employee_id = 103;",
+        "try_error": "ORA-01402",
     },
     {
         "id": "c065",
@@ -719,6 +723,9 @@ FLASHCARDS = [
         "objective": "11.3",
         "front": "Co się stanie, gdy użyjesz CURRVAL przed NEXTVAL?",
         "back": "Błąd ORA-08002. CURRVAL pokazuje ostatnią wartość z NEXTVAL w Twojej sesji. Jeśli w tej sesji nie było jeszcze NEXTVAL, nie ma czego pokazać.",
+        "try_sql": "-- Nowa sekwencja: CURRVAL przed pierwszym NEXTVAL w tej sesji daje ORA-08002\nCREATE SEQUENCE lab_c065_seq;\nSELECT lab_c065_seq.CURRVAL FROM dual;\n-- Po NEXTVAL CURRVAL już działa\nSELECT lab_c065_seq.NEXTVAL AS nextval FROM dual;\nSELECT lab_c065_seq.CURRVAL AS currval FROM dual;",
+        "try_error": "ORA-08002",
+        "cleanup": "DROP SEQUENCE lab_c065_seq;",
     },
     {
         "id": "c066",
@@ -726,6 +733,8 @@ FLASHCARDS = [
         "objective": "11.3",
         "front": "Czy po ROLLBACK numer z sekwencji wraca do puli?",
         "back": "Nie. Sekwencja nie cofa się razem z transakcją. Pobrany numer przepada, więc dziury w numeracji są normalne (np. po ROLLBACK albo po utracie wartości z cache).",
+        "try_sql": "-- Numer pobrany przed ROLLBACK przepada: zostaje tylko drugi wiersz, z dziurą w numeracji\nCREATE SEQUENCE lab_c066_seq;\nCREATE TABLE lab_c066_t (id NUMBER, opis VARCHAR2(20));\nINSERT INTO lab_c066_t VALUES (lab_c066_seq.NEXTVAL, 'wycofany');\nROLLBACK;\nINSERT INTO lab_c066_t VALUES (lab_c066_seq.NEXTVAL, 'zapisany');\nSELECT id, opis FROM lab_c066_t;",
+        "cleanup": "DROP TABLE lab_c066_t PURGE;\nDROP SEQUENCE lab_c066_seq;",
     },
     {
         "id": "c067",
@@ -733,6 +742,7 @@ FLASHCARDS = [
         "objective": "11.1",
         "front": "Kiedy Oracle sam tworzy indeks?",
         "back": "Dla PRIMARY KEY i UNIQUE — chyba że pasujący indeks już istnieje, wtedy używa tamtego. Dla FOREIGN KEY Oracle indeksu nie tworzy, musisz zrobić go sam.",
+        "try_sql": "-- PK i UNIQUE mają indeks (INDEX_NAME), klucze obce (R) nie mają żadnego\nSELECT constraint_name, constraint_type, index_name\nFROM   user_constraints\nWHERE  table_name = 'EMPLOYEES'\nAND    constraint_type IN ('P', 'U', 'R')\nORDER  BY constraint_type, constraint_name;",
     },
     {
         "id": "c068",
@@ -740,6 +750,8 @@ FLASHCARDS = [
         "objective": "11.1",
         "front": "Co to jest niewidoczny indeks (INVISIBLE)?",
         "back": "Indeks, który dalej jest aktualizowany przy każdym INSERT/UPDATE/DELETE, ale optymalizator domyślnie go pomija. Przełączasz go poleceniem ALTER INDEX i VISIBLE / INVISIBLE.",
+        "try_sql": "-- Indeks tworzony jako INVISIBLE, potem przełączony na VISIBLE\nCREATE TABLE lab_c068_emp AS SELECT employee_id, last_name FROM employees;\nCREATE INDEX lab_c068_ix ON lab_c068_emp (last_name) INVISIBLE;\nSELECT index_name, visibility, status FROM user_indexes WHERE index_name = 'LAB_C068_IX';\nALTER INDEX lab_c068_ix VISIBLE;\nSELECT index_name, visibility, status FROM user_indexes WHERE index_name = 'LAB_C068_IX';",
+        "cleanup": "DROP TABLE lab_c068_emp PURGE;",
     },
     {
         "id": "c069",
@@ -747,6 +759,8 @@ FLASHCARDS = [
         "objective": "12.6",
         "front": "Kto widzi dane w globalnej tabeli tymczasowej (global temporary table)?",
         "back": "Tylko Twoja sesja — każda sesja widzi wyłącznie swoje wiersze. ON COMMIT DELETE ROWS: wiersze znikają przy COMMIT (żyją do końca transakcji). ON COMMIT PRESERVE ROWS: zostają do końca sesji.",
+        "try_sql": "-- ON COMMIT DELETE ROWS: wiersz żyje do końca transakcji\nCREATE GLOBAL TEMPORARY TABLE lab_c069_gtt (id NUMBER) ON COMMIT DELETE ROWS;\nINSERT INTO lab_c069_gtt VALUES (1);\nSELECT COUNT(*) AS przed_commit FROM lab_c069_gtt;\n-- COMMENT to DDL, więc robi COMMIT, a wiersze tabeli tymczasowej znikają\nCOMMENT ON TABLE lab_c069_gtt IS 'tabela tymczasowa';\nSELECT COUNT(*) AS po_commit FROM lab_c069_gtt;",
+        "cleanup": "DROP TABLE lab_c069_gtt PURGE;",
     },
     {
         "id": "c070",
@@ -761,6 +775,8 @@ FLASHCARDS = [
         "objective": "11.2",
         "front": "Synonim prywatny a publiczny — czym się różnią?",
         "back": "Prywatny leży w Twoim schemacie i wymaga uprawnienia CREATE SYNONYM. Publiczny należy do PUBLIC, widzą go wszyscy i wymaga CREATE PUBLIC SYNONYM. Żaden synonim nie daje uprawnień do obiektu, na który wskazuje.",
+        "try_sql": "-- Synonim prywatny: leży w Twoim schemacie i wskazuje na EMPLOYEES\nCREATE SYNONYM lab_c600_emp FOR employees;\nSELECT COUNT(*) AS pracownicy FROM lab_c600_emp;\nSELECT synonym_name, table_owner, table_name FROM user_synonyms WHERE synonym_name = 'LAB_C600_EMP';\n-- Synonimy publiczne (np. DUAL) mają właściciela PUBLIC\nSELECT owner, synonym_name, table_owner, table_name FROM all_synonyms WHERE synonym_name = 'DUAL';",
+        "cleanup": "DROP SYNONYM lab_c600_emp;",
     },
     {
         "id": "c601",
@@ -768,6 +784,7 @@ FLASHCARDS = [
         "objective": "11.2",
         "front": "Gdzie Oracle szuka nazwy podanej bez schematu (np. SELECT * FROM emp)?",
         "back": "Najpierw w Twoim schemacie (tabele, widoki, sekwencje, prywatne synonimy), dopiero potem wśród synonimów publicznych. Dwa obiekty o tej samej nazwie w Twoim schemacie są niedozwolone: ORA-00955.",
+        "try_sql": "-- DUAL nie ma w Twoim schemacie: nazwa trafia do synonimu publicznego, a ten do SYS.DUAL\nSELECT owner, object_name, object_type\nFROM   all_objects\nWHERE  object_name = 'DUAL'\nORDER  BY owner;",
     },
     {
         "id": "c602",
@@ -775,6 +792,9 @@ FLASHCARDS = [
         "objective": "11.2",
         "front": "Co, jeśli synonim wskazuje na obiekt, który nie istnieje?",
         "back": "CREATE SYNONYM się uda — Oracle nie sprawdza celu. Błąd pojawi się dopiero przy użyciu: ORA-00980: synonym translation is no longer valid.",
+        "try_sql": "-- CREATE SYNONYM się udaje, choć tabeli LAB_C602_BRAK nie ma\nCREATE SYNONYM lab_c602_syn FOR lab_c602_brak;\nSELECT synonym_name, table_name FROM user_synonyms WHERE synonym_name = 'LAB_C602_SYN';\n-- Błąd pojawia się dopiero przy użyciu\nSELECT * FROM lab_c602_syn;",
+        "try_error": "ORA-00980",
+        "cleanup": "DROP SYNONYM lab_c602_syn;",
     },
     {
         "id": "c603",
@@ -782,6 +802,9 @@ FLASHCARDS = [
         "objective": "11.3",
         "front": "Jakie są domyślne ustawienia CREATE SEQUENCE? Czego nie zmienisz przez ALTER SEQUENCE?",
         "back": "Domyślnie: START WITH 1, INCREMENT BY 1, NOCYCLE, CACHE 20. ALTER nie zmieni START WITH (ORA-02283) i nie ustawi MAXVALUE poniżej bieżącej wartości (ORA-04009). Przy CYCLE sekwencja zaczyna od nowa od MINVALUE, a nie od START WITH.",
+        "try_sql": "-- Domyślne ustawienia sekwencji\nCREATE SEQUENCE lab_c603_seq;\nSELECT min_value, increment_by, cycle_flag, cache_size, last_number\nFROM   user_sequences WHERE sequence_name = 'LAB_C603_SEQ';\n-- START WITH nie zmienisz przez ALTER SEQUENCE\nALTER SEQUENCE lab_c603_seq START WITH 100;",
+        "try_error": "ORA-02283",
+        "cleanup": "DROP SEQUENCE lab_c603_seq;",
     },
     {
         "id": "c604",
@@ -789,6 +812,8 @@ FLASHCARDS = [
         "objective": "13.1",
         "front": "CREATE OR REPLACE VIEW, ALTER VIEW i FORCE — co robi każde z nich?",
         "back": "OR REPLACE zmienia zapytanie widoku i zachowuje nadane uprawnienia. ALTER VIEW tylko kompiluje widok ponownie (COMPILE) albo zarządza jego więzami — zapytania nie zmieni. FORCE tworzy widok nawet wtedy, gdy tabel bazowych brak; widok jest wtedy INVALID.",
+        "try_sql": "-- OR REPLACE zmienia zapytanie widoku (doszła kolumna SALARY)\nCREATE TABLE lab_c604_emp AS SELECT employee_id, last_name, salary FROM employees;\nCREATE VIEW lab_c604_v AS SELECT employee_id, last_name FROM lab_c604_emp;\nCREATE OR REPLACE VIEW lab_c604_v AS SELECT employee_id, last_name, salary FROM lab_c604_emp;\n-- FORCE tworzy widok na nieistniejącej tabeli, ale jest on INVALID\nCREATE FORCE VIEW lab_c604_force AS SELECT * FROM lab_c604_brak;\nSELECT object_name, status FROM user_objects\nWHERE  object_name IN ('LAB_C604_V', 'LAB_C604_FORCE') ORDER BY object_name;\nSELECT text FROM user_views WHERE view_name = 'LAB_C604_V';",
+        "cleanup": "DROP VIEW lab_c604_force;\nDROP VIEW lab_c604_v;\nDROP TABLE lab_c604_emp PURGE;",
     },
     {
         "id": "c605",
@@ -796,6 +821,8 @@ FLASHCARDS = [
         "objective": "11.1",
         "front": "Co to jest indeks funkcyjny (function-based index)?",
         "back": "Indeks na wyniku wyrażenia, np. CREATE INDEX i ON t (UPPER(col)). Pomaga w warunkach z tym samym wyrażeniem, np. WHERE UPPER(col) = 'KING'. W USER_INDEXES ma INDEX_TYPE 'FUNCTION-BASED NORMAL', a wyrażenie jest w USER_IND_EXPRESSIONS.",
+        "try_sql": "-- Indeks na UPPER(last_name) i jego opis w słowniku\nCREATE TABLE lab_c605_emp AS SELECT employee_id, last_name FROM employees;\nCREATE INDEX lab_c605_ix ON lab_c605_emp (UPPER(last_name));\nSELECT index_name, index_type FROM user_indexes WHERE index_name = 'LAB_C605_IX';\nSELECT column_expression FROM user_ind_expressions WHERE index_name = 'LAB_C605_IX';\nSELECT employee_id, last_name FROM lab_c605_emp WHERE UPPER(last_name) = 'KING';",
+        "cleanup": "DROP TABLE lab_c605_emp PURGE;",
     },
     {
         "id": "c1600",
@@ -803,6 +830,7 @@ FLASHCARDS = [
         "objective": "11.2",
         "front": "Kto jest właścicielem synonimu publicznego?",
         "back": "Grupa PUBLIC (ALL_SYNONYMS.OWNER = 'PUBLIC'), a nie użytkownik, który go stworzył. USER_SYNONYMS pokazuje tylko Twoje prywatne synonimy.",
+        "try_sql": "-- Właścicielem synonimu publicznego jest PUBLIC; USER_SYNONYMS pokazuje tylko prywatne\nSELECT owner, synonym_name, table_owner, table_name FROM all_synonyms WHERE synonym_name = 'DUAL';\nSELECT synonym_name FROM user_synonyms;",
     },
     {
         "id": "c1601",
@@ -810,6 +838,9 @@ FLASHCARDS = [
         "objective": "11.2",
         "front": "Jak sprawić, żeby istniejący synonim wskazywał na inny obiekt?",
         "back": "CREATE OR REPLACE [PUBLIC] SYNONYM s FOR new_target. ALTER SYNONYM nie zmieni celu (ORA-00922), a zwykłe CREATE da ORA-00955, bo nazwa jest już zajęta.",
+        "try_sql": "-- OR REPLACE przestawia synonim z EMPLOYEES na DEPARTMENTS\nCREATE SYNONYM lab_c1601_s FOR employees;\nCREATE OR REPLACE SYNONYM lab_c1601_s FOR departments;\nSELECT synonym_name, table_name FROM user_synonyms WHERE synonym_name = 'LAB_C1601_S';\n-- Zwykłe CREATE na zajętej nazwie: ORA-00955\nCREATE SYNONYM lab_c1601_s FOR employees;",
+        "try_error": "ORA-00955",
+        "cleanup": "DROP SYNONYM lab_c1601_s;",
     },
     {
         "id": "c1602",
@@ -824,6 +855,9 @@ FLASHCARDS = [
         "objective": "11.2",
         "front": "Co się dzieje z synonimem, gdy jego tabelę usunięto, a potem utworzono ponownie?",
         "back": "Gdy tabeli nie ma, synonim ma STATUS INVALID, a jego użycie daje ORA-00980. Gdy obiekt o tej nazwie znów istnieje, synonim po prostu działa i staje się VALID. Nie trzeba go tworzyć od nowa.",
+        "try_sql": "-- Usuń tabelę spod synonimu: użycie synonimu daje ORA-00980\nCREATE TABLE lab_c1603_t AS SELECT * FROM departments;\nCREATE SYNONYM lab_c1603_s FOR lab_c1603_t;\nDROP TABLE lab_c1603_t PURGE;\nSELECT COUNT(*) FROM lab_c1603_s;\n-- Tabela znów istnieje: ten sam synonim działa bez tworzenia go od nowa\nCREATE TABLE lab_c1603_t AS SELECT * FROM departments;\nSELECT COUNT(*) AS dzialy FROM lab_c1603_s;",
+        "try_error": "ORA-00980",
+        "cleanup": "DROP SYNONYM lab_c1603_s;\nDROP TABLE lab_c1603_t PURGE;",
     },
     {
         "id": "c1604",
@@ -831,6 +865,8 @@ FLASHCARDS = [
         "objective": "11.2",
         "front": "Czy przez synonim można robić INSERT, UPDATE i DELETE?",
         "back": "Tak. Oracle podmienia synonim na prawdziwy obiekt, więc INSERT/UPDATE/DELETE/MERGE zmieniają tabelę bazową. Uprawnienia do tej tabeli nadal są potrzebne.",
+        "try_sql": "-- INSERT i UPDATE przez synonim zmieniają tabelę bazową\nCREATE TABLE lab_c1604_t AS SELECT department_id, department_name FROM departments;\nCREATE SYNONYM lab_c1604_s FOR lab_c1604_t;\nINSERT INTO lab_c1604_s VALUES (999, 'Lab');\nUPDATE lab_c1604_s SET department_name = 'Lab przez synonim' WHERE department_id = 999;\nSELECT department_id, department_name FROM lab_c1604_t WHERE department_id = 999;",
+        "cleanup": "DROP SYNONYM lab_c1604_s;\nDROP TABLE lab_c1604_t PURGE;",
     },
     {
         "id": "c1605",
@@ -838,6 +874,9 @@ FLASHCARDS = [
         "objective": "11.3",
         "front": "Kolumna IDENTITY: ALWAYS vs BY DEFAULT vs BY DEFAULT ON NULL — jaka różnica?",
         "back": "ALWAYS: nie wolno podać własnej wartości (ORA-32795) ani zmienić jej przez UPDATE (ORA-32796). BY DEFAULT: numer z sekwencji tylko wtedy, gdy pominiesz kolumnę; jawny NULL daje ORA-01400. BY DEFAULT ON NULL: NULL jest zamieniany na kolejny numer.",
+        "try_sql": "-- BY DEFAULT ON NULL: jawny NULL dostaje numer z sekwencji, własna wartość też przechodzi\nCREATE TABLE lab_c1605_on_null (id NUMBER GENERATED BY DEFAULT ON NULL AS IDENTITY, opis VARCHAR2(20));\nINSERT INTO lab_c1605_on_null VALUES (NULL, 'NULL -> numer');\nINSERT INTO lab_c1605_on_null VALUES (100, 'własna wartość');\nSELECT id, opis FROM lab_c1605_on_null ORDER BY id;\n-- ALWAYS: własnej wartości podać nie wolno\nCREATE TABLE lab_c1605_always (id NUMBER GENERATED ALWAYS AS IDENTITY, opis VARCHAR2(20));\nINSERT INTO lab_c1605_always VALUES (100, 'własna wartość');",
+        "try_error": "ORA-32795",
+        "cleanup": "DROP TABLE lab_c1605_on_null PURGE;\nDROP TABLE lab_c1605_always PURGE;",
     },
     {
         "id": "c1606",
@@ -845,6 +884,9 @@ FLASHCARDS = [
         "objective": "11.3",
         "front": "Co Oracle tworzy dla kolumny IDENTITY?",
         "back": "Systemową sekwencję o nazwie ISEQ$$_nnnnn (widać ją w USER_SEQUENCES i USER_TAB_IDENTITY_COLS). Znika razem z tabelą. Kolumna jest od razu NOT NULL. Tabela może mieć tylko jedną kolumnę IDENTITY (ORA-30669).",
+        "try_sql": "-- IDENTITY dostaje systemową sekwencję ISEQ$$_... i od razu NOT NULL\nCREATE TABLE lab_c1606_t (id NUMBER GENERATED ALWAYS AS IDENTITY, opis VARCHAR2(20));\nSELECT column_name, generation_type, sequence_name FROM user_tab_identity_cols WHERE table_name = 'LAB_C1606_T';\nSELECT column_name, nullable FROM user_tab_columns WHERE table_name = 'LAB_C1606_T' ORDER BY column_id;\n-- Druga kolumna IDENTITY w tej samej tabeli: ORA-30669\nALTER TABLE lab_c1606_t ADD (id2 NUMBER GENERATED ALWAYS AS IDENTITY);",
+        "try_error": "ORA-30669",
+        "cleanup": "DROP TABLE lab_c1606_t PURGE;",
     },
     {
         "id": "c1607",
@@ -852,6 +894,9 @@ FLASHCARDS = [
         "objective": "11.3",
         "front": "Kolumna ma DEFAULT seq.NEXTVAL, a ktoś usunął sekwencję. Co wtedy?",
         "back": "Każdy INSERT, który pomija tę kolumnę, kończy się błędem ORA-02289: sequence does not exist. DATA_DEFAULT w USER_TAB_COLUMNS dalej pokazuje nazwę tej sekwencji.",
+        "try_sql": "-- DEFAULT z NEXTVAL, a potem sekwencja znika\nCREATE SEQUENCE lab_c1607_seq;\nCREATE TABLE lab_c1607_t (id NUMBER DEFAULT lab_c1607_seq.NEXTVAL, opis VARCHAR2(20));\nDROP SEQUENCE lab_c1607_seq;\nSELECT column_name, data_default FROM user_tab_columns WHERE table_name = 'LAB_C1607_T' AND column_name = 'ID';\n-- INSERT bez kolumny ID: ORA-02289\nINSERT INTO lab_c1607_t (opis) VALUES ('test');",
+        "try_error": "ORA-02289",
+        "cleanup": "DROP TABLE lab_c1607_t PURGE;\nDROP SEQUENCE lab_c1607_seq;",
     },
     {
         "id": "c1608",
@@ -859,6 +904,7 @@ FLASHCARDS = [
         "objective": "11.1",
         "front": "Dodajesz więz UNIQUE/PK, a indeks na tych kolumnach już istnieje. Co zrobi Oracle?",
         "back": "Użyje istniejącego indeksu (nawet nieunikalnego) i nie stworzy nowego. USER_CONSTRAINTS.INDEX_NAME pokaże ten indeks. Od teraz DROP INDEX na nim da błąd ORA-02429.",
+        "try_sql": "-- INDEX_NAME w USER_CONSTRAINTS pokazuje indeks, którego używa więz PK/UNIQUE\nSELECT c.constraint_name, c.constraint_type, c.index_name, i.uniqueness\nFROM   user_constraints c\nJOIN   user_indexes i ON i.index_name = c.index_name\nWHERE  c.constraint_type IN ('P', 'U')\nORDER  BY c.constraint_name;",
     },
     {
         "id": "c1609",
@@ -866,6 +912,9 @@ FLASHCARDS = [
         "objective": "11.1",
         "front": "Czy można mieć dwa indeksy na tych samych kolumnach?",
         "back": "Tylko gdy czymś się różnią (np. jeden UNIQUE, drugi nie) i najwyżej jeden z nich jest widoczny (VISIBLE). Inaczej dostaniesz ORA-01408: such column list already indexed.",
+        "try_sql": "-- Dwa indeksy na EMPLOYEE_ID: zwykły i UNIQUE, przy czym drugi jest INVISIBLE\nCREATE TABLE lab_c1609_emp AS SELECT employee_id, last_name FROM employees;\nCREATE INDEX lab_c1609_ix1 ON lab_c1609_emp (employee_id);\nCREATE UNIQUE INDEX lab_c1609_ix2 ON lab_c1609_emp (employee_id) INVISIBLE;\nSELECT index_name, uniqueness, visibility FROM user_indexes WHERE table_name = 'LAB_C1609_EMP' ORDER BY index_name;\n-- Trzeci, niczym się nie różniący: ORA-01408\nCREATE INDEX lab_c1609_ix3 ON lab_c1609_emp (employee_id);",
+        "try_error": "ORA-01408",
+        "cleanup": "DROP TABLE lab_c1609_emp PURGE;",
     },
     {
         "id": "c1610",
@@ -873,6 +922,8 @@ FLASHCARDS = [
         "objective": "11.1",
         "front": "Jak usunąć klucz główny, ale zostawić jego indeks?",
         "back": "ALTER TABLE t DROP PRIMARY KEY KEEP INDEX. Bez KEEP INDEX Oracle usunie też indeks, który sam stworzył dla tego klucza.",
+        "try_sql": "-- KEEP INDEX: klucz główny znika, jego indeks zostaje\nCREATE TABLE lab_c1610_t (id NUMBER CONSTRAINT lab_c1610_pk PRIMARY KEY, opis VARCHAR2(20));\nALTER TABLE lab_c1610_t DROP PRIMARY KEY KEEP INDEX;\nSELECT COUNT(*) AS klucze FROM user_constraints WHERE table_name = 'LAB_C1610_T' AND constraint_type = 'P';\nSELECT index_name, uniqueness FROM user_indexes WHERE table_name = 'LAB_C1610_T';",
+        "cleanup": "DROP TABLE lab_c1610_t PURGE;",
     },
     {
         "id": "c1611",
@@ -880,6 +931,7 @@ FLASHCARDS = [
         "objective": "13.1",
         "front": "Jak zrobić Top-N (np. 3 najniższe pensje) z ROWNUM?",
         "back": "Najpierw posortuj w podzapytaniu (inline view), potem filtruj na zewnątrz: SELECT * FROM (SELECT ... ORDER BY sal) WHERE ROWNUM <= 3. Gdy ROWNUM i ORDER BY są w tym samym zapytaniu, ROWNUM jest nadawany przed sortowaniem i dostaniesz przypadkowe 3 wiersze.",
+        "try_sql": "-- Najpierw sortowanie w inline view, potem ROWNUM: 3 najniższe pensje\nSELECT *\nFROM   (SELECT last_name, salary FROM employees ORDER BY salary)\nWHERE  ROWNUM <= 3;\n-- ROWNUM w tym samym zapytaniu: 3 dowolne wiersze, dopiero potem posortowane\nSELECT last_name, salary FROM employees WHERE ROWNUM <= 3 ORDER BY salary;",
     },
 ]
 

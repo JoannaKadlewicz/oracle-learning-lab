@@ -736,6 +736,7 @@ FLASHCARDS = [
         "objective": "14.1",
         "front": "Czym różni się uprawnienie systemowe od obiektowego?",
         "back": "Systemowe pozwala wykonać pewien rodzaj akcji, np. CREATE TABLE albo CREATE SESSION. Obiektowe dotyczy jednego, konkretnego obiektu, np. SELECT ON t. Łatwy test: uprawnienie obiektowe zawsze ma ON.",
+        "try_sql": "-- Systemowe: sama nazwa akcji; obiektowe: zawsze konkretny obiekt (TABLE_NAME)\nSELECT privilege FROM user_sys_privs ORDER BY privilege;\nSELECT owner, table_name, privilege FROM user_tab_privs;",
     },
     {
         "id": "c077",
@@ -743,6 +744,7 @@ FLASHCARDS = [
         "objective": "14.1",
         "front": "WITH GRANT OPTION a WITH ADMIN OPTION – czym się różnią?",
         "back": "WITH GRANT OPTION jest dla uprawnień obiektowych. Gdy je odbierzesz, znikają też u osób, którym ktoś przekazał je dalej (kaskada). WITH ADMIN OPTION jest dla uprawnień systemowych i ról. Tu odebranie nie działa kaskadowo – inni je zachowują.",
+        "try_sql": "-- Systemowe mają kolumnę ADMIN_OPTION, obiektowe kolumnę GRANTABLE (GRANT OPTION)\nSELECT privilege, admin_option FROM user_sys_privs ORDER BY privilege;\nSELECT table_name, privilege, grantable FROM user_tab_privs;",
     },
     {
         "id": "c078",
@@ -750,6 +752,9 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "Czy można nadać uprawnienie obiektowe tylko na wybrane kolumny?",
         "back": "Tak, ale tylko INSERT, UPDATE i REFERENCES, np. GRANT UPDATE (salary) ON emp TO u. SELECT na kolumny się nie da. Zrób widok z wybranymi kolumnami i nadaj SELECT na widok.",
+        "try_sql": "-- UPDATE można nadać na kolumnę, SELECT na kolumnę już nie (ORA-00969)\nCREATE TABLE lab_c078_emp AS SELECT employee_id, last_name, salary FROM employees;\nGRANT UPDATE (salary) ON lab_c078_emp TO PUBLIC;\nGRANT SELECT (salary) ON lab_c078_emp TO PUBLIC;\nSELECT grantee, table_name, column_name, privilege FROM user_col_privs_made WHERE table_name = 'LAB_C078_EMP';",
+        "cleanup": "DROP TABLE lab_c078_emp PURGE;",
+        "try_error": "ORA-00969",
     },
     {
         "id": "c079",
@@ -757,6 +762,7 @@ FLASHCARDS = [
         "objective": "14.1",
         "front": "Jakie uprawnienie pozwala użytkownikowi się zalogować?",
         "back": "CREATE SESSION. Bez niego logowanie się nie uda (ORA-01045).",
+        "try_sql": "-- Bez CREATE SESSION nie dałoby się zalogować i uruchomić tego zapytania\nSELECT privilege FROM session_privs WHERE privilege = 'CREATE SESSION';",
     },
     {
         "id": "c080",
@@ -764,6 +770,7 @@ FLASHCARDS = [
         "objective": "14.3",
         "front": "Czy rola jest obiektem schematu?",
         "back": "Nie. Rola nie należy do żadnego schematu. Rolę można nadać innej roli i można ją nadać PUBLIC.",
+        "try_sql": "-- Tabela EMPLOYEES jest obiektem schematu, a role CONNECT i RESOURCE nie: nie ma ich w ALL_OBJECTS\nSELECT owner, object_name, object_type FROM all_objects WHERE object_name IN ('EMPLOYEES', 'CONNECT', 'RESOURCE');",
     },
     {
         "id": "c700",
@@ -771,6 +778,9 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "Czy można odebrać UPDATE tylko z jednej kolumny?",
         "back": "Nie, dostaniesz ORA-01750. Nadać UPDATE/REFERENCES na kolumny można, ale odebrać trzeba z całej tabeli: REVOKE UPDATE ON t FROM u.",
+        "try_sql": "-- UPDATE nadany na dwie kolumny: z jednej nie odbierzesz (ORA-01750), tylko z całej tabeli\nCREATE TABLE lab_c700_t (a NUMBER, b NUMBER);\nGRANT UPDATE (a, b) ON lab_c700_t TO PUBLIC;\nREVOKE UPDATE (a) ON lab_c700_t FROM PUBLIC;\nSELECT column_name, privilege FROM user_col_privs_made WHERE table_name = 'LAB_C700_T';\nREVOKE UPDATE ON lab_c700_t FROM PUBLIC;\nSELECT COUNT(*) AS ile FROM user_col_privs_made WHERE table_name = 'LAB_C700_T';",
+        "cleanup": "DROP TABLE lab_c700_t PURGE;",
+        "try_error": "ORA-01750",
     },
     {
         "id": "c701",
@@ -778,6 +788,9 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "Jakie uprawnienia obiektowe można nadać na sekwencję, a jakie na widok?",
         "back": "Sekwencja: tylko SELECT i ALTER (inne dają ORA-02205). Widok: SELECT i uprawnienia DML (INSERT, UPDATE, DELETE…), ale nie ALTER, INDEX ani EXECUTE (ORA-02204).",
+        "try_sql": "-- Sekwencja: tylko SELECT i ALTER (ORA-02205); widok: SELECT i DML, ale nie ALTER (ORA-02204)\nCREATE SEQUENCE lab_c701_s;\nGRANT SELECT, ALTER ON lab_c701_s TO PUBLIC;\nGRANT INSERT ON lab_c701_s TO PUBLIC;\nCREATE VIEW lab_c701_v AS SELECT employee_id, last_name FROM employees;\nGRANT SELECT, INSERT, UPDATE, DELETE ON lab_c701_v TO PUBLIC;\nGRANT ALTER ON lab_c701_v TO PUBLIC;\nSELECT table_name, privilege FROM user_tab_privs_made WHERE table_name IN ('LAB_C701_S', 'LAB_C701_V') ORDER BY 1, 2;",
+        "cleanup": "DROP VIEW lab_c701_v;\nDROP SEQUENCE lab_c701_s;",
+        "try_error": "ORA-02205",
     },
     {
         "id": "c702",
@@ -785,6 +798,7 @@ FLASHCARDS = [
         "objective": "14.3",
         "front": "Czym różni się SESSION_PRIVS od USER_SYS_PRIVS?",
         "back": "SESSION_PRIVS pokazuje uprawnienia systemowe, których możesz użyć teraz, w tej sesji – także te z włączonych ról. USER_SYS_PRIVS pokazuje tylko uprawnienia systemowe nadane Ci bezpośrednio, razem z kolumną ADMIN_OPTION.",
+        "try_sql": "-- Porównaj: SESSION_PRIVS (też z ról) i USER_SYS_PRIVS (tylko nadane wprost, z ADMIN_OPTION)\nSELECT privilege FROM session_privs ORDER BY privilege;\nSELECT privilege, admin_option FROM user_sys_privs ORDER BY privilege;\nSELECT role FROM session_roles;",
     },
     {
         "id": "c703",
@@ -799,6 +813,9 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "Czy WITH GRANT OPTION można dać roli? A PUBLIC?",
         "back": "Roli nie – dostaniesz ORA-01926. Użytkownikowi albo PUBLIC – tak.",
+        "try_sql": "-- WITH GRANT OPTION dla PUBLIC działa, dla roli nie (ORA-01926)\nCREATE TABLE lab_c704_t (n NUMBER);\nGRANT SELECT ON lab_c704_t TO PUBLIC WITH GRANT OPTION;\nGRANT SELECT ON lab_c704_t TO resource WITH GRANT OPTION;\nSELECT grantee, privilege, grantable FROM user_tab_privs_made WHERE table_name = 'LAB_C704_T';",
+        "cleanup": "DROP TABLE lab_c704_t PURGE;",
+        "try_error": "ORA-01926",
     },
     {
         "id": "c705",
@@ -806,6 +823,8 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "Co się dzieje z nadanymi uprawnieniami, gdy usuniesz tabelę?",
         "back": "Znikają razem z tabelą. Jeśli potem utworzysz nową tabelę o tej samej nazwie, nie będzie miała żadnych nadań.",
+        "try_sql": "-- Nadanie znika razem z tabelą; nowa tabela o tej samej nazwie nie ma żadnych nadań\nCREATE TABLE lab_c705_t (n NUMBER);\nGRANT SELECT ON lab_c705_t TO PUBLIC;\nSELECT grantee, privilege FROM user_tab_privs_made WHERE table_name = 'LAB_C705_T';\nDROP TABLE lab_c705_t PURGE;\nCREATE TABLE lab_c705_t (n NUMBER);\nSELECT COUNT(*) AS nadania FROM user_tab_privs_made WHERE table_name = 'LAB_C705_T';",
+        "cleanup": "DROP TABLE lab_c705_t PURGE;",
     },
     {
         "id": "c1700",
@@ -813,6 +832,8 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "GRANT SELECT na synonim – co zostaje zapisane?",
         "back": "Nadanie na obiekt, na który wskazuje synonim. W USER_TAB_PRIVS_MADE zobaczysz tabelę, a nie synonim. Synonim to tylko druga nazwa.",
+        "try_sql": "-- GRANT na synonim zapisuje się na tabeli, na którą on wskazuje\nCREATE TABLE lab_c1700_t (n NUMBER);\nCREATE SYNONYM lab_c1700_s FOR lab_c1700_t;\nGRANT SELECT ON lab_c1700_s TO PUBLIC;\nSELECT grantee, table_name, privilege FROM user_tab_privs_made WHERE table_name IN ('LAB_C1700_T', 'LAB_C1700_S');",
+        "cleanup": "DROP SYNONYM lab_c1700_s;\nDROP TABLE lab_c1700_t PURGE;",
     },
     {
         "id": "c1701",
@@ -820,6 +841,9 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "GRANT ... TO użytkownik, który nie istnieje – co się stanie?",
         "back": "Błąd ORA-01917: user or role does not exist. Oracle nie zapamiętuje nadań „na przyszłość”. Tylko nadanie dla PUBLIC obejmuje też użytkowników utworzonych później.",
+        "try_sql": "-- Nieistniejący użytkownik: ORA-01917, nic się nie zapisuje; PUBLIC działa\nCREATE TABLE lab_c1701_t (n NUMBER);\nGRANT SELECT ON lab_c1701_t TO lab_c1701_nobody;\nGRANT SELECT ON lab_c1701_t TO PUBLIC;\nSELECT grantee, privilege FROM user_tab_privs_made WHERE table_name = 'LAB_C1701_T';",
+        "cleanup": "DROP TABLE lab_c1701_t PURGE;",
+        "try_error": "ORA-01917",
     },
     {
         "id": "c1702",
@@ -827,6 +851,9 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "REVOKE ALL, gdy nadałeś tylko część uprawnień?",
         "back": "Działa i zabiera to, co naprawdę nadałeś. Ale jeśli wymienisz z nazwy uprawnienie, którego nigdy nie nadałeś (np. REVOKE SELECT, INSERT ...), dostaniesz ORA-01927 i nic nie zostanie odebrane.",
+        "try_sql": "-- Nadany tylko SELECT: REVOKE SELECT, INSERT daje ORA-01927 i nic nie odbiera; REVOKE ALL działa\nCREATE TABLE lab_c1702_t (n NUMBER);\nGRANT SELECT ON lab_c1702_t TO PUBLIC;\nREVOKE SELECT, INSERT ON lab_c1702_t FROM PUBLIC;\nSELECT privilege FROM user_tab_privs_made WHERE table_name = 'LAB_C1702_T';\nREVOKE ALL ON lab_c1702_t FROM PUBLIC;\nSELECT COUNT(*) AS nadania FROM user_tab_privs_made WHERE table_name = 'LAB_C1702_T';",
+        "cleanup": "DROP TABLE lab_c1702_t PURGE;",
+        "try_error": "ORA-01927",
     },
     {
         "id": "c1703",
@@ -834,6 +861,8 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "ORA-00942 czy ORA-01031 przy cudzej tabeli – kiedy który?",
         "back": "ORA-00942: nie masz żadnego uprawnienia, więc tabela wygląda, jakby jej nie było. ORA-01031: widzisz tabelę (np. masz SELECT), ale brakuje Ci tego konkretnego uprawnienia, np. UPDATE. W 23ai zamiast tego jest dokładniejszy ORA-41900 (missing UPDATE privilege).",
+        "try_sql": "-- Brak jakiegokolwiek uprawnienia: tabela „nie istnieje” (ORA-00942)\nSELECT COUNT(*) FROM sys.obj$;\n-- Masz SELECT na SYS.DUAL, ale nie UPDATE: ORA-01031 (w 23ai ORA-41900)\nUPDATE sys.dual SET dummy = 'Y';",
+        "try_error": "ORA-00942",
     },
     {
         "id": "c1704",
@@ -841,6 +870,9 @@ FLASHCARDS = [
         "objective": "14.2",
         "front": "Chcesz nadać SELECT na swój widok, który czyta cudzą tabelę. Czego potrzebujesz?",
         "back": "Musisz mieć SELECT na tę cudzą tabelę z WITH GRANT OPTION. Bez tego GRANT kończy się błędem ORA-01720.",
+        "try_sql": "-- PUBLIC ma READ na SYS.SYSTEM_PRIVILEGE_MAP bez GRANT OPTION: widok działa, ale nadać go dalej nie można (ORA-01720)\nSELECT privilege, grantable FROM all_tab_privs WHERE table_schema = 'SYS' AND table_name = 'SYSTEM_PRIVILEGE_MAP' AND grantee = 'PUBLIC';\nCREATE VIEW lab_c1704_v AS SELECT name FROM sys.system_privilege_map;\nSELECT COUNT(*) AS ile FROM lab_c1704_v;\nGRANT SELECT ON lab_c1704_v TO PUBLIC;",
+        "cleanup": "DROP VIEW lab_c1704_v;",
+        "try_error": "ORA-01720",
     },
     {
         "id": "c1705",
@@ -869,6 +901,7 @@ FLASHCARDS = [
         "objective": "14.3",
         "front": "Co dają role CONNECT i RESOURCE?",
         "back": "CONNECT daje CREATE SESSION, czyli logowanie. RESOURCE daje CREATE TABLE, SEQUENCE, PROCEDURE, TRIGGER, TYPE…, ale nie daje CREATE SESSION. Sama RESOURCE nie wystarczy więc do zalogowania.",
+        "try_sql": "-- Jakie uprawnienia systemowe dają role CONNECT i RESOURCE (widać tylko role, które masz)\nSELECT role, privilege FROM role_sys_privs WHERE role IN ('CONNECT', 'RESOURCE') ORDER BY role, privilege;\nSELECT role FROM session_roles;",
     },
     {
         "id": "c1709",
@@ -884,6 +917,7 @@ FLASHCARDS = [
         "exams": ["1Z0-171"],
         "front": "Uprawnienia na schemat w 23ai – co to jest?",
         "back": "Np. GRANT SELECT ANY TABLE ON SCHEMA hr TO u. To uprawnienie ANY, ale tylko dla jednego schematu. Obejmuje też tabele utworzone później. Widać je w USER_SCHEMA_PRIVS. W 19c tej składni nie ma.",
+        "try_sql": "-- Uprawnienia na schemat nadane Tobie (23ai); w 19c tego widoku nie ma\nSELECT * FROM user_schema_privs;",
     },
     {
         "id": "c1711",
@@ -892,6 +926,7 @@ FLASHCARDS = [
         "exams": ["1Z0-171"],
         "front": "Co to jest DB_DEVELOPER_ROLE (23ai)?",
         "back": "Gotowa rola dla programisty. Zawiera m.in. CREATE SESSION, CREATE DOMAIN, CREATE JOB… oraz rolę RESOURCE. Nie zawiera żadnych uprawnień ANY.",
+        "try_sql": "-- Co zawiera DB_DEVELOPER_ROLE: uprawnienia systemowe (bez ANY) i rola RESOURCE\nSELECT privilege FROM role_sys_privs WHERE role = 'DB_DEVELOPER_ROLE' ORDER BY privilege;\nSELECT granted_role FROM role_role_privs WHERE role = 'DB_DEVELOPER_ROLE';",
     },
 ]
 

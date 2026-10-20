@@ -78,6 +78,23 @@
   .index-card { height: 416px; }
 }
 
+/* Card and SQL editor side by side when there is room, the editor below the card otherwise */
+.deck-split { display: grid; gap: 28px; align-items: start; }
+.card-try { display: grid; gap: 14px; min-width: 0; }
+.card-try-head h2 { margin: 0 0 2px; font-size: var(--t-l); }
+.card-try-head p { margin: 0; color: var(--muted); font-size: var(--t-s); }
+.card-try .CodeMirror, .card-try textarea.editor { min-height: 180px; height: auto; }
+.card-try .CodeMirror-scroll { min-height: 180px; max-height: 340px; }
+.card-try .results:empty { display: none; }
+
+@media (min-width: 1180px) {
+  .deck-split { grid-template-columns: minmax(0, 660px) minmax(360px, 1fr); }
+  .deck-split .deck { justify-items: stretch; }
+  .card-try { position: sticky; top: 24px; }
+}
+@media (min-width: 1600px) { .deck-split { grid-template-columns: minmax(0, 780px) minmax(0, 1fr); } }
+@media (min-width: 2200px) { .deck-split { grid-template-columns: minmax(0, 872px) minmax(0, 1fr); } }
+
 /* The card is drawn on a fixed 32px ruling, so on large monitors it is scaled as a whole */
 @media (min-width: 1600px) { .deck { zoom: 1.18; } }
 @media (min-width: 2200px) { .deck { zoom: 1.32; } }
