@@ -310,6 +310,40 @@ def daily_plan(content, state, now, rng=random):
     }
 
 
+def day_start(now):
+    return datetime.datetime.combine(local_day(now), datetime.time()).timestamp()
+
+
+def as_of(state, t):
+    """The progress as it was at time t: answers, card reviews and exercise checks from t on left out.
+    An exercise checked after t is left out entirely (its entry only keeps the last check)."""
+    attempts = {qid: kept for qid, history in state.get("attempts", {}).items()
+                if (kept := [a for a in history if a["t"] < t])}
+    cards = {cid: {**entry, "reviews": kept} for cid, entry in state.get("cards", {}).items()
+             if (kept := [r for r in entry.get("reviews", []) if r[0] < t])}
+    labs = {lid: entry for lid, entry in state.get("labs", {}).items() if entry.get("t", 0) < t}
+    return {**state, "attempts": attempts, "cards": cards, "labs": labs}
+
+
+def todays_plan(content, state, now):
+    """The daily plan as set at the start of the day, with what is done since.
+
+    The plan is built from the progress at midnight, so finishing an item ticks it off instead of
+    replacing it with the next one. Everything due by the end of the day is part of it."""
+    start = day_start(now)
+    end = day_start(start + 1.5 * DAY)
+    plan = daily_plan(content, as_of(state, start), end - 1, rng=random.Random(local_day(now).toordinal()))
+    attempts, cards, labs = state.get("attempts", {}), state.get("cards", {}), state.get("labs", {})
+    questions = [qid for qid in plan["questions"] if any(a["t"] >= start for a in attempts.get(qid, []))]
+    reviewed = [cid for cid in plan["cards"] if any(r[0] >= start for r in cards.get(cid, {}).get("reviews", []))]
+    lab = labs.get(plan["lab"], {})
+    lab_done = bool(lab.get("passed") and lab.get("t", 0) >= start)
+    plan["done"] = {"questions": questions, "cards": reviewed, "lab": lab_done}
+    plan["complete"] = (len(questions) == len(plan["questions"]) and len(reviewed) == len(plan["cards"])
+                        and (lab_done or not plan["lab"]))
+    return plan
+
+
 # --------------------------------------------------------------------------- mock exams
 
 MOCK_GRACE = 60  # seconds after the deadline in which answers and the submit are still accepted
@@ -673,7 +707,7 @@ def progress(content, state, now):
         "due_reviews": len(due_reviews(content, state, now)),
         "cards": {cid: {"interval": round(s["interval"], 1), "due": s["due"], "reps": s["reps"]} for cid, s in cards.items()},
         "calibration": calibration(state.get("attempts", {})),
-        "plan": daily_plan(content, state, now, rng=random.Random(local_day(now).toordinal())),
+        "plan": todays_plan(content, state, now),
         "settings": state.get("settings", {}),
         "proof_days": PROOF_DAYS,
         "readiness": readiness(content, state, now),

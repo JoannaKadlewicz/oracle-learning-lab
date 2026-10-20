@@ -157,3 +157,29 @@ def test_daily_plan_fits_the_time_and_counts_days_left():
 def test_daily_plan_skips_the_lab_when_time_is_short():
     plan = engine.daily_plan(CONTENT, {"settings": {"daily_minutes": 10}}, NOW, rng=random.Random(1))
     assert plan["lab"] is None and plan["days_left"] is None
+
+
+def test_todays_plan_ticks_items_off_instead_of_replacing_them():
+    state = {"settings": {"daily_minutes": 30}, "attempts": {}, "cards": {}, "labs": {}}
+    before = engine.todays_plan(CONTENT, state, NOW)
+    assert before["done"] == {"questions": [], "cards": [], "lab": False} and not before["complete"]
+
+    for qid in before["questions"]:
+        state["attempts"][qid] = [{**answer(0, True), "t": NOW + 60}]
+    state["cards"]["c001"] = {"reviews": [[NOW + 60, "good"]]}
+    after = engine.todays_plan(CONTENT, state, NOW + 120)
+    assert after["questions"] == before["questions"] and after["cards"] == before["cards"]
+    assert after["done"]["questions"] == before["questions"]
+    assert after["done"]["cards"] == ["c001"] and not after["complete"]
+
+    state["cards"]["c002"] = {"reviews": [[NOW + 60, "again"]]}
+    state["labs"][before["lab"]] = {"tries": 2, "passed": True, "t": NOW + 90}
+    assert engine.todays_plan(CONTENT, state, NOW + 120)["complete"]
+
+
+def test_todays_plan_ignores_work_from_earlier_days():
+    state = {"settings": {"daily_minutes": 30}, "cards": {"c001": {"reviews": [[NOW - 3 * DAY, "again"]]}},
+             "attempts": {"q06-a": [answer(1, False)]}, "labs": {}}
+    plan = engine.todays_plan(CONTENT, state, NOW)
+    assert "c001" in plan["cards"] and "q06-a" in plan["questions"]
+    assert plan["done"] == {"questions": [], "cards": [], "lab": False}

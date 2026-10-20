@@ -148,3 +148,37 @@
   --shadow-pop: 0 24px 70px -20px rgba(0, 0, 0, .85);
   color-scheme: dark;
 }
+
+/* Large monitors: wider content and a larger type scale, so a 23" or 27" screen is used
+   instead of leaving half of it empty. Laptop sizes keep the base scale above. */
+@media (min-width: 1600px) {
+  :root {
+    --t-xs: 14px;
+    --t-s: 15px;
+    --t-m: 17px;
+    --t-l: 19.5px;
+    --t-xl: 24px;
+    --t-2xl: 31px;
+    --t-3xl: 40px;
+    --t-hero: 72px;
+    --rail-w: 272px;
+    --content-w: 1440px;
+    --reading-w: 880px;
+  }
+}
+
+@media (min-width: 2200px) {
+  :root {
+    --t-xs: 15px;
+    --t-s: 16.5px;
+    --t-m: 18.5px;
+    --t-l: 21px;
+    --t-xl: 26px;
+    --t-2xl: 34px;
+    --t-3xl: 44px;
+    --t-hero: 80px;
+    --rail-w: 296px;
+    --content-w: 1760px;
+    --reading-w: 980px;
+  }
+}

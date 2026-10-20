@@ -98,6 +98,7 @@
 .timer.warn { color: var(--bad); }
 .timer.warn svg { color: var(--bad); }
 @media (max-width: 900px) { .exam-bar { top: 56px; } }
+@media (min-width: 1600px) { .q-prompt { font-size: 23.5px; } }
 
 .qgrid { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
 .qgrid button {

@@ -77,3 +77,7 @@
   .card-back .card-text { font-size: 17px; }
   .index-card { height: 416px; }
 }
+
+/* The card is drawn on a fixed 32px ruling, so on large monitors it is scaled as a whole */
+@media (min-width: 1600px) { .deck { zoom: 1.18; } }
+@media (min-width: 2200px) { .deck { zoom: 1.32; } }

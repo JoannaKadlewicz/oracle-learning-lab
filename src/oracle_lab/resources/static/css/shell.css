@@ -18,6 +18,7 @@
 main {
   width: 100%;
   max-width: calc(var(--content-w) + 2 * 56px);
+  margin-inline: auto;
   padding: 44px clamp(16px, 4.5vw, 56px) 96px;
 }
 main:focus { outline: none; }
@@ -156,6 +157,12 @@ main.reading { max-width: calc(var(--reading-w) + 2 * 56px); }
   .shell.nav-open .scrim { opacity: 1; pointer-events: auto; }
 
   main { padding-top: 28px; }
+}
+
+@media (min-width: 1600px) {
+  .nav a { min-height: 44px; }
+  .nav a svg { width: 22px; height: 22px; }
+  .brand-text strong { font-size: 18px; }
 }
 
 @media (max-width: 600px) {

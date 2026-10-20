@@ -56,7 +56,7 @@
   content: counter(step);
   position: absolute;
   left: -50px;
-  top: 6px;
+  top: calc((var(--line) - 26px) / 2);
   width: 26px;
   height: 26px;
   display: grid;
@@ -68,6 +68,42 @@
   background: var(--card-paper);
 }
 .session-steps a.done::before { content: "✓"; background: var(--card-ink); color: var(--card-paper); }
+.session-steps a.done strong { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--card-margin); color: var(--card-muted); }
+.session-steps a.done:hover strong { text-decoration: line-through; }
+
+/* Progress drawn over the red header line, like a highlighter stroke; out of the flow so the ruling holds */
+.session-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(2 * var(--line) - 4px);
+  height: 6px;
+  pointer-events: none;
+}
+.session-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--done) * 100%);
+  border-radius: 0 3px 3px 0;
+  background: #2E9E6A;
+  transition: width .4s var(--ease);
+}
+.session-card.complete .session-head span { color: #1D7A55; font-weight: 700; }
+.session-foot .session-stamp {
+  display: inline-block;
+  margin-top: -6px; /* centred on the rule, like the button beside it */
+  padding: 2px 12px;
+  border: 2px solid #1D7A55;
+  border-radius: 4px;
+  color: #1D7A55;
+  font-weight: 750;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  line-height: 24px;
+  white-space: nowrap;
+  transform: rotate(-3deg);
+}
 .session-steps strong, .session-steps small {
   line-height: var(--line);
   white-space: nowrap;
@@ -145,6 +181,17 @@
 /* 4, 2 or 1 columns: never a lone item on its own row */
 @media (min-width: 1280px) { .next-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
+@media (min-width: 1600px) {
+  .session-card { --line: 36px; padding-left: 84px; }
+  .session-card::before { left: 62px; }
+  .session-head h2 { font-size: 24px; }
+  .session-steps strong { font-size: 19.5px; }
+  .fact-value { font-size: 60px; }
+  .fact-value small { font-size: 20px; }
+  .exam-line { font-size: 16.5px; }
+  .advice li { font-size: 16.5px; }
+}
+
 @media (max-width: 1080px) {
   .today-hero { grid-template-columns: minmax(0, 1fr); }
   .exam-facts { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
@@ -154,9 +201,10 @@
   .next-list { grid-template-columns: minmax(0, 1fr); }
   .session-card { padding: 0 16px 0 52px; }
   .session-card::before { left: 38px; }
-  .session-steps a::before { left: -44px; width: 24px; height: 24px; top: 7px; }
+  .session-steps a::before { left: -44px; width: 24px; height: 24px; top: calc((var(--line) - 24px) / 2); }
   .session-head h2 { font-size: 19px; }
   .session-head span, .session-foot span { display: none; }
   .session-foot { justify-content: flex-end; }
+  .session-foot .session-stamp { margin-right: auto; padding: 0 8px; font-size: var(--t-xs); letter-spacing: .03em; }
   .fact-value { font-size: 42px; }
 }

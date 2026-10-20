@@ -3,7 +3,7 @@
 
 import { $$, esc, plural, icon } from "../core/dom.js";
 import { C, P, L, CARD, DB, mistakes, topicStats, topicLabel } from "../core/state.js";
-import { main } from "../core/router.js";
+import { main, go } from "../core/router.js";
 import { levelBadge, meter, section } from "../ui/widgets.js";
 import { startQuiz, startMock, resumeMock } from "./quiz.js";
 import { openDeck } from "./cards.js";
@@ -49,8 +49,16 @@ function render() {
   const plan = P.plan;
   const miss = mistakes().length;
   const lab = plan.lab ? L[plan.lab] : null;
-  const cardMinutes = Math.max(1, Math.round(plan.cards.length * 0.3));
-  const questionMinutes = Math.max(1, Math.round(plan.questions.length * 1.5));
+  const done = plan.done;
+  const questionsLeft = plan.questions.filter(id => !done.questions.includes(id));
+  const cardsLeft = plan.cards.filter(id => !done.cards.includes(id));
+  const cardMinutes = Math.max(1, Math.round(cardsLeft.length * 0.3));
+  const questionMinutes = Math.max(1, Math.round(questionsLeft.length * 1.5));
+  const total = plan.questions.length + plan.cards.length + (lab ? 1 : 0);
+  const finished = done.questions.length + done.cards.length + (done.lab ? 1 : 0);
+  const minutesLeft = Math.round(questionsLeft.length * 1.5 + cardsLeft.length * 0.3 + (lab && !done.lab ? 8 : 0));
+  const questionsDone = !questionsLeft.length;
+  const cardsDone = plan.cards.length && !cardsLeft.length;
   const mock = P.active_mock;
   const mockLeft = mock ? Math.max(0, Math.round((mock.deadline - Date.now() / 1000) / 60)) : 0;
 
@@ -69,25 +77,32 @@ function render() {
     ${trackWarning()}
 
     <div class="today-hero">
-      <article class="session-card" aria-labelledby="session-title">
-        <div class="session-head"><h2 id="session-title">Today's session</h2><span>About ${plan.estimate} minutes</span></div>
+      <article class="session-card ${plan.complete ? "complete" : ""}" aria-labelledby="session-title">
+        <div class="session-head"><h2 id="session-title">Today's session</h2>
+          <span>${plan.complete ? "All done" : finished ? `${finished} of ${total} done, about ${plural(minutesLeft, "minute")} left` : `About ${plan.estimate} minutes`}</span></div>
+        <div class="session-progress" role="progressbar" aria-label="Today's session" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${finished}"
+          style="--done: ${total ? finished / total : 0}"></div>
         <ol class="session-steps">
-          <li><a href="/quiz" data-start="plan">
+          <li><a href="/quiz" data-start="questions" class="${questionsDone ? "done" : ""}">
             <strong>Answer ${plural(plan.questions.length, "question")}</strong>
-            <small>Open mistakes, due reviews and your weakest objectives</small>
-            <span class="minutes">${questionMinutes} min</span></a></li>
-          <li><a href="/cards" data-start="cards" ${plan.cards.length ? "" : `aria-disabled="true" tabindex="-1"`}>
+            <small>${questionsDone ? "All answered" : done.questions.length ? `${done.questions.length} of ${plan.questions.length} answered` : "Open mistakes, due reviews and your weakest objectives"}</small>
+            <span class="minutes">${questionsDone ? "" : `${questionMinutes} min`}</span></a></li>
+          <li><a href="/cards" data-start="cards" class="${cardsDone ? "done" : ""}" ${plan.cards.length ? "" : `aria-disabled="true" tabindex="-1"`}>
             <strong>${plan.cards.length ? `Review ${plural(plan.cards.length, "flashcard")}` : "No flashcards due today"}</strong>
-            <small>${plan.cards.length ? "Spaced by how well you know them" : "Come back tomorrow, or study a topic deck"}</small>
-            <span class="minutes">${plan.cards.length ? `${cardMinutes} min` : ""}</span></a></li>
-          ${lab ? `<li><a href="/exercises/${esc(lab.id)}">
+            <small>${cardsDone ? "All reviewed" : done.cards.length ? `${done.cards.length} of ${plan.cards.length} reviewed`
+              : plan.cards.length ? "Spaced by how well you know them" : "Come back tomorrow, or study a topic deck"}</small>
+            <span class="minutes">${cardsLeft.length ? `${cardMinutes} min` : ""}</span></a></li>
+          ${lab ? `<li><a href="/exercises/${esc(lab.id)}" class="${done.lab ? "done" : ""}">
             <strong>Exercise: ${esc(lab.title)}</strong>
-            <small>${esc(topicLabel(lab.topic))}, one of your weakest objectives</small>
-            <span class="minutes">8 min</span></a></li>` : ""}
+            <small>${done.lab ? "Passed" : `${esc(topicLabel(lab.topic))}, one of your weakest objectives`}</small>
+            <span class="minutes">${done.lab ? "" : "8 min"}</span></a></li>` : ""}
         </ol>
         <div class="session-foot">
-          <span>${plan.minutes} minutes a day planned</span>
-          <button class="btn" data-start="plan">Start the session</button>
+          ${plan.complete
+            ? `<span class="session-stamp">Done for today</span>
+               <button class="btn" data-start="more">Practise 10 more</button>`
+            : `<span>${plan.minutes} minutes a day planned</span>
+               <button class="btn" data-start="next">${finished ? "Continue the session" : "Start the session"}</button>`}
         </div>
       </article>
 
@@ -135,8 +150,12 @@ function render() {
     const kind = a.dataset.start;
     if (kind === "mock") startMock();
     else if (kind === "resume") resumeMock();
-    else if (kind === "plan") startQuiz({ mode: "practice", ids: plan.questions, keepOrder: true });
-    else if (plan.cards.length) openDeck(plan.cards.map(id => CARD[id]), true);
+    else if (kind === "more") startQuiz({ mode: "practice", count: 10 });
+    // The next unfinished step: questions, then flashcards, then the exercise.
+    else if (kind === "questions" || (kind === "next" && questionsLeft.length)) {
+      startQuiz({ mode: "practice", ids: questionsLeft.length ? questionsLeft : plan.questions, keepOrder: true });
+    } else if (kind === "cards" || cardsLeft.length) openDeck((cardsLeft.length ? cardsLeft : plan.cards).map(id => CARD[id]), true);
+    else if (lab) go(`/exercises/${lab.id}`);
   }));
   $$("[data-topic]", main).forEach(b => b.addEventListener("click", () => startQuiz({ mode: "practice", topics: [b.dataset.topic], count: 10 })));
   $$("[data-note]", main).forEach(b => b.addEventListener("click", () => openNote(b.dataset.note)));

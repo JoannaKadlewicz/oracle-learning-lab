@@ -8,6 +8,7 @@ export const main = $("#main");
 const views = {};
 let current = null;
 let listeners = [];
+let navigation = 0;  // counts route() calls, so a render that finishes after the user moved on is ignored
 
 export function registerViews(map) { Object.assign(views, map); }
 export const currentView = () => current;
@@ -29,13 +30,17 @@ export async function route() {
   });
   main.className = "";
   setTitle(views[next].title);
+  const id = ++navigation;
   try {
     await views[next].render(arg ? decodeURIComponent(arg) : undefined);
   } catch (err) {
+    // A view still loading when the user left fails on elements that are gone; the new page stays.
+    if (id !== navigation) return;
     console.error(err);
     main.innerHTML = `<div class="empty"><strong>This page could not be loaded</strong>
       <p>${esc(err.message)}</p><button class="btn secondary" onclick="location.reload()">Reload the app</button></div>`;
   }
+  if (id !== navigation) return;
   listeners.forEach(fn => fn(next));
   main.focus({ preventScroll: true });
   window.scrollTo(0, 0);
