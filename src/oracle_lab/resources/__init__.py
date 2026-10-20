@@ -6,3 +6,4 @@ ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 SQL_DIR = ROOT / "sql"
 NOTES_DIR = ROOT / "notes"
+COMMON_PASSWORDS = ROOT / "common-passwords.txt"
