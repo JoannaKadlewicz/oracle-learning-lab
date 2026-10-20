@@ -4,6 +4,11 @@ The database comes from the same STUDY_* settings as the app (see oracle_lab.con
 the Oracle state store take `state_database`, a user of its own that they empty: STUDY_TEST_STATE_USER
 and STUDY_TEST_STATE_PASSWORD[_FILE], on STUDY_TEST_STATE_DSN (default: STUDY_DSN). Never point it at
 the user that keeps your progress.
+
+The practice-schema tests take `provisioner_database`: STUDY_TEST_PROVISIONER_USER and
+STUDY_TEST_PROVISIONER_PASSWORD[_FILE] (may create and drop users), and STUDY_TEST_GATEWAY_USER and
+STUDY_TEST_GATEWAY_PASSWORD[_FILE] (CREATE SESSION only), on STUDY_DSN. They only ever drop the
+OLL_U* users they created.
 """
 
 import http.client
@@ -16,7 +21,7 @@ import urllib.request
 import pytest
 
 from oracle_lab.bootstrap import build_app
-from oracle_lab.config import DatabaseTarget, Settings
+from oracle_lab.config import DatabaseTarget, PracticeTarget, Settings
 from oracle_lab.credentials import resolve_secret
 from oracle_lab.database.connection import OracleDatabase
 from oracle_lab.web.server import create_server
@@ -44,6 +49,22 @@ def state_database():
     except Exception as exc:  # noqa: BLE001
         pytest.skip(f"state database not reachable: {exc}")
     return db
+
+
+@pytest.fixture(scope="session")
+def provisioner_database():
+    """A PracticeTarget for the test provisioner and gateway users (tablespace USERS, 50 MB quota)."""
+    users = {}
+    for role in ("PROVISIONER", "GATEWAY"):
+        user, password = os.environ.get(f"STUDY_TEST_{role}_USER"), resolve_secret(f"STUDY_TEST_{role}_PASSWORD")
+        if not user or password is None:
+            pytest.skip(f"STUDY_TEST_{role}_USER / STUDY_TEST_{role}_PASSWORD not set")
+        users[role] = DatabaseTarget(user, Settings.from_env().database.dsn, password)
+    try:
+        OracleDatabase(users["PROVISIONER"]).connect().close()
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"provisioner database not reachable: {exc}")
+    return PracticeTarget(provisioner=users["PROVISIONER"], gateway=users["GATEWAY"], tablespace="USERS", quota_mb=50)
 
 
 # --- the web app over a real socket (test_web.py, test_auth_web.py) ---

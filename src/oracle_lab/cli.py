@@ -2,7 +2,8 @@
 
     oracle-lab serve          run the web app
     oracle-lab init-db        wait for the database(s) and create the sample schema (and the app's
-                              tables, with STUDY_STATE_USER) if missing
+                              tables, with STUDY_STATE_USER) if missing, and the practice-schema
+                              profile OLL_LEARNER where practice schemas are configured
     oracle-lab validate       check the study content (see `oracle-lab validate --help`)
     oracle-lab demo PATH      write a simulated study history, for screenshots
     oracle-lab healthcheck    exit 0 when the web app answers on /healthz (for Docker)
@@ -51,7 +52,27 @@ def _init_db(settings: Settings, _: argparse.Namespace) -> int:
 
         if not ensure_app_schema(OracleDatabase(settings.state_database, settings.call_timeout_ms), settings.init_timeout):
             return 1
+    _ensure_profiles(settings)
     return 0
+
+
+def _ensure_profiles(settings: Settings) -> None:
+    """Create the learner profile on each practice database; a failure is only a warning."""
+    from oracle_lab.database.connection import OracleDatabase
+    from oracle_lab.database.sample_schema import SampleSchema
+    from oracle_lab.provisioning.proxy import ProxyDatabase
+    from oracle_lab.provisioning.schemas import SchemaProvisioner
+
+    for key, practice in settings.practice.items():
+        provisioner = SchemaProvisioner(
+            OracleDatabase(practice.provisioner, settings.call_timeout_ms), practice.gateway.user,
+            practice.tablespace, practice.quota_mb, sample_loader=lambda db: SampleSchema(db).reset(),
+            proxy_factory=lambda name, gateway=practice.gateway: ProxyDatabase(gateway, name, settings.call_timeout_ms))
+        try:
+            provisioner.ensure_profile()
+        except Exception as exc:  # noqa: BLE001 - practice schemas still work without the profile
+            log.warning("could not set up the learner profile for practice target %s (%s): %s",
+                        key, practice.provisioner, exc)
 
 
 def _validate(settings: Settings, args: argparse.Namespace) -> int:
