@@ -44,6 +44,8 @@ class CookiePolicy:
         return morsel.value
 
     def _cookie(self, name: str, value: str, max_age: float) -> str:
+        if not _SAFE.fullmatch(value) or max_age < 0:
+            raise ValueError("unsafe cookie value or negative max_age")
         parts = [f"{name}={value}", "HttpOnly", "SameSite=Lax", "Path=/", f"Max-Age={int(max_age)}"]
         if self.secure:
             parts.insert(1, "Secure")

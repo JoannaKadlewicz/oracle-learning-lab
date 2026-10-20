@@ -19,6 +19,19 @@ def test_session_expires_idle_and_absolute():
     assert m.resolve(token) is None
 
 
+def test_absolute_cap_applies_to_an_always_active_session():
+    t = [1000.0]
+    m = SessionManager(memory_stores().sessions, lambda: t[0])
+    token, _ = m.start("u1", "", "")
+    for _ in range(4):
+        t[0] += 6 * DAY
+        assert m.resolve(token)
+    t[0] = 1000 + 30 * DAY - 1
+    assert m.resolve(token)  # idle-live and still inside the cap
+    t[0] = 1000 + 30 * DAY
+    assert m.resolve(token) is None  # only the absolute rule can expire it
+
+
 def test_idle_expiry_deletes_the_record():
     t = [0.0]
     stores = memory_stores()
@@ -39,8 +52,8 @@ def test_touch_only_when_older_than_a_minute():
     token, _ = m.start("u1", "", "")
     t[0] = 130.0
     assert m.resolve(token).last_seen_at == 100.0
-    t[0] = 161.0
-    assert m.resolve(token).last_seen_at == 161.0
+    t[0] = 160.0
+    assert m.resolve(token).last_seen_at == 160.0
 
 
 def test_only_the_hash_is_stored():
@@ -106,3 +119,14 @@ def test_read_cookie():
     assert p.read(Request("GET", "/", {}), "oll_session") is None
     assert p.read(_req(";;==\x00"), "oll_session") is None
     assert p.read(_req('oll_session="a.b"'), "oll_session") is None
+
+
+def test_cookie_rejects_unsafe_values():
+    import pytest
+
+    p = CookiePolicy(secure=False)
+    for bad in ("a; Domain=evil", "a b", "a\r\nSet-Cookie: x=1", "a=b"):
+        with pytest.raises(ValueError):
+            p.set_session(bad, 1)
+    with pytest.raises(ValueError):
+        p.set_session("ok", -1)
