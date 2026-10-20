@@ -60,4 +60,8 @@ class SessionManager:
         self._repo.delete_for_user(user_id, token_hash(keep_token) if keep_token else None)
 
     def mark_reauth(self, token: str, seconds: float = 300) -> None:
-        self._repo.set_reauth(token_hash(token), self._clock() + seconds)
+        self.mark_reauth_hash(token_hash(token), seconds)
+
+    def mark_reauth_hash(self, digest: str, seconds: float = 300) -> None:
+        """For callers that only hold a Principal (which carries the session hash, not the token)."""
+        self._repo.set_reauth(digest, self._clock() + seconds)

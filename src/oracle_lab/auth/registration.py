@@ -76,20 +76,32 @@ class Registration:
         if problems:
             raise WeakPassword("Choose a stronger password.", problems)
         encoded = hash_password(password)  # slow: outside the lock
+        try:
+            user = self.create_user(email, email.split("@")[0], lambda uid: Identity("password", uid, uid, encoded))
+        except EmailTaken:
+            # Probing taken emails costs a scrypt each, so it counts toward the per-IP limit.
+            self._throttle.registered(ip)
+            self._audit.record("register", "fail", ip=ip, user_agent=user_agent, reason="email_taken")
+            raise
+        self._throttle.registered(ip)
+        token, _ = self._sessions.start(user.id, ip, user_agent)
+        self._audit.record("register", "ok", user_id=user.id, ip=ip, user_agent=user_agent, role=user.role)
+        return LoginResult(token, user)
+
+    def create_user(self, email: str, display_name: str, identity: Callable[[str], Identity],
+                    admin: bool = False) -> User:
+        """Creates an account under the registration lock (shared by password and Google sign-up): cap check,
+        first-admin decision and insert are atomic. `identity` maps the new user id to its first Identity.
+        Raises RegistrationClosed or EmailTaken; calls on_user_created after the lock is released."""
         with self._lock:
             self._registration.check()
-            role = "admin" if self._first_user_is_admin and self._users.count() == 0 else "learner"
-            user = User(id=new_id(), email=email, display_name=email.split("@")[0], role=role, status="active",
-                        created_at=self._clock(), last_login_at=None, password_changed_at=self._clock())
-            try:
-                self._users.add(user, Identity("password", user.id, user.id, encoded))
-            except EmailTaken:
-                # Probing taken emails costs a scrypt each, so it counts toward the per-IP limit.
-                self._throttle.registered(ip)
-                self._audit.record("register", "fail", ip=ip, user_agent=user_agent, reason="email_taken")
-                raise
-        self._throttle.registered(ip)
+            first = self._first_user_is_admin and self._users.count() == 0
+            now = self._clock()
+            uid = new_id()
+            ident = identity(uid)
+            user = User(id=uid, email=email, display_name=display_name,
+                        role="admin" if admin or first else "learner", status="active", created_at=now,
+                        last_login_at=None, password_changed_at=now if ident.provider == "password" else None)
+            self._users.add(user, ident)
         self._on_user_created(user)
-        token, _ = self._sessions.start(user.id, ip, user_agent)
-        self._audit.record("register", "ok", user_id=user.id, ip=ip, user_agent=user_agent, role=role)
-        return LoginResult(token, user)
+        return user
