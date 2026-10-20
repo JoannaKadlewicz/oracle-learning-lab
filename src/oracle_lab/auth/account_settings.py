@@ -68,6 +68,20 @@ class AccountSettings:
         self._users.set_password(principal.user_id, hashed, self._clock())
         return self._rotate(principal, "password_set")
 
+    def confirm_deletion(self, principal: Principal, password: str, ip: str = "") -> None:
+        """Deleting needs the password (accounts that have one) or a recent Google confirmation."""
+        identity = self._password_identity(principal.user_id)
+        if identity is None:
+            if principal.reauth_until <= self._clock():
+                raise ReauthRequired("Confirm with Google first.")
+            return
+        self._throttle.check_login(principal.email, ip)
+        if not identity.password_hash or not verify_password(password, identity.password_hash):
+            self._throttle.login_failed(principal.email, ip)
+            self._audit.record("account_deleted", "fail", user_id=principal.user_id, ip=ip, reason="bad_password")
+            raise InvalidCredentials("Your password is incorrect.")
+        self._throttle.login_succeeded(principal.email)
+
     def reset_with_token(self, reset_token: str, new_password: str, ip: str, ua: str) -> None:
         # Email-independent rules first, so a weak password does not burn the single-use link.
         self._check_new(new_password, "")

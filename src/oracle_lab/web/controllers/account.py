@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.auth.account_settings import AccountSettings
 from oracle_lab.auth.models import LoginResult
 from oracle_lab.web.controllers.auth import SESSION_MAX_AGE, principal_of, text
@@ -13,8 +14,9 @@ OK = {"ok": True}
 
 
 class AccountController:
-    def __init__(self, account: AccountSettings, cookies: CookiePolicy):
+    def __init__(self, account: AccountSettings, cookies: CookiePolicy, deletion: AccountDeletion):
         self.account = account
+        self.deletion = deletion
         self.cookies = cookies
 
     def register(self, router: Router) -> None:
@@ -24,7 +26,7 @@ class AccountController:
         router.post("/api/account/sessions/end", self.end_session)
         router.post("/api/account/sessions/end-others", self.end_other_sessions)
         router.post("/api/account/google/unlink", self.unlink_google)
-        router.post("/api/account/delete", lambda _: Response.json({"error": "Not implemented yet"}, 501))
+        router.post("/api/account/delete", self.delete)
 
     def change_password(self, request: Request) -> Response:
         data = request.json()
@@ -50,6 +52,14 @@ class AccountController:
     def unlink_google(self, request: Request) -> Response:
         self.account.unlink_google(principal_of(request))
         return Response.json(OK)
+
+    def delete(self, request: Request) -> Response:
+        principal = principal_of(request)
+        self.account.confirm_deletion(principal, text(request.json(), "password"), ip=request.client)
+        self.deletion.delete(principal.user_id, principal.user_id)
+        response = Response.json(OK)
+        response.cookies.append(self.cookies.clear_session())
+        return response
 
     def _token(self, request: Request) -> str:
         return self.cookies.read(request, self.cookies.session_name) or ""

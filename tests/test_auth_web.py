@@ -179,7 +179,8 @@ def test_account_sessions_and_unlink(serve):
     assert http("/api/account/google/unlink", {})[0] == 200
     assert [i.provider for i in stores.users.identities(user.id)] == ["password"]
     assert http("/api/account/set-password", {"new": "another long passphrase"})[0] == 400  # already has one
-    assert http("/api/account/delete", {"password": PASSWORD})[0] == 501
+    assert http("/api/account/delete", {"password": PASSWORD})[0] == 200
+    assert stores.users.get(user.id) is None
 
 
 def test_unlink_is_refused_without_a_password(serve, tmp_path):
