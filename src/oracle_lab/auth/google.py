@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import http.client
 import json
 import ssl
 import urllib.error
@@ -19,7 +20,7 @@ from typing import Protocol
 
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.audit import AuditLog
-from oracle_lab.auth.models import AuthError, EmailTaken, Identity, LoginFlow, Principal
+from oracle_lab.auth.models import AuthError, EmailTaken, Identity, LoginFlow, LoginRequired, Principal
 from oracle_lab.auth.registration import Registration
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.auth.throttle import Throttle
@@ -39,6 +40,7 @@ REAUTH_SECONDS = 300
 _ISSUERS = ("https://accounts.google.com", "accounts.google.com")
 _CLOCK_SKEW = 60
 _NAME_LIMIT = 80
+_MAX_EMAIL = 254
 
 
 class GoogleError(Exception):
@@ -70,7 +72,7 @@ class HttpTokenEndpoint:
                 body = json.loads(response.read())
         except urllib.error.HTTPError:
             raise GoogleError("token endpoint refused the code") from None
-        except (urllib.error.URLError, OSError, TimeoutError):
+        except (urllib.error.URLError, OSError, TimeoutError, http.client.HTTPException):
             raise GoogleError("token endpoint unreachable") from None
         except ValueError:
             raise GoogleError("token endpoint sent invalid JSON") from None
@@ -109,6 +111,8 @@ def validate_claims(claims: dict, client_id: str, nonce: str, now: float) -> Non
             raise GoogleError("bad audience")
     elif aud != client_id:
         raise GoogleError("bad audience")
+    if "azp" in claims and claims["azp"] != client_id:
+        raise GoogleError("bad authorized party")
     exp = claims.get("exp")
     if isinstance(exp, bool) or not isinstance(exp, int | float) or exp + _CLOCK_SKEW <= now:
         raise GoogleError("expired")
@@ -117,6 +121,14 @@ def validate_claims(claims: dict, client_id: str, nonce: str, now: float) -> Non
         raise GoogleError("bad nonce")
     if claims.get("email_verified") is not True:
         raise GoogleError("email not verified")
+
+
+def _local_path(path: str) -> str:
+    """Defence in depth (the caller sanitises too): only a same-origin absolute path survives."""
+    if (not isinstance(path, str) or not path.startswith("/") or path.startswith(("//", "/\\"))
+            or any(not c.isprintable() for c in path)):
+        return "/"
+    return path
 
 
 @dataclass(frozen=True)
@@ -148,12 +160,10 @@ class GoogleSignIn:
         if intent not in ("login", "link", "reauth"):
             raise ValueError(f"invalid intent: {intent!r}")
         if intent != "login" and principal is None:
-            err = AuthError("Login required")
-            err.status = 401
-            raise err
+            raise LoginRequired("Login required")
         verifier, state, nonce = new_token(), new_token(), new_token()
         flow = LoginFlow(new_id(), state, nonce, verifier, intent,  # type: ignore[arg-type]
-                         principal.user_id if intent != "login" and principal else None, next_path,
+                         principal.user_id if intent != "login" and principal else None, _local_path(next_path),
                          self._clock() + FLOW_TTL)
         self._stores.flows.add(flow)
         query = urllib.parse.urlencode({
@@ -178,27 +188,36 @@ class GoogleSignIn:
             return fail("flow")
         if not hmac.compare_digest(str(state).encode(), flow.state.encode()):
             return fail("state")
+        if flow.intent != "login" and (current is None or current.user_id != flow.user_id):
+            return fail("session")
         try:
             claims = id_token_claims(self._endpoint.exchange(code, flow.code_verifier, self._redirect_uri)["id_token"])
             validate_claims(claims, self._config.client_id, flow.nonce, self._clock())
             sub, email = claims["sub"], claims["email"]
             if not isinstance(sub, str) or not sub or not isinstance(email, str) or not email.strip():
                 raise ValueError("bad sub or email")
+            if len(email) > _MAX_EMAIL:
+                return fail("claims_email")
             name = claims.get("name")
         except GoogleError as exc:
             return fail(str(exc))
-        except (KeyError, ValueError, TypeError, AttributeError) as exc:
+        except (KeyError, ValueError, TypeError, AttributeError, OSError, http.client.HTTPException) as exc:
             return fail(f"claims_{type(exc).__name__}")
         email = normalise_email(email)
         if flow.intent == "login":
             return self._login(flow, sub, email, name if isinstance(name, str) else None, ip, user_agent, fail)
-        if current is None or current.user_id != flow.user_id:
-            return fail("session")
+        assert current is not None  # checked above for link and reauth
+        return self._link_or_reauth(flow, sub, current, ip, user_agent, fail)
+
+    def _link_or_reauth(self, flow: LoginFlow, sub: str, current: Principal, ip: str, user_agent: str,
+                        fail) -> GoogleOutcome:
         owner = self._stores.users.by_identity("google", sub)
         if flow.intent == "link":
             if owner is not None and owner.id != current.user_id:
                 return fail("sub_in_use")
             if owner is None:
+                if any(i.provider == "google" for i in self._stores.users.identities(current.user_id)):
+                    return fail("already_linked", "This account is already connected to a Google account.")
                 try:
                     self._stores.users.add_identity(Identity("google", sub, current.user_id))
                 except AuthError:
@@ -215,6 +234,7 @@ class GoogleSignIn:
                fail) -> GoogleOutcome:
         users = self._stores.users
         user = users.by_identity("google", sub)
+        created = user is None
         if user is None:
             if users.by_email(email) is not None:
                 return fail("email_exists", EMAIL_EXISTS)
@@ -222,7 +242,7 @@ class GoogleSignIn:
             admin = self._stores.settings.get("admin_email_claim") == email
             try:
                 user = self._registration.create_user(email, display, lambda uid: Identity("google", sub, uid),
-                                                      admin=admin)
+                                                      admin=admin, bypass_policy=admin)
             except EmailTaken:
                 return fail("email_exists", EMAIL_EXISTS)
             except AuthError as exc:  # registration closed or cap reached
@@ -235,4 +255,6 @@ class GoogleSignIn:
         users.record_login(user.id, now)
         token, _ = self._sessions.start(user.id, ip, user_agent)
         self._audit.record("google_login", "ok", user_id=user.id, ip=ip, user_agent=user_agent)
+        if created:
+            self._registration.notify_created(user)
         return GoogleOutcome(token, flow.next_path, None)

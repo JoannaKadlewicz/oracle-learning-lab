@@ -210,7 +210,7 @@ def test_registration_closed_blocks_google_sign_up(g):
     g.policy.set(open=False)
     fid, state = g.run()
     out = g.g.finish(fid, state, "c", "ip", "ua", None)
-    assert out.token is None and out.message
+    assert out.token is None and out.message == "Registration is closed."
     assert g.stores.users.by_identity("google", "sub-1") is None
 
 
@@ -219,7 +219,8 @@ def test_cap_is_shared_with_password_sign_up(g):
     g.stores.users.add(User("u1", "x@example.org", "x", "learner", "active", 1.0, None, None),
                        Identity("password", "u1", "u1", "h"))
     fid, state = g.run()
-    assert g.g.finish(fid, state, "c", "ip", "ua", None).token is None
+    out = g.g.finish(fid, state, "c", "ip", "ua", None)
+    assert out.token is None and out.message == "Registration is closed."
     assert g.stores.users.count() == 1
 
 
@@ -335,3 +336,120 @@ def test_http_endpoint_errors(monkeypatch):
     with pytest.raises(GoogleError) as e:
         HttpTokenEndpoint(CID, Secret.from_value("shh", "t")).exchange("c", "v", "r")
     assert "shh" not in str(e.value)
+
+
+def test_admin_claim_bypasses_closed_registration_and_cap(g):
+    g.policy.set(open=False, max_users=0)
+    g.stores.settings.set("admin_email_claim", "ann@example.org")
+    fid, state = g.run()
+    assert g.g.finish(fid, state, "c", "ip", "ua", None).token
+    assert g.stores.users.by_email("ann@example.org").role == "admin"
+    assert not g.stores.settings.get("admin_email_claim")
+
+
+def test_admin_claim_kept_when_email_taken(g):
+    g.stores.users.add(User("u1", "ann@example.org", "Ann", "learner", "active", 1.0, None, None),
+                       Identity("password", "u1", "u1", "x"))
+    g.stores.settings.set("admin_email_claim", "ann@example.org")
+    fid, state = g.run()
+    assert g.g.finish(fid, state, "c", "ip", "ua", None).message == EXISTS
+    assert g.stores.users.get("u1").role == "learner"
+    assert g.stores.settings.get("admin_email_claim") == "ann@example.org"
+
+
+@pytest.mark.parametrize("exc", [
+    __import__("http.client").client.IncompleteRead(b"x"),
+    __import__("urllib.error").error.URLError("down"),
+    TimeoutError(),
+])
+def test_http_transport_errors_map_to_google_error(monkeypatch, exc):
+    def boom(req, timeout=None, context=None):
+        raise exc
+
+    monkeypatch.setattr("oracle_lab.auth.google.urllib.request.urlopen", boom)
+    with pytest.raises(GoogleError):
+        HttpTokenEndpoint(CID, Secret.from_value("shh", "t")).exchange("c", "v", "r")
+
+
+@pytest.mark.parametrize("status,body", [(200, b"not json"), (200, b"[1]"), (204, b"{}")])
+def test_http_bad_responses_map_to_google_error(monkeypatch, status, body):
+    class Resp:
+        def __init__(self):
+            self.status = status
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return body
+
+    monkeypatch.setattr("oracle_lab.auth.google.urllib.request.urlopen", lambda *a, **k: Resp())
+    with pytest.raises(GoogleError):
+        HttpTokenEndpoint(CID, Secret.from_value("shh", "t")).exchange("c", "v", "r")
+
+
+def test_endpoint_http_exception_does_not_raise_from_finish(g):
+    import http.client
+    fid, state = g.run()
+    g.ep.exchange = lambda *a: (_ for _ in ()).throw(http.client.IncompleteRead(b""))
+    assert g.g.finish(fid, state, "c", "ip", "ua", None).message == GENERIC
+
+
+def test_link_refused_when_already_connected(g):
+    _, p = logged_in(g)
+    g.stores.users.add_identity(Identity("google", "sub-old", "me"))
+    fid, state = g.run("link", p)
+    out = g.g.finish(fid, state, "c", "ip", "ua", p)
+    assert out.message == "This account is already connected to a Google account."
+    assert g.stores.users.by_identity("google", "sub-1") is None
+    assert any(e.detail.get("reason") == "already_linked" for e in g.stores.audit.recent())
+
+
+@pytest.mark.parametrize("given,kept", [("/a/b?c=1", "/a/b?c=1"), ("//evil.example", "/"), ("/\\evil", "/"),
+                                        ("https://evil.example", "/"), ("", "/"), ("/a\nb", "/"),
+                                        ("/a\x00", "/")])
+def test_start_normalises_next_path(g, given, kept):
+    _, fid = g.g.start("login", given, None, "1.1.1.1")
+    assert g.stores.flows.take(fid).next_path == kept
+
+
+def test_overlong_email_fails(g):
+    fid, state = g.run(email="a" * 250 + "@x.org")
+    out = g.g.finish(fid, state, "c", "ip", "ua", None)
+    assert out.message == GENERIC
+    assert any(e.detail.get("reason") == "claims_email" for e in g.stores.audit.recent())
+
+
+def test_azp_must_match_even_with_string_aud():
+    claims = {"iss": "accounts.google.com", "aud": CID, "azp": "other", "exp": 100, "nonce": "n",
+              "email_verified": True}
+    with pytest.raises(GoogleError):
+        validate_claims(claims, CID, "n", 100)
+
+
+def test_link_session_mismatch_does_not_exchange_code(g):
+    _, p = logged_in(g)
+    fid, state = g.run("link", p)
+    assert g.g.finish(fid, state, "c", "ip", "ua", None).message == GENERIC
+    assert g.ep.calls == []
+
+
+def test_raising_hook_still_counts_and_audits_password_registration():
+    t = [1000.0]
+    clock = lambda: t[0]  # noqa: E731
+    stores = memory_stores()
+    throttle = Throttle(stores.throttle, clock)
+    audit = AuditLog(stores.audit, clock)
+
+    def hook(user):
+        raise RuntimeError("provisioning down")
+
+    reg = Registration(stores, PasswordPolicy(frozenset()), RegistrationPolicy(stores.settings, stores.users, True, 9),
+                       SessionManager(stores.sessions, clock), throttle, audit, clock, hook)
+    with pytest.raises(RuntimeError):
+        reg.with_password("me@example.org", "a fine long passphrase", "1.1.1.1", "ua")
+    assert stores.throttle.count_since("register:ip:1.1.1.1", 0) == 1
+    assert any(e.event == "register" and e.outcome == "ok" for e in stores.audit.recent())

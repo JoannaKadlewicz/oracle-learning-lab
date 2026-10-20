@@ -112,6 +112,10 @@ class InvalidCredentials(AuthError):  # noqa: N818 - names fixed by the design
     status = 401
 
 
+class LoginRequired(AuthError):  # noqa: N818 - names fixed by the design
+    status = 401
+
+
 class RegistrationClosed(AuthError):  # noqa: N818 - names fixed by the design
     status = 403
 

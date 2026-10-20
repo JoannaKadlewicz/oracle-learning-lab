@@ -86,15 +86,18 @@ class Registration:
         self._throttle.registered(ip)
         token, _ = self._sessions.start(user.id, ip, user_agent)
         self._audit.record("register", "ok", user_id=user.id, ip=ip, user_agent=user_agent, role=user.role)
+        self.notify_created(user)  # last: a failing hook must not skip the throttle count or the audit
         return LoginResult(token, user)
 
     def create_user(self, email: str, display_name: str, identity: Callable[[str], Identity],
-                    admin: bool = False) -> User:
+                    admin: bool = False, bypass_policy: bool = False) -> User:
         """Creates an account under the registration lock (shared by password and Google sign-up): cap check,
         first-admin decision and insert are atomic. `identity` maps the new user id to its first Identity.
-        Raises RegistrationClosed or EmailTaken; calls on_user_created after the lock is released."""
+        Raises RegistrationClosed or EmailTaken. `bypass_policy` skips the open/cap check (the designated
+        admin claiming the account). Callers run notify_created(user) once they have counted and audited."""
         with self._lock:
-            self._registration.check()
+            if not bypass_policy:
+                self._registration.check()
             first = self._first_user_is_admin and self._users.count() == 0
             now = self._clock()
             uid = new_id()
@@ -103,5 +106,7 @@ class Registration:
                         role="admin" if admin or first else "learner", status="active", created_at=now,
                         last_login_at=None, password_changed_at=now if ident.provider == "password" else None)
             self._users.add(user, ident)
-        self._on_user_created(user)
         return user
+
+    def notify_created(self, user: User) -> None:
+        self._on_user_created(user)
