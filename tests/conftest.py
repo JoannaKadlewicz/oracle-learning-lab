@@ -19,7 +19,6 @@ from oracle_lab.bootstrap import build_app
 from oracle_lab.config import DatabaseTarget, Settings
 from oracle_lab.credentials import resolve_secret
 from oracle_lab.database.connection import OracleDatabase
-from oracle_lab.study.state import MemoryStateStore
 from oracle_lab.web.server import create_server
 
 
@@ -117,12 +116,12 @@ class Client:
 
 @pytest.fixture
 def serve(tmp_path):
-    """serve(settings=None, store=None, **build_app_kwargs) starts the app on a free port and returns a Client."""
+    """serve(settings=None, **build_app_kwargs) starts the app on a free port and returns a Client.
+    Progress and notes belong to the signed-in user: pass stores=memory_stores() to look at them."""
     servers = []
 
-    def start(settings=None, store=None, **kwargs):
-        app = build_app(settings or settings_for(tmp_path), store=store or MemoryStateStore(), clock=lambda: NOW,
-                        **kwargs)
+    def start(settings=None, **kwargs):
+        app = build_app(settings or settings_for(tmp_path), clock=lambda: NOW, **kwargs)
         httpd = create_server(app, "127.0.0.1", 0)
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         servers.append(httpd)

@@ -27,6 +27,10 @@ class Router:
     def post(self, path: str, handler: Handler) -> None:
         self.add("POST", path, handler)
 
+    def routes(self) -> list[tuple[str, str]]:
+        """(method, path) of every registered route, e.g. to check that each one is public or needs a login."""
+        return list(self._routes)
+
     def __call__(self, request: Request) -> Response:
         handler = self._routes.get((request.method, request.path))
         if handler is None and request.method == "GET" and self.fallback is not None:

@@ -5,7 +5,7 @@ import json
 
 from conftest import settings_for
 from oracle_lab import content
-from oracle_lab.study.state import MemoryStateStore
+from oracle_lab.accounts.memory import memory_stores
 
 
 def test_health_check_needs_no_login(serve):
@@ -19,24 +19,27 @@ def test_api_calls_need_a_login(serve):
     assert http.sign_in()("/api/state")[0] == 200
 
 
-def test_personal_notes_are_kept_in_the_data_dir(serve, tmp_path):
-    http = serve(settings_for(tmp_path)).sign_in()
+def test_personal_notes_are_kept_in_the_users_store(serve):
+    stores = memory_stores()
+    http = serve(stores=stores).sign_in()
     status, _, body = http("/api/notes/save", data={"title": "Joins", "sql": "SELECT 1 FROM dual;"})
     path = json.loads(body)["path"]
     assert status == 200 and path.startswith("personal/")
-    assert (tmp_path / "notes" / path.removeprefix("personal/")).is_file()
+    user = stores.users.by_email("learner@example.org")
+    assert "SELECT 1 FROM dual;" in stores.notes.for_user(user.id).read(path.removeprefix("personal/"))
     assert path in {n["path"] for n in json.loads(http("/api/notes")[2])}
     assert "SELECT 1 FROM dual;" in json.loads(http(f"/api/note?path={path}")[2])["text"]
     assert http("/api/note?path=../../etc/passwd")[0] == 404
 
 
-def test_answers_are_saved_and_progress_is_returned(serve, tmp_path):
-    store = MemoryStateStore()
-    http = serve(settings_for(tmp_path), store).sign_in()
+def test_answers_are_saved_and_progress_is_returned(serve):
+    stores = memory_stores()
+    http = serve(stores=stores).sign_in()
     question = content.QUESTIONS[0]
     status, _, body = http("/api/attempt", data={"id": question["id"], "chosen": question["answer"]})
     assert status == 200 and json.loads(body)["progress"]["exam"] == content.DEFAULT_EXAM
-    assert store.state["attempts"][question["id"]][0]["correct"] is True
+    store = stores.states.for_user(stores.users.by_email("learner@example.org").id)
+    assert store.load()["attempts"][question["id"]][0]["correct"] is True
 
 
 def test_invalid_input_is_a_client_error(serve, tmp_path):

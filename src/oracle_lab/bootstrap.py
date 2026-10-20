@@ -14,15 +14,11 @@ from oracle_lab.auth.passwords import PasswordPolicy, load_common_passwords
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.auth.throttle import Throttle
-from oracle_lab.config import EXAM_23AI, ConfigurationError, Settings
+from oracle_lab.config import EXAM_23AI, Settings
 from oracle_lab.database.connection import DatabaseCatalog, OracleDatabase
 from oracle_lab.resources import COMMON_PASSWORDS, NOTES_DIR, STATIC_DIR
 from oracle_lab.services import Clock
-from oracle_lab.services.mock_exams import MockExamService
-from oracle_lab.services.sql_lab import ExerciseService, SqlLabService
-from oracle_lab.services.study import StudyService
-from oracle_lab.study.notes import FileNotes, NotesLibrary, PersonalNotes
-from oracle_lab.study.state import JsonStateStore, StateStore
+from oracle_lab.services.context import UserContexts
 from oracle_lab.web.application import WebApplication
 from oracle_lab.web.controllers.account import AccountController
 from oracle_lab.web.controllers.auth import AuthController
@@ -57,16 +53,8 @@ def build_catalog(settings: Settings) -> DatabaseCatalog:
     return DatabaseCatalog(default, by_exam)
 
 
-def build_stores(settings: Settings) -> tuple[StateStore, PersonalNotes]:
-    """The single progress file and notes folder the study services still use (per-user services come next)."""
-    if settings.state_database is not None:
-        raise ConfigurationError("Per-user progress on Oracle arrives with the per-user services; "
-                                 "run without STUDY_STATE_USER for now.")
-    return JsonStateStore(settings.state_file), FileNotes(settings.personal_notes_dir)
-
-
 def build_app_stores(settings: Settings) -> AppStores:
-    """Accounts and sessions: in Oracle (STUDY_STATE_USER) or in data_dir/app.db."""
+    """Accounts, sessions and each user's progress and notes: in Oracle (STUDY_STATE_USER) or in data_dir/app.db."""
     if settings.state_database is None:
         return sqlite_stores(settings.data_dir / "app.db")
     from oracle_lab.accounts.oracle_store import oracle_stores
@@ -75,16 +63,12 @@ def build_app_stores(settings: Settings) -> AppStores:
     return oracle_stores(ConnectionPool(settings.state_database, settings.call_timeout_ms))
 
 
-def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, store: StateStore | None = None,
-              notes: PersonalNotes | None = None, stores: AppStores | None = None,
+def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, stores: AppStores | None = None,
               google_endpoint: TokenEndpoint | None = None, clock: Clock = time.time) -> WebApplication:
-    """The web application. `catalog`, `store`, `notes`, `stores`, `google_endpoint` and `clock` can be replaced,
-    e.g. in tests."""
+    """The web application. `catalog`, `stores`, `google_endpoint` and `clock` can be replaced, e.g. in tests."""
     catalog = catalog or build_catalog(settings)
-    if store is None or notes is None:
-        default_store, default_notes = build_stores(settings)
-        store, notes = store or default_store, notes or default_notes
     stores = stores or build_app_stores(settings)
+    contexts = UserContexts(stores)
 
     cookies = CookiePolicy(settings.secure_cookies)
     sessions = SessionManager(stores.sessions, clock)
@@ -109,11 +93,11 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         AuthController(PasswordLogin(stores, sessions, throttle, audit, clock), registration, registration_policy,
                        account, sessions, cookies, google),
         AccountController(account, cookies),
-        StudyController(StudyService(store, clock, track_databases=catalog.has_track_databases)),
-        MockExamController(MockExamService(store, clock)),
-        SqlLabController(SqlLabService(store, catalog, clock)),
-        ExerciseController(ExerciseService(store, catalog, clock)),
-        NotesController(NotesLibrary(NOTES_DIR, notes), clock),
+        StudyController(contexts, clock, track_databases=catalog.has_track_databases),
+        MockExamController(contexts, clock),
+        SqlLabController(contexts, catalog, clock),
+        ExerciseController(contexts, catalog, clock),
+        NotesController(contexts, NOTES_DIR, clock),
     )
     for controller in controllers:
         controller.register(router)

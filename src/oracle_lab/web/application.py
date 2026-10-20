@@ -12,6 +12,7 @@ from oracle_lab.web.routing import Handler, Router
 
 class WebApplication:
     def __init__(self, router: Router, middleware: Iterable[Middleware] = ()):
+        self.router = router
         handler: Handler = router
         for layer in reversed(list(middleware)):  # the first middleware is the outermost
             handler = partial(layer, call_next=handler)

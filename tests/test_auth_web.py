@@ -10,9 +10,9 @@ import pytest
 from conftest import NOW, PASSWORD, session_cookie, settings_for
 from oracle_lab import cli
 from oracle_lab.accounts.memory import memory_stores
+from oracle_lab.accounts.oracle_store import OracleUserNotes, OracleUsers, OracleUserStates
 from oracle_lab.auth.models import Identity, LoginRequired, Principal, Throttled, WeakPassword
-from oracle_lab.bootstrap import build_app
-from oracle_lab.config import ConfigurationError
+from oracle_lab.bootstrap import build_app, build_app_stores
 from oracle_lab.web.http import HttpError, Request, Response
 from oracle_lab.web.middleware import csrf, error_boundary, safe_next
 
@@ -248,10 +248,13 @@ def test_private_auth_endpoints_need_a_login(serve, path):
     assert serve()(path)[0] == 401
 
 
-def test_oracle_progress_waits_for_the_per_user_services(tmp_path):
+def test_oracle_mode_keeps_accounts_progress_and_notes_in_oracle(tmp_path):
     settings = settings_for(tmp_path, STUDY_STATE_USER="appdata", STUDY_STATE_PASSWORD="pw")
-    with pytest.raises(ConfigurationError, match="STUDY_STATE_USER"):
-        build_app(settings)
+    stores = build_app_stores(settings)  # the pool connects on first use: no database needed here
+    assert isinstance(stores.users, OracleUsers) and isinstance(stores.states, OracleUserStates)
+    assert isinstance(stores.notes, OracleUserNotes)
+    assert build_app(settings) is not None
+    assert not (tmp_path / "app.db").exists() and not (tmp_path / "progress.json").exists()
 
 
 def test_accounts_default_to_sqlite_in_the_data_dir(serve, tmp_path):
