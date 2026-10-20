@@ -17,6 +17,22 @@ they can live in secret files. Every variable is optional and has a development 
     STUDY_STATE_PASSWORD[_FILE]      its password
     STUDY_AUTH_USER                  login of the web app (default "study")
     STUDY_AUTH_PASSWORD[_FILE]       enables HTTP basic auth when set and not empty
+    STUDY_PUBLIC_URL                 address users reach the app at (default http://HOST:PORT); https turns on
+                                     secure cookies
+    STUDY_TRUST_PROXY                1, true or yes: believe X-Forwarded-For from a reverse proxy
+    STUDY_GOOGLE_CLIENT_ID           enables "Sign in with Google" ...
+    STUDY_GOOGLE_CLIENT_SECRET[_FILE] ... together with this secret
+    STUDY_ADMIN_EMAIL                account that is made administrator
+    STUDY_ADMIN_PASSWORD[_FILE]      its initial password
+    STUDY_REGISTRATION               open (default) or closed: may new users sign up
+    STUDY_MAX_USERS                  cap on accounts (default 25)
+    STUDY_PROVISIONER_USER           Oracle user that creates and drops practice schemas; with
+    STUDY_PROVISIONER_PASSWORD[_FILE]  its password, and
+    STUDY_GATEWAY_USER               the proxy user that connects as a learner's schema, with
+    STUDY_GATEWAY_PASSWORD[_FILE]    its password; both on STUDY_DSN enable private practice schemas
+    STUDY_PRACTICE_TABLESPACE        default tablespace of a practice schema (default USERS)
+    STUDY_PRACTICE_QUOTA_MB          its quota in MB (default 50)
+    (the five practice variables above also exist with the suffix _23AI, on STUDY_DSN_23AI)
     STUDY_INIT_TIMEOUT               seconds `init-db` waits for the database (default 600)
     STUDY_CALL_TIMEOUT_MS            limit for one database round trip (default 15000)
     STUDY_LOG_LEVEL                  DEBUG, INFO (default), WARNING, ...
@@ -58,6 +74,22 @@ class BasicAuthConfig:
 
 
 @dataclass(frozen=True)
+class GoogleConfig:
+    client_id: str
+    client_secret: Secret
+
+
+@dataclass(frozen=True)
+class PracticeTarget:
+    """Where learners get private schemas: who creates them and who connects on their behalf."""
+
+    provisioner: DatabaseTarget
+    gateway: DatabaseTarget
+    tablespace: str
+    quota_mb: int
+
+
+@dataclass(frozen=True)
 class Settings:
     host: str
     port: int
@@ -67,6 +99,15 @@ class Settings:
     database_23ai: DatabaseTarget | None
     state_database: DatabaseTarget | None
     auth: BasicAuthConfig | None
+    legacy_basic_auth: bool
+    public_url: str
+    trust_proxy: bool
+    google: GoogleConfig | None
+    admin_email: str | None
+    admin_password: Secret | None
+    registration_open: bool
+    max_users: int
+    practice: dict[str, PracticeTarget]
     init_timeout: float
     call_timeout_ms: int
     log_level: str
@@ -74,6 +115,10 @@ class Settings:
     @property
     def personal_notes_dir(self) -> Path:
         return self.data_dir / "notes"
+
+    @property
+    def secure_cookies(self) -> bool:
+        return self.public_url.startswith("https://")
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> Settings:
@@ -83,9 +128,12 @@ class Settings:
                     or Secret.missing("STUDY_PASSWORD"))
         dsn_23ai = env.get("STUDY_DSN_23AI")
         database = DatabaseTarget(user, env.get("STUDY_DSN", "localhost:1521/ORAPDB1"), password)
+        host = env.get("STUDY_HOST", "127.0.0.1")
+        port = _integer(env, "STUDY_PORT", 8071, minimum=1, maximum=65535)
+        practice = _practice_targets(env, database.dsn, dsn_23ai)
         return cls(
-            host=env.get("STUDY_HOST", "127.0.0.1"),
-            port=_integer(env, "STUDY_PORT", 8071, minimum=1, maximum=65535),
+            host=host,
+            port=port,
             data_dir=data_dir,
             state_file=Path(env.get("STUDY_STATE_FILE") or data_dir / "progress.json").expanduser(),
             database=database,
@@ -93,8 +141,17 @@ class Settings:
                 env.get("STUDY_USER_23AI", user), dsn_23ai,
                 resolve_secret("STUDY_PASSWORD_23AI", env) or password,
             ) if dsn_23ai else None,
-            state_database=_state_database(env, database),
+            state_database=_state_database(env, database, shared_schema=not practice),
             auth=_basic_auth(env),
+            legacy_basic_auth=bool(env.get("STUDY_AUTH_PASSWORD") or env.get("STUDY_AUTH_PASSWORD_FILE")),
+            public_url=_public_url(env, f"http://{host}:{port}"),
+            trust_proxy=env.get("STUDY_TRUST_PROXY", "").lower() in ("1", "true", "yes"),
+            google=_google(env),
+            admin_email=(env.get("STUDY_ADMIN_EMAIL") or "").strip().lower() or None,
+            admin_password=resolve_secret("STUDY_ADMIN_PASSWORD", env),
+            registration_open=_registration_open(env),
+            max_users=_integer(env, "STUDY_MAX_USERS", 25, minimum=1),
+            practice=practice,
             init_timeout=_integer(env, "STUDY_INIT_TIMEOUT", 600, minimum=0),
             call_timeout_ms=_integer(env, "STUDY_CALL_TIMEOUT_MS", 15000, minimum=1),
             log_level=_log_level(env),
@@ -127,11 +184,14 @@ def _log_level(env: Mapping[str, str]) -> str:
     return level
 
 
-def _state_database(env: Mapping[str, str], study: DatabaseTarget) -> DatabaseTarget | None:
+def _state_database(env: Mapping[str, str], study: DatabaseTarget, shared_schema: bool) -> DatabaseTarget | None:
     user = env.get("STUDY_STATE_USER")
     if not user:
         return None
     dsn = env.get("STUDY_STATE_DSN") or study.dsn
+    if shared_schema and user.upper() == study.user.upper() and dsn == study.dsn:
+        raise ConfigurationError("STUDY_STATE_USER must not be the learning user: SQL run in the lab could drop "
+                                 "the progress tables")
     return DatabaseTarget(user, dsn, resolve_secret("STUDY_STATE_PASSWORD", env) or Secret.missing("STUDY_STATE_PASSWORD"))
 
 
@@ -145,3 +205,49 @@ def _basic_auth(env: Mapping[str, str]) -> BasicAuthConfig | None:
     except SecretNotFoundError as exc:
         raise ConfigurationError(str(exc)) from exc
     return BasicAuthConfig(env.get("STUDY_AUTH_USER", "study"), password) if password else None
+
+
+def _public_url(env: Mapping[str, str], default: str) -> str:
+    url = (env.get("STUDY_PUBLIC_URL") or default).rstrip("/")
+    if not url.startswith(("http://", "https://")):
+        raise ConfigurationError(f"STUDY_PUBLIC_URL must start with http:// or https://, got {url!r}")
+    return url
+
+
+def _google(env: Mapping[str, str]) -> GoogleConfig | None:
+    client_id = env.get("STUDY_GOOGLE_CLIENT_ID")
+    if not client_id:
+        return None
+    secret = resolve_secret("STUDY_GOOGLE_CLIENT_SECRET", env)
+    if secret is None:
+        raise ConfigurationError("STUDY_GOOGLE_CLIENT_SECRET (or _FILE) is required when STUDY_GOOGLE_CLIENT_ID is set")
+    return GoogleConfig(client_id, secret)
+
+
+def _registration_open(env: Mapping[str, str]) -> bool:
+    mode = env.get("STUDY_REGISTRATION", "open").lower()
+    if mode not in ("open", "closed"):
+        raise ConfigurationError(f"STUDY_REGISTRATION must be open or closed, got {mode!r}")
+    return mode == "open"
+
+
+def _practice_targets(env: Mapping[str, str], dsn: str, dsn_23ai: str | None) -> dict[str, PracticeTarget]:
+    targets = {"default": _practice(env, "", dsn), "23ai": _practice(env, "_23AI", dsn_23ai)}
+    return {key: target for key, target in targets.items() if target}
+
+
+def _practice(env: Mapping[str, str], suffix: str, dsn: str | None) -> PracticeTarget | None:
+    """Practice schemas on one database; absent unless both the provisioner and the gateway user are set."""
+    provisioner, gateway = env.get(f"STUDY_PROVISIONER_USER{suffix}"), env.get(f"STUDY_GATEWAY_USER{suffix}")
+    if not (provisioner and gateway and dsn):
+        return None
+    return PracticeTarget(
+        provisioner=_practice_user(env, provisioner, f"STUDY_PROVISIONER_PASSWORD{suffix}", dsn),
+        gateway=_practice_user(env, gateway, f"STUDY_GATEWAY_PASSWORD{suffix}", dsn),
+        tablespace=env.get(f"STUDY_PRACTICE_TABLESPACE{suffix}") or "USERS",
+        quota_mb=_integer(env, f"STUDY_PRACTICE_QUOTA_MB{suffix}", 50, minimum=1),
+    )
+
+
+def _practice_user(env: Mapping[str, str], user: str, password_name: str, dsn: str) -> DatabaseTarget:
+    return DatabaseTarget(user, dsn, resolve_secret(password_name, env) or Secret.missing(password_name))
