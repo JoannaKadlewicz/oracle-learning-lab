@@ -29,7 +29,11 @@ class MemoryUsers:
 
     def add(self, user: User, identity: Identity) -> None:
         with self._lock:
-            if any(u.email == user.email for u in self._users.values()) or self._find(identity.provider, identity.subject):
+            if (
+                user.id in self._users
+                or any(u.email == user.email for u in self._users.values())
+                or self._find(identity.provider, identity.subject)
+            ):
                 raise EmailTaken(TAKEN)
             self._users[user.id] = user
             self._identities.append(identity)
@@ -270,7 +274,7 @@ class MemoryUserStates:
 
 
 class MemoryNotes:
-    """One user's personal notes, kept in a dict (insertion order = oldest first)."""
+    """One user's personal notes; entries() lists them by name, descending (like FileNotes)."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()

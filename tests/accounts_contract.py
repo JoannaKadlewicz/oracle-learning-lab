@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from oracle_lab.accounts.repositories import AppStores
@@ -188,6 +190,76 @@ def notes_are_per_user(stores: AppStores) -> None:
     assert stores.notes.for_user("a").entries() == []
 
 
+def set_password_changes_only_the_password_identity(stores: AppStores) -> None:
+    user = make_user()
+    stores.users.add(user, password_identity(user))
+    stores.users.add_identity(Identity("google", "g-1", user.id))
+    stores.users.set_password(user.id, "new-hash", 42.0)
+    by_provider = {i.provider: i for i in stores.users.identities(user.id)}
+    assert by_provider["password"].password_hash == "new-hash"
+    assert by_provider["google"] == Identity("google", "g-1", user.id)
+    found = stores.users.get(user.id)
+    assert found is not None and found.password_changed_at == 42.0
+
+
+def add_identity_conflict_and_remove_identity(stores: AppStores) -> None:
+    user = make_user()
+    stores.users.add(user, password_identity(user))
+    stores.users.add_identity(Identity("google", "g-1", user.id))
+    other = make_user(2)
+    stores.users.add(other, Identity("google", "g-2", other.id))
+    with pytest.raises(EmailTaken):
+        stores.users.add_identity(Identity("google", "g-1", other.id))
+    stores.users.remove_identity(user.id, "google")
+    assert [i.provider for i in stores.users.identities(user.id)] == ["password"]
+    assert stores.users.by_identity("google", "g-1") is None
+    assert [i.provider for i in stores.users.identities(other.id)] == ["google"]
+
+
+def update_persists_changed_fields(stores: AppStores) -> None:
+    user = make_user()
+    stores.users.add(user, password_identity(user))
+    changed = dataclasses.replace(user, role="admin", status="locked", last_login_at=7.0)
+    stores.users.update(changed)
+    assert stores.users.get(user.id) == changed
+    assert stores.users.by_email(user.email) == changed
+
+
+def session_delete_removes_exactly_that_session(stores: AppStores) -> None:
+    stores.sessions.add(make_session("a", "u1"))
+    stores.sessions.add(make_session("b", "u1"))
+    stores.sessions.delete("a")
+    assert stores.sessions.get("a") is None
+    assert stores.sessions.get("b") is not None
+    stores.sessions.delete("missing")
+
+
+def failed_add_leaves_no_partial_data(stores: AppStores) -> None:
+    first = make_user(1, "same@example.com")
+    stores.users.add(first, password_identity(first))
+    second = make_user(2, "same@example.com")
+    with pytest.raises(EmailTaken):
+        stores.users.add(second, Identity("google", "g-2", second.id))
+    assert stores.users.get(second.id) is None
+    assert stores.users.by_identity("google", "g-2") is None
+    third = make_user(3)
+    with pytest.raises(EmailTaken):
+        stores.users.add(third, Identity("password", first.email, third.id))
+    assert stores.users.get(third.id) is None
+    assert stores.users.identities(third.id) == []
+    assert stores.users.count() == 1
+
+
+def duplicate_user_id_raises_email_taken(stores: AppStores) -> None:
+    first = make_user(1)
+    stores.users.add(first, password_identity(first))
+    clash = make_user(1, "different@example.com")
+    with pytest.raises(EmailTaken):
+        stores.users.add(clash, Identity("google", "g-9", clash.id))
+    assert stores.users.get(first.id) == first
+    assert stores.users.by_identity("google", "g-9") is None
+
+
 CONTRACT = [
     user_round_trip,
     duplicate_email_raises_email_taken,
@@ -204,4 +276,10 @@ CONTRACT = [
     practice_schemas_round_trip,
     state_store_is_per_user,
     notes_are_per_user,
+    set_password_changes_only_the_password_identity,
+    add_identity_conflict_and_remove_identity,
+    update_persists_changed_fields,
+    session_delete_removes_exactly_that_session,
+    failed_add_leaves_no_partial_data,
+    duplicate_user_id_raises_email_taken,
 ]
