@@ -36,7 +36,8 @@ class Throttle:
         if n >= ACCOUNT_FREE_FAILURES and last is not None:
             wait = min(2 ** (n - ACCOUNT_FREE_FAILURES), WINDOW)
             if now - last < wait:
-                raise Throttled(MESSAGE, retry_after=max(1, math.ceil(wait - (now - last))))
+                # wait > elapsed here, so the ceiling is at least 1
+                raise Throttled(MESSAGE, retry_after=math.ceil(wait - (now - last)))
         if self._repo.count_since(f"login:ip:{ip}", now - WINDOW) >= IP_FAILURES:
             # The repository cannot give the oldest failure, so use the whole window (conservative).
             raise Throttled(MESSAGE, retry_after=int(WINDOW))
@@ -52,6 +53,7 @@ class Throttle:
 
     def check_register(self, ip: str) -> None:
         if self._repo.count_since(f"register:ip:{ip}", self._clock() - REGISTER_WINDOW) >= REGISTER_PER_IP:
+            # Conservative: the oldest registration is not known, so assume the whole window.
             raise Throttled(MESSAGE, retry_after=int(REGISTER_WINDOW))
 
     def registered(self, ip: str) -> None:

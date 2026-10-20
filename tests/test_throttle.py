@@ -88,3 +88,30 @@ def test_google_limit_30_per_15_minutes():
         th.check_google("ip")
     t[0] += 901
     th.check_google("ip")
+
+
+def test_retry_after_is_exactly_900_at_the_cap():
+    _, th = make()
+    for _ in range(20):
+        th.login_failed("a@b.c", "ip")
+    with pytest.raises(Throttled) as e:
+        th.check_login("a@b.c", "other")
+    assert e.value.retry_after == 900
+
+
+def test_old_failures_stop_counting():
+    t, th = make()
+    for _ in range(5):
+        th.login_failed("a@b.c", "ip")
+    t[0] += 901
+    th.check_login("a@b.c", "ip")
+
+
+def test_ip_29_failures_pass_30_throttle():
+    _, th = make()
+    for i in range(29):
+        th.login_failed(f"u{i}@b.c", "9.9.9.9")
+    th.check_login("n@b.c", "9.9.9.9")
+    th.login_failed("z@b.c", "9.9.9.9")
+    with pytest.raises(Throttled):
+        th.check_login("n@b.c", "9.9.9.9")
