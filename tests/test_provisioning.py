@@ -11,6 +11,7 @@ from oracle_lab.provisioning.proxy import ProxyDatabase
 from oracle_lab.provisioning.schemas import (
     LEARNER_GRANTS,
     PROFILE_DDL,
+    PROFILE_UPDATE_DDL,
     SCHEMA_NAME,
     SchemaProvisioner,
     checked,
@@ -32,6 +33,8 @@ def test_checked_rejects_injection():
         checked("OLL_U1; DROP USER x")
     with pytest.raises(ValueError):
         checked("oll_uabcdefghij")
+    with pytest.raises(ValueError):
+        checked("OLL_UABCDEFGHIJ\n")
     assert checked("OLL_UABCDEFGH23") == "OLL_UABCDEFGH23"
 
 
@@ -120,10 +123,8 @@ def test_create_runs_the_steps_in_order():
     provisioner(admin, loaded).create("OLL_UABCDEFGHIJ")
     create_user, *rest = admin.statements[1:]
     assert admin.statements[0] == PROFILE_DDL
-    assert create_user.startswith('CREATE USER OLL_UABCDEFGHIJ IDENTIFIED BY "')
-    assert create_user.endswith('" DEFAULT TABLESPACE USERS QUOTA 50M ON USERS PROFILE OLL_LEARNER')
-    password = create_user.split('"')[1]
-    assert len(password) == 30 and password.isalnum() and password[0].isalpha()
+    assert create_user == ("CREATE USER OLL_UABCDEFGHIJ NO AUTHENTICATION DEFAULT TABLESPACE USERS "
+                           "QUOTA 50M ON USERS PROFILE OLL_LEARNER")
     assert rest == [f"GRANT {', '.join(LEARNER_GRANTS[19])} TO OLL_UABCDEFGHIJ",
                     "ALTER USER OLL_UABCDEFGHIJ GRANT CONNECT THROUGH OLL_GATEWAY"]
     assert loaded == ["proxy:OLL_UABCDEFGHIJ"]
@@ -147,10 +148,27 @@ def test_unavailable_profile_is_left_out(code, caplog):
     assert "PROFILE" not in create_user
 
 
-def test_existing_profile_is_used():
+def test_profile_never_locks_or_expires_accounts():
+    assert "FAILED_LOGIN_ATTEMPTS UNLIMITED" in PROFILE_DDL
+    assert "PASSWORD_LIFE_TIME UNLIMITED" in PROFILE_DDL
+
+
+def test_existing_profile_is_used_and_brought_up_to_date():
     admin = FakeAdmin(fail={"CREATE PROFILE": 2379})
     prov = provisioner(admin)
     prov.ensure_profile()
+    assert admin.statements[-1] == PROFILE_UPDATE_DDL
+    prov.create("OLL_UABCDEFGHIJ")
+    assert next(s for s in admin.statements if s.startswith("CREATE USER")).endswith("PROFILE OLL_LEARNER")
+
+
+@pytest.mark.parametrize("code", [1031, 2376, 2377])
+def test_existing_profile_that_cannot_be_altered_is_still_used(code, caplog):
+    admin = FakeAdmin(fail={"CREATE PROFILE": 2379, "ALTER PROFILE": code})
+    prov = provisioner(admin)
+    with caplog.at_level(logging.WARNING):
+        prov.ensure_profile()
+    assert f"ORA-{code:05d}" in caplog.text
     prov.create("OLL_UABCDEFGHIJ")
     assert next(s for s in admin.statements if s.startswith("CREATE USER")).endswith("PROFILE OLL_LEARNER")
 
@@ -170,7 +188,15 @@ def test_failed_step_drops_the_half_made_user():
     assert admin.statements[-1] == "DROP USER OLL_UABCDEFGHIJ CASCADE"
 
 
-@pytest.mark.parametrize("kwargs", [{"tablespace": 'USERS" x'}, {"tablespace": "USERS QUOTA UNLIMITED"},
+def test_failed_create_user_drops_nothing():
+    admin = FakeAdmin(fail={"CREATE USER": 1920})
+    with pytest.raises(oracledb.DatabaseError):
+        provisioner(admin).create("OLL_UABCDEFGHIJ")
+    assert not any(s.startswith("DROP USER") for s in admin.statements)
+
+
+@pytest.mark.parametrize("kwargs", [{"tablespace": "USERS\n"}, {"gateway": "GW\n"},
+                                    {"tablespace": 'USERS" x'}, {"tablespace": "USERS QUOTA UNLIMITED"},
                                     {"gateway": "GW; DROP USER SYS"}, {"tablespace": '"users"'}])
 def test_bad_identifiers_are_refused_before_any_sql(kwargs):
     admin = FakeAdmin()
@@ -209,6 +235,26 @@ def test_proxy_database_targets_the_schema_and_checks_it():
     assert str(db.target) == "OLL_UABCDEFGHIJ@db:1521/x"
     with pytest.raises(ValueError):
         ProxyDatabase(gateway, "SYSTEM")
+
+
+def test_proxy_database_connects_as_the_gateway_on_behalf_of_the_schema(monkeypatch):
+    calls = []
+
+    class Conn:
+        call_timeout = None
+
+        def cursor(self):
+            return FakeCursor(FakeAdmin())
+
+    def connect(**kwargs):
+        calls.append(kwargs)
+        return Conn()
+
+    monkeypatch.setattr(oracledb, "connect", connect)
+    gateway = DatabaseTarget("oll_gateway", "db:1521/x", Secret.from_value("gw-secret", "test"))
+    conn = ProxyDatabase(gateway, "OLL_UABCDEFGHIJ", call_timeout_ms=1234).connect()
+    assert calls == [{"user": "oll_gateway[OLL_UABCDEFGHIJ]", "password": "gw-secret", "dsn": "db:1521/x"}]
+    assert conn.call_timeout == 1234
 
 
 def test_init_db_ensures_the_profile_on_each_practice_target_and_survives_failures(monkeypatch, caplog, tmp_path):

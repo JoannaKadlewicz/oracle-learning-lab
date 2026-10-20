@@ -59,6 +59,17 @@ def test_create_connect_through_gateway_and_drop(practice, provisioner_database)
     provisioner.drop(name)  # dropping again is fine
 
 
+def test_learner_schema_has_no_direct_login(practice, provisioner_database):
+    make, new_name = practice
+    name = new_name()
+    make().create(name)
+    for password in ("x", name, "Abcdefghij1234567890Abcdefghij"):
+        with pytest.raises(oracledb.DatabaseError):
+            oracledb.connect(user=name, password=password, dsn=provisioner_database.provisioner.dsn).close()
+    # the failed attempts lock nothing: the gateway still gets in
+    assert scalar(ProxyDatabase(provisioner_database.gateway, name), "SELECT USER FROM dual") == name
+
+
 def test_learner_cannot_see_other_learners_tables(practice, provisioner_database):
     make, new_name = practice
     provisioner, a, b = make(), new_name(), new_name()

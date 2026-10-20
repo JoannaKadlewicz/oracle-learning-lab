@@ -1,8 +1,8 @@
 """Create and drop the learners' private practice schemas (OLL_U + 10 base32 characters).
 
 Identifiers cannot be bound in DDL, so every one that goes into a statement passes a strict
-pattern first. A learner's password is random, used once in CREATE USER and never kept or logged:
-learners only ever connect through the gateway (see proxy.py).
+pattern first. Learner schemas have no password at all (NO AUTHENTICATION): nobody can log in to
+one directly, or lock it with failed attempts; learners only connect through the gateway (proxy.py).
 """
 
 from __future__ import annotations
@@ -11,7 +11,6 @@ import base64
 import logging
 import re
 import secrets
-import string
 from collections.abc import Callable
 from typing import Any
 
@@ -30,16 +29,16 @@ LEARNER_GRANTS = {
 LEARNER_GRANTS[23] = LEARNER_GRANTS[19] + ("CREATE DOMAIN", "CREATE PROCEDURE")
 
 PROFILE = "OLL_LEARNER"
+_NO_LOCKOUT = "FAILED_LOGIN_ATTEMPTS UNLIMITED PASSWORD_LIFE_TIME UNLIMITED"
 PROFILE_DDL = (f"CREATE PROFILE {PROFILE} LIMIT SESSIONS_PER_USER 3 CPU_PER_CALL 3000 "
-               "LOGICAL_READS_PER_CALL 2000000 IDLE_TIME 15 CONNECT_TIME 120")
+               f"LOGICAL_READS_PER_CALL 2000000 IDLE_TIME 15 CONNECT_TIME 120 {_NO_LOCKOUT}")
+# Brings a profile made by an earlier version (without the password limits) up to date.
+PROFILE_UPDATE_DDL = f"ALTER PROFILE {PROFILE} LIMIT {_NO_LOCKOUT}"
 
 PROFILE_EXISTS = 2379
 PROFILE_UNAVAILABLE = {1031, 2376, 2377}  # insufficient privileges; invalid or unsupported resource limit
 NO_SUCH_USER = 1918
 NO_DBA_VIEW = {942, 1031}
-
-_ALPHANUMERIC = string.ascii_letters + string.digits
-
 
 def schema_name() -> str:
     """A fresh, opaque practice schema name."""
@@ -48,7 +47,7 @@ def schema_name() -> str:
 
 def checked(name: str) -> str:
     """`name` if it is a practice schema name; ValueError otherwise."""
-    if not isinstance(name, str) or not SCHEMA_NAME.match(name):
+    if not isinstance(name, str) or not SCHEMA_NAME.fullmatch(name):
         raise ValueError(f"not a practice schema name: {name!r}")
     return name
 
@@ -56,7 +55,7 @@ def checked(name: str) -> str:
 def identifier(name: str) -> str:
     """An unquoted Oracle identifier (upper-cased); ValueError for anything else, quoted names included."""
     upper = name.upper() if isinstance(name, str) else ""
-    if not IDENTIFIER.match(upper):
+    if not IDENTIFIER.fullmatch(upper):
         raise ValueError(f"not a plain Oracle identifier: {name!r}")
     return upper
 
@@ -64,10 +63,6 @@ def identifier(name: str) -> str:
 def grants_for(version: str) -> tuple[str, ...]:
     """The learner's system privileges for a database version such as "19.3.0.0.0"."""
     return LEARNER_GRANTS[23 if int(version.split(".")[0]) >= 23 else 19]
-
-
-def _password() -> str:
-    return secrets.choice(string.ascii_letters) + "".join(secrets.choice(_ALPHANUMERIC) for _ in range(29))
 
 
 def _ora_code(exc: oracledb.DatabaseError) -> int | None:
@@ -97,6 +92,7 @@ class SchemaProvisioner:
             code = _ora_code(exc)
             if code == PROFILE_EXISTS:
                 self.profile_available = True
+                self._update_profile()
             elif code in PROFILE_UNAVAILABLE:
                 log.warning("profile %s is unavailable on %s, practice schemas get no resource limits: %s",
                             PROFILE, self.admin.target, exc)
@@ -106,6 +102,16 @@ class SchemaProvisioner:
         else:
             log.info("created profile %s on %s", PROFILE, self.admin.target)
             self.profile_available = True
+
+    def _update_profile(self) -> None:
+        try:
+            with session(self.admin) as conn, conn.cursor() as cur:
+                cur.execute(PROFILE_UPDATE_DDL)
+        except oracledb.DatabaseError as exc:
+            if _ora_code(exc) not in PROFILE_UNAVAILABLE:
+                raise
+            log.warning("could not update profile %s on %s, keeping its current limits: %s",
+                        PROFILE, self.admin.target, exc)
 
     def create(self, name: str) -> None:
         """Create the user, grant it the learner privileges and the gateway, then load the sample tables.
@@ -118,7 +124,7 @@ class SchemaProvisioner:
             self.ensure_profile()
         profile = f" PROFILE {PROFILE}" if self.profile_available else ""
         with session(self.admin) as conn, conn.cursor() as cur:
-            cur.execute(f'CREATE USER {name} IDENTIFIED BY "{_password()}" DEFAULT TABLESPACE {tablespace} '
+            cur.execute(f"CREATE USER {name} NO AUTHENTICATION DEFAULT TABLESPACE {tablespace} "
                         f"QUOTA {self.quota_mb}M ON {tablespace}{profile}")
             try:
                 cur.execute(f"GRANT {', '.join(grants_for(conn.version))} TO {name}")

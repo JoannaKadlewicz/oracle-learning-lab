@@ -5,7 +5,7 @@ from __future__ import annotations
 import oracledb
 
 from oracle_lab.config import DatabaseTarget
-from oracle_lab.database.connection import SESSION_SETUP
+from oracle_lab.database.connection import open_session
 from oracle_lab.provisioning.schemas import checked
 
 
@@ -19,13 +19,8 @@ class ProxyDatabase:
         self.target = DatabaseTarget(self.schema, gateway.dsn, gateway.password)  # for display only
 
     def connect(self) -> oracledb.Connection:
-        conn = oracledb.connect(user=f"{self.gateway.user}[{checked(self.schema)}]",
-                                password=self.gateway.password.reveal(), dsn=self.gateway.dsn)
-        conn.call_timeout = self.call_timeout_ms
-        with conn.cursor() as cur:
-            for statement in SESSION_SETUP:
-                cur.execute(statement)
-        return conn
+        return open_session(f"{self.gateway.user}[{checked(self.schema)}]", self.gateway.password.reveal(),
+                            self.gateway.dsn, self.call_timeout_ms)
 
     def __repr__(self) -> str:
         return f"ProxyDatabase({self.target} via {self.gateway.user})"

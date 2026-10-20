@@ -19,6 +19,16 @@ SESSION_SETUP = (
 )
 
 
+def open_session(user: str, password: str, dsn: str, call_timeout_ms: int) -> oracledb.Connection:
+    """A thin-mode connection with the call timeout and SESSION_SETUP applied."""
+    conn = oracledb.connect(user=user, password=password, dsn=dsn)
+    conn.call_timeout = call_timeout_ms
+    with conn.cursor() as cur:
+        for statement in SESSION_SETUP:
+            cur.execute(statement)
+    return conn
+
+
 class Database(Protocol):
     """Something that opens sessions on one Oracle schema."""
 
@@ -35,12 +45,7 @@ class OracleDatabase:
         self.call_timeout_ms = call_timeout_ms
 
     def connect(self) -> oracledb.Connection:
-        conn = oracledb.connect(user=self.target.user, password=self.target.password.reveal(), dsn=self.target.dsn)
-        conn.call_timeout = self.call_timeout_ms
-        with conn.cursor() as cur:
-            for statement in SESSION_SETUP:
-                cur.execute(statement)
-        return conn
+        return open_session(self.target.user, self.target.password.reveal(), self.target.dsn, self.call_timeout_ms)
 
     def __repr__(self) -> str:
         return f"OracleDatabase({self.target})"
