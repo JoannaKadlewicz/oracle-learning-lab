@@ -8,7 +8,7 @@ from contextlib import closing
 
 import pytest
 
-from accounts_contract import CONTRACT, make_user, password_identity
+from accounts_contract import CONTRACT, add_user, make_user, password_identity
 from oracle_lab.accounts.sqlite_store import MIGRATIONS, sqlite_stores
 
 
@@ -19,6 +19,7 @@ def test_contract(check, tmp_path):
 
 def test_concurrent_transactions_do_not_lose_updates(tmp_path):
     stores = sqlite_stores(tmp_path / "app.db")
+    add_user(stores, "u1")
 
     def bump():
         for _ in range(50):
@@ -36,6 +37,7 @@ def test_concurrent_transactions_do_not_lose_updates(tmp_path):
 
 def test_failed_transaction_is_not_saved(tmp_path):
     stores = sqlite_stores(tmp_path / "app.db")
+    add_user(stores, "u1")
     with pytest.raises(RuntimeError), stores.states.for_user("u1").transaction() as s:
         s["settings"]["x"] = 1
         raise RuntimeError

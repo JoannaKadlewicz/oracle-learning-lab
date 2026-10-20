@@ -49,7 +49,7 @@ MIGRATIONS = [
     CREATE INDEX identities_user ON identities(user_id);
     CREATE TABLE sessions (
         token_hash TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         csrf_token TEXT NOT NULL,
         created_at REAL NOT NULL,
         last_seen_at REAL NOT NULL,
@@ -91,7 +91,7 @@ MIGRATIONS = [
     CREATE INDEX audit_t ON audit(t);
     CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE practice_schemas (
-        user_id TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         database_key TEXT NOT NULL,
         schema_name TEXT NOT NULL,
         status TEXT NOT NULL,
@@ -99,9 +99,9 @@ MIGRATIONS = [
         error TEXT,
         PRIMARY KEY (user_id, database_key)
     );
-    CREATE TABLE user_state (user_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
+    CREATE TABLE user_state (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, doc TEXT NOT NULL);
     CREATE TABLE user_notes (
-        user_id TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
         title TEXT NOT NULL,
         body TEXT NOT NULL,
@@ -198,6 +198,8 @@ class SqliteUsers:
                 conn.execute(f"INSERT INTO users ({_USER_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", dataclasses.astuple(user))
                 self._insert_identity(conn, identity)
         except sqlite3.IntegrityError as e:
+            if e.sqlite_errorname not in _UNIQUE_ERRORS:
+                raise
             raise EmailTaken(TAKEN) from e
 
     def get(self, user_id: str) -> User | None:
@@ -381,7 +383,15 @@ class SqliteAudit:
     def add(self, event: AuditEvent) -> None:
         self._db.conn.execute(
             "INSERT INTO audit (t, event, outcome, user_id, ip, user_agent, detail) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (event.t, event.event, event.outcome, event.user_id, event.ip, event.user_agent, json.dumps(event.detail)),
+            (
+                event.t,
+                event.event,
+                event.outcome,
+                event.user_id,
+                event.ip,
+                event.user_agent,
+                json.dumps(event.detail, default=str),
+            ),
         )
 
     def recent(self, limit: int = 200, event: str | None = None, user_id: str | None = None) -> list[AuditEvent]:

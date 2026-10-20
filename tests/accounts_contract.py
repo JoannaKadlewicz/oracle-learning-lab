@@ -26,6 +26,12 @@ def password_identity(user: User) -> Identity:
     return Identity("password", user.email, user.id, "hash")
 
 
+def add_user(stores: AppStores, user_id: str) -> User:
+    user = User(user_id, f"{user_id}@example.com", user_id, "learner", "active", 100.0, None, None)
+    stores.users.add(user, password_identity(user))
+    return user
+
+
 def make_session(token_hash: str, user_id: str, expires_at: float = 1000.0) -> SessionRecord:
     return SessionRecord(token_hash, user_id, "csrf", 1.0, 1.0, expires_at, "127.0.0.1", "agent")
 
@@ -89,6 +95,8 @@ def reset_take_rejects_used_and_expired(stores: AppStores) -> None:
 
 
 def sessions_delete_for_user_keeps_one(stores: AppStores) -> None:
+    add_user(stores, "u1")
+    add_user(stores, "u2")
     for h in ("a", "b", "c"):
         stores.sessions.add(make_session(h, "u1"))
     stores.sessions.add(make_session("other", "u2"))
@@ -100,6 +108,7 @@ def sessions_delete_for_user_keeps_one(stores: AppStores) -> None:
 
 
 def purge_drops_expired_sessions_and_flows(stores: AppStores) -> None:
+    add_user(stores, "u1")
     stores.sessions.add(make_session("old", "u1", expires_at=10.0))
     stores.sessions.add(make_session("new", "u1", expires_at=100.0))
     stores.flows.add(LoginFlow("old", "s", "n", "v", "login", None, "/", 10.0))
@@ -111,6 +120,7 @@ def purge_drops_expired_sessions_and_flows(stores: AppStores) -> None:
 
 
 def session_touch_and_reauth(stores: AppStores) -> None:
+    add_user(stores, "u1")
     stores.sessions.add(make_session("a", "u1"))
     stores.sessions.touch("a", 5.0)
     stores.sessions.set_reauth("a", 9.0)
@@ -158,6 +168,7 @@ def settings_round_trip(stores: AppStores) -> None:
 def practice_schemas_round_trip(stores: AppStores) -> None:
     from oracle_lab.auth.models import PracticeSchema
 
+    add_user(stores, "u1")
     rec = PracticeSchema("u1", "19c", "LAB_U1", "ready", 1.0)
     stores.schemas.put(rec)
     assert stores.schemas.get("u1", "19c") == rec
@@ -168,6 +179,8 @@ def practice_schemas_round_trip(stores: AppStores) -> None:
 
 
 def state_store_is_per_user(stores: AppStores) -> None:
+    add_user(stores, "a")
+    add_user(stores, "b")
     with stores.states.for_user("a").transaction() as state:
         state["settings"]["x"] = 1
     assert stores.states.for_user("a").load()["settings"] == {"x": 1}
@@ -177,6 +190,8 @@ def state_store_is_per_user(stores: AppStores) -> None:
 
 
 def notes_are_per_user(stores: AppStores) -> None:
+    add_user(stores, "a")
+    add_user(stores, "b")
     a = stores.notes.for_user("a")
     assert a.add("note", "First", "# First\n") == "note.md"
     assert a.add("note", "Second", "# Second\n") == "note-2.md"
@@ -226,6 +241,7 @@ def update_persists_changed_fields(stores: AppStores) -> None:
 
 
 def session_delete_removes_exactly_that_session(stores: AppStores) -> None:
+    add_user(stores, "u1")
     stores.sessions.add(make_session("a", "u1"))
     stores.sessions.add(make_session("b", "u1"))
     stores.sessions.delete("a")
@@ -260,6 +276,35 @@ def duplicate_user_id_raises_email_taken(stores: AppStores) -> None:
     assert stores.users.by_identity("google", "g-9") is None
 
 
+def user_delete_cascades(stores: AppStores) -> None:
+    from oracle_lab.auth.models import PracticeSchema
+    from oracle_lab.study.state import new_state
+
+    add_user(stores, "u1")
+    add_user(stores, "u2")
+    for uid in ("u1", "u2"):
+        stores.sessions.add(make_session(f"s-{uid}", uid))
+        stores.schemas.put(PracticeSchema(uid, "19c", f"LAB_{uid}", "ready", 1.0))
+        with stores.states.for_user(uid).transaction() as state:
+            state["settings"]["x"] = 1
+        stores.notes.for_user(uid).add("note", "T", "body")
+    stores.users.delete("u1")
+    assert stores.sessions.for_user("u1") == [] and stores.sessions.get("s-u1") is None
+    assert stores.schemas.for_user("u1") == [] and stores.schemas.get("u1", "19c") is None
+    assert stores.states.for_user("u1").load() == new_state()
+    assert stores.notes.for_user("u1").entries() == []
+    assert stores.sessions.get("s-u2") is not None
+    assert len(stores.schemas.for_user("u2")) == 1
+    assert stores.states.for_user("u2").load()["settings"] == {"x": 1}
+    assert len(stores.notes.for_user("u2").entries()) == 1
+
+
+def update_of_unknown_user_is_a_no_op(stores: AppStores) -> None:
+    stores.users.update(make_user(9))
+    assert stores.users.get("u9") is None
+    assert stores.users.count() == 0
+
+
 CONTRACT = [
     user_round_trip,
     duplicate_email_raises_email_taken,
@@ -282,4 +327,6 @@ CONTRACT = [
     session_delete_removes_exactly_that_session,
     failed_add_leaves_no_partial_data,
     duplicate_user_id_raises_email_taken,
+    user_delete_cascades,
+    update_of_unknown_user_is_a_no_op,
 ]

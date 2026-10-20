@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import threading
+from collections.abc import Callable
 
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.models import (
@@ -26,6 +27,7 @@ class MemoryUsers:
         self._lock = threading.Lock()
         self._users: dict[str, User] = {}
         self._identities: list[Identity] = []
+        self.on_delete: list[Callable[[str], None]] = []  # cascades, wired by memory_stores()
 
     def add(self, user: User, identity: Identity) -> None:
         with self._lock:
@@ -66,7 +68,8 @@ class MemoryUsers:
 
     def update(self, user: User) -> None:
         with self._lock:
-            self._users[user.id] = user
+            if user.id in self._users:
+                self._users[user.id] = user
 
     def set_password(self, user_id: str, password_hash: str, changed_at: float) -> None:
         with self._lock:
@@ -83,6 +86,8 @@ class MemoryUsers:
         with self._lock:
             self._users.pop(user_id, None)
             self._identities = [i for i in self._identities if i.user_id != user_id]
+        for cascade in self.on_delete:
+            cascade(user_id)
 
     def all(self) -> list[User]:
         with self._lock:
@@ -314,15 +319,19 @@ class MemoryUserNotes:
 
 
 def memory_stores() -> AppStores:
+    """Fresh stores; deleting a user also removes its sessions, practice schemas, state and notes."""
+    users, sessions, schemas = MemoryUsers(), MemorySessions(), MemorySchemas()
+    states, notes = MemoryUserStates(), MemoryUserNotes()
+    users.on_delete = [sessions.delete_for_user, schemas.delete_for_user, states.delete, notes.delete]
     return AppStores(
-        users=MemoryUsers(),
-        sessions=MemorySessions(),
+        users=users,
+        sessions=sessions,
         flows=MemoryFlows(),
         resets=MemoryResets(),
         throttle=MemoryThrottle(),
         audit=MemoryAudit(),
         settings=MemorySettings(),
-        schemas=MemorySchemas(),
-        states=MemoryUserStates(),
-        notes=MemoryUserNotes(),
+        schemas=schemas,
+        states=states,
+        notes=notes,
     )
