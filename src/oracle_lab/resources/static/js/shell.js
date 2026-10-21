@@ -24,6 +24,11 @@ export function applyTheme(theme) {
   store("theme", theme);
   if (theme === "auto") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.dataset.theme = theme;
+  // The browser bar colour: per theme, or back to following the system.
+  $$('meta[name="theme-color"]').forEach(m => {
+    const dark = theme === "dark" || (theme === "auto" && m.media.includes("dark"));
+    m.content = dark ? "#0E1522" : "#EDF1F6";
+  });
 }
 
 /* ---------------------------------------------------------------- exam track */

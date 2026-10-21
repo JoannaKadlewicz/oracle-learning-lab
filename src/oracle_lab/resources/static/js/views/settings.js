@@ -13,7 +13,7 @@ import { loadSession, currentUser } from "../core/session.js";
 
 function render() {
   const settings = P.settings;
-  const theme = store("theme") || "auto";
+  const theme = store("theme") || "dark";  // the default before any choice, as in the pages' head script
   main.innerHTML = `
     ${pageHead("Settings", `You are preparing for <b>${esc(C.exam.code)}</b>, ${esc(C.exam.name)}. Switch exams at the top of the menu; progress is kept for both.`)}
     <div class="settings">
