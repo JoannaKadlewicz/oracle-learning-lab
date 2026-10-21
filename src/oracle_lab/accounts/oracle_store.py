@@ -12,6 +12,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -40,7 +41,7 @@ log = logging.getLogger(__name__)
 MIGRATIONS: list[list[str]] = [
     [
         """CREATE TABLE app_users (
-            seq NUMBER GENERATED ALWAYS AS IDENTITY,
+            seq NUMBER NOT NULL,
             id VARCHAR2(64 CHAR) CONSTRAINT app_users_pk PRIMARY KEY,
             email VARCHAR2(320 CHAR) NOT NULL CONSTRAINT app_users_email_uq UNIQUE,
             display_name VARCHAR2(200 CHAR),
@@ -50,7 +51,7 @@ MIGRATIONS: list[list[str]] = [
             last_login_at BINARY_DOUBLE,
             password_changed_at BINARY_DOUBLE)""",
         """CREATE TABLE app_identities (
-            seq NUMBER GENERATED ALWAYS AS IDENTITY,
+            seq NUMBER NOT NULL,
             provider VARCHAR2(20 CHAR) NOT NULL,
             subject VARCHAR2(320 CHAR) NOT NULL,
             user_id VARCHAR2(64 CHAR) NOT NULL CONSTRAINT app_identities_user_fk REFERENCES app_users(id) ON DELETE CASCADE,
@@ -58,7 +59,7 @@ MIGRATIONS: list[list[str]] = [
             CONSTRAINT app_identities_pk PRIMARY KEY (provider, subject))""",
         "CREATE INDEX app_identities_user ON app_identities(user_id)",
         """CREATE TABLE app_sessions (
-            seq NUMBER GENERATED ALWAYS AS IDENTITY,
+            seq NUMBER NOT NULL,
             token_hash VARCHAR2(128 CHAR) CONSTRAINT app_sessions_pk PRIMARY KEY,
             user_id VARCHAR2(64 CHAR) NOT NULL CONSTRAINT app_sessions_user_fk REFERENCES app_users(id) ON DELETE CASCADE,
             csrf_token VARCHAR2(128 CHAR) NOT NULL,
@@ -87,7 +88,7 @@ MIGRATIONS: list[list[str]] = [
         "CREATE TABLE app_throttle (key VARCHAR2(500 CHAR) NOT NULL, t BINARY_DOUBLE NOT NULL)",
         "CREATE INDEX app_throttle_key ON app_throttle(key, t)",
         """CREATE TABLE app_audit (
-            id NUMBER GENERATED ALWAYS AS IDENTITY CONSTRAINT app_audit_pk PRIMARY KEY,
+            id NUMBER CONSTRAINT app_audit_pk PRIMARY KEY,
             t BINARY_DOUBLE NOT NULL,
             event VARCHAR2(100 CHAR) NOT NULL,
             outcome VARCHAR2(20 CHAR) NOT NULL,
@@ -98,7 +99,7 @@ MIGRATIONS: list[list[str]] = [
         "CREATE INDEX app_audit_t ON app_audit(t)",
         "CREATE TABLE app_settings (key VARCHAR2(200 CHAR) CONSTRAINT app_settings_pk PRIMARY KEY, value VARCHAR2(1000 CHAR))",
         """CREATE TABLE app_practice_schemas (
-            seq NUMBER GENERATED ALWAYS AS IDENTITY,
+            seq NUMBER NOT NULL,
             user_id VARCHAR2(64 CHAR) NOT NULL CONSTRAINT app_practice_schemas_user_fk REFERENCES app_users(id) ON DELETE CASCADE,
             database_key VARCHAR2(100 CHAR) NOT NULL,
             schema_name VARCHAR2(128 CHAR) NOT NULL,
@@ -148,6 +149,20 @@ def migrate(database: Database) -> None:
             cur.execute("INSERT INTO app_schema_version (version) VALUES (:v)", v=number)
             conn.commit()
             log.info("applied app schema version %d on %s", number, database.target)
+
+
+_seq_lock = threading.Lock()
+_last_seq = 0
+
+
+def next_seq() -> int:
+    """An increasing number for the `seq` (insertion order) and app_audit.id columns. Generated here rather than by
+    an identity column or a sequence, which would need CREATE SEQUENCE on top of CREATE TABLE: the time in
+    nanoseconds, bumped past the last value handed out, so it increases within the process and across restarts."""
+    global _last_seq
+    with _seq_lock:
+        _last_seq = max(time.time_ns(), _last_seq + 1)
+        return _last_seq
 
 
 def lob_text(value: str | oracledb.LOB | None) -> str:
@@ -221,9 +236,10 @@ class OracleUsers:
     def add(self, user: User, identity: Identity) -> None:
         with _taken_on_duplicate(), session(self._db) as conn, conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO app_users (id, email, display_name, role, status, created_at, last_login_at, password_changed_at) "
-                "VALUES (:id, :email, :display_name, :role, :status, :created_at, :last_login_at, :password_changed_at)",
-                _user_binds(user),
+                "INSERT INTO app_users (seq, id, email, display_name, role, status, created_at, last_login_at, "
+                "password_changed_at) VALUES (:seq, :id, :email, :display_name, :role, :status, :created_at, "
+                ":last_login_at, :password_changed_at)",
+                {**_user_binds(user), "seq": next_seq()},
             )
             self._insert_identity(cur, identity)
             conn.commit()
@@ -317,9 +333,9 @@ class OracleUsers:
     @staticmethod
     def _insert_identity(cur: oracledb.Cursor, identity: Identity) -> None:
         cur.execute(
-            "INSERT INTO app_identities (provider, subject, user_id, password_hash) "
-            "VALUES (:provider, :subject, :user_id, :password_hash)",
-            _binds(identity),
+            "INSERT INTO app_identities (seq, provider, subject, user_id, password_hash) "
+            "VALUES (:seq, :provider, :subject, :user_id, :password_hash)",
+            {**_binds(identity), "seq": next_seq()},
         )
 
 
@@ -338,9 +354,10 @@ class OracleSessions:
             "WHEN MATCHED THEN UPDATE SET s.user_id = :user_id, s.csrf_token = :csrf_token, s.created_at = :created_at, "
             "s.last_seen_at = :last_seen_at, s.expires_at = :expires_at, s.ip = :ip, s.user_agent = :user_agent, "
             "s.reauth_until = :reauth_until "
-            f"WHEN NOT MATCHED THEN INSERT ({_SESSION_COLS}) VALUES (:token_hash, :user_id, :csrf_token, :created_at, "
-            ":last_seen_at, :expires_at, :ip, :user_agent, :reauth_until)",
-            _binds(dataclasses.replace(rec, ip=_cut(rec.ip, IP), user_agent=_cut(rec.user_agent, AGENT))),
+            f"WHEN NOT MATCHED THEN INSERT (seq, {_SESSION_COLS}) VALUES (:seq, :token_hash, :user_id, :csrf_token, "
+            ":created_at, :last_seen_at, :expires_at, :ip, :user_agent, :reauth_until)",
+            {**_binds(dataclasses.replace(rec, ip=_cut(rec.ip, IP), user_agent=_cut(rec.user_agent, AGENT))),
+             "seq": next_seq()},
         )
 
     def get(self, token_hash: str) -> SessionRecord | None:
@@ -437,6 +454,11 @@ class OracleResets:
             conn.commit()
             return ResetToken(*row)
 
+    def revoke_for_user(self, user_id: str) -> None:
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM app_reset_tokens WHERE user_id = :u AND used_at IS NULL", u=user_id)
+            conn.commit()
+
 
 class OracleThrottle:
     def __init__(self, database: Database):
@@ -475,9 +497,9 @@ class OracleAudit:
         with session(self._db) as conn, conn.cursor() as cur:
             cur.setinputsizes(detail=oracledb.DB_TYPE_CLOB)
             cur.execute(
-                "INSERT INTO app_audit (t, event, outcome, user_id, ip, user_agent, detail) "
-                "VALUES (:t, :event, :outcome, :user_id, :ip, :user_agent, :detail)",
-                t=event.t, event=event.event, outcome=event.outcome, user_id=event.user_id, ip=_cut(event.ip, IP),
+                "INSERT INTO app_audit (id, t, event, outcome, user_id, ip, user_agent, detail) "
+                "VALUES (:id, :t, :event, :outcome, :user_id, :ip, :user_agent, :detail)",
+                id=next_seq(), t=event.t, event=event.event, outcome=event.outcome, user_id=event.user_id, ip=_cut(event.ip, IP),
                 user_agent=_cut(event.user_agent, AGENT), detail=json.dumps(event.detail, default=str),
             )
             conn.commit()
@@ -545,9 +567,9 @@ class OracleSchemas:
                 "ON (p.user_id = n.user_id AND p.database_key = n.database_key) "
                 "WHEN MATCHED THEN UPDATE SET p.schema_name = :schema_name, p.status = :status, "
                 "p.created_at = :created_at, p.error = :error "
-                f"WHEN NOT MATCHED THEN INSERT ({_SCHEMA_COLS}) VALUES (:user_id, :database_key, :schema_name, :status, "
-                ":created_at, :error)",
-                _binds(dataclasses.replace(rec, error=_cut(rec.error, LONG))),
+                f"WHEN NOT MATCHED THEN INSERT (seq, {_SCHEMA_COLS}) VALUES (:seq, :user_id, :database_key, :schema_name, "
+                ":status, :created_at, :error)",
+                {**_binds(dataclasses.replace(rec, error=_cut(rec.error, LONG))), "seq": next_seq()},
             )
             conn.commit()
 

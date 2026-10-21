@@ -146,3 +146,12 @@ def test_migrate_resumes_after_a_partial_run(state_database):
         assert cur.fetchall() == [(len(MIGRATIONS),)]
         cur.execute("SELECT COUNT(*) FROM user_tables WHERE table_name LIKE 'APP\\_%' ESCAPE '\\'")
         assert cur.fetchone()[0] == 12
+
+
+def test_migrations_need_no_create_sequence():
+    """Identity columns need CREATE SEQUENCE, which the state user does not have (CREATE SESSION, CREATE TABLE)."""
+    from oracle_lab.accounts.oracle_store import next_seq
+
+    assert not any("IDENTITY" in s.upper() or "SEQUENCE" in s.upper() for m in MIGRATIONS for s in m)
+    values = [next_seq() for _ in range(1000)]
+    assert values == sorted(set(values))
