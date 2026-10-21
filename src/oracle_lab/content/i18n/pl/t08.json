@@ -1,0 +1,502 @@
+{
+  "questions": {
+    "q08-rules": {
+      "prompt": "Które dwa stwierdzenia o operatorach zbiorowych są prawdziwe?",
+      "options": [
+        "W zapytaniu złożonym ORDER BY może wystąpić tylko raz, po ostatnim SELECT.",
+        "Nagłówki kolumn wyniku pochodzą z pierwszego SELECT.",
+        "UNION ALL usuwa zduplikowane wiersze, ale ich nie sortuje.",
+        "INTERSECT nigdy nie zwraca wiersza zawierającego NULL, bo NULL nie jest równe NULL."
+      ],
+      "explanation": "ORDER BY stoi na końcu i dotyczy całego wyniku; może używać nazw kolumn z pierwszego zapytania, aliasów lub pozycji. UNION ALL zachowuje duplikaty. Operatory zbiorowe przy porównywaniu wierszy traktują wartości NULL jako równe, więc INTERSECT może zwrócić NULL."
+    },
+    "q08-types": {
+      "prompt": "Co się stanie?",
+      "options": [
+        "Liczby zostaną przekonwertowane na tekst i zapytanie zwróci 18 wierszy",
+        "Zgłasza błąd ORA-01790: expression must have same datatype as corresponding expression",
+        "Zwrócone zostaną tylko wiersze obecne w obu zapytaniach",
+        "Kolumna nazywa się LAST_NAME"
+      ],
+      "explanation": "Odpowiadające sobie kolumny muszą należeć do tej samej grupy typów danych. Operatory zbiorowe nie konwertują niejawnie NUMBER na CHAR. Użyj TO_CHAR, żeby je połączyć."
+    },
+    "q08-column-count": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "ORA-01789: query block has incorrect number of result columns",
+        "ORA-01790: expression must have same datatype as corresponding expression",
+        "Brakująca druga kolumna zostanie wypełniona wartością NULL i zapytanie zwróci 13 wierszy",
+        "Porównywana jest tylko EMPLOYEE_ID; LAST_NAME jest zwracane tam, gdzie istnieje"
+      ],
+      "explanation": "Każdy SELECT w zapytaniu złożonym musi zwracać tę samą liczbę kolumn; Oracle nigdy nie uzupełnia brakujących kolumn w żadnej gałęzi. ORA-01790 to błąd niezgodności typów na odpowiadających sobie pozycjach. Żeby połączyć zapytania o różnej liczbie kolumn, dodaj do krótszego NULL (lub literał) jako kolumnę zastępczą."
+    },
+    "q08-fix-types": {
+      "prompt": "SELECT e.employee_id FROM employees e UNION SELECT e.last_name FROM employees e zgłasza błąd ORA-01790. Które dwa zapytania wykonają się bez błędu?",
+      "explanation": "Jawne TO_CHAR umieszcza obie gałęzie w grupie typów znakowych, a zastępczy NULL pasuje do każdego typu, więc rozdzielenie wartości do osobnych kolumn też działa. UNION ALL ma tę samą regułę typów co UNION, a aliasy nie zmieniają typów. TO_NUMBER('King') przechodzi parsowanie, ale w czasie wykonania kończy się błędem ORA-01722."
+    },
+    "q08-null-placeholder": {
+      "prompt": "EMPLOYEES ma 9 wierszy, a CUSTOMERS 5 wierszy. Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "9",
+        "14",
+        "ORA-01790: expression must have same datatype as corresponding expression",
+        "ORA-01789: query block has incorrect number of result columns"
+      ],
+      "explanation": "Literał NULL nie ma ustalonego typu i może zastąpić dowolną kolumnę, więc druga gałąź pasuje do kolumny salary typu NUMBER. Obie gałęzie mają po dwie kolumny, a UNION ALL zachowuje wszystkie 9 + 5 = 14 wierszy."
+    },
+    "q08-headings": {
+      "prompt": "Jakie nagłówki kolumn ma wynik?",
+      "options": [
+        "NAME, SALARY",
+        "CUSTOMER, AMOUNT",
+        "NAME, AMOUNT",
+        "Zgłasza błąd, bo aliasy się różnią"
+      ],
+      "explanation": "Nagłówki zapytania złożonego zawsze pochodzą z pierwszego SELECT: z jego aliasu NAME i kolumny SALARY. Aliasy w kolejnych gałęziach są dozwolone, ale ignorowane, więc nie można ich też użyć w końcowym ORDER BY."
+    },
+    "q08-matching-rules": {
+      "prompt": "Które dwa stwierdzenia o poleceniach SELECT w zapytaniu złożonym są prawdziwe?",
+      "options": [
+        "Każdy SELECT musi zwracać tę samą liczbę kolumn.",
+        "Odpowiadające sobie kolumny nie muszą mieć tej samej nazwy ani tej samej długości.",
+        "Odpowiadające sobie kolumny muszą mieć dokładnie ten sam typ danych, np. NUMBER(4) i NUMBER(4).",
+        "Nazwy kolumn wyniku pochodzą z ostatniego SELECT.",
+        "Oracle automatycznie konwertuje kolumnę NUMBER na VARCHAR2, gdy w drugiej gałęzi jest tekst."
+      ],
+      "explanation": "Gałęzie są dopasowywane według pozycji, więc liczba kolumn musi się zgadzać (ORA-01789), a nazwy nigdy nie mają znaczenia. Typy muszą tylko należeć do tej samej grupy: NUMBER(4) z NUMBER(8,2) albo VARCHAR2(25) z VARCHAR2(50) są w porządku. Nazwy pochodzą z pierwszego SELECT, a NUMBER nie jest niejawnie konwertowany na tekst (ORA-01790)."
+    },
+    "q08-union-all-count": {
+      "prompt": "ORDERS ma 7 wierszy, a CUSTOMERS 5 wierszy; każde zamówienie należy do istniejącego klienta. Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "5",
+        "7",
+        "12",
+        "13"
+      ],
+      "explanation": "UNION ALL po prostu dokleja wiersze: 7 zamówień plus 5 klientów = 12, razem z duplikatami. Z UNION wynikiem byłoby 5 różnych identyfikatorów klientów."
+    },
+    "q08-union-null-count": {
+      "prompt": "country_code zawiera powtarzające się wartości i wartości NULL, a druga gałąź zwraca podzbiór pierwszej. Które stwierdzenie o wyniku jest prawdziwe?",
+      "options": [
+        "Każdy różny country_code występuje raz, a wszystkie wartości NULL łączą się w jeden wiersz z NULL",
+        "Każdy różny country_code występuje raz, a wartości NULL są usuwane z wyniku",
+        "Kody krajów zwracane przez obie gałęzie występują dwukrotnie",
+        "Duplikaty wewnątrz pierwszej gałęzi zostają; usuwane są tylko duplikaty między gałęziami"
+      ],
+      "explanation": "UNION zwraca różne wiersze całego połączonego wyniku, więc duplikaty są usuwane bez względu na to, skąd pochodzą, a operatory zbiorowe traktują wartości NULL jako równe sobie, więc zostaje jeden wiersz z NULL. Wartości NULL nie są pomijane (do tego potrzeba WHERE ... IS NOT NULL), a zachowywanie duplikatów to działanie UNION ALL."
+    },
+    "q08-equivalent-union": {
+      "prompt": "Pracownik 108 ma department_id równe NULL, a dział 40 nie ma pracowników. Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "UNION to UNION ALL, po którym następuje usunięcie duplikatów, i jest przemienne. Samo UNION ALL zostawia 13 wierszy z duplikatami. Złączenie zewnętrzne (OUTER JOIN) zaczyna od departments, więc pomija dział NULL pracownika 108, który UNION zachowuje."
+    },
+    "q08-union-rules": {
+      "prompt": "Które dwa stwierdzenia o UNION i UNION ALL są prawdziwe?",
+      "options": [
+        "UNION usuwa też duplikaty występujące w obrębie jednej gałęzi.",
+        "Tylko ORDER BY na końcu gwarantuje kolejność wierszy UNION lub UNION ALL.",
+        "UNION zawsze zwraca wiersze posortowane po pierwszej kolumnie.",
+        "UNION ALL usuwa duplikaty pochodzące z różnych gałęzi.",
+        "UNION zachowuje dwa wiersze, które różnią się tylko wartościami NULL w tej samej kolumnie, bo NULL nie jest równe NULL."
+      ],
+      "explanation": "UNION zwraca różne wiersze całego wyniku, więc duplikaty wewnątrz jednej gałęzi też znikają. Starsze wersje często sortowały wynik przy okazji, ale Oracle może użyć haszowania, więc bez ORDER BY kolejność nie jest gwarantowana. UNION ALL zachowuje każdy wiersz, a operatory zbiorowe traktują wartości NULL jako wzajemne duplikaty."
+    },
+    "q08-union-dup-within": {
+      "prompt": "Druga gałąź nigdy nie zwraca wiersza. Które zapytanie zwraca te same wiersze co to, dla dowolnych danych?",
+      "explanation": "UNION usuwa duplikaty z połączonego wyniku, także te, które w całości pochodzą z pierwszej gałęzi, więc przy pustej drugiej gałęzi jest dokładnie tym samym co SELECT DISTINCT. Bez DISTINCT albo z UNION ALL powtarzające się stanowiska zostają, a HAVING COUNT(*) = 1 zostawia tylko stanowiska występujące raz, zamiast każdego stanowiska raz. Pusta gałąź nie jest błędem."
+    },
+    "q08-intersect-null": {
+      "prompt": "Co najmniej jeden pracownik z prowizją ma department_id równe NULL. Które stwierdzenie o wyniku jest prawdziwe?",
+      "options": [
+        "Wynik zawiera jeden wiersz z department_id równym NULL",
+        "Wynik nigdy nie zawiera NULL, bo NULL = NULL daje UNKNOWN",
+        "Każdy department_id występuje raz dla każdego pracownika z prowizją w tym dziale",
+        "Zgłasza błąd, bo druga gałąź może zwrócić NULL"
+      ],
+      "explanation": "Operatory zbiorowe przy porównywaniu wierszy traktują NULL jako równe NULL, więc NULL z pierwszej gałęzi pasuje do NULL z drugiej i pojawia się w wyniku raz. Reguła UNKNOWN dotyczy = w WHERE, IN i złączeniach, a nie operatorów zbiorowych. INTERSECT zwraca różne wiersze, a wartości NULL nigdy nie powodują błędu."
+    },
+    "q08-equivalent-intersect": {
+      "prompt": "customer_id jest kluczem głównym customers, niektórzy klienci mają kilka zamówień, a jeden nie ma żadnego. Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "INTERSECT zwraca klientów 1, 2, 3 i 5, każdego raz. IN i EXISTS to półzłączenia (semi-join) i również zwracają każdego klienta raz (customer_id jest tu unikalne i nigdy nie jest NULL, więc różnica w dopasowywaniu NULL się nie ujawnia). Złączenie (JOIN) powtarza klientów z kilkoma zamówieniami, a NOT IN zwraca zbiór przeciwny (klienta 4)."
+    },
+    "q08-intersect-rules": {
+      "prompt": "Które dwa stwierdzenia o INTERSECT w Oracle 19c są prawdziwe?",
+      "options": [
+        "A INTERSECT B zwraca te same wiersze co B INTERSECT A.",
+        "Wynik INTERSECT nigdy nie zawiera zduplikowanych wierszy.",
+        "INTERSECT jest wykonywane przed UNION w tym samym poleceniu.",
+        "INTERSECT ALL zachowuje zduplikowane wiersze.",
+        "INTERSECT pomija wiersze zawierające NULL."
+      ],
+      "explanation": "INTERSECT jest przemienne (zmieniają się tylko nagłówki) i zwraca różne wiersze. W Oracle wszystkie operatory zbiorowe mają ten sam priorytet i są wykonywane od lewej do prawej. INTERSECT ALL nie jest dostępne w 19c (dodano je w 21c), a w operatorach zbiorowych NULL pasuje do NULL."
+    },
+    "q08-equivalent-minus": {
+      "prompt": "Dział 40 nie ma pracowników, a pracownik 108 ma department_id równe NULL. Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "MINUS zwraca 40. NOT EXISTS, NOT IN z odfiltrowanym NULL i antyzłączenie (anti-join) przez złączenie zewnętrzne też zwracają 40 (department_id jest kluczem głównym, więc nie pojawiają się duplikaty). Zwykłe NOT IN nie zwraca nic przez NULL pracownika 108, a odwrócone MINUS zwraca NULL zamiast 40."
+    },
+    "q08-minus-rules": {
+      "prompt": "Które dwa stwierdzenia o MINUS w Oracle 19c są prawdziwe?",
+      "options": [
+        "A MINUS B i B MINUS A zwykle zwracają różne wiersze.",
+        "MINUS zwraca różne wiersze, nawet jeśli pierwsze zapytanie ma duplikaty.",
+        "EXCEPT może być używane jako synonim MINUS.",
+        "NULL zwrócony przez drugie zapytanie sprawia, że MINUS nie zwraca żadnych wierszy, tak jak NOT IN.",
+        "MINUS zwraca wiersze występujące w jednym z zapytań, ale nie w obu."
+      ],
+      "explanation": "MINUS zachowuje różne wiersze pierwszego zapytania, których nie zwraca drugie, więc kierunek ma znaczenie. EXCEPT (nazwa ze standardu) jest akceptowane dopiero od Oracle 21c. Operatory zbiorowe porównują wartości NULL jako równe, więc nie ma tu pułapki znanej z NOT IN, a „w jednym, ale nie w obu” to różnica symetryczna, która wymaga dwóch operacji MINUS."
+    },
+    "q08-order-by-second-alias": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zwraca 14 nazw posortowanych alfabetycznie",
+        "ORA-00904: \"CUST\": invalid identifier",
+        "ORA-00933: SQL command not properly ended",
+        "Sortowane są tylko nazwy klientów; nazwiska pracowników są na początku"
+      ],
+      "explanation": "Końcowe ORDER BY widzi tylko nazwy kolumn pierwszego SELECT (tu NAME) lub pozycje. Alias CUST z drugiej gałęzi jest nieznany, więc Oracle zgłasza ORA-00904. ORDER BY name albo ORDER BY 1 posortowałoby wszystkie 14 nazw."
+    },
+    "q08-order-by-in-branch": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Nazwiska pracowników zostaną posortowane, a potem zostaną doklejone nazwy klientów",
+        "Cały wynik zostanie posortowany po last_name",
+        "ORA-00933: SQL command not properly ended",
+        "ORA-01785: ORDER BY item must be the number of a SELECT-list expression"
+      ],
+      "explanation": "ORDER BY kończy zapytanie, więc Oracle uznaje polecenie za zakończone po pierwszej gałęzi i odrzuca UNION błędem ORA-00933. W zapytaniu złożonym ORDER BY może wystąpić tylko raz, po ostatnim SELECT, i sortuje cały wynik. Oracle 23ai zgłasza ten sam błąd jako ORA-03048 (SQL reserved word is not syntactically valid)."
+    },
+    "q08-order-by-valid": {
+      "prompt": "Które trzy klauzule ORDER BY można dodać na końcu tego zapytania?",
+      "options": [
+        "ORDER BY name",
+        "ORDER BY 2 DESC",
+        "ORDER BY salary, name",
+        "ORDER BY credit_limit",
+        "ORDER BY 3"
+      ],
+      "explanation": "Końcowe ORDER BY może używać aliasów i nazw kolumn pierwszego SELECT (NAME, SALARY) lub pozycji. CREDIT_LIMIT istnieje tylko w drugiej gałęzi, więc zgłasza ORA-00904, a pozycja 3 nie istnieje (ORA-01785)."
+    },
+    "q08-order-by-table-alias": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zwraca 14 nazw posortowanych alfabetycznie",
+        "ORA-00904: \"E\".\"LAST_NAME\": invalid identifier",
+        "Sortowane są tylko nazwiska pracowników",
+        "ORA-00918: column ambiguously defined"
+      ],
+      "explanation": "ORDER BY zapytania złożonego dotyczy połączonego wyniku, który nie ma aliasów tabel, więc e.last_name nie da się rozwiązać (ORA-00904). Użyj niekwalifikowanej nazwy LAST_NAME, aliasu z pierwszego SELECT albo pozycji 1."
+    },
+    "q08-order-by-rules": {
+      "prompt": "Które dwa stwierdzenia o ORDER BY w zapytaniach złożonych są prawdziwe?",
+      "options": [
+        "ORDER BY może odwołać się do kolumny przez jej pozycję na liście SELECT.",
+        "ORDER BY sortuje kompletny wynik wszystkich gałęzi.",
+        "Każda gałąź może mieć własne ORDER BY, jeśli jest to ostatnia klauzula tej gałęzi.",
+        "ORDER BY może użyć aliasu kolumny zdefiniowanego tylko w drugim SELECT.",
+        "Bez ORDER BY UNION ALL zwraca wiersze pierwszej gałęzi posortowane."
+      ],
+      "explanation": "Jedno ORDER BY na samym końcu sortuje cały wynik zapytania złożonego, według pozycji albo nazwy/aliasu z pierwszego zapytania. ORDER BY w jednej z wcześniejszych gałęzi zgłasza ORA-00933, aliasy z drugiej gałęzi zgłaszają ORA-00904, a UNION ALL w ogóle nie sortuje."
+    },
+    "q08-type-groups": {
+      "prompt": "Które trzy zapytania złożone wykonają się bez błędu?",
+      "explanation": "Odpowiadające sobie kolumny muszą tylko należeć do tej samej grupy typów danych: DATE i TIMESTAMP to typy daty i czasu, NUMBER i BINARY_DOUBLE to typy liczbowe, a NULL pasuje do każdej kolumny. Operatory zbiorowe nie konwertują niejawnie literałów znakowych, więc DATE z '2024-01-01' i NUMBER z '1000' zgłaszają ORA-01790 (użyj TO_DATE albo TO_NUMBER w drugiej gałęzi)."
+    },
+    "q08-union-all-chain": {
+      "prompt": "Tabela orders ma 7 wierszy z 3 różnymi statusami, z których jeden to NEW. Które dwa stwierdzenia są prawdziwe?",
+      "code": "-- Zapytanie 1\nSELECT o.status FROM orders o\nUNION ALL\nSELECT o.status FROM orders o\nUNION\nSELECT 'NEW' FROM dual;\n\n-- Zapytanie 2\nSELECT o.status FROM orders o\nUNION\nSELECT 'NEW' FROM dual\nUNION ALL\nSELECT o.status FROM orders o;",
+      "options": [
+        "Zapytanie 1 zwraca 3 wiersze",
+        "Zapytanie 2 zwraca 10 wierszy",
+        "Zapytanie 1 zwraca 15 wierszy: UNION ALL zachowuje duplikaty dwóch pierwszych gałęzi",
+        "Zapytanie 2 zwraca 3 wiersze: jedno UNION w dowolnym miejscu usuwa wszystkie duplikaty",
+        "Oba zapytania zwracają 15 wierszy"
+      ],
+      "explanation": "Operatory zbiorowe są wykonywane od góry do dołu. W Zapytaniu 1 wynik UNION ALL (14 wierszy) jest następnie łączony przez UNION z 'NEW', a UNION usuwa duplikaty z całego wyniku pośredniego: 3 wiersze. W Zapytaniu 2 najpierw wykonuje się UNION (3 różne statusy), a końcowe UNION ALL ponownie dokleja wszystkie 7 statusów: 10 wierszy. UNION usuwa duplikaty tylko z tego, co zostało połączone do tej pory."
+    },
+    "q08-equivalent-union-or": {
+      "prompt": "Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "UNION zwraca 4 różne stanowiska. OR z DISTINCT daje ten sam zbiór, UNION jest przemienne, a UNION to dokładnie DISTINCT nałożone na UNION ALL. Bez DISTINCT zapytanie z OR zwraca Sales Rep dwukrotnie (Russell i Partners), UNION ALL powtarza też Sales Manager (Kochhar jest w obu gałęziach), a AND to część wspólna, a nie suma."
+    },
+    "q08-intersect-vs-in-null": {
+      "prompt": "Klient 3 jest w US, a klient 5 ma country_code równe NULL. Które dwa stwierdzenia są prawdziwe?",
+      "code": "-- Zapytanie 1\nSELECT c.country_code FROM customers c\nINTERSECT\nSELECT c.country_code FROM customers c WHERE c.customer_id IN (3, 5);\n\n-- Zapytanie 2\nSELECT DISTINCT c.country_code FROM customers c\nWHERE  c.country_code IN (SELECT c2.country_code FROM customers c2\n                          WHERE  c2.customer_id IN (3, 5));",
+      "options": [
+        "Zapytanie 1 zwraca dwa wiersze: US i NULL",
+        "Zapytanie 2 zwraca jeden wiersz: US",
+        "Oba zapytania zwracają tylko US, bo NULL nigdy nie jest równe NULL",
+        "Oba zapytania zwracają US i NULL",
+        "Zapytanie 1 zgłasza błąd, bo jedna z gałęzi zwraca NULL"
+      ],
+      "explanation": "Operatory zbiorowe porównują wiersze, traktując wartości NULL jako równe, więc Zapytanie 1 zachowuje kraj NULL jako dopasowanie: US i NULL. IN używa zwykłych porównań =, a NULL = NULL daje UNKNOWN, więc Zapytanie 2 znajduje tylko US. Właśnie dlatego INTERSECT i IN nie są wymienne, gdy kolumna może zawierać NULL; w żadnym z nich NULL nie powoduje błędu."
+    },
+    "q08-equivalent-intersect-managers": {
+      "prompt": "Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "Zapytanie zwraca tych pracowników działu 30, którzy są czyimiś kierownikami: tylko 102 (De Haan). INTERSECT jest przemienne i usuwa duplikaty, więc pasują: zamienione INTERSECT, DISTINCT + IN oraz DISTINCT + złączenie (JOIN). Bez DISTINCT zapytanie z IN zwraca 102 trzy razy (raz na każdego podwładnego), a ostatnie zapytanie wyznacza część wspólną kierowników osób z działu 30 i wszystkich pracowników, co zwraca 100 i 102."
+    },
+    "q08-precedence-rules": {
+      "prompt": "Które dwa stwierdzenia o kolejności wykonywania operatorów zbiorowych w Oracle są prawdziwe?",
+      "options": [
+        "UNION, UNION ALL, INTERSECT i MINUS mają ten sam priorytet i są wykonywane od góry do dołu",
+        "Ujęcie w nawiasy dwóch ostatnich gałęzi A UNION B INTERSECT C może zmienić wynik",
+        "INTERSECT jest wykonywane przed UNION, jak w standardzie ISO SQL",
+        "Gałęzi zapytania złożonego nie można ująć w nawiasy"
+      ],
+      "explanation": "Oracle traktuje wszystkie operatory zbiorowe jednakowo i wykonuje je w kolejności zapisu, więc A UNION B INTERSECT C oznacza (A UNION B) INTERSECT C; na przykładowych danych to 3 wiersze, a A UNION (B INTERSECT C) daje 4. Standard ISO (oraz PostgreSQL czy SQL Server) nadaje INTERSECT wyższy priorytet i to jest kusząca błędna odpowiedź; Oracle 19c i 23ai nadal wykonują operatory od lewej do prawej. Nawiasy wokół gałęzi są dozwolone i to one wymuszają inną kolejność."
+    },
+    "q08-intersect-date-time": {
+      "prompt": "Zamówienie 1006 złożono 31 marca 2024 o 23:30; żadne inne zamówienie nie ma daty 31 marca 2024. Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "0",
+        "1",
+        "2",
+        "Zgłasza błąd ORA-01790, bo literał DATE nie jest kolumną"
+      ],
+      "explanation": "INTERSECT porównuje pełne wartości, łącznie z częścią czasową DATE: 2024-03-31 23:30:00 nie jest równe 2024-03-31 00:00:00, więc żaden wiersz nie pasuje. Z TRUNC(o.order_date) w pierwszej gałęzi wynik to 1 wiersz. Literał DATE i kolumna DATE mają ten sam typ danych, więc nie ma ORA-01790."
+    },
+    "q08-intersect-all-19c": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania w Oracle Database 19c?",
+      "options": [
+        "Zgłasza błąd ORA-00928: missing SELECT keyword",
+        "Zwraca 4 wiersze: 1, 2, 3 i 5",
+        "Zwraca 7 wierszy: customer_id każdego zamówienia",
+        "Działa jak zwykłe INTERSECT; ALL jest ignorowane"
+      ],
+      "explanation": "Oracle 19c zna tylko UNION ALL; po INTERSECT oczekuje SELECT, więc ALL zgłasza ORA-00928. INTERSECT ALL (oraz MINUS ALL / EXCEPT) pojawiły się w Oracle 21c; w 23ai to zapytanie działa i zwraca 4 wiersze, bo każdy klient występuje w customers tylko raz. Nic nie jest po cichu ignorowane."
+    },
+    "q08-minus-duplicates": {
+      "prompt": "Klienci zwykle mają kilka zamówień. Które dwa zapytania zwracają te same wiersze co to, dla dowolnych danych?",
+      "explanation": "MINUS zwraca różne wiersze, więc klient z kilkoma zamówieniami występuje raz; antyzłączenie (anti-join) potrzebuje DISTINCT, żeby dać to samo, a DISTINCT w pierwszej gałęzi MINUS niczego nie zmienia. Bez DISTINCT zapytanie z NOT EXISTS powtarza klienta raz na każde zamówienie. MINUS nie jest przemienne, więc zamiana gałęzi odpowiada na inne pytanie."
+    },
+    "q08-minus-vs-not-in": {
+      "prompt": "Programiści to pracownicy 103, 104 i 107; zamówienia mają handlowców (sales rep) 105, 106, 108 i jeden NULL. Które dwa stwierdzenia są prawdziwe?",
+      "code": "-- Zapytanie 1\nSELECT e.employee_id FROM employees e WHERE e.job_title = 'Programmer'\nMINUS\nSELECT o.sales_rep_id FROM orders o;\n\n-- Zapytanie 2\nSELECT e.employee_id FROM employees e\nWHERE  e.job_title = 'Programmer'\nAND    e.employee_id NOT IN (SELECT o.sales_rep_id FROM orders o);",
+      "options": [
+        "Zapytanie 1 zwraca 103, 104 i 107",
+        "Zapytanie 2 nie zwraca żadnych wierszy",
+        "Żadne z zapytań nie zwraca wierszy przez sales_rep_id równe NULL",
+        "Oba zapytania zwracają 103, 104 i 107",
+        "Zapytanie 1 zgłasza błąd, bo nazwy kolumn się różnią"
+      ],
+      "explanation": "MINUS porównuje wiersze, a NULL w drugiej gałęzi usuwa tylko NULL z pierwszej gałęzi, więc wszyscy trzej programiści zostają. NOT IN rozwija się do porównań <>, a NULL sprawia, że każdy wiersz daje UNKNOWN, więc Zapytanie 2 jest puste. Nazwy kolumn w gałęziach nie muszą się zgadzać, tylko liczba kolumn i grupa ich typów."
+    },
+    "q08-minus-pairs-null": {
+      "prompt": "Które dwa stwierdzenia o tym zapytaniu są prawdziwe dla dowolnych danych w EMPLOYEES?",
+      "options": [
+        "Każdy wiersz, którego commission_pct jest NULL, zostaje usunięty, nawet gdy jego department_id też jest NULL",
+        "Zwraca te same wiersze co SELECT DISTINCT e.department_id, e.commission_pct FROM employees e WHERE e.commission_pct IS NOT NULL",
+        "Wiersze, których commission_pct jest NULL, zostają, bo NULL nigdy nie jest równe NULL",
+        "Zgłasza ORA-01790, bo NULL w drugiej gałęzi nie ma typu danych",
+        "Zduplikowane pary z pierwszej gałęzi zostają w wyniku"
+      ],
+      "explanation": "Każdy wiersz (department_id, NULL) pierwszej gałęzi ma identyczny wiersz w drugiej gałęzi, a operatory zbiorowe porównują wartości NULL jako równe, więc zostaje usunięty, łącznie z (NULL, NULL). Zostają różne pary z prowizją. Logika UNKNOWN znana z NOT IN nie dotyczy operatorów zbiorowych, literał NULL pasuje do każdego typu kolumny, a MINUS zawsze zwraca różne wiersze."
+    },
+    "q08-fix-minus-columns": {
+      "prompt": "To zapytanie ma zwrócić customer_id i customer_name klientów bez zamówień, ale zgłasza ORA-01789. Które dwa zapytania zwracają oczekiwane wiersze?",
+      "explanation": "MINUS porównuje całe wiersze, więc druga gałąź musi zwracać te same pary (id, nazwa): złącz orders z customers albo zastosuj MINUS do identyfikatorów i użyj go jako podzapytania w IN; oba sposoby zwracają Umbrella. Dopełnienie przez NULL lub TO_CHAR naprawia liczbę kolumn, ale pary nigdy nie pasują do prawdziwych nazw, więc wraca wszystkich 5 klientów. Usunięcie customer_name działa, ale wynik nie ma już kolumny z nazwą."
+    },
+    "q08-precedence-minus-union": {
+      "prompt": "Działy to 10, 20, 30 i 40. Pracownicy zarabiający ponad 10000 są w działach 10, 20 i 30; jedyny pracownik zarabiający poniżej 4000 to Grant (bez działu). Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "2",
+        "1",
+        "3",
+        "0"
+      ],
+      "explanation": "Wykonywane od góry do dołu: {10, 20, 30, 40} MINUS {10, 20, 30} = {40}, potem UNION {NULL} dodaje NULL Granta: 2 wiersze (40 i NULL). Odczytanie tego jako działy MINUS (dobrze zarabiający UNION słabo zarabiający) daje 1 wiersz (40); taka kolejność wymaga nawiasów. 0 zakłada, że NULL kasuje wynik, co zdarza się tylko przy NOT IN."
+    },
+    "q08-minus-all-23ai": {
+      "prompt": "Ile wierszy zwraca to zapytanie w Oracle AI Database 23ai?",
+      "options": [
+        "3",
+        "0",
+        "1",
+        "Zgłasza błąd ORA-00928: missing SELECT keyword"
+      ],
+      "explanation": "MINUS ALL (podobnie jak EXCEPT ALL) odejmuje wystąpienia, a nie różne wartości: 1 występuje trzy razy i traci jedno wystąpienie (zostają dwa), 2 występuje dwa razy i zostaje raz, a 3 znika. Wynik: 1, 1, 2, czyli 3 wiersze. Zwykłe MINUS zwróciłoby 0 wierszy; ORA-00928 zgłasza Oracle 19c, bo warianty ALL pojawiły się w 21c."
+    },
+    "q08-order-by-branch-paren": {
+      "prompt": "Które dwa zapytania wykonają się bez błędu?",
+      "options": [
+        "SELECT v.last_name FROM (SELECT e.last_name FROM employees e ORDER BY e.last_name) v UNION SELECT c.customer_name FROM customers c",
+        "SELECT e.last_name AS name FROM employees e UNION SELECT c.customer_name FROM customers c ORDER BY name",
+        "(SELECT e.last_name FROM employees e ORDER BY e.last_name) UNION SELECT c.customer_name FROM customers c",
+        "SELECT e.last_name FROM employees e ORDER BY e.last_name UNION SELECT c.customer_name FROM customers c",
+        "SELECT e.last_name FROM employees e UNION SELECT c.customer_name AS name FROM customers c ORDER BY name"
+      ],
+      "explanation": "ORDER BY w widoku inline w FROM jest dozwolone, a jedno ORDER BY na końcu może użyć aliasu z pierwszej gałęzi. Ujęcie gałęzi w nawiasy nie robi miejsca na ORDER BY: ORA-00907. ORDER BY przed UNION kończy polecenie za wcześnie (ORA-00933 w 19c; 23ai zgłasza ORA-03048), a alias z drugiej gałęzi jest nieznany dla końcowego ORDER BY (ORA-00904)."
+    },
+    "q08-order-by-expression": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zgłasza błąd ORA-01785: ORDER BY item must be the number of a SELECT-list expression",
+        "Zwraca 14 wierszy posortowanych bez rozróżniania wielkości liter",
+        "Zgłasza błąd ORA-00904: \"NAME\": invalid identifier",
+        "Zgłasza błąd ORA-00933, bo ORDER BY musi stać przed UNION"
+      ],
+      "explanation": "ORDER BY zapytania złożonego może wskazywać tylko kolumnę wyniku (nazwę lub alias z pierwszej gałęzi) albo jej pozycję; wyrażenie takie jak UPPER(name) zgłasza ORA-01785, mimo że samo name byłoby zaakceptowane. Żeby sortować po wyrażeniu, umieść zapytanie złożone w widoku inline: SELECT name FROM (... UNION ...) ORDER BY UPPER(name). Alias jest tu poprawny, więc to nie jest ORA-00904."
+    },
+    "q08-union-literal-chain": {
+      "prompt": "Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "1",
+        "2",
+        "3",
+        "Zgłasza błąd: nie można łączyć UNION i UNION ALL"
+      ],
+      "explanation": "Operatory zbiorowe są wykonywane od góry do dołu: UNION dwóch pierwszych gałęzi zostawia jeden wiersz, a UNION ALL dokleja potem trzeci wiersz bez usuwania duplikatów, co daje 2. Odpowiedź 1 zakłada, że UNION usuwa duplikaty z całego polecenia, 3 zakłada, że UNION ALL wykonuje się najpierw, a łączenie operatorów jest dozwolone."
+    },
+    "q08-intersect-null-literals": {
+      "prompt": "Jaki jest wynik tego zapytania?",
+      "options": [
+        "Jeden wiersz zawierający NULL",
+        "Brak wierszy, bo NULL nie jest równe NULL",
+        "Dwa wiersze zawierające NULL",
+        "ORA-01790: expression must have same datatype as corresponding expression"
+      ],
+      "explanation": "Operatory zbiorowe porównują wiersze, traktując wartości NULL jako równe, więc dwa wiersze z NULL pasują do siebie, a INTERSECT zwraca je raz. Reguła, że NULL = NULL daje UNKNOWN, dotyczy warunków porównania, a nie operatorów zbiorowych. INTERSECT nigdy nie zwraca duplikatów, a literały NULL w obu gałęziach nie powodują błędu typu."
+    },
+    "q08-equivalent-intersect-titles": {
+      "prompt": "job_title nigdy nie jest NULL. Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "INTERSECT zachowuje różne stanowiska występujące w obu gałęziach, które mogą pochodzić z różnych wierszy: wyraża to półzłączenie (semi-join) z DISTINCT, a INTERSECT jest przemienne. Połączenie obu predykatów przez AND wymaga jednego wiersza spełniającego oba, co jest innym (tu niemożliwym) warunkiem. Wersja z EXISTS dopasowuje właściwe stanowiska, ale powtarza stanowisko raz na każdego pracownika działu 20, bo nie ma DISTINCT."
+    },
+    "q08-intersect-clob": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zgłasza błąd, bo operatorów zbiorowych porównujących wiersze nie można stosować do kolumn CLOB",
+        "Zwraca jeden wiersz: x",
+        "Nie zwraca żadnych wierszy, bo dwie wartości LOB nigdy nie są równe",
+        "Zgłasza błąd ORA-01790: expression must have same datatype as corresponding expression"
+      ],
+      "explanation": "UNION, INTERSECT i MINUS muszą porównywać wiersze, żeby znaleźć duplikaty, a kolumn LOB nie można porównywać, więc Oracle odrzuca zapytanie: ORA-00932 (inconsistent datatypes: got CLOB) w 19c, ORA-22848 (cannot use CLOB type as comparison key) w 23ai. UNION ALL niczego nie porównuje i akceptuje kolumny CLOB. Obie gałęzie są typu CLOB, więc nie jest to niezgodność grup typów (ORA-01790)."
+    },
+    "q08-minus-literals": {
+      "prompt": "Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "1",
+        "2",
+        "0",
+        "3"
+      ],
+      "explanation": "Operatory są wykonywane od góry do dołu: dwa UNION ALL dają 1, 1, 2, a MINUS usuwa potem 2 i zwraca pozostałe wiersze jako różne wartości, więc zostaje tylko jeden wiersz (1). Odpowiedź 2 zapomina, że MINUS usuwa duplikaty ze swojego wyniku, 3 zakłada, że MINUS dotyczy tylko ostatniej gałęzi, a 0 zakłada, że MINUS usuwa wszystko."
+    },
+    "q08-symmetric-difference": {
+      "prompt": "Które dwa zapytania zwracają wartości department_id występujące dokładnie w jednej z dwóch tabel, DEPARTMENTS albo EMPLOYEES?",
+      "explanation": "Różnica symetryczna to (A - B) razem z (B - A), czyli (A UNION B) minus (A INTERSECT B). Oracle wykonuje operatory zbiorowe od lewej do prawej, więc A MINUS B UNION (B MINUS A) i A UNION B MINUS (A INTERSECT B) potrzebują nawiasów tylko wokół ostatniej części. Bez żadnych nawiasów trzecie zapytanie oznacza ((A UNION B) MINUS A) INTERSECT B, co zostawia tylko wartości z B, których brakuje w A, a pojedyncze MINUS zwraca tylko jedną z dwóch połówek."
+    },
+    "q08-except-19c": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania w Oracle Database 19c?",
+      "options": [
+        "Zgłasza błąd ORA-00933: SQL command not properly ended",
+        "Zwraca te same wiersze co MINUS",
+        "Zwraca wiersze wspólne dla obu zapytań",
+        "Zgłasza błąd ORA-00928: missing SELECT keyword"
+      ],
+      "explanation": "Oracle 19c nie ma słowa kluczowego EXCEPT; MINUS to jego jedyny operator różnicy, więc parser widzi nieoczekiwane słowo po pierwszym zapytaniu i zgłasza ORA-00933. EXCEPT (synonim MINUS) i EXCEPT ALL pojawiły się w Oracle 21c, więc w 23ai to zapytanie zwraca te same wiersze co MINUS. Wiersze wspólne zwróciłoby INTERSECT."
+    },
+    "q08-order-by-null-desc": {
+      "prompt": "Jaka wartość jest w pierwszym wierszu wyniku?",
+      "options": [
+        "NULL",
+        "b",
+        "a",
+        "Żadna: zgłasza ORA-01785, bo ORDER BY używa pozycji"
+      ],
+      "explanation": "Końcowe ORDER BY sortuje cały wynik, a Oracle traktuje NULL jako większe od każdej wartości, więc DESC umieszcza je na początku (NULLS FIRST to domyślne zachowanie dla DESC). Z NULLS LAST na początku byłoby 'b'. Pozycje są dozwolone w ORDER BY zapytania złożonego; ORA-01785 jest zgłaszany dla wyrażenia albo dla pozycji, która nie istnieje."
+    },
+    "q08-order-by-original-name": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zgłasza błąd ORA-00904: \"LAST_NAME\": invalid identifier",
+        "Zwraca wszystkie nazwy posortowane alfabetycznie",
+        "Zgłasza błąd ORA-00918: column ambiguously defined",
+        "Sortowane są tylko nazwiska pracowników; nazwy klientów następują po nich nieposortowane"
+      ],
+      "explanation": "ORDER BY zapytania złożonego widzi tylko kolumny wyniku, które mają nazwy z pierwszego SELECT, a alias zastąpił LAST_NAME nazwą NAME. Inaczej niż w prostym zapytaniu oryginalna nazwa kolumny nie jest już dostępna, więc Oracle zgłasza ORA-00904. ORDER BY name albo ORDER BY 1 sortuje cały wynik; nic nie jest niejednoznaczne, a gałęzie nigdy nie są sortowane osobno."
+    }
+  },
+  "labs": {
+    "lab-new-and-shipped": {
+      "title": "Klienci z zamówieniami NEW i SHIPPED",
+      "task": "Za pomocą operatora zbiorowego zwróć customer_id klientów, którzy mają co najmniej jedno zamówienie NEW i co najmniej jedno zamówienie SHIPPED. Posortuj po customer_id.",
+      "hint": "Zbuduj jedną listę klientów z zamówieniami NEW i drugą z zamówieniami SHIPPED, a potem zostaw część wspólną obu list.",
+      "hint2": "SELECT ... WHERE o.status = 'NEW' INTERSECT SELECT ... WHERE o.status = 'SHIPPED' ORDER BY customer_id."
+    },
+    "lab-people-directory": {
+      "title": "Jeden spis osób",
+      "task": "Zwróć w jednym wyniku każde last_name pracownika z kind 'EMPLOYEE' i każde customer_name klienta z kind 'CUSTOMER', zachowując wszystkie wiersze. Kolumny name, kind. Posortuj po name, a potem po kind.",
+      "hint": "Dwa polecenia SELECT z kolumną etykiety w postaci literału, połączone bez usuwania duplikatów.",
+      "hint2": "Nadaj aliasy kolumnom w pierwszym SELECT (AS name, AS kind) i zakończ zapytanie klauzulą ORDER BY name, kind po ostatnim SELECT."
+    },
+    "lab-managers-and-reps": {
+      "title": "Kierownicy lub handlowcy",
+      "task": "Zwróć, każde raz, employee_id każdego pracownika, który jest kierownikiem innego pracownika albo handlowcem (sales rep) co najmniej jednego zamówienia. Nie zwracaj NULL. Posortuj po employee_id.",
+      "hint": "Połącz wartości manager_id z employees z wartościami sales_rep_id z orders, usuwając duplikaty.",
+      "hint2": "UNION usuwa duplikaty, ale zostawia jeden NULL, więc odfiltruj IS NOT NULL w obu gałęziach; nadaj pierwszej kolumnie alias AS employee_id."
+    },
+    "lab-text-items": {
+      "title": "Łączenie liczb i tekstu",
+      "task": "Zwróć jedną kolumnę o nazwie item zawierającą job_title każdego pracownika z działu 30 oraz employee_id, przekonwertowane na tekst, każdego pracownika z działu 20. Usuń duplikaty. Posortuj po item.",
+      "hint": "Odpowiadające sobie kolumny muszą należeć do tej samej grupy typów danych.",
+      "hint2": "Umieść employee_id w TO_CHAR, połącz zapytania przez UNION i posortuj po aliasie item z pierwszego zapytania."
+    },
+    "lab-not-shipped-products": {
+      "title": "Produkty nigdy niewysłane",
+      "task": "Za pomocą MINUS zwróć product_id produktów, które nie występują w żadnym zamówieniu o statusie SHIPPED. Posortuj po product_id.",
+      "hint": "Wszystkie produkty minus produkty znalezione w wysłanych zamówieniach.",
+      "hint2": "Druga gałąź złącza order_items z orders i filtruje o.status = 'SHIPPED'."
+    },
+    "lab-sold-new-and-shipped": {
+      "title": "Produkty w zamówieniach NEW i SHIPPED",
+      "task": "Zwróć product_id produktów, które występują w co najmniej jednym zamówieniu NEW i w co najmniej jednym zamówieniu SHIPPED. Posortuj po product_id.",
+      "hint": "Dwie listy identyfikatorów produktów, po jednej na status zamówienia; zostaw wspólne.",
+      "hint2": "Każda gałąź złącza order_items z orders; połącz je przez INTERSECT."
+    },
+    "lab-amounts-ranked": {
+      "title": "Pensje i limity kredytowe, posortowane",
+      "task": "Zwróć name i amount: last_name i salary pracowników z działu 20 oraz customer_name i credit_limit klientów z country_code 'US'. Zachowaj wszystkie wiersze. Posortuj po amount malejąco, z wartościami NULL na końcu, a potem po name.",
+      "hint": "Połącz oba zapytania przez UNION ALL; nazwy kolumn pochodzą z pierwszego SELECT.",
+      "hint2": "ORDER BY amount DESC NULLS LAST, name (albo 2 DESC NULLS LAST, 1): samo DESC umieściłoby NULL firmy Initech na początku."
+    },
+    "lab-fix-order-by-branch": {
+      "title": "Popraw: jedna posortowana lista nazw",
+      "task": "Zwróć jedną kolumnę name z last_name każdego pracownika z działu 30 i product_name każdego produktu z kategorii 'Hardware', zachowując wszystkie wiersze. Posortuj cały wynik po name. Kod startowy się nie wykonuje; popraw go.",
+      "hint": "Zapytanie złożone ma jedno ORDER BY i sortuje ono połączony wynik.",
+      "hint2": "Przenieś ORDER BY za ostatni SELECT i odwołaj się do aliasu z pierwszej gałęzi (ORDER BY name) albo do pozycji (ORDER BY 1); e.last_name nie jest tam widoczne."
+    },
+    "lab-fix-minus-direction": {
+      "title": "Popraw: produkty nigdy niezamawiane z UK",
+      "task": "Za pomocą MINUS zwróć product_id produktów, które nie występują w żadnym zamówieniu klienta z country_code 'GB'. Kod startowy nie zwraca żadnych wierszy; popraw go. Posortuj po product_id.",
+      "hint": "MINUS nie jest przemienne: zachowuje wiersze pierwszej gałęzi, których nie ma druga.",
+      "hint2": "Zacznij od wszystkich produktów i odejmij produkty z GB: SELECT p.product_id FROM products p MINUS SELECT i.product_id FROM order_items i JOIN orders o ... WHERE c.country_code = 'GB'."
+    },
+    "lab-feb-and-march-products": {
+      "title": "Produkty zamawiane w lutym i w marcu",
+      "task": "Za pomocą INTERSECT zwróć product_id produktów, które występują w co najmniej jednym zamówieniu złożonym w lutym 2024 i w co najmniej jednym zamówieniu złożonym w marcu 2024 (order_date ma część czasową; liczy się cały dzień 31 marca). Posortuj po product_id.",
+      "hint": "Napisz jeden SELECT na każdy miesiąc i połącz je przez INTERSECT. Uważaj na zamówienie 1006 z 2024-03-31 23:30.",
+      "hint2": "Użyj przedziałów prawostronnie otwartych: order_date >= DATE '2024-03-01' AND order_date < DATE '2024-04-01'. BETWEEN ... AND DATE '2024-03-31' kończy się o północy i gubi produkt 11."
+    },
+    "lab-fix-set-precedence": {
+      "title": "Popraw: działy z pracownikiem zarabiającym dużo lub mało",
+      "task": "Za pomocą operatorów zbiorowych zwróć department_id działów z DEPARTMENTS, w których jest pracownik zarabiający ponad 10000 albo pracownik zarabiający mniej niż 5000. Kod startowy zwraca też wiersz z NULL; popraw go. Posortuj po department_id.",
+      "hint": "Oracle wykonuje operatory zbiorowe od góry do dołu, wszystkie z tym samym priorytetem.",
+      "hint2": "Kod startowy liczy (departments INTERSECT wysoko zarabiający) UNION nisko zarabiający, a dział NULL Granta trafia do wyniku przez UNION. Ujmij w nawiasy UNION dwóch gałęzi z pracownikami."
+    },
+    "lab-dept-job-both-bands": {
+      "title": "Stanowiska z pensjami powyżej i poniżej 6000",
+      "task": "Za pomocą INTERSECT zwróć pary department_id i job_title, które występują zarówno wśród pracowników zarabiających co najmniej 6000, jak i wśród pracowników zarabiających mniej niż 6000. Posortuj po department_id, a potem po job_title.",
+      "hint": "INTERSECT porównuje całe wiersze, więc obie gałęzie wybierają te same dwie kolumny.",
+      "hint2": "SELECT department_id, job_title ... WHERE salary >= 6000 INTERSECT SELECT department_id, job_title ... WHERE salary < 6000. Para może pochodzić od różnych pracowników."
+    },
+    "lab-fix-empty-departments": {
+      "title": "Popraw: działy bez pracowników",
+      "task": "Zwróć department_id działów, które nie mają pracowników. Kod startowy nie zwraca żadnych wierszy; przepisz go z użyciem operatora zbiorowego. Posortuj po department_id.",
+      "hint": "Jeden pracownik ma department_id równe NULL. Co ten NULL robi z NOT IN, a co z MINUS?",
+      "hint2": "SELECT d.department_id FROM departments d MINUS SELECT e.department_id FROM employees e. MINUS porównuje wiersze, traktując wartości NULL jako równe, więc NULL znosi tylko NULL."
+    },
+    "lab-titles-not-in-sales": {
+      "title": "Stanowiska nieużywane w Sales",
+      "task": "Za pomocą MINUS zwróć każde job_title, którego nie ma żaden pracownik działu 20 (każde stanowisko raz). Posortuj po job_title.",
+      "hint": "Wszystkie stanowiska minus stanowiska występujące w dziale 20.",
+      "hint2": "MINUS usuwa stanowisko całkowicie, także u pracowników spoza działu 20, którzy mają to samo stanowisko, i zwraca różne wiersze."
+    }
+  }
+}

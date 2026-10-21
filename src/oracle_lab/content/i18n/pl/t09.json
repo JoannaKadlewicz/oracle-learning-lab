@@ -1,0 +1,515 @@
+{
+  "questions": {
+    "q09-ddl-commit": {
+      "prompt": "W nowej sesji te polecenia wykonują się po kolei. Jaki jest wynik?",
+      "options": [
+        "UPDATE zostaje cofnięty; INSERT zostaje cofnięty przez końcowy ROLLBACK.",
+        "UPDATE zostaje cofnięty; INSERT zostaje.",
+        "ROLLBACK TO a zgłasza błąd; zarówno INSERT, jak i UPDATE zostają.",
+        "CREATE TABLE kończy się błędem, bo transakcja jest otwarta."
+      ],
+      "explanation": "DDL zatwierdza otwartą transakcję przed swoim wykonaniem (i po nim). Zatwierdzenie usuwa savepoint a, więc ROLLBACK TO a zgłasza ORA-01086, a końcowy ROLLBACK nie ma nic do cofnięcia. Po wykonaniu: dział 50 i lokalizacja 'X' zostały."
+    },
+    "q09-truncate": {
+      "prompt": "Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "TRUNCATE TABLE to DDL i niejawnie zatwierdza transakcję.",
+        "DELETE bez WHERE resetuje high-water mark tabeli.",
+        "TRUNCATE TABLE uruchamia wyzwalacze DELETE na poziomie wiersza.",
+        "DELETE można wycofać, jeśli nie został jeszcze zatwierdzony."
+      ],
+      "explanation": "TRUNCATE to DDL: nie da się go wycofać, nie uruchamia wyzwalaczy DML i resetuje high-water mark. DELETE to DML: generuje dane undo, uruchamia wyzwalacze i można go wycofać."
+    },
+    "q09-merge": {
+      "prompt": "Które stwierdzenie o MERGE jest prawdziwe?",
+      "options": [
+        "Kolumn użytych w klauzuli ON nie można aktualizować w klauzuli WHEN MATCHED.",
+        "MERGE musi zawierać obie klauzule: WHEN MATCHED i WHEN NOT MATCHED.",
+        "Źródłem w USING musi być tabela; podzapytania są niedozwolone.",
+        "MERGE to DDL i niejawnie zatwierdza transakcję."
+      ],
+      "explanation": "Aktualizacja kolumny użytej w warunku ON zgłasza ORA-38104. Każdą z klauzul WHEN można pominąć (od 10g), USING przyjmuje tabelę, widok lub podzapytanie, a MERGE to zwykłe DML."
+    },
+    "q09-insert-first": {
+      "prompt": "Wiersz źródłowy spełnia warunki dwóch klauzul WHEN. Co jest prawdą?",
+      "options": [
+        "INSERT ALL wstawia go raz; INSERT FIRST wstawia go dwa razy.",
+        "INSERT FIRST wstawia go tylko dla pierwszej prawdziwej klauzuli WHEN; INSERT ALL wstawia go dla każdej prawdziwej klauzuli WHEN.",
+        "Oba wstawiają go tylko raz.",
+        "Oba zgłaszają błąd, bo warunki się pokrywają."
+      ],
+      "explanation": "Warunkowe INSERT ALL sprawdza każdą klauzulę WHEN i wstawia wiersz dla każdej prawdziwej. INSERT FIRST zatrzymuje się na pierwszej prawdziwej klauzuli WHEN."
+    },
+    "q09-read-consistency": {
+      "prompt": "Sesja A aktualizuje pensję, ale nie zatwierdza zmiany. Sesja B odpytuje potem ten wiersz. Co widzi B?",
+      "options": [
+        "Nową wartość",
+        "Starą wartość",
+        "B czeka, aż A zatwierdzi lub wycofa zmianę",
+        "Błąd"
+      ],
+      "explanation": "W Oracle odczyty nigdy nie blokują i nigdy nie widzą niezatwierdzonych danych. B dostaje spójny odczyt zatwierdzonych danych zbudowany z undo. Czekałaby tylko kolejna aktualizacja tego samego wiersza przez B."
+    },
+    "q09-fk-delete": {
+      "prompt": "orders.customer_id odwołuje się do customers bez opcji ON DELETE. Klient 1 ma zamówienia. Co robi DELETE FROM customers WHERE customer_id = 1?",
+      "options": [
+        "Usuwa klienta i jego zamówienia",
+        "Usuwa klienta i ustawia orders.customer_id na NULL",
+        "Kończy się błędem ORA-02292: integrity constraint violated - child record found",
+        "Usuwa klienta i zostawia osierocone zamówienia"
+      ],
+      "explanation": "Bez ON DELETE CASCADE ani ON DELETE SET NULL nie można usunąć wiersza nadrzędnego, który ma wiersze podrzędne. Natomiast order_items jest zdefiniowane względem orders z ON DELETE CASCADE."
+    },
+    "q09-insert-which-succeed": {
+      "prompt": "departments ma kolumny (department_id PK, department_name NOT NULL, location) w tej kolejności. Dział 10 już istnieje; działy 50, 60, 70 i 80 nie istnieją. Które dwa polecenia INSERT się powiodą?",
+      "explanation": "Bez listy kolumn musisz podać wartość dla każdej kolumny w kolejności kolumn w tabeli, więc lista VALUES z dwiema wartościami zgłasza ORA-00947 (not enough values); jawny NULL jest w porządku. Z listą kolumn kolejność wybierasz sam. Jawny NULL dla department_name z NOT NULL zgłasza ORA-01400, a dział 10 już istnieje (ORA-00001)."
+    },
+    "q09-insert-not-null": {
+      "prompt": "Tabela employees jest zdefiniowana jak poniżej (żadna kolumna nie ma DEFAULT), a pracownik 200 nie istnieje. Co się stanie po wykonaniu INSERT?",
+      "code": "-- Definicja tabeli:\n-- CREATE TABLE employees (\n--   employee_id    NUMBER(6)    PRIMARY KEY,\n--   first_name     VARCHAR2(20),\n--   last_name      VARCHAR2(25) NOT NULL,\n--   email          VARCHAR2(50) UNIQUE,\n--   hire_date      DATE         NOT NULL,\n--   job_title      VARCHAR2(30),\n--   salary         NUMBER(8,2)  CHECK (salary > 0),\n--   commission_pct NUMBER(3,2),\n--   manager_id     NUMBER(6)    REFERENCES employees,\n--   department_id  NUMBER(4)    REFERENCES departments);\nINSERT INTO employees (employee_id, last_name, email)\nVALUES (200, 'Novak', 'ANOVAK');",
+      "options": [
+        "Wstawiony zostaje jeden wiersz; hire_date jest NULL.",
+        "Wstawiony zostaje jeden wiersz; hire_date ma wartość SYSDATE.",
+        "Kończy się błędem ORA-01400: cannot insert NULL into hire_date.",
+        "Kończy się błędem ORA-00947: not enough values."
+      ],
+      "explanation": "Kolumny pominięte na liście kolumn dostają swoją wartość DEFAULT, a gdy jej nie ma, NULL. hire_date nie ma wartości domyślnej i ma ograniczenie NOT NULL, więc ORA-01400 wskazuje tę kolumnę. ORA-00947 występuje tylko wtedy, gdy lista VALUES jest krótsza niż lista kolumn (albo niż tabela, jeśli listy nie podano)."
+    },
+    "q09-dml-which-fail": {
+      "prompt": "employees ma ograniczenia pokazane poniżej. Pracownicy 101 i 108 istnieją, email 'SKING' należy już do pracownika 100, a działu 99 nie ma. Każde polecenie wykonuje się osobno. Które trzy polecenia kończą się błędem?",
+      "code": "-- employees: salary        CHECK (salary > 0)\n--            email         UNIQUE\n--            department_id REFERENCES departments (department_id)\n-- (salary, email i department_id nie mają ograniczenia NOT NULL)",
+      "explanation": "salary = 0 narusza CHECK (salary > 0): ORA-02290. 'SKING' należy już do Kinga: ORA-00001 na kolumnie email z UNIQUE. Dział 99 nie istnieje: ORA-02291 (parent key not found). Kolumna UNIQUE przyjmuje wartości NULL, a ograniczenie CHECK jest spełnione, gdy jego warunek daje UNKNOWN, więc salary = NULL jest dozwolone."
+    },
+    "q09-update-subquery-rules": {
+      "prompt": "Które dwa stwierdzenia o UPDATE z podzapytaniem w klauzuli SET są prawdziwe?",
+      "options": [
+        "Jeśli podzapytanie nie zwraca żadnego wiersza, kolumna dostaje wartość NULL.",
+        "Jeśli podzapytanie zwraca więcej niż jeden wiersz, polecenie kończy się błędem ORA-01427.",
+        "Jeśli podzapytanie nie zwraca żadnego wiersza, wiersz pozostaje bez zmian.",
+        "Jeśli podzapytanie zwraca kilka wierszy, używany jest pierwszy z nich.",
+        "Podzapytanie jest niedozwolone w klauzuli SET, tylko w WHERE."
+      ],
+      "explanation": "SET col = (podzapytanie) wymaga podzapytania skalarnego: zero wierszy daje NULL (co może potem naruszyć NOT NULL), a więcej niż jeden wiersz zgłasza ORA-01427 (single-row subquery returns more than one row). Podzapytania są dozwolone w SET, także w postaci SET (a, b) = (SELECT x, y ...)."
+    },
+    "q09-insert-all-count": {
+      "prompt": "promotions jest pusta i żadne ograniczenie nie jest naruszone. Które stwierdzenie o tym INSERT jest prawdziwe?",
+      "options": [
+        "Wstawia dwa wiersze na każdy wiersz zwrócony przez podzapytanie.",
+        "Wstawia jeden wiersz na każdy wiersz zwrócony przez podzapytanie; drugie INTO jest używane tylko wtedy, gdy pierwsze się nie powiedzie.",
+        "Wstawia łącznie tylko dwa wiersze, po jednym na klauzulę INTO.",
+        "Kończy się błędem: ta sama tabela nie może wystąpić w dwóch klauzulach INTO."
+      ],
+      "explanation": "Bezwarunkowe INSERT ALL wykonuje każdą klauzulę INTO dla każdego wiersza podzapytania, więc n wierszy źródłowych daje 2n wstawionych wierszy (8 dla 4 działów). Klauzule INTO nie są wariantami zapasowymi, a liczba wierszy zależy od podzapytania, a nie od liczby klauzul INTO. Ta sama tabela może wystąpić w kilku klauzulach INTO; to popularny sposób na zamianę kolumn na wiersze."
+    },
+    "q09-multitable-rules": {
+      "prompt": "Które dwa stwierdzenia o wielotabelowym INSERT są prawdziwe?",
+      "options": [
+        "Warunkowe INSERT ALL może kończyć się klauzulą ELSE.",
+        "INSERT ALL może wstawić ten sam wiersz źródłowy do tej samej tabeli więcej niż raz.",
+        "INSERT FIRST można zapisać bez żadnej klauzuli WHEN.",
+        "Celem wielotabelowego INSERT może być widok.",
+        "Podzapytanie wielotabelowego INSERT może wywołać NEXTVAL sekwencji."
+      ],
+      "explanation": "Obie formy warunkowe (ALL i FIRST) przyjmują opcjonalną klauzulę ELSE INTO, a kilka klauzul INTO może wskazywać tę samą tabelę. INSERT FIRST jest zawsze warunkowe, więc wymaga klauzul WHEN. Dokumentacja Oracle mówi, że wielotabelowy INSERT nie może mieć widoku jako celu i że w podzapytaniu nie można użyć sekwencji (można jej użyć w klauzuli VALUES)."
+    },
+    "q09-merge-unstable": {
+      "prompt": "Działy 20 i 30 mają po kilku pracowników (department_id nie jest unikalne w employees). Co się stanie po wykonaniu tego MERGE?",
+      "options": [
+        "Każdy dział dostaje last_name ostatniego pasującego pracownika.",
+        "Kończy się błędem ORA-30926: unable to get a stable set of rows in the source tables.",
+        "Każdy dział dostaje last_name pierwszego pasującego pracownika.",
+        "Kończy się błędem ORA-38104, bo location jest w klauzuli ON."
+      ],
+      "explanation": "Do tego samego działu pasuje kilku pracowników, więc ten sam wiersz docelowy byłby aktualizowany więcej niż raz różnymi wartościami. Oracle odmawia błędem ORA-30926, zamiast wybierać wiersz. Źródło w USING musi dostarczać co najwyżej jeden wiersz na wiersz docelowy, zwykle przez wcześniejszą agregację. ORA-38104 dotyczy aktualizacji kolumn z klauzuli ON, czego to polecenie nie robi."
+    },
+    "q09-merge-delete-where": {
+      "prompt": "Klienci 3, 4 i 5 istnieją; klient 6 nie istnieje. Które dwa stwierdzenia o wyniku tego MERGE są prawdziwe?",
+      "options": [
+        "Klient 4 zostaje usunięty.",
+        "Klient 6 zostaje wstawiony.",
+        "Klient 5 zostaje usunięty, jeśli jego credit_limit jest poniżej 2000.",
+        "Klient 4 zostaje usunięty tylko wtedy, gdy jego credit_limit był poniżej 2000 przed MERGE, bo DELETE WHERE jest sprawdzane przed aktualizacją.",
+        "Polecenie kończy się błędem, bo jedno MERGE nie może jednocześnie aktualizować i usuwać."
+      ],
+      "explanation": "DELETE WHERE bierze pod uwagę tylko wiersze zaktualizowane przez to MERGE i sprawdza wartości po aktualizacji: klient 4 dostaje 1500, a potem zostaje usunięty, niezależnie od starego limitu. Klienta 5 nie ma w źródle, więc nigdy nie jest zmieniany, niezależnie od limitu. Klient 6 nie ma dopasowania i zostaje wstawiony, a jedno MERGE może aktualizować, usuwać i wstawiać."
+    },
+    "q09-merge-rules": {
+      "prompt": "Które dwa stwierdzenia o MERGE są prawdziwe?",
+      "options": [
+        "WHEN NOT MATCHED THEN INSERT może mieć własną klauzulę WHERE, żeby pominąć część wierszy źródłowych.",
+        "Klauzula USING może być podzapytaniem złączającym kilka tabel.",
+        "MERGE może wstawić niedopasowane wiersze do innej tabeli niż cel INTO.",
+        "Jeśli wiersz docelowy pasuje do dwóch wierszy źródłowych, wygrywa ostatni wiersz źródłowy.",
+        "MERGE, które ma tylko klauzulę WHEN NOT MATCHED, jest niepoprawne."
+      ],
+      "explanation": "Obie gałęzie WHEN przyjmują warunek WHERE, a USING przyjmuje tabelę, widok albo dowolne podzapytanie. MERGE zmienia tylko swój cel INTO. Wiersz docelowy dopasowany więcej niż raz zgłasza ORA-30926 zamiast wybierać zwycięzcę, a każdą z klauzul WHEN można pominąć."
+    },
+    "q09-ends-transaction": {
+      "prompt": "Sesja ma niezatwierdzone zmiany. Które trzy polecenia kończą jej bieżącą transakcję?",
+      "explanation": "COMMIT i ROLLBACK kończą transakcję jawnie; każde DDL, takie jak CREATE INDEX, niejawnie ją zatwierdza. SAVEPOINT i ROLLBACK TO SAVEPOINT działają wewnątrz otwartej transakcji, a SELECT ... FOR UPDATE blokuje wiersze w ramach tej transakcji."
+    },
+    "q09-statement-rollback": {
+      "prompt": "W nowej transakcji wykonują się te dwa polecenia. Drugie kończy się błędem ORA-02290 na pracowniku 107 (pensja 4800). Jaki jest stan po nich?",
+      "options": [
+        "Podwyżka Kinga nadal czeka na zatwierdzenie; żadna pensja w dziale 30 się nie zmieniła.",
+        "Podwyżka Kinga czeka na zatwierdzenie, a wiersze działu 30 przetworzone przed pracownikiem 107 zachowują nowe pensje.",
+        "Oba polecenia zostają wycofane i transakcja się kończy.",
+        "Podwyżka Kinga zostaje automatycznie zatwierdzona, bo następne polecenie się nie powiodło."
+      ],
+      "explanation": "Oracle stosuje wycofanie na poziomie polecenia: polecenie, które się nie powiodło, jest cofane w całości, jakby nigdy się nie wykonało, ale wcześniejsza praca w transakcji zostaje, a transakcja pozostaje otwarta. Nic nie jest automatycznie zatwierdzane ani wycofywane."
+    },
+    "q09-locking": {
+      "prompt": "Zatwierdzona pensja pracownika 100 to 24000. Sesja A wykonuje UPDATE employees SET salary = 25000 WHERE employee_id = 100 i nie zatwierdza. Które dwa stwierdzenia o sesji B są prawdziwe?",
+      "options": [
+        "SELECT pracownika 100 w B od razu zwraca 24000.",
+        "UPDATE pracownika 100 w B czeka, aż A zatwierdzi lub wycofa zmianę.",
+        "UPDATE pracownika 101 w B czeka, bo A zablokowała tabelę employees.",
+        "SELECT pracownika 100 w B czeka, aż A zatwierdzi zmianę.",
+        "SELECT pracownika 100 w B zwraca 25000."
+      ],
+      "explanation": "Odczyty widzą ostatnią zatwierdzoną wersję (spójność odczytu) i nigdy nie są blokowane. DML blokuje wiersze, a nie całą tabelę, więc czeka tylko aktualizacja tego samego wiersza; pracownika 101 można zmienić od razu. A widzi własną niezatwierdzoną zmianę; inne sesje jej nie widzą."
+    },
+    "q09-implicit-commit": {
+      "prompt": "Sesja ma niezatwierdzony INSERT. Które dwa z poniższych poleceń go zatwierdzają?",
+      "options": [
+        "COMMENT ON TABLE employees IS 'Staff list'",
+        "CREATE TABLE departments (x NUMBER), które kończy się błędem ORA-00955, bo nazwa jest już zajęta",
+        "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
+        "SAVEPOINT s1",
+        "LOCK TABLE employees IN EXCLUSIVE MODE"
+      ],
+      "explanation": "COMMENT i CREATE TABLE to DDL, a Oracle zatwierdza transakcję przed wykonaniem DDL, więc oczekujący INSERT zostaje zatwierdzony, nawet gdy CREATE potem się nie powiedzie, bo nazwa istnieje (natomiast DDL odrzucone z powodu błędu składni niczego nie zatwierdza). ALTER SESSION, SAVEPOINT i LOCK TABLE nie kończą transakcji. GRANT i REVOKE też zatwierdzają."
+    },
+    "q09-savepoint-reuse": {
+      "prompt": "Działy 10, 20 i 30 znajdują się w Seattle, London i Warsaw. Jakie mają lokalizacje po tych poleceniach?",
+      "options": [
+        "A, B, Warsaw",
+        "A, London, Warsaw",
+        "Seattle, London, Warsaw",
+        "Drugi SAVEPOINT sp kończy się błędem, bo ta nazwa już istnieje."
+      ],
+      "explanation": "Utworzenie savepointu o istniejącej nazwie przenosi go: stary sp zostaje usunięty, a nowy sp jest ustawiony po zmianie lokalizacji na 'B'. ROLLBACK TO sp cofa tylko zmianę działu 30. Transakcja pozostaje otwarta."
+    },
+    "q09-savepoint-erased": {
+      "prompt": "Co się dzieje przy ostatnim poleceniu?",
+      "options": [
+        "Nie cofa już niczego, bo s2 ustawiono po s1.",
+        "Ponownie stosuje aktualizację pracownika 104.",
+        "Kończy się błędem ORA-01086, bo wycofanie do s1 usunęło s2.",
+        "Kończy transakcję."
+      ],
+      "explanation": "ROLLBACK TO s1 cofa wszystko po s1 i usuwa każdy savepoint utworzony później, więc s2 już nie istnieje: ORA-01086 (savepoint never established in this session or is invalid). Sam savepoint s1 zostaje, a wycofanie nigdy nie stosuje zmian ponownie."
+    },
+    "q09-savepoint-rules": {
+      "prompt": "Które dwa stwierdzenia o savepointach są prawdziwe?",
+      "options": [
+        "Po ROLLBACK TO SAVEPOINT s1 transakcja jest nadal aktywna.",
+        "Utworzenie savepointu o nazwie, która już istnieje, przenosi ten savepoint.",
+        "ROLLBACK TO SAVEPOINT s1 usuwa też s1.",
+        "COMMIT TO SAVEPOINT s1 zatwierdza tylko zmiany wykonane przed s1.",
+        "SAVEPOINT s1 zatwierdza dotychczasową pracę."
+      ],
+      "explanation": "Częściowe wycofanie zachowuje transakcję i savepoint s1 (usuwane są tylko późniejsze savepointy), więc możesz wycofać się do s1 ponownie. Ponownie użyta nazwa zastępuje wcześniejszy savepoint. Nie ma częściowego zatwierdzania, a SAVEPOINT nigdy niczego nie zatwierdza."
+    },
+    "q09-truncate-parent": {
+      "prompt": "Tabela players ma włączony klucz obcy do teams bez klauzuli ON DELETE, a players zawiera wiersze odwołujące się do teams. Które trzy stwierdzenia są prawdziwe?",
+      "options": [
+        "TRUNCATE TABLE teams kończy się błędem ORA-02266: unique/primary keys in table referenced by enabled foreign keys.",
+        "TRUNCATE TABLE teams CASCADE kończy się błędem, bo klucz obcy nie jest zdefiniowany z ON DELETE CASCADE.",
+        "DELETE FROM teams kończy się błędem ORA-02292: child record found.",
+        "TRUNCATE TABLE teams usuwa wiersze teams i zostawia osieroconych graczy.",
+        "TRUNCATE TABLE teams CASCADE usuwa wiersze obu tabel."
+      ],
+      "explanation": "TRUNCATE odmawia działania na tabeli nadrzędnej, do której klucza odwołują się wiersze podrzędne przez włączony klucz obcy (ORA-02266); w naszym teście na 19c udało się, gdy tabela podrzędna była pusta. TRUNCATE ... CASCADE (12c+) wymaga klucza obcego z ON DELETE CASCADE, w przeciwnym razie ORA-14705. DELETE sprawdza wiersze podrzędne i zgłasza ORA-02292. Oracle nigdy nie zostawia osieroconych wierszy, gdy klucz obcy jest włączony."
+    },
+    "q09-truncate-rules": {
+      "prompt": "Które dwa stwierdzenia o TRUNCATE TABLE są prawdziwe?",
+      "options": [
+        "Kolumny, ograniczenia i indeksy tabeli zostają po TRUNCATE.",
+        "TRUNCATE TABLE parent CASCADE obcina też tabele podrzędne, których klucze obce są zdefiniowane z ON DELETE CASCADE.",
+        "TRUNCATE TABLE przyjmuje klauzulę WHERE, żeby usunąć tylko część wierszy.",
+        "Uprawnienie obiektowe DELETE wystarcza, żeby obciąć tabelę innego użytkownika.",
+        "Obciętą tabelę można odtworzyć przez FLASHBACK TABLE ... TO BEFORE DROP."
+      ],
+      "explanation": "TRUNCATE usuwa wszystkie wiersze, ale zachowuje definicję, ograniczenia, indeksy i nadane uprawnienia. Od 12c CASCADE obcina tabele podrzędne, gdy każdy odwołujący się klucz obcy ma ON DELETE CASCADE. TRUNCATE nie ma klauzuli WHERE, dla tabeli innego użytkownika wymaga uprawnienia systemowego DROP ANY TABLE, a kosz (recycle bin) przechowuje usunięte tabele, a nie obcięte dane."
+    },
+    "q09-insert-two-literal-rows": {
+      "prompt": "Które dwa polecenia wstawiają dwa wiersze do promotions zarówno w Oracle 19c, jak i w Oracle 23ai?",
+      "explanation": "Bezwarunkowe INSERT ALL wymaga podzapytania, a SELECT * FROM dual dostarcza dokładnie jeden wiersz źródłowy, więc każde INTO wykonuje się raz. INSERT ... SELECT z UNION ALL też działa wszędzie. Wielowierszowa lista VALUES to nowość w 23ai: tam działa, ale w 19c zgłasza ORA-00933. INSERT ALL bez końcowego SELECT zgłasza ORA-00928 (missing SELECT keyword), a drugie słowo kluczowe VALUES to błąd składni (ORA-00933 w 19c, ORA-03048 w 23ai)."
+    },
+    "q09-multitable-values-scope": {
+      "prompt": "Co się stanie po wykonaniu tego polecenia?",
+      "options": [
+        "Kończy się błędem ORA-00904: \"LAST_NAME\": invalid identifier.",
+        "Wstawia 3 wiersze, używając last_name każdego pracownika jako promo_name.",
+        "Wstawia 3 wiersze z promo_name równym NULL.",
+        "Kończy się błędem ORA-00947: not enough values."
+      ],
+      "explanation": "Warunki WHEN i klauzule VALUES wielotabelowego INSERT widzą tylko kolumny z listy SELECT podzapytania, a nie tabelę źródłową. last_name nie jest wybierane, więc ORA-00904. Dodanie last_name do SELECT rozwiązuje problem. Lista VALUES ma trzy wartości dla trzech kolumn, więc ORA-00947 nie jest problemem, a Oracle nigdy nie podstawia NULL za nieznaną kolumnę. Z tego samego powodu w WHEN ani VALUES nie można użyć aliasu tabeli (e.salary); zamiast tego wybierz kolumnę z aliasem kolumny."
+    },
+    "q09-multitable-atomic": {
+      "prompt": "promotions jest pusta, a jej kluczem głównym jest promo_id. Ile wierszy jest w promotions po wykonaniu tego polecenia?",
+      "options": [
+        "0",
+        "4",
+        "1",
+        "8"
+      ],
+      "explanation": "Obie klauzule INTO używają tego samego promo_id, więc drugie wstawienie dla pierwszego działu narusza klucz główny (ORA-00001). Wielotabelowy INSERT to jedno polecenie, a polecenie, które się nie powiodło, jest wycofywane w całości, więc nie zostaje żaden z jego wierszy. 4 zakładałoby, że duplikaty są pomijane, 1 że Oracle zachowuje wiersze wstawione przed błędem; 8 ignoruje klucz."
+    },
+    "q09-merge-null-key": {
+      "prompt": "customer_id jest kluczem głównym customers. Klient 5 (Hooli) istnieje i ma country_code równe NULL. Co się stanie po wykonaniu tego MERGE?",
+      "options": [
+        "Kończy się błędem ORA-00001: unique constraint violated.",
+        "Klient 5 dostaje credit_limit 0.",
+        "Nic się nie zmienia, bo wiersz źródłowy pasuje do wiersza docelowego.",
+        "Kończy się błędem ORA-30926: unable to get a stable set of rows."
+      ],
+      "explanation": "NULL = NULL daje UNKNOWN, a nie TRUE, więc warunek ON nie jest spełniony i wiersz źródłowy liczy się jako NOT MATCHED. MERGE próbuje wtedy ponownie wstawić klienta 5, a klucz główny zgłasza ORA-00001. Dlatego limit kredytowy nigdy nie zostaje ustawiony na 0. ORA-30926 wymaga jednego wiersza docelowego dopasowanego przez kilka wierszy źródłowych, co tu nie może się zdarzyć."
+    },
+    "q09-merge-fix-unstable": {
+      "prompt": "Klient może mieć wiele zamówień, w tym kilka SHIPPED. To MERGE kończy się błędem ORA-30926. Która zmiana sprawi, że doda ono 100 jeden raz do limitu kredytowego każdego klienta, który ma co najmniej jedno zamówienie, dla dowolnych danych?",
+      "options": [
+        "Zamień USING orders o na USING (SELECT DISTINCT customer_id FROM orders) o",
+        "Zamień USING orders o na USING (SELECT customer_id FROM orders WHERE status = 'SHIPPED') o",
+        "Zamień c.credit_limit + 100 na stałą, żeby każde dopasowanie zapisywało tę samą wartość",
+        "Dodaj WHERE o.status = 'SHIPPED' do klauzuli UPDATE"
+      ],
+      "explanation": "ORA-30926 oznacza, że wiersz docelowy byłby zmieniony więcej niż raz; źródło musi dostarczać co najwyżej jeden wiersz na wiersz docelowy. SELECT DISTINCT customer_id daje jeden wiersz na klienta, więc każdy klient z zamówieniami dostaje +100 jeden raz. Filtrowanie po SHIPPED nadal zostawia klienta z kilkoma wysłanymi zamówieniami dopasowanego więcej niż raz (w przykładowych danych klient 1 ma dwa), więc błąd zostaje, zarówno z podzapytaniem, jak i z UPDATE WHERE, a do tego pominięci zostaliby klienci bez wysłanych zamówień. Nawet stała wartość zgłaszała ORA-30926 w naszych testach na 19c i 23ai. W 23ai komunikat wskazuje wiersz, który zostałby zaktualizowany dwukrotnie."
+    },
+    "q09-merge-update-where-delete": {
+      "prompt": "Które dwa stwierdzenia o tym MERGE są prawdziwe?",
+      "options": [
+        "Dopasowany klient, którego bieżący credit_limit nie jest niższy niż nowy limit, pozostaje bez zmian i nigdy nie zostaje usunięty, nawet jeśli jego credit_limit jest poniżej 2500.",
+        "Klient, któremu credit_limit podniesiono do s.lim, zostaje usunięty, gdy s.lim jest poniżej 2500.",
+        "Każdy docelowy klient z credit_limit poniżej 2500 zostaje usunięty, niezależnie od tego, czy występuje w źródle.",
+        "DELETE WHERE sprawdza wartości credit_limit sprzed UPDATE.",
+        "Polecenie kończy się błędem, bo DELETE wymaga własnej klauzuli WHEN MATCHED THEN DELETE."
+      ],
+      "explanation": "DELETE WHERE bierze pod uwagę tylko wiersze, które to MERGE faktycznie zaktualizowało, i sprawdza ich wartości po aktualizacji. Dopasowany wiersz, który nie spełnia WHERE z UPDATE (s.lim > c.credit_limit), nie jest aktualizowany, więc nie może zostać usunięty; wiersz podniesiony do limitu poniżej 2500 jest aktualizowany, a potem usuwany. Wiersze docelowe, których nie ma w źródle, nigdy nie są zmieniane. DELETE jest częścią klauzuli WHEN MATCHED UPDATE; samo WHEN MATCHED THEN DELETE to błąd składni (ORA-00905 w 19c, ORA-02000 w 23ai)."
+    },
+    "q09-merge-on-false": {
+      "prompt": "promotions jest pusta i żadne ograniczenie nie jest naruszone. Co robi to MERGE?",
+      "options": [
+        "Wstawia do promotions jeden wiersz na każdy wiersz departments.",
+        "Nic nie wstawia, bo żaden wiersz nie może zostać dopasowany.",
+        "Wstawia jeden wiersz na każdą kombinację wiersza promotions i wiersza departments.",
+        "Kończy się błędem: klauzula ON musi odwoływać się do kolumny docelowej."
+      ],
+      "explanation": "Warunek ON, który nigdy nie jest prawdziwy, sprawia, że każdy wiersz źródłowy jest NOT MATCHED, więc MERGE działa jak INSERT ... SELECT i wstawia jeden wiersz na dział. Klauzula ON może być dowolnym warunkiem; dokumentacja Oracle opisuje formę ze stale fałszywym warunkiem właśnie do tego celu. MERGE nie buduje iloczynu kartezjańskiego źródła i celu, a wstawianie nie wymaga dopasowania."
+    },
+    "q09-savepoint-twice": {
+      "prompt": "promotions jest pusta. Co zwraca ostatnie polecenie?",
+      "options": [
+        "1",
+        "0",
+        "2",
+        "Nic: drugie ROLLBACK TO a kończy się błędem ORA-01086."
+      ],
+      "explanation": "ROLLBACK TO a cofa drugi INSERT i zachowuje sam savepoint a (usuwane są tylko późniejsze savepointy), więc ponowne wycofanie do niego się udaje i po prostu nie ma już nic do cofnięcia. Pierwszy INSERT był przed savepointem i nadal czeka na zatwierdzenie. ORA-01086 wystąpiłby tylko dla savepointu, który został usunięty albo nigdy nie powstał. Słowo SAVEPOINT po ROLLBACK TO jest opcjonalne."
+    },
+    "q09-rollback-to-typo": {
+      "prompt": "Nazwa savepointu w ostatnim poleceniu ma literówkę. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Ostatnie polecenie kończy się błędem ORA-01086.",
+        "Aktualizacja działu 40 i usunięcie nadal czekają na zatwierdzenie, a transakcja jest nadal otwarta.",
+        "Cała transakcja zostaje wycofana, bo savepoint nie istnieje.",
+        "Oracle wycofuje do najnowszego savepointu, before_delete.",
+        "Aktualizacja działu 40 zostaje zatwierdzona."
+      ],
+      "explanation": "Wycofanie do nieznanego savepointu zgłasza ORA-01086 (savepoint never established in this session or is invalid). Jak każde polecenie zakończone błędem niczego nie zmienia: obie wcześniejsze zmiany czekają na zatwierdzenie, a transakcja pozostaje otwarta. Oracle nigdy nie zgaduje innego savepointu, a zatwierdzić mogłoby tylko COMMIT, DDL lub DCL."
+    },
+    "q09-locks-savepoints": {
+      "prompt": "Które trzy stwierdzenia o blokadach wierszy są prawdziwe?",
+      "options": [
+        "SELECT ... FOR UPDATE NOWAIT na wierszu zablokowanym przez inną sesję od razu kończy się błędem ORA-00054.",
+        "ROLLBACK TO SAVEPOINT zwalnia blokady wierszy założone po tym savepoincie.",
+        "W złączeniu employees i departments FOR UPDATE OF e.salary blokuje tylko wybrane wiersze employees.",
+        "Zwykły SELECT wiersza zablokowanego przez inną sesję czeka, aż ta sesja zatwierdzi zmiany.",
+        "COMMIT zwalnia blokady założone przez UPDATE, ale blokady założone przez SELECT ... FOR UPDATE zostają do końca sesji."
+      ],
+      "explanation": "Sprawdziliśmy to na dwóch sesjach: NOWAIT od razu zwrócił ORA-00054; po wycofaniu sesji A do savepointu ustawionego przed jej UPDATE sesja B mogła zablokować ten wiersz; a FOR UPDATE OF e.salary zostawiło wiersz departments niezablokowany. Zwykłe zapytania nigdy nie czekają (spójność odczytu), a COMMIT lub ROLLBACK zwalnia każdą blokadę transakcji, łącznie z blokadami FOR UPDATE. FOR UPDATE WAIT n po upływie limitu czasu dało ORA-30006 w 19c, ale ORA-00054 w 23ai."
+    },
+    "q09-savepoint-sequence": {
+      "prompt": "Pracownik 104 zarabia 6000. Jaka jest pensja pracownika 104 po tych poleceniach (w tej samej transakcji)?",
+      "options": [
+        "7000",
+        "8500",
+        "8000",
+        "6000"
+      ],
+      "explanation": "ROLLBACK TO b przywraca 8000, a następny UPDATE daje 8500. ROLLBACK TO a cofa następnie wszystko po savepoincie a, łącznie z 8000 i +500, zostawiając 7000 ustawione przed a. 6000 wymagałoby pełnego ROLLBACK; 8500 pomija ostatnie polecenie; 8000 traktuje ROLLBACK TO a jak ROLLBACK TO b."
+    },
+    "q09-insert-select-self": {
+      "prompt": "department_id jest kluczem głównym departments, a każdy istniejący department_id jest mniejszy niż 100. Które stwierdzenie o tym INSERT jest prawdziwe?",
+      "options": [
+        "Podwaja liczbę wierszy w departments.",
+        "Nigdy się nie kończy, bo zapytanie wciąż czyta wiersze, które wstawia.",
+        "Kończy się błędem, bo tabela nie może być jednocześnie celem i źródłem tego samego INSERT.",
+        "Kończy się błędem ORA-00001."
+      ],
+      "explanation": "Spójność odczytu na poziomie polecenia: podzapytanie widzi tabelę taką, jaka była w chwili rozpoczęcia polecenia, więc czyta tylko oryginalne wiersze i wstawia po jednej kopii każdego (4 nowe wiersze dla 4 przykładowych działów). Nie może zapętlić się na własnych nowych wierszach, tabela może być jednocześnie źródłem i celem, a identyfikatory poniżej 100 powiększone o 100 nie mogą kolidować z istniejącym kluczem."
+    },
+    "q09-truncate-busy": {
+      "prompt": "Sesja A wstawiła wiersz do tabeli t i nie zatwierdziła zmiany. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "TRUNCATE TABLE t w sesji B od razu kończy się błędem ORA-00054 (resource busy).",
+        "TRUNCATE TABLE t w sesji A zatwierdza INSERT sesji A, a potem usuwa wszystkie wiersze.",
+        "TRUNCATE TABLE t w sesji B czeka, aż A zatwierdzi lub wycofa zmianę.",
+        "TRUNCATE TABLE t w sesji B usuwa zatwierdzone wiersze, ale zostawia niezatwierdzony wiersz sesji A.",
+        "SELECT COUNT(*) FROM t w sesji B liczy nowy wiersz sesji A."
+      ],
+      "explanation": "INSERT sesji A trzyma blokadę DML na tabeli, a DDL domyślnie na nią nie czeka (DDL_LOCK_TIMEOUT 0), więc TRUNCATE w sesji B od razu zakończył się błędem ORA-00054 w 19c i 23ai. W samej sesji A TRUNCATE najpierw zatwierdza jej własną transakcję, a potem opróżnia tabelę. TRUNCATE działa na zasadzie wszystko albo nic, a B nie widzi niezatwierdzonego wiersza sesji A."
+    },
+    "q09-failed-ddl-commits": {
+      "prompt": "Tabela lab_orders istnieje; lab_typo nie istnieje. Które dwa stwierdzenia są prawdziwe po tych poleceniach?",
+      "code": "INSERT INTO lab_orders (id) VALUES (1);\nTRUNCATE TABLE lab_typo;      -- kończy się błędem ORA-00942\nROLLBACK;",
+      "options": [
+        "Wstawiony wiersz nadal jest w lab_orders.",
+        "W 23ai DROP TABLE IF EXISTS lab_typo zamiast TRUNCATE też zatwierdziłoby INSERT, mimo że nic nie zostaje usunięte.",
+        "ROLLBACK usuwa wstawiony wiersz, bo TRUNCATE nigdy się nie wykonał.",
+        "TRUNCATE jest ignorowany, bo tabela nie istnieje, i żaden błąd nie jest zgłaszany.",
+        "ROLLBACK kończy się błędem ORA-01086."
+      ],
+      "explanation": "Oracle zatwierdza transakcję przed wykonaniem polecenia DDL, więc oczekujący INSERT zostaje zatwierdzony, mimo że TRUNCATE potem kończy się błędem ORA-00942, a ROLLBACK nie ma nic do cofnięcia (sprawdzone w 19c i 23ai na tabelach LAB_). W 23ai DROP TABLE IF EXISTS na nieistniejącej tabeli kończy się sukcesem bez żadnego działania i też zatwierdził INSERT. ORA-01086 dotyczy savepointów, których zwykły ROLLBACK nie używa."
+    },
+    "q09-delete-syntax": {
+      "prompt": "Które dwa polecenia DELETE wykonają się bez błędu składni?",
+      "explanation": "Słowo kluczowe FROM jest w DELETE opcjonalne, a celem może być widok inline na jednej tabeli (oba usuwają 2 pozycje zamówienia 1004). DELETE * to nawyk z MySQL/Access i zgłasza ORA-00903 (invalid table name). DELETE w Oracle ma jeden cel i nie ma ORDER BY: w 19c oba zgłaszają ORA-00933, w 23ai ORA-03048. Żeby usuwać na podstawie innej tabeli, użyj podzapytania (albo, tylko w 23ai, nowej składni DELETE ... FROM ze złączeniem)."
+    },
+    "q09-update-set-forms": {
+      "prompt": "Które dwa polecenia UPDATE wykonają się poprawnie?",
+      "explanation": "Listę kolumn w nawiasach można ustawić z podzapytania zwracającego tę samą liczbę kolumn, a jedna klauzula SET może łączyć podzapytania i zwykłe wartości rozdzielone przecinkami. Ustawienie jednej kolumny z podzapytania dwukolumnowego zgłasza ORA-00913 (too many values), a dwóch kolumn z podzapytania jednokolumnowego ORA-00947 (not enough values). SET występuje tylko raz: drugie SET to błąd składni (ORA-00933 w 19c, ORA-03048 w 23ai)."
+    },
+    "q09-insert-default-keyword": {
+      "prompt": "Tabela t ma kolumny id NUMBER i status VARCHAR2(10) DEFAULT 'NEW' (bez DEFAULT ON NULL). Które dwa polecenia zapisują 'NEW' w status?",
+      "explanation": "Wartość domyślna jest używana, gdy kolumnę pominięto na liście kolumn albo gdy w VALUES wpisano słowo kluczowe DEFAULT (UPDATE ... SET status = DEFAULT też działa). Jawny NULL jest zapisywany jako NULL, a w Oracle '' to ten sam NULL. DEFAULT nie jest wyrażeniem, więc nie może wystąpić na liście SELECT: ORA-00936 (missing expression). Sprawdzone w 19c i 23ai na tabeli LAB_."
+    },
+    "q09-delete-not-in-rewrite": {
+      "prompt": "Niektórzy pracownicy mają department_id równe NULL. Które dwa polecenia usuwają dokładnie te działy, które nie mają pracowników?",
+      "explanation": "NOT EXISTS ignoruje wartości NULL, a odfiltrowanie NULL w podzapytaniu sprawia, że NOT IN jest bezpieczne. Gdy na liście jest NULL, NOT IN i jego synonim <> ALL porównują każdy dział z NULL, co daje UNKNOWN, więc niczego nie usuwają. Nieskorelowane NOT EXISTS jest prawdziwe albo dla każdego działu, albo dla żadnego, bo w ogóle nie patrzy na d."
+    },
+    "q09-insert-first-null-else": {
+      "prompt": "Podzapytanie zwraca jeden wiersz, w którym salary jest NULL. Do której tabeli to polecenie wstawi ten wiersz?",
+      "options": [
+        "no_salary",
+        "low_paid, bo NULL jest traktowane jak 0",
+        "Do żadnej: wiersz, dla którego wszystkie warunki WHEN dają UNKNOWN, jest pomijany",
+        "high_paid i low_paid"
+      ],
+      "explanation": "Oba porównania z NULL dają UNKNOWN, a nie TRUE, więc żadna klauzula WHEN nie zadziała i wiersz trafia do ELSE, które wykonuje się zawsze, gdy żaden warunek WHEN nie jest prawdziwy. Oracle nigdy nie traktuje NULL jak 0 w porównaniu, a w INSERT FIRST wiersz może trafić do co najwyżej jednej grupy INTO. Bez klauzuli ELSE wiersz po prostu nie zostałby wstawiony."
+    },
+    "q09-conditional-insert-rules": {
+      "prompt": "Podzapytanie zwraca n wierszy. Które dwa stwierdzenia o warunkowym wielotabelowym INSERT na jego podstawie, z dwiema klauzulami WHEN i klauzulą ELSE, są prawdziwe?",
+      "options": [
+        "W INSERT ALL jeden wiersz źródłowy może zostać wstawiony przez obie klauzule WHEN.",
+        "Klauzula ELSE wykonuje się tylko dla wierszy źródłowych, dla których żaden warunek WHEN nie jest prawdziwy.",
+        "Klauzula ELSE wykonuje się dla każdego wiersza źródłowego, po klauzulach WHEN.",
+        "INSERT ALL wstawia co najwyżej n wierszy.",
+        "INSERT FIRST może wstawić ten sam wiersz źródłowy przez obie klauzule WHEN."
+      ],
+      "explanation": "INSERT ALL sprawdza każdą klauzulę WHEN dla każdego wiersza, więc przy pokrywających się warunkach wiersz jest wstawiany raz na każdą prawdziwą klauzulę, a suma może przekroczyć n. ELSE to wariant zapasowy dla wierszy, które nie pasowały do żadnej klauzuli WHEN, zarówno w INSERT ALL, jak i w INSERT FIRST. INSERT FIRST zatrzymuje się na pierwszej prawdziwej klauzuli WHEN, więc każdy wiersz źródłowy trafia do co najwyżej jednej grupy WHEN."
+    },
+    "q09-insert-first-order": {
+      "prompt": "Pracownicy zarabiający 10000 lub więcej mają trafić tylko do high_paid, a zarabiający co najmniej 5000, ale mniej niż 10000, tylko do mid_paid. Nikt inny nie jest wstawiany. Które polecenie to robi?",
+      "explanation": "INSERT FIRST sprawdza klauzule WHEN po kolei i zatrzymuje się na pierwszej prawdziwej, więc ostrzejszy warunek musi być pierwszy. Gdy pierwszy jest salary >= 5000, wysoko zarabiający zatrzymują się na nim i high_paid pozostaje pusta. INSERT ALL sprawdza każdą klauzulę WHEN, więc wysoko zarabiający trafiliby do obu tabel, a bezwarunkowe INSERT ALL kopiuje każdy wybrany wiersz do obu tabel."
+    },
+    "q09-merge-where-rules": {
+      "prompt": "MERGE ma tylko klauzulę WHEN NOT MATCHED THEN INSERT ... WHERE. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "WHERE gałęzi INSERT może odwoływać się tylko do kolumn źródła; kolumna celu zgłasza ORA-38102.",
+        "Wiersz źródłowy, który pasuje do wiersza docelowego, jest ignorowany.",
+        "Wiersz źródłowy odrzucony przez WHERE gałęzi INSERT powoduje błąd całego MERGE.",
+        "Wiersz źródłowy, który pasuje do wiersza docelowego, i tak zostaje wstawiony, bo nie ma klauzuli WHEN MATCHED.",
+        "Polecenie jest niepoprawne, bo MERGE wymaga klauzuli WHEN MATCHED."
+      ],
+      "explanation": "Dla niedopasowanego wiersza źródłowego nie ma wiersza docelowego, więc warunek INSERT może używać tylko kolumn źródła (ORA-38102: invalid column in the INSERT WHERE clause). Dopasowany wiersz bez klauzuli WHEN MATCHED nie ma dokąd trafić, więc jest pomijany, a wiersz odfiltrowany przez WHERE po prostu nie zostaje wstawiony. Każdą z klauzul WHEN można pominąć. Sprawdzone w 19c i 23ai."
+    }
+  },
+  "labs": {
+    "lab-programmer-raise": {
+      "title": "Podwyżka dla programistów",
+      "task": "Daj 10% podwyżki każdemu pracownikowi, którego job_title to Programmer. Nie zmieniaj nikogo innego.",
+      "hint": "Jedno UPDATE z klauzulą WHERE na job_title.",
+      "hint2": "SET salary = salary * 1.1 mnoży bieżącą wartość."
+    },
+    "lab-software-promotions": {
+      "title": "Promocje z zapytania",
+      "task": "Wstaw do promotions jeden wiersz dla każdego produktu z kategorii Software: promo_id to product_id, promo_name to product_name, a discount_pct to 15. Użyj jednego INSERT z podzapytaniem.",
+      "hint": "INSERT INTO table (columns) SELECT ... nie ma słowa kluczowego VALUES.",
+      "hint2": "Literał 15 może być kolumną na liście SELECT: SELECT p.product_id, p.product_name, 15 FROM products p WHERE ..."
+    },
+    "lab-raise-to-dept-average": {
+      "title": "Podwyżka do średniej działu",
+      "task": "Każdy pracownik, którego pensja jest niższa od średniej pensji w jego własnym dziale, dostaje tę średnią, zaokrągloną do 2 miejsc po przecinku. Pracownicy bez działu się nie zmieniają.",
+      "hint": "Użyj podzapytania skorelowanego zarówno w SET, jak i w WHERE, z dopasowaniem i.department_id = e.department_id.",
+      "hint2": "Oba podzapytania widzą pensje sprzed rozpoczęcia UPDATE. Dla pracownika z department_id równym NULL podzapytanie zwraca NULL, więc WHERE nie jest prawdziwe i wiersz pozostaje bez zmian."
+    },
+    "lab-delete-unsold-products": {
+      "title": "Usuń niesprzedane produkty",
+      "task": "Usuń każdy produkt, który nie występuje w żadnej pozycji zamówienia.",
+      "hint": "DELETE ze skorelowanym podzapytaniem NOT EXISTS na order_items.",
+      "hint2": "Sprzedanych produktów i tak nie da się usunąć (ORA-02292), więc warunek musi je wykluczyć: WHERE NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.product_id = p.product_id)."
+    },
+    "lab-delete-globex-open-orders": {
+      "title": "Usuń niewysłane zamówienia jednego klienta",
+      "task": "Usuń każde zamówienie klienta o nazwie Globex, którego status nie jest SHIPPED. Znajdź klienta po nazwie za pomocą podzapytania, a nie przez wpisany na sztywno identyfikator. Pozycje tych zamówień też muszą zniknąć.",
+      "hint": "Jednowierszowe podzapytanie w WHERE znajduje customer_id firmy Globex.",
+      "hint2": "order_items odwołuje się do orders z ON DELETE CASCADE, więc usunięcie zamówień automatycznie usuwa ich pozycje; wystarczy jedno DELETE na orders."
+    },
+    "lab-insert-first-discounts": {
+      "title": "Progi rabatowe z INSERT FIRST",
+      "task": "Wstaw do promotions po jednej promocji na produkt za pomocą warunkowego INSERT FIRST: promo_id = product_id, promo_name = product_name, a discount_pct 5, gdy list_price wynosi co najmniej 1000, 10, gdy wynosi co najmniej 100, i 20 dla każdego innego produktu (także z ceną NULL).",
+      "hint": "INSERT FIRST WHEN ... THEN INTO ... VALUES (...) ... ELSE INTO ... VALUES (...) SELECT ... FROM products;",
+      "hint2": "Klauzule VALUES odwołują się do kolumn SELECT na końcu. list_price równe NULL sprawia, że oba warunki WHEN dają UNKNOWN, więc wiersz trafia do ELSE."
+    },
+    "lab-merge-departments": {
+      "title": "Scal listę działów",
+      "task": "Scal tę listę z departments jednym poleceniem MERGE: (30, 'IT', 'Krakow') i (50, 'Legal', 'Berlin'). Istniejący dział dostaje nową nazwę i lokalizację; brakujący zostaje wstawiony.",
+      "hint": "Zbuduj źródło z SELECT ... FROM dual UNION ALL SELECT ... FROM dual wewnątrz USING ( ... ) s.",
+      "hint2": "Nie aktualizuj department_id w WHEN MATCHED: jest w klauzuli ON (ORA-38104). Ustaw tylko department_name i location."
+    },
+    "lab-merge-credit-limits": {
+      "title": "Podnieś limity kredytowe do sum wysłanych zamówień",
+      "task": "Dla każdego klienta oblicz łączną wartość (quantity * unit_price) jego zamówień SHIPPED. Jednym poleceniem MERGE ustaw credit_limit na tę sumę, gdy bieżący credit_limit jest NULL albo niższy od niej. Pozostałych klientów zostaw bez zmian.",
+      "hint": "Najpierw zagreguj dane w podzapytaniu USING, żeby każdy klient występował raz (inaczej ORA-30926).",
+      "hint2": "WHEN MATCHED THEN UPDATE SET ... WHERE <condition> ogranicza, które dopasowane wiersze zostaną zaktualizowane. Klauzula WHEN NOT MATCHED nie jest potrzebna."
+    },
+    "lab-savepoint-steps": {
+      "title": "Cofnij jeden krok przez savepoint",
+      "task": "Wykonaj te kroki po kolei: (1) podnieś pensję każdego pracownika z działu 30 o 500; (2) utwórz savepoint after_raise; (3) usuń wszystkie pozycje zamówienia 1004; (4) wycofaj do after_raise; (5) ustaw commission_pct na 0.05 dla pracownika 104. Sprawdzany jest końcowy stan employees i liczba pozycji zamówień.",
+      "hint": "SAVEPOINT name; zaznacza punkt; ROLLBACK TO name; cofa tylko to, co nastąpiło po nim.",
+      "hint2": "Nie używaj zwykłego ROLLBACK: cofnąłby też podwyżkę z kroku 1. Po ROLLBACK TO after_raise transakcja jest nadal otwarta, więc krok 5 do niej dołącza."
+    },
+    "lab-fix-undo-only-cleanup": {
+      "title": "Popraw: cofnij tylko porządki",
+      "task": "Skrypt ma w jednej transakcji: (1) podnieść pensję każdego pracownika z działu 20 o 200; (2) utworzyć savepoint before_cleanup; (3) usunąć zamówienie 1003 (jego pozycje znikają razem z nim dzięki ON DELETE CASCADE); (4) cofnąć tylko krok 3, bo zamówienie musi zostać; (5) ustawić status zamówienia 1006 na CANCELLED. Skrypt startowy gubi podwyżkę. Popraw go. Sprawdzane są wszystkie pensje, wszystkie statusy zamówień i liczba pozycji zamówień.",
+      "hint": "Zwykły ROLLBACK cofa całą transakcję, łącznie z krokiem 1. Które polecenie cofa tylko pracę wykonaną po savepoincie?",
+      "hint2": "Zamień ROLLBACK na ROLLBACK TO before_cleanup (albo ROLLBACK TO SAVEPOINT before_cleanup). Zamówienie i jego 1 pozycja wracają, podwyżka zostaje, a transakcja pozostaje otwarta dla kroku 5."
+    },
+    "lab-insert-all-price-promos": {
+      "title": "Dwie promocje na produkt z INSERT ALL",
+      "task": "Jednym warunkowym INSERT ALL na products wstaw do promotions: dla każdego produktu z list_price wiersz (product_id, product_name, 10), a dodatkowo dla każdego produktu, którego list_price wynosi co najmniej 300, wiersz (product_id + 100, product_name, 20). Produkty bez ceny nie dostają żadnego wiersza.",
+      "hint": "INSERT ALL sprawdza każdą klauzulę WHEN dla każdego wiersza, więc jeden produkt może dać dwa wiersze. INSERT FIRST zatrzymałby się na pierwszej prawdziwej klauzuli WHEN.",
+      "hint2": "INSERT ALL WHEN list_price IS NOT NULL THEN INTO promotions ... WHEN list_price >= 300 THEN INTO promotions ... SELECT product_id, product_name, list_price FROM products; (6 wierszy: 4 produkty z ceną plus ponownie 11 i 13)."
+    },
+    "lab-fix-merge-average-price": {
+      "title": "Popraw: ceny katalogowe z cen sprzedaży",
+      "task": "Każdy produkt występujący w order_items dostaje nową list_price: średnią unit_price jego pozycji zamówień, zaokrągloną do 2 miejsc po przecinku. Produkty, które nigdy nie zostały sprzedane, zachowują swoją cenę. Użyj jednego MERGE. Kod startowy kończy się błędem ORA-30926; popraw go.",
+      "hint": "Produkt 11 występuje w trzech pozycjach zamówień, więc ten sam wiersz docelowy byłby aktualizowany trzy razy (ORA-30926). Źródło musi mieć jeden wiersz na produkt.",
+      "hint2": "USING (SELECT oi.product_id, ROUND(AVG(oi.unit_price), 2) AS avg_price FROM order_items oi GROUP BY oi.product_id) s, a potem UPDATE SET p.list_price = s.avg_price."
+    },
+    "lab-fix-delete-empty-departments": {
+      "title": "Popraw: usuń działy bez pracowników",
+      "task": "Usuń każdy dział, który nie ma pracowników. Pracownicy bez działu nie mogą w tym przeszkodzić. Kod startowy używa NOT IN i niczego nie usuwa; popraw go. Sprawdzane są pozostałe działy.",
+      "hint": "Jeden pracownik ma department_id równe NULL. Ile wynosi d.department_id NOT IN (..., NULL), gdy wartości nie ma na liście?",
+      "hint2": "x NOT IN (a, NULL) daje UNKNOWN, nigdy TRUE. Użyj NOT EXISTS (SELECT 1 FROM employees e WHERE e.department_id = d.department_id) albo dodaj WHERE e.department_id IS NOT NULL do podzapytania."
+    },
+    "lab-merge-new-customers-only": {
+      "title": "Wstaw tylko nowych klientów przez MERGE",
+      "task": "Scal tę listę z customers jednym poleceniem MERGE: (7, 'Wayne', 1500), (8, 'Tyrell', 3500) i (2, 'Globex', 9000) jako customer_id, customer_name i credit_limit. Wstaw tylko klientów, którzy jeszcze nie istnieją i których limit kredytowy przekracza 2000 (country_code pozostaje NULL). Istniejący klienci nie mogą się zmienić.",
+      "hint": "Pomiń WHEN MATCHED, żeby dopasowani klienci pozostali bez zmian. Gałąź INSERT może mieć własną klauzulę WHERE.",
+      "hint2": "WHEN NOT MATCHED THEN INSERT (customer_id, customer_name, credit_limit) VALUES (s.id, s.name, s.lim) WHERE s.lim > 2000; warunek może odwoływać się tylko do kolumn źródła."
+    }
+  }
+}
