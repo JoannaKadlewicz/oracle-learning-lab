@@ -1,0 +1,584 @@
+{
+  "questions": {
+    "q06-natural-qualify": {
+      "prompt": "Co się stanie?",
+      "options": [
+        "Zwraca 8 wierszy",
+        "Zwraca 9 wierszy",
+        "Zgłasza błąd, bo kolumna złączenia (JOIN) jest kwalifikowana",
+        "Zwraca iloczyn kartezjański"
+      ],
+      "explanation": "W NATURAL JOIN i JOIN ... USING wspólnej kolumny nie można kwalifikować nazwą tabeli ani aliasem (ORA-25155). Napisz department_id bez prefiksu e.; wtedy zapytanie zwraca 8 wierszy."
+    },
+    "q06-cross": {
+      "prompt": "Tabela departments ma 4 wiersze i tabela salary_grades ma 4 wiersze. Ile wierszy zwraca departments CROSS JOIN salary_grades?",
+      "options": [
+        "4",
+        "8",
+        "16",
+        "Błąd, CROSS JOIN wymaga ON"
+      ],
+      "explanation": "Iloczyn kartezjański: 4 departamenty × 4 stopnie = 16. CROSS JOIN nie przyjmuje warunku złączenia (JOIN)."
+    },
+    "q06-oldplus": {
+      "prompt": "Które złączenie (JOIN) ANSI jest równoważne FROM employees e, departments d WHERE e.department_id = d.department_id(+)?",
+      "explanation": "(+) oznacza stronę, której wierszy może brakować (deficient side). Tutaj może brakować departments, więc zachowani są wszyscy pracownicy: to LEFT OUTER JOIN od employees. Operatorem (+) nie da się wyrazić FULL OUTER JOIN."
+    },
+    "q06-equivalent-outer": {
+      "prompt": "Niektórzy pracownicy mają department_id równe NULL. Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "(+) stawia się po stronie, której wierszy może brakować, więc departments(+) zachowuje każdego pracownika, tak jak LEFT JOIN. Zamiana tabel miejscami i użycie RIGHT JOIN zachowuje tę samą stronę. Złączenie wewnętrzne (JOIN) gubi pracownika Grant (bez departamentu), a filtr na tabeli dołączonej zewnętrznie w WHERE z powrotem zamienia złączenie zewnętrzne w wewnętrzne."
+    },
+    "q06-using-qualify": {
+      "prompt": "Jaki błąd zgłasza to zapytanie?",
+      "options": [
+        "ORA-25154: column part of USING clause cannot have qualifier",
+        "ORA-00918: column ambiguously defined",
+        "ORA-00904: \"D\".\"DEPARTMENT_ID\": invalid identifier",
+        "Brak błędu; zwraca 8 wierszy"
+      ],
+      "explanation": "Kolumna wymieniona w USING staje się jedną, niekwalifikowaną kolumną złączenia (JOIN); kwalifikowanie jej w dowolnym miejscu zapytania zgłasza ORA-25154 (odpowiednikiem dla NATURAL JOIN jest ORA-25155). Napisz SELECT department_id, e.last_name. ORA-00918 to odwrotny problem: niekwalifikowana kolumna, która istnieje w obu tabelach JOIN z ON."
+    },
+    "q06-using-truths": {
+      "prompt": "Które trzy stwierdzenia o JOIN ... USING są prawdziwe?",
+      "options": [
+        "Kolumna z USING pojawia się w wyniku SELECT * tylko raz.",
+        "Kolumny z USING nie można kwalifikować aliasem tabeli.",
+        "Kolumna z USING musi mieć tę samą nazwę w obu tabelach.",
+        "USING może złączać kolumny o różnych nazwach, jeśli ich typy danych są zgodne.",
+        "USING można połączyć z NATURAL w tym samym złączeniu: NATURAL JOIN ... USING (col).",
+        "USING można stosować tylko w złączeniach wewnętrznych."
+      ],
+      "explanation": "USING wskazuje kolumny, które istnieją pod tą samą nazwą w obu tabelach; wynik ma jedną scaloną kopię każdej z nich, której nie można kwalifikować (ORA-25154). Dla różnych nazw użyj ON. NATURAL i USING nie da się połączyć, a USING działa też z LEFT/RIGHT/FULL OUTER JOIN."
+    },
+    "q06-equiv-inner": {
+      "prompt": "Tabele employees i departments mają tylko jedną wspólną nazwę kolumny: department_id. Które trzy zapytania zwracają te same wiersze co to, niezależnie od danych?",
+      "explanation": "employees i departments mają wspólną tylko kolumnę department_id, więc NATURAL JOIN, USING (department_id) i stara składnia z przecinkiem i warunkiem w WHERE to to samo złączenie równościowe (equijoin). LEFT JOIN zwraca też pracowników bez departamentu, a złączenie employee_id z department_id porównuje niezwiązane ze sobą klucze."
+    },
+    "q06-natural-self": {
+      "prompt": "Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Zlicza wiersze employees, w których żadna kolumna nie jest NULL.",
+        "Zwraca kwadrat liczby wierszy employees, bo NATURAL JOIN tabeli z samą sobą to iloczyn kartezjański.",
+        "Zwraca liczbę wierszy employees, bo każdy wiersz pasuje do samego siebie.",
+        "Zgłasza błąd: tabeli nie można złączyć z samą sobą przez NATURAL JOIN."
+      ],
+      "explanation": "Oba wystąpienia mają dokładnie te same nazwy kolumn, więc NATURAL JOIN porównuje operatorem = każdą kolumnę, łącznie z kluczem głównym: wiersz może pasować tylko do samego siebie. Pasuje jednak tylko wtedy, gdy żadna z jego kolumn nie jest NULL, bo NULL = NULL nie jest prawdą, więc odpadają wiersze bez prowizji, menedżera, e-maila lub departamentu. To nie jest iloczyn kartezjański (są wspólne kolumny), a złączenie (JOIN) tabeli z samą sobą jest dozwolone."
+    },
+    "q06-ambiguous": {
+      "prompt": "Jaki błąd zgłasza to zapytanie?",
+      "options": [
+        "ORA-00918: column ambiguously defined",
+        "ORA-25154: column part of USING clause cannot have qualifier",
+        "ORA-00904: \"DEPARTMENT_ID\": invalid identifier",
+        "Brak błędu; Oracle wybiera employees.department_id"
+      ],
+      "explanation": "Przy ON obie kolumny department_id pozostają osobne, więc niekwalifikowane odwołanie jest niejednoznaczne: ORA-00918. last_name i department_name istnieją tylko w jednej tabeli i nie potrzebują prefiksu. Przy USING lub NATURAL JOIN obowiązuje odwrotna reguła: kolumny złączenia (JOIN) nie wolno kwalifikować."
+    },
+    "q06-join-syntax": {
+      "prompt": "Które dwie klauzule FROM zgłaszają błąd?",
+      "options": [
+        "FROM employees e NATURAL JOIN departments d ON e.department_id = d.department_id",
+        "FROM employees e JOIN departments d USING (d.department_id)",
+        "FROM employees e JOIN departments d USING (department_id)",
+        "FROM employees e NATURAL LEFT OUTER JOIN departments d",
+        "FROM employees e INNER JOIN departments d ON e.department_id = d.department_id"
+      ],
+      "explanation": "NATURAL JOIN sam wybiera kolumny złączenia, więc nie przyjmuje klauzuli ON ani USING. USING przyjmuje tylko proste nazwy kolumn, bez kwalifikatora (ORA-01748: only simple column names allowed here). NATURAL można łączyć z LEFT/RIGHT/FULL OUTER, a INNER jest opcjonalnym słowem kluczowym."
+    },
+    "q06-on-where-inner": {
+      "prompt": "Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "W złączeniu wewnętrznym (INNER JOIN) przeniesienie filtra takiego jak d.location = 'Warsaw' z ON do WHERE nie zmienia wyniku.",
+        "Klauzula ON może zawierać dowolny warunek, nie tylko równość kolumn kluczy.",
+        "JOIN bez ON, USING ani NATURAL wykonuje iloczyn kartezjański.",
+        "Składnia złączenia z przecinkiem (FROM a, b WHERE ...) nie jest obsługiwana w Oracle 19c."
+      ],
+      "explanation": "W złączeniach wewnętrznych (INNER JOIN) filtry w ON i WHERE są wymienne; tylko w złączeniach zewnętrznych ma znaczenie, gdzie stoi warunek. ON przyjmuje dowolny warunek (zakresy, AND, OR, funkcje). Samo JOIN bez warunku to błąd składni (jawnym iloczynem kartezjańskim jest CROSS JOIN), a składnia z przecinkiem jest w pełni obsługiwana. Oracle 23ai zgłasza ten błąd jako ORA-02000: missing ON or USING keyword."
+    },
+    "q06-self-direction": {
+      "prompt": "manager_id zawiera employee_id menedżera każdego pracownika. Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Druga kolumna wymienia pracowników, którymi kieruje Kochhar, po jednym wierszu na osobę.",
+        "Druga kolumna pokazuje menedżera, któremu podlega Kochhar.",
+        "Druga kolumna pokazuje Kochhar, bo każdy wiersz pasuje do samego siebie.",
+        "Kończy się błędem, bo warunek złączenia (JOIN) jest zapisany odwrotnie."
+      ],
+      "explanation": "Warunek złączenia (JOIN) decyduje o roli każdego aliasu. e.employee_id = m.manager_id oznacza, że menedżerem m jest e, więc m to podwładny, a wiersze dla Kochhar wymieniają bezpośrednich podwładnych tej osoby. Aby uzyskać menedżera, napisz e.manager_id = m.employee_id. Obie formy są poprawnym SQL, a wiersz pasowałby do samego siebie tylko wtedy, gdyby pracownik był swoim własnym menedżerem."
+    },
+    "q06-self-equiv": {
+      "prompt": "King jest jedynym pracownikiem z manager_id równym NULL. Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "Oba zachowują każdego pracownika e, a stronę menedżera czynią opcjonalną, więc King pojawia się z menedżerem NULL (9 wierszy). Złączenie wewnętrzne (INNER JOIN) gubi Kinga (8 wierszy). Postawienie (+) przy e.manager_id czyni opcjonalną stronę e: zachowuje każde m, czyli wymienia osoby z ich podwładnymi, a osoby, które nikim nie kierują, z NULL."
+    },
+    "q06-self-truths": {
+      "prompt": "Które dwa stwierdzenia o samozłączeniach (self-join) są prawdziwe?",
+      "options": [
+        "Samozłączenie może być złączeniem zewnętrznym.",
+        "Ta sama tabela występuje w FROM dwa razy, a oba wystąpienia muszą dać się rozróżnić, zwykle aliasami.",
+        "Samozłączenie wymaga słowa kluczowego SELF JOIN.",
+        "Samozłączenie może używać tylko operatora =."
+      ],
+      "explanation": "Samozłączenie to zwykłe złączenie (JOIN), którego obie strony są akurat tą samą tabelą, więc może być wewnętrzne lub zewnętrzne, równościowe lub nierównościowe. Każde wystąpienie potrzebuje własnej nazwy (aliasu), inaczej kolumny byłyby niejednoznaczne. Oracle nie ma słowa kluczowego SELF JOIN."
+    },
+    "q06-nonequi-total": {
+      "prompt": "Przedziały stopni płacowych nie mają luk ani nakładań, a każda pensja mieści się w jednym z nich. Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Zwraca dokładnie jeden wiersz na pracownika.",
+        "Zwraca dokładnie jeden wiersz na stopień.",
+        "Zwraca iloczyn kartezjański, bo nie ma warunku równości.",
+        "Kończy się błędem, bo warunek złączenia (JOIN) musi używać operatora =."
+      ],
+      "explanation": "Złączenie nierównościowe (non-equijoin) łączy każdego pracownika z każdym stopniem, którego przedział zawiera jego pensję; gdy przedziały pokrywają każdą pensję dokładnie raz, daje to jeden stopień na pracownika. Stopień może pasować do wielu pracowników albo do żadnego. W ON dozwolony jest dowolny warunek, więc to ani błąd, ani iloczyn kartezjański; luki gubiłyby pracowników, a nakładania by ich dublowały."
+    },
+    "q06-nonequi-truths": {
+      "prompt": "Które dwa stwierdzenia o złączeniach nierównościowych (non-equijoin) są prawdziwe?",
+      "options": [
+        "Warunek BETWEEN można przepisać jako >= AND <= z tym samym wynikiem.",
+        "Złączenie nierównościowe można zapisać starą składnią, z warunkiem w WHERE.",
+        "Złączenie nierównościowe można zapisać za pomocą JOIN ... USING.",
+        "NATURAL JOIN wykonuje złączenie nierównościowe, gdy nazwy kolumn się różnią."
+      ],
+      "explanation": "BETWEEN obejmuje oba końce, dokładnie jak >= AND <=, a każdy warunek złączenia (JOIN) można umieścić w WHERE przy składni z przecinkiem. USING i NATURAL JOIN zawsze generują warunki równości na kolumnach o tych samych nazwach, więc złączenie zakresowe wymaga ON lub WHERE."
+    },
+    "q06-nonequi-equiv": {
+      "prompt": "Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "Składnia z przecinkiem z zakresem w WHERE i jawne >= AND <= to to samo złączenie nierównościowe (non-equijoin). BETWEEN wymaga najpierw mniejszej wartości: BETWEEN max AND min nigdy nie jest prawdą, więc nie ma wierszy. Samo ograniczenie dolne dopasowuje kilka stopni na pracownika (19 wierszy)."
+    },
+    "q06-anti-join": {
+      "prompt": "Które dwa zapytania zwracają tylko departamenty bez pracowników?",
+      "explanation": "Złączenie zewnętrzne (OUTER JOIN), po którym WHERE sprawdza NULL w kolumnie NOT NULL tabeli opcjonalnej, zachowuje dokładnie niedopasowane wiersze (Research). Wersja z (+) działa tak samo; test IS NULL nie ma (+), więc jest stosowany po złączeniu. Wewnątrz ON test IS NULL jedynie blokuje dopasowania, więc wracają wszystkie cztery departamenty; złączenie wewnętrzne nigdy nie daje employee_id równego NULL."
+    },
+    "q06-plus-both": {
+      "prompt": "Co się stanie, gdy spróbujesz zapisać pełne złączenie zewnętrzne (FULL OUTER JOIN) w ten sposób?",
+      "options": [
+        "ORA-01468: a predicate may reference only one outer-joined table",
+        "Zwraca 10 wierszy, jak FULL OUTER JOIN",
+        "Zwraca 8 wierszy, jak złączenie wewnętrzne",
+        "Zwraca 36 wierszy, iloczyn kartezjański"
+      ],
+      "explanation": "(+) można postawić tylko po jednej stronie predykatu, więc starą składnią nie da się wyrazić pełnego złączenia zewnętrznego: ORA-01468. Użyj FULL OUTER JOIN (albo UNION złączenia lewostronnego i prawostronnego)."
+    },
+    "q06-ansi-mix": {
+      "prompt": "Co się stanie?",
+      "options": [
+        "Zgłaszany jest ORA-25156: (+) nie można użyć w klauzuli ANSI JOIN ... ON",
+        "Działa jak LEFT OUTER JOIN",
+        "Działa jak RIGHT OUTER JOIN",
+        "(+) jest ignorowany i zapytanie działa jak złączenie wewnętrzne"
+      ],
+      "explanation": "Wykonane na 19c: Oracle akceptuje (+) w klauzuli ON złączenia (JOIN) ANSI i robi z niego złączenie zewnętrzne, więc Grant (bez departamentu) jest zwracany z department_name równym NULL, jak przy LEFT JOIN. ORA-25156 jest zgłaszany, gdy (+) wystąpi w klauzuli WHERE zapytania, które używa też składni złączeń ANSI. Mieszanie obu stylów to nadal zła praktyka: napisz LEFT JOIN."
+    },
+    "q06-outer-equiv-filter": {
+      "prompt": "Research (departament 40) nie ma pracowników. Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "W starej składni każdy warunek na tabeli opcjonalnej potrzebuje (+), łącznie z filtrem; wtedy działa jak warunek w ON i Research zostaje z NULL. RIGHT JOIN z zamienionymi tabelami to to samo złączenie (JOIN). Bez (+) przy e.salary albo z filtrem w WHERE wiersz NULL dla Research nie przechodzi testu i wynik kurczy się do 3 wierszy."
+    },
+    "q06-outer-truths": {
+      "prompt": "Które trzy stwierdzenia o złączeniach zewnętrznych (OUTER JOIN) w Oracle są prawdziwe?",
+      "options": [
+        "Słowo kluczowe OUTER jest opcjonalne: LEFT JOIN oznacza LEFT OUTER JOIN.",
+        "FULL OUTER JOIN nie da się zapisać operatorem (+).",
+        "W starej składni (+) stawia się po stronie, której wierszy może brakować.",
+        "LEFT OUTER JOIN może zwrócić mniej wierszy niż złączenie wewnętrzne tych samych tabel.",
+        "Złączenia zewnętrznego nie można łączyć z GROUP BY."
+      ],
+      "explanation": "OUTER jest opcjonalne; (+) oznacza stronę, której wierszy może brakować (deficient side), i może stać tylko po jednej stronie każdego predykatu, więc FULL wymaga składni ANSI. Złączenie zewnętrzne zwraca wszystkie wiersze złączenia wewnętrznego plus niedopasowane, nigdy mniej, i można je grupować jak każde inne źródło wierszy."
+    },
+    "q06-count-star-outer": {
+      "prompt": "Jaka jest wartość cnt dla Research (departament 40, bez pracowników)?",
+      "options": [
+        "1",
+        "0",
+        "NULL",
+        "Research nie zostaje zwrócony"
+      ],
+      "explanation": "Złączenie zewnętrzne (OUTER JOIN) tworzy dla Research jeden wiersz z NULL w kolumnach pracownika, a COUNT(*) liczy ten wiersz. COUNT(e.employee_id) pominąłby NULL i zwrócił 0, a tego właśnie potrzeba do liczby pracowników."
+    },
+    "q06-natural-no-common": {
+      "prompt": "Tabele employees i orders nie mają wspólnej nazwy kolumny (orders odwołuje się do employees przez sales_rep_id). Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Zlicza iloczyn kartezjański: liczba wierszy employees razy liczba wierszy orders.",
+        "Zwraca 0, bo nie da się dopasować żadnych kolumn.",
+        "Zlicza zamówienia, które mają przedstawiciela handlowego, korzystając z klucza obcego.",
+        "Kończy się błędem, bo NATURAL JOIN wymaga co najmniej jednej wspólnej kolumny."
+      ],
+      "explanation": "Bez wspólnych nazw kolumn NATURAL JOIN nie ma żadnego warunku złączenia (JOIN) i po cichu staje się iloczynem kartezjańskim. NATURAL JOIN patrzy tylko na nazwy kolumn, nigdy na klucze obce, więc sales_rep_id i employee_id nie są dopasowywane. Oracle nie zgłasza w tym przypadku błędu."
+    },
+    "q06-missing-condition": {
+      "prompt": "Trzech pracowników zarabia więcej niż 10000, a departments ma 4 wiersze. Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "3",
+        "4",
+        "12",
+        "36"
+      ],
+      "explanation": "Klauzula WHERE filtruje pracowników, ale nigdy nie wiąże ich z departments, więc każdy z 3 pracowników zostaje połączony ze wszystkimi 4 departamentami: 12 wierszy. Przy N tabelach potrzebujesz co najmniej N - 1 warunków złączenia (JOIN), aby uniknąć iloczynu kartezjańskiego."
+    },
+    "q06-cartesian-ways": {
+      "prompt": "Tabele departments (department_id, department_name, location) i salary_grades (grade, min_salary, max_salary) nie mają wspólnej nazwy kolumny. Które trzy klauzule FROM zwracają iloczyn kartezjański tych dwóch tabel?",
+      "options": [
+        "FROM departments d CROSS JOIN salary_grades g",
+        "FROM departments d, salary_grades g",
+        "FROM departments d JOIN salary_grades g ON 1 = 1",
+        "FROM departments d JOIN salary_grades g USING (grade)",
+        "FROM departments d LEFT JOIN salary_grades g ON d.department_id = g.min_salary"
+      ],
+      "explanation": "CROSS JOIN, złączenie (JOIN) z przecinkiem bez warunku złączenia i warunek ON, który jest zawsze prawdziwy, łączą każdy wiersz z każdym. USING (grade) kończy się błędem, bo departments nie ma kolumny grade (ORA-00904), a LEFT JOIN na department_id = min_salary to zwykłe złączenie zewnętrzne, które zwraca każdy departament z jego (mało prawdopodobnymi) dopasowaniami, a nie każdą kombinację."
+    },
+    "q06-cross-on": {
+      "prompt": "Co się stanie?",
+      "options": [
+        "Błąd, bo CROSS JOIN nie przyjmuje klauzuli ON",
+        "12 wierszy: departamenty od 20 do 40 połączone z każdym stopniem",
+        "16 wierszy: klauzula ON jest ignorowana",
+        "4 wiersze"
+      ],
+      "explanation": "CROSS JOIN nie przyjmuje warunku złączenia (JOIN), więc słowo kluczowe ON to błąd składni (ORA-00933: SQL command not properly ended). Umieść filtr w WHERE: CROSS JOIN ... WHERE d.department_id > 10 zwraca 12 wierszy. Oracle 23ai zgłasza ten sam błąd jako ORA-03048 (SQL reserved word is not syntactically valid)."
+    },
+    "q06-using-full-null": {
+      "prompt": "Które stwierdzenie o kolumnie department_id w wyniku tego zapytania jest prawdziwe?",
+      "options": [
+        "Pokazuje wartość z tej tabeli, która ją ma, jak COALESCE(e.department_id, d.department_id).",
+        "Zawsze pokazuje wartość z employees, więc departamenty bez pracowników pokazują NULL.",
+        "Jest NULL w każdym wierszu, który nie ma dopasowania po drugiej stronie.",
+        "Zapytanie kończy się błędem, bo USING nie można użyć z FULL OUTER JOIN."
+      ],
+      "explanation": "Kolumna z USING to jedna scalona kolumna, więc departament bez pracowników nadal pokazuje swój department_id; NULL pokazuje tylko pracownik, którego własny department_id jest NULL. Przy ON i SELECT e.department_id każdy niedopasowany wiersz departamentu pokazywałby NULL. USING działa z każdym typem złączenia zewnętrznego (OUTER JOIN)."
+    },
+    "q06-on-later-table": {
+      "prompt": "Jaki błąd zgłasza to zapytanie?",
+      "options": [
+        "ORA-00904: \"O\".\"ORDER_ID\": invalid identifier",
+        "ORA-00918: column ambiguously defined",
+        "ORA-25156: old style outer join (+) cannot be used with ANSI joins",
+        "Brak błędu; Oracle zmienia kolejność złączeń i zwraca 9 wierszy"
+      ],
+      "explanation": "Złączenia (JOIN) ANSI są budowane od lewej do prawej, a klauzula ON może odwoływać się tylko do tabel złączonych do tego miejsca. Gdy przetwarzana jest pierwsza klauzula ON, alias o jeszcze nie istnieje: ORA-00904. Złączenie orders przed order_items rozwiązuje problem. Optymalizator Oracle może zmienić kolejność wykonania, ale rozpoznawanie nazw idzie w kolejności zapisu."
+    },
+    "q06-using-select-list": {
+      "prompt": "Które dwie listy SELECT zgłaszają błąd, gdy użyjesz ich z FROM employees e JOIN departments d USING (department_id)?",
+      "explanation": "Kolumna z USING nie należy już do żadnej z tabel, więc każde kwalifikowane odwołanie do niej kończy się błędem ORA-25154, także to niejawne w e.* (które zawierałoby e.department_id). SELECT * działa i pokazuje department_id raz, jako pierwszą kolumnę. Niekwalifikowane department_id to poprawny sposób wybrania tej kolumny, a pozostałe kolumny można kwalifikować jak zwykle."
+    },
+    "q06-self-three-level": {
+      "prompt": "manager_id jest NULL dla pracownika na szczycie hierarchii. Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "Pracownik, którego menedżer nie ma menedżera, nie zostaje zwrócony.",
+        "Ta sama tabela może wystąpić w FROM trzy razy, bo każde wystąpienie ma własny alias.",
+        "Pracownicy, których menedżer nie ma menedżera, są zwracani z grand_manager równym NULL.",
+        "Kończy się błędem, bo tabelę można złączyć z samą sobą tylko raz.",
+        "Zwraca jeden wiersz dla każdego pracownika, z NULL tam, gdzie brakuje poziomu."
+      ],
+      "explanation": "Tabela może wystąpić dowolną liczbę razy pod różnymi aliasami. Każde złączenie wewnętrzne (INNER JOIN) wymaga dopasowania, więc drugie złączenie odrzuca każdy wiersz, którego menedżer ma manager_id równe NULL, a pierwsze odrzuca pracownika na szczycie. Zachowanie każdego pracownika z NULL dla brakujących poziomów wymagałoby LEFT JOIN."
+    },
+    "q06-self-ambiguous-fix": {
+      "prompt": "To samozłączenie (self-join) kończy się błędem ORA-00918: column ambiguously defined. Które dwie zmiany, każda wprowadzona osobno, sprawiają, że zapytanie działa?",
+      "options": [
+        "Zmień last_name na e.last_name.",
+        "Zmień last_name na m.last_name.",
+        "Zastąp klauzulę ON przez USING (manager_id).",
+        "Dodaj DISTINCT po SELECT.",
+        "Usuń aliasy e i m."
+      ],
+      "explanation": "Oba wystąpienia employees mają kolumnę last_name, więc trzeba ją kwalifikować; e.last_name wymienia pracowników, a m.last_name ich menedżerów (w obu przypadkach to poprawne zapytanie, ale o innym znaczeniu). Przy USING last_name nadal byłoby niejednoznaczne, DISTINCT nie rozstrzyga nazw, a bez aliasów obu wystąpień w ogóle nie da się odróżnić. Oracle 23ai zachowuje ORA-00918 z bardziej szczegółowym komunikatem."
+    },
+    "q06-nonequi-truths2": {
+      "prompt": "Które dwa stwierdzenia o złączeniach nierównościowych (non-equijoin) są prawdziwe?",
+      "options": [
+        "W starej składni złączenie zakresowe może być zewnętrzne: WHERE e.salary BETWEEN g.min_salary(+) AND g.max_salary(+).",
+        "Jedna klauzula ON może łączyć równość z zakresem, na przykład p.product_id = i.product_id AND i.unit_price < p.list_price.",
+        "Złączenie nierównościowe musi używać BETWEEN; < i > są dozwolone tylko w WHERE.",
+        "Złączenie nierównościowe zawsze zwraca co najwyżej jeden wiersz dla każdego wiersza tabeli wiodącej.",
+        "Pensja NULL pasuje do stopnia, którego min_salary jest NULL."
+      ],
+      "explanation": "(+) stawia się przy każdym odwołaniu do tabeli opcjonalnej, tu przy obu granicach, co daje zewnętrzne złączenie (JOIN) zakresowe. ON przyjmuje dowolny warunek, więc testy równości i zakresu można mieszać. W warunku złączenia działa każdy operator porównania, wiersz pasuje do każdego zakresu, w który wpada (nakładające się lub jednostronne warunki dają kilka wierszy), a NULL nigdy niczego nie dopasowuje przez = ani BETWEEN."
+    },
+    "q06-not-between": {
+      "prompt": "Każda pensja mieści się dokładnie w jednym przedziale stopnia płacowego. Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Każdy pracownik zostaje połączony z każdym stopniem oprócz własnego.",
+        "Zwraca jeden wiersz na pracownika, ze stopniem, do którego ten pracownik nie należy.",
+        "Kończy się błędem, bo NOT BETWEEN nie jest dozwolone w warunku złączenia (JOIN).",
+        "Nie zwraca wierszy, bo złączenie nierównościowe nie może używać NOT."
+      ],
+      "explanation": "Złączenie (JOIN) zwraca każdą parę, dla której warunek jest prawdziwy. NOT BETWEEN jest prawdziwe dla wszystkich stopni oprócz tego, który zawiera pensję, więc wynik to iloczyn kartezjański minus wiersze złączenia z BETWEEN. W ON dozwolony jest każdy warunek, zanegowany lub nie, a złączenie nierównościowe nie jest ograniczone do jednego dopasowania na wiersz."
+    },
+    "q06-outer-chain": {
+      "prompt": "Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "Klienci bez zamówień nie są zwracani.",
+        "Zamówienia bez pozycji nie są zwracane.",
+        "Każdy klient jest zwracany co najmniej raz, bo pierwsze złączenie jest zewnętrzne.",
+        "Zamówienia bez pozycji są zwracane z line_no równym NULL.",
+        "Kończy się błędem, bo w jednej klauzuli FROM nie można mieszać złączeń zewnętrznych i wewnętrznych."
+      ],
+      "explanation": "Drugie złączenie (JOIN) jest wewnętrzne, a i.order_id = o.order_id nie może być prawdą dla wiersza klienta uzupełnionego NULL-ami (o.order_id jest NULL) ani dla zamówienia bez pozycji, więc oba znikają. Późniejsze złączenie wewnętrzne niweluje złączenie zewnętrzne, tak samo jak filtr WHERE na tabeli opcjonalnej. Mieszanie typów złączeń jest dozwolone; aby zachować wszystkich klientów, użyj LEFT JOIN dla każdej kolejnej tabeli."
+    },
+    "q06-programmers-per-dept": {
+      "prompt": "Raport musi pokazać każdy departament z liczbą programistów (0, gdy nie ma żadnego). Które dwa zapytania to robią?",
+      "explanation": "Filtr stanowiska musi być częścią złączenia zewnętrznego (OUTER JOIN): w ON albo, w starej składni, z (+) przy każdym warunku tabeli opcjonalnej. Wtedy IT liczy 3, a pozostałe trzy departamenty 0. W WHERE albo bez (+) filtr odrzuca wiersze uzupełnione NULL-ami i zwracany jest tylko IT. COUNT(*) liczy wiersz uzupełniony NULL-ami, dając 1 zamiast 0."
+    },
+    "q06-plus-or": {
+      "prompt": "Co się stanie w Oracle 19c?",
+      "options": [
+        "ORA-01719: outer join operator (+) not allowed in operand of OR or IN",
+        "ORA-01468: a predicate may reference only one outer-joined table",
+        "Zwraca każdy departament z jego pracownikami oraz z Kingiem",
+        "Operatory (+) są ignorowane i wykonywane jest złączenie wewnętrzne"
+      ],
+      "explanation": "W 19c warunek oznaczony (+) nie może być operandem OR: ORA-01719. Zapisz złączenie (JOIN) w składni ANSI z OR wewnątrz ON: LEFT JOIN employees e ON e.department_id = d.department_id OR e.salary > 20000. ORA-01468 dotyczy (+) po obu stronach jednego predykatu. Oracle 23ai wykonuje to zapytanie, bo każdy operand OR ma (+) (operand OR bez (+) zgłasza tam ORA-25556)."
+    },
+    "q06-cross-empty": {
+      "prompt": "Tabela departments ma 4 wiersze, salary_grades 4, a promotions żadnego. Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "Nie zwraca wierszy.",
+        "Gdyby promotions miało 2 wiersze, zwróciłoby 32 wiersze.",
+        "Zwraca 16 wierszy, bo pusta tabela jest pomijana w iloczynie kartezjańskim.",
+        "Zwraca 16 wierszy z NULL w promo_name.",
+        "Kończy się błędem, bo CROSS JOIN może złączyć tylko dwie tabele."
+      ],
+      "explanation": "Iloczyn kartezjański ma (wiersze A) × (wiersze B) × (wiersze C) wierszy, a 4 × 4 × 0 = 0; przy 2 promocjach byłoby to 4 × 4 × 2 = 32. Pusta tabela nie jest pomijana, a CROSS JOIN nigdy nie uzupełnia wierszy NULL-ami (robią to tylko złączenia zewnętrzne). CROSS JOIN można łączyć w łańcuch jak każde inne złączenie (JOIN)."
+    },
+    "q06-three-missing": {
+      "prompt": "Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Każdy wiersz pracownik-departament powtarza się raz dla każdego stopnia płacowego.",
+        "Każdy pracownik jest pokazany tylko ze stopniem pasującym do jego pensji.",
+        "Zwraca pełny iloczyn kartezjański wszystkich trzech tabel.",
+        "Kończy się błędem, bo każda tabela w FROM musi wystąpić w warunku złączenia (JOIN)."
+      ],
+      "explanation": "Trzy tabele wymagają co najmniej dwóch warunków złączenia (JOIN). employees i departments są złączone, ale salary_grades nie jest z nimi powiązana, więc każdy złączony wiersz łączy się ze wszystkimi stopniami: częściowy iloczyn kartezjański. Stopień zostałby dopasowany do pensji tylko warunkiem zakresowym, takim jak e.salary BETWEEN g.min_salary AND g.max_salary. Oracle nie wymaga, aby każda tabela była złączona."
+    },
+    "q06-cartesian-equiv": {
+      "prompt": "Tabele departments (department_id 10-40, department_name, location) i salary_grades (grade, min_salary równe 1000 lub więcej, max_salary) mają po 4 wiersze i żadnej wspólnej nazwy kolumny. Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "Złączenie (JOIN) z przecinkiem bez warunku, NATURAL JOIN tabel bez wspólnych nazw kolumn i złączenie zewnętrzne z warunkiem zawsze prawdziwym łączą każdy departament z każdym stopniem (16 wierszy). FULL JOIN ON 1 = 0 niczego nie dopasowuje i zwraca każdy wiersz obu tabel raz (8), filtr WHERE zamienia złączenie krzyżowe w złączenie, które niczego nie dopasowuje, a INNER JOIN bez ON lub USING to błąd składni."
+    },
+    "q06-self-cross": {
+      "prompt": "Turniej łączy w parę każdego pracownika z każdym innym dokładnie raz. Ile wierszy zwraca to zapytanie dla 9 pracowników?",
+      "options": [
+        "36",
+        "72",
+        "81",
+        "45"
+      ],
+      "explanation": "Iloczyn kartezjański tabeli z samą sobą ma 9 × 9 = 81 wierszy. Po usunięciu 9 wierszy, w których pracownik jest w parze z samym sobą, zostają 72 uporządkowane pary, a < zachowuje każdą nieuporządkowaną parę raz: 72 / 2 = 36 (czyli 9 × 8 / 2). 45 obejmowałoby 9 par pracownika z samym sobą (<=)."
+    },
+    "q06-natural-truths": {
+      "prompt": "Które dwa stwierdzenia o NATURAL JOIN są prawdziwe?",
+      "options": [
+        "Złącza po każdej nazwie kolumny wspólnej dla obu tabel.",
+        "Jeśli tabele nie mają wspólnej nazwy kolumny, zwraca iloczyn kartezjański.",
+        "Złącza po ograniczeniach (constraint) klucza głównego i obcego między tabelami.",
+        "Wspólne kolumny można kwalifikować aliasem tabeli na liście SELECT.",
+        "Można do niego dodać klauzulę ON, aby filtrować złączone wiersze."
+      ],
+      "explanation": "NATURAL JOIN tworzy warunki równości dla wszystkich kolumn o tych samych nazwach i całkowicie ignoruje ograniczenia (constraint); bez wspólnych nazw nie ma warunku, więc każdy wiersz łączy się z każdym. Wspólnych kolumn nie wolno kwalifikować (ORA-25155), a NATURAL JOIN nie przyjmuje klauzuli ON ani USING."
+    },
+    "q06-manager-report-sql": {
+      "prompt": "manager_id zawiera employee_id menedżera każdego pracownika. Które dwa zapytania zwracają nazwisko każdego menedżera (pierwsza kolumna) z nazwiskiem każdego z jego bezpośrednich podwładnych (druga kolumna)?",
+      "explanation": "Alias po stronie employee_id w warunku to menedżer, a alias po stronie manager_id to podwładny, niezależnie od nazw aliasów. W pierwszych dwóch zapytaniach alias menedżera stoi pierwszy na liście SELECT. Ostatnie dwa zapytania też są poprawne, ale podają najpierw podwładnego, a dopiero potem menedżera."
+    },
+    "q06-self-no-manager": {
+      "prompt": "manager_id odwołuje się do employee_id w tej samej tabeli. Które stwierdzenie o wyniku tego zapytania jest prawdziwe?",
+      "options": [
+        "Zwraca pracowników bez menedżera, z kolumną menedżera równą NULL.",
+        "Zwraca pracowników, którzy nikim nie kierują.",
+        "Nie zwraca wierszy, bo klauzula WHERE zamienia złączenie zewnętrzne w wewnętrzne.",
+        "Kończy się błędem, bo samozłączenie nie może być złączeniem zewnętrznym."
+      ],
+      "explanation": "Złączenie zewnętrzne (OUTER JOIN) zachowuje każdego pracownika; gdy żaden wiersz menedżera nie pasuje, kolumny m są NULL, a m.employee_id (klucz główny, nigdy NULL w prawdziwym wierszu) jest NULL tylko w tych wierszach uzupełnionych NULL-ami. Test IS NULL po stronie opcjonalnej to wzorzec antyzłączenia (anti-join), który zachowuje dokładnie niedopasowane wiersze, a nie żadnego. Znalezienie osób, które nikim nie kierują, wymagałoby odwrotnego warunku."
+    },
+    "q06-self-plus-filter-rule": {
+      "prompt": "Które trzy stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "Pracownicy, których menedżer zarabia 13000 lub mniej, nie są zwracani.",
+        "Pracownicy bez menedżera nie są zwracani.",
+        "Zapis m.salary(+) > 13000 zamiast tego zwróciłby każdego pracownika, z menedżerem NULL tam, gdzie warunek nie jest spełniony.",
+        "Zwracany jest każdy pracownik, z menedżerem NULL, gdy menedżer zarabia 13000 lub mniej.",
+        "Kończy się błędem, bo warunek bez (+) nie może odwoływać się do tabeli dołączonej zewnętrznie."
+      ],
+      "explanation": "Warunek na tabeli opcjonalnej bez (+) jest stosowany po złączeniu zewnętrznym (OUTER JOIN), jak filtr WHERE po LEFT JOIN, więc usuwa wiersze uzupełnione NULL-ami oraz wiersze z nisko opłacanym menedżerem. Z (+) przy każdym warunku na m filtr staje się częścią złączenia (jak umieszczenie go w ON) i każdy pracownik zostaje zachowany. Mieszanie takich warunków jest dozwolone."
+    },
+    "q06-report-count-sql": {
+      "prompt": "Które zapytanie zwraca, dla każdego pracownika, który kimś kieruje, nazwisko menedżera i liczbę jego bezpośrednich podwładnych, nawet gdy dwóch menedżerów ma to samo nazwisko?",
+      "explanation": "Każdy złączony wiersz to jedna para (podwładny, menedżer), więc grupowanie po stronie menedżera zlicza podwładnych; dodanie m.employee_id rozdziela dwóch menedżerów o tym samym nazwisku. Grupowanie po e.last_name sprawia, że m.last_name nie jest zgrupowane (ORA-00979), wybranie e.last_name liczy każdego podwładnego osobno (zawsze 1), a bez GROUP BY zwykła kolumna zgłasza ORA-00937."
+    },
+    "q06-nonequi-literals": {
+      "prompt": "Przeanalizuj to zapytanie. Ile wierszy zwraca?",
+      "options": [
+        "2",
+        "3",
+        "6",
+        "1"
+      ],
+      "explanation": "50 wpada do LOW, a 100 do HIGH (BETWEEN obejmuje oba końce); 250 nie należy do żadnego przedziału, a złączenie wewnętrzne (INNER JOIN) odrzuca wiersz bez dopasowania. 3 wymagałoby złączenia zewnętrznego, które zachowałoby 250 z przedziałem NULL, a 6 to iloczyn kartezjański 3 wartości i 2 przedziałów."
+    },
+    "q06-nonequi-boundary": {
+      "prompt": "Źle zaprojektowana tabela stopni ma stopień A od 1000 do 5000 i stopień B od 5000 do 9999. Pracownik zarabia dokładnie 5000. Ile wierszy zwraca to złączenie (JOIN) dla tego pracownika?",
+      "options": [
+        "2",
+        "1",
+        "0",
+        "Błąd, bo przedziały się nakładają"
+      ],
+      "explanation": "BETWEEN obejmuje oba końce, więc 5000 spełnia zarówno 1000-5000, jak i 5000-9999, a pracownik pojawia się raz dla każdego pasującego stopnia. JOIN nigdy nie wybiera tylko jednego dopasowania; dlatego tabele stopni używają granic takich jak 4999.99 i 5000. Oracle nie sprawdza, czy przedziały się nakładają."
+    },
+    "q06-nonequi-null-bound": {
+      "prompt": "Najwyższy stopień płacowy jest zapisany z min_salary 20000 i max_salary równym NULL, co ma oznaczać 'brak górnej granicy'. Co się stanie z pracownikiem zarabiającym 25000 w złączeniu (JOIN) ON e.salary BETWEEN g.min_salary AND g.max_salary?",
+      "options": [
+        "Nie pasuje do żadnego stopnia, bo wynik 25000 <= NULL jest nieznany.",
+        "Pasuje do najwyższego stopnia, bo granica NULL oznacza brak limitu.",
+        "Pasuje do każdego stopnia, bo NULL sprawia, że BETWEEN jest zawsze prawdziwe.",
+        "Zapytanie kończy się błędem, bo BETWEEN nie może porównywać z NULL."
+      ],
+      "explanation": "BETWEEN a AND b oznacza >= a AND <= b, a każde porównanie z NULL daje wynik nieznany, więc dla tego stopnia warunek nigdy nie jest prawdziwy i złączenie wewnętrzne odrzuca tego pracownika. Oracle nie zna pojęcia nieograniczonej granicy NULL; napisz e.salary >= g.min_salary AND (g.max_salary IS NULL OR e.salary <= g.max_salary) albo użyj NVL na granicy. Błąd nie jest zgłaszany."
+    },
+    "q06-below-price-sql": {
+      "prompt": "Które dwa zapytania zwracają pozycje zamówień sprzedane poniżej ceny katalogowej ich własnego produktu?",
+      "explanation": "Pozycję trzeba porównać z jej własnym produktem, więc potrzebne są zarówno złączenie równościowe (equijoin) po product_id, jak i test zakresu, razem w ON albo w WHERE przy składni z przecinkiem. Bez warunku na product_id każda pozycja jest porównywana z każdym produktem, którego cena katalogowa jest wyższa od jej ceny. Po USING nie może wystąpić ON; dodatkowy test umieść w WHERE (ORA-00933 w 19c, ORA-03048 w 23ai)."
+    },
+    "q06-full-truths": {
+      "prompt": "Które dwa stwierdzenia o FULL OUTER JOIN są prawdziwe?",
+      "options": [
+        "Zwraca dopasowane wiersze oraz niedopasowane wiersze obu tabel.",
+        "Zwraca co najmniej tyle wierszy, co LEFT OUTER JOIN tych samych tabel z tym samym warunkiem.",
+        "Można go zapisać starą składnią z (+) po obu stronach warunku.",
+        "Słowo kluczowe OUTER jest wymagane: FULL JOIN to błąd składni.",
+        "Niedopasowane wiersze obu tabel są odrzucane."
+      ],
+      "explanation": "Pełne złączenie zewnętrzne (FULL OUTER JOIN) to złączenie lewostronne plus niedopasowane wiersze prawej tabeli, więc może tylko dodawać wiersze. (+) po obu stronach zgłasza ORA-01468; obejściem w starym stylu jest UNION złączenia lewostronnego i prawostronnego. OUTER jest opcjonalne w złączeniach LEFT, RIGHT i FULL."
+    },
+    "q06-right-equiv": {
+      "prompt": "Które dwa zapytania zwracają te same wiersze co to, niezależnie od danych?",
+      "explanation": "RIGHT JOIN zachowuje każdy wiersz tabeli po prawej, czyli departments. To samo daje LEFT JOIN z zamienionymi tabelami albo (+) po stronie employees, czyli po stronie, której wierszy może brakować. employees LEFT JOIN departments oraz (+) po stronie departments zachowują zamiast tego każdego pracownika, a FULL zachowuje obie strony."
+    },
+    "q06-left-join-rows": {
+      "prompt": "Które dwa stwierdzenia o LEFT OUTER JOIN tabeli t1 z t2 (FROM t1 LEFT JOIN t2 ON ...) są prawdziwe?",
+      "options": [
+        "Każdy wiersz t1 pojawia się w wyniku co najmniej raz.",
+        "Wiersze t2, które nie pasują do żadnego wiersza t1, nie są zwracane.",
+        "Wynik nigdy nie ma więcej wierszy niż t1.",
+        "Zwraca te same wiersze co t1 RIGHT JOIN t2 z tym samym warunkiem.",
+        "Dodanie WHERE t2.col IS NOT NULL zachowuje niedopasowane wiersze t1."
+      ],
+      "explanation": "Złączenie lewostronne (LEFT JOIN) zachowuje każdy wiersz lewej tabeli, raz na każde dopasowanie albo raz z NULL-ami, gdy dopasowania nie ma, i odrzuca niedopasowane wiersze prawej tabeli. Wiersz t1 z kilkoma dopasowaniami pojawia się kilka razy, więc wynik może być większy niż t1. t1 RIGHT JOIN t2 zachowuje zamiast tego t2, a filtrowanie strony opcjonalnej przez IS NOT NULL usuwa dokładnie niedopasowane wiersze."
+    },
+    "q06-outer-literals": {
+      "prompt": "Przeanalizuj to zapytanie. Ile wierszy zwraca?",
+      "options": [
+        "3",
+        "2",
+        "4",
+        "5"
+      ],
+      "explanation": "id 1 pasuje do dwóch wierszy b (x i y), a id 2 nie pasuje do żadnego, więc zostaje zachowany raz z v równym NULL: 3 wiersze. Wiersz b z id 3 nie ma partnera w a i LEFT JOIN go nie zwraca. 2 zakłada jeden wiersz na każdy wiersz lewej tabeli, a 4 byłoby wynikiem FULL OUTER JOIN."
+    }
+  },
+  "labs": {
+    "lab-headcount-all": {
+      "title": "Liczba pracowników w każdym departamencie",
+      "task": "Zwróć department_name i headcount dla każdego departamentu, łącznie z departamentami bez pracowników (headcount 0). Posortuj po department_name.",
+      "hint": "COUNT(*) liczy też wiersz dołączony zewnętrznie. Która kolumna jest NULL dla departamentu bez pracowników?",
+      "hint2": "departments d LEFT JOIN employees e ... COUNT(e.employee_id), z grupowaniem po d.department_name."
+    },
+    "lab-managers": {
+      "title": "Pracownicy i ich menedżerowie",
+      "task": "Zwróć last_name pracownika i manager_name (last_name menedżera) dla wszystkich pracowników, łącznie z tymi bez menedżera. Posortuj po employee_id.",
+      "hint": "Złącz (JOIN) employees z samą sobą, używając dwóch aliasów; złączenie wewnętrzne zgubiłoby Kinga.",
+      "hint2": "employees e LEFT JOIN employees m ON m.employee_id = e.manager_id."
+    },
+    "lab-emp-locations": {
+      "title": "Gdzie pracują pracownicy",
+      "task": "Zwróć last_name, department_name i location dla pracowników, którzy należą do departamentu. Posortuj po last_name.",
+      "hint": "Złączenie wewnętrzne (INNER JOIN) zachowuje tylko pracowników z pasującym departamentem.",
+      "hint2": "employees e JOIN departments d ON d.department_id = e.department_id (USING lub NATURAL JOIN też działają)."
+    },
+    "lab-shipped-lines": {
+      "title": "Wysłane pozycje zamówień",
+      "task": "Dla zamówień SHIPPED zwróć order_id, customer_name, product_name i quantity, po jednym wierszu na pozycję zamówienia. Posortuj po order_id, a potem po product_name.",
+      "hint": "Cztery tabele wymagają trzech warunków złączenia (JOIN): orders z customers, orders z order_items, order_items z products.",
+      "hint2": "orders o JOIN customers c ON c.customer_id = o.customer_id JOIN order_items i ON i.order_id = o.order_id JOIN products p ON p.product_id = i.product_id WHERE o.status = 'SHIPPED'."
+    },
+    "lab-same-dept-manager": {
+      "title": "Menedżer z tego samego departamentu",
+      "task": "Zwróć last_name, manager_name (last_name menedżera) i department_id dla pracowników, którzy pracują w tym samym departamencie co ich menedżer. Posortuj po last_name.",
+      "hint": "Złącz (JOIN) employees z ich menedżerami w tej samej tabeli, a potem porównaj obie kolumny department_id.",
+      "hint2": "employees e JOIN employees m ON m.employee_id = e.manager_id WHERE e.department_id = m.department_id."
+    },
+    "lab-salary-grades": {
+      "title": "Stopień płacowy każdego pracownika",
+      "task": "Zwróć last_name, salary i grade (z salary_grades) dla każdego pracownika. Posortuj po salary malejąco, a potem po last_name.",
+      "hint": "Nie ma wspólnego klucza: dopasuj pensję do przedziału stopnia.",
+      "hint2": "JOIN salary_grades g ON e.salary BETWEEN g.min_salary AND g.max_salary."
+    },
+    "lab-grade-headcount": {
+      "title": "Liczba pracowników w każdym stopniu płacowym",
+      "task": "Zwróć grade i headcount (liczbę pracowników, których pensja mieści się w przedziale danego stopnia) dla każdego stopnia. Posortuj po grade.",
+      "hint": "Złącz (JOIN) po przedziale pensji, a potem grupuj po stopniu. Zacznij od salary_grades, aby stopień bez pracowników też się pojawił.",
+      "hint2": "salary_grades g LEFT JOIN employees e ON e.salary BETWEEN g.min_salary AND g.max_salary GROUP BY g.grade, COUNT(e.employee_id)."
+    },
+    "lab-unsold-products": {
+      "title": "Produkty, których nikt nie zamówił",
+      "task": "Używając złączenia zewnętrznego (OUTER JOIN), bez podzapytania, zwróć product_name produktów, które nie występują w żadnej pozycji zamówienia. Posortuj po product_name.",
+      "hint": "Złącz zewnętrznie products z order_items, a potem zachowaj wiersze, w których brakuje strony order_items.",
+      "hint2": "products p LEFT JOIN order_items i ON i.product_id = p.product_id WHERE i.order_id IS NULL."
+    },
+    "lab-customer-order-counts": {
+      "title": "Zamówienia na klienta",
+      "task": "Zwróć customer_name i order_count dla każdego klienta, łącznie z klientami bez zamówień (order_count 0). Posortuj po order_count malejąco, a potem po customer_name.",
+      "hint": "Zachowaj wszystkich klientów złączeniem zewnętrznym (OUTER JOIN) i licz kolumnę z orders, a nie *.",
+      "hint2": "customers c LEFT JOIN orders o ON o.customer_id = c.customer_id, COUNT(o.order_id), GROUP BY c.customer_name."
+    },
+    "lab-dept-grade-matrix": {
+      "title": "Macierz departamentów i stopni",
+      "task": "Zwróć department_name i grade dla każdej możliwej kombinacji departamentu i stopnia płacowego. Posortuj po department_name, a potem po grade.",
+      "hint": "Każdy wiersz połączony z każdym wierszem to iloczyn kartezjański.",
+      "hint2": "departments d CROSS JOIN salary_grades g (16 wierszy)."
+    },
+    "lab-fix-dept-high-earners": {
+      "title": "Popraw: dobrze zarabiający w każdym departamencie",
+      "task": "Polecenie SQL w edytorze powinno zwracać department_name i high_earners (liczbę pracowników tego departamentu zarabiających więcej niż 5000) dla każdego departamentu, z 0 dla departamentów bez takich osób, ale brakuje jednego departamentu. Popraw je. Posortuj po department_name.",
+      "hint": "Dla Research złączenie zewnętrzne (OUTER JOIN) tworzy wiersz z e.salary równym NULL. Co WHERE robi z NULL > 5000?",
+      "hint2": "Przenieś warunek na pensję z WHERE do klauzuli ON: ON e.department_id = d.department_id AND e.salary > 5000."
+    },
+    "lab-same-salary-pairs": {
+      "title": "Współpracownicy z tą samą pensją",
+      "task": "Zwróć employee_1 i employee_2 (nazwiska) oraz salary dla każdej pary różnych pracowników z tą samą pensją. Podaj każdą parę raz, a jako employee_1 pracownika z niższym employee_id. Posortuj po salary malejąco.",
+      "hint": "Złącz (JOIN) employees z samą sobą po równych pensjach. Musisz wykluczyć wiersz połączony z samym sobą i zachować tylko jedną kolejność każdej pary.",
+      "hint2": "employees a JOIN employees b ON a.salary = b.salary AND a.employee_id < b.employee_id."
+    },
+    "lab-customer-line-totals": {
+      "title": "Pozycje zamówień i sprzedaż na klienta",
+      "task": "Zwróć customer_name, line_count (liczbę pozycji we wszystkich zamówieniach klienta) i total (sumę quantity * unit_price, 0, gdy jej brak) dla każdego klienta, łącznie z klientami bez zamówień i zamówieniami bez pozycji. Posortuj po customer_name.",
+      "hint": "Trzy tabele: customers z orders, a orders z order_items. Oba złączenia (JOIN) muszą być zewnętrzne, inaczej późniejsze złączenie wewnętrzne usunie klienta bez zamówień.",
+      "hint2": "customers c LEFT JOIN orders o ... LEFT JOIN order_items i ..., COUNT(i.line_no) i NVL(SUM(i.quantity * i.unit_price), 0), GROUP BY c.customer_name."
+    },
+    "lab-full-outer-emp-dept": {
+      "title": "Pracownicy i departamenty bez pominięć",
+      "task": "Zwróć last_name i department_name dla każdego pracownika z jego departamentem, a także pracowników bez departamentu (department_name NULL) i departamenty bez pracowników (last_name NULL). Posortuj po department_name, a potem po last_name (domyślne położenie NULL).",
+      "hint": "Złączenie (JOIN) LEFT lub RIGHT zachowuje niedopasowane wiersze tylko jednej tabeli; potrzebujesz obu.",
+      "hint2": "employees e FULL OUTER JOIN departments d ON d.department_id = e.department_id."
+    },
+    "lab-manager-report-counts": {
+      "title": "Bezpośredni podwładni każdego menedżera",
+      "task": "Zwróć manager_name (last_name menedżera) i report_count (liczbę pracowników, których manager_id wskazuje tego menedżera) dla każdego pracownika, który kieruje co najmniej jedną osobą. Posortuj po report_count malejąco, a potem po manager_name.",
+      "hint": "Złącz (JOIN) employees z ich menedżerami w tej samej tabeli; każdy złączony wiersz to jeden podwładny. Potem grupuj po stronie menedżera.",
+      "hint2": "employees e JOIN employees m ON m.employee_id = e.manager_id GROUP BY m.employee_id, m.last_name, COUNT(*)."
+    },
+    "lab-fix-manager-filter": {
+      "title": "Popraw: tylko starsi menedżerowie",
+      "task": "Polecenie SQL w edytorze powinno zwracać last_name i senior_manager dla każdego pracownika: senior_manager to last_name menedżera, gdy menedżer zarabia więcej niż 13000, a w przeciwnym razie NULL (także NULL dla pracownika bez menedżera). Brakuje niektórych pracowników. Popraw je. Posortuj po last_name.",
+      "hint": "W starej składni każdy warunek na tabeli opcjonalnej potrzebuje (+); bez niego warunek jest stosowany po złączeniu (JOIN) i usuwa wiersze uzupełnione NULL-ami.",
+      "hint2": "Napisz m.salary(+) > 13000 albo użyj LEFT JOIN employees m ON m.employee_id = e.manager_id AND m.salary > 13000."
+    },
+    "lab-grades-reached": {
+      "title": "Osiągnięte stopnie",
+      "task": "Zwróć last_name i grades_reached: liczbę stopni płacowych, których min_salary jest mniejsze lub równe pensji pracownika. Zwróć każdego pracownika. Posortuj po grades_reached malejąco, a potem po last_name.",
+      "hint": "Złączenie nierównościowe (non-equijoin) tylko z dolną granicą dopasowuje kilka stopni na pracownika. Policz dopasowania dla każdego pracownika.",
+      "hint2": "employees e LEFT JOIN salary_grades g ON e.salary >= g.min_salary GROUP BY e.employee_id, e.last_name, COUNT(g.grade)."
+    },
+    "lab-below-list-price": {
+      "title": "Sprzedane poniżej ceny katalogowej",
+      "task": "Zwróć order_id, line_no, product_name, unit_price i list_price dla pozycji zamówień, których unit_price jest niższa niż list_price ich produktu. Posortuj po order_id, a potem po line_no.",
+      "hint": "Jedna klauzula ON może łączyć złączenie równościowe (equijoin) po product_id z testem nierówności.",
+      "hint2": "ON p.product_id = i.product_id AND i.unit_price < p.list_price. list_price równe NULL nigdy nie przechodzi testu <."
+    }
+  }
+}

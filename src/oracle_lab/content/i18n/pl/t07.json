@@ -1,0 +1,579 @@
+{
+  "questions": {
+    "q07-not-in-literal": {
+      "prompt": "Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "0",
+        "2",
+        "7",
+        "Zgłasza błąd"
+      ],
+      "explanation": "NOT IN (a, NULL) oznacza col <> a AND col <> NULL. Drugie porównanie zawsze daje UNKNOWN, więc żaden wiersz nie spełnia warunku."
+    },
+    "q07-single-row": {
+      "prompt": "Departament 20 ma trzech pracowników. Co się stanie?",
+      "options": [
+        "Zwraca pracowników, których pensja jest równa dowolnej pensji w departamencie 20",
+        "Zgłasza ORA-01427: single-row subquery returns more than one row",
+        "Nie zwraca wierszy",
+        "Porównuje z pierwszą zwróconą pensją"
+      ],
+      "explanation": "= oczekuje podzapytania jednowierszowego. Departament 20 ma trzech pracowników. Dla wielu wierszy użyj IN lub = ANY."
+    },
+    "q07-all-empty": {
+      "prompt": "Departament 40 nie ma pracowników, a EMPLOYEES ma 9 wierszy. Jaką wartość zwraca to zapytanie?",
+      "options": [
+        "0",
+        "1",
+        "9",
+        "Zgłasza błąd, bo podzapytanie nie zwraca wierszy"
+      ],
+      "explanation": "> ALL na pustym zbiorze jest TRUE dla każdego wiersza (nie ma wartości, z którą porównanie mogłoby się nie udać), więc warunek spełnia wszystkich 9 pracowników. > ANY na pustym zbiorze jest FALSE i dałoby 0. Puste podzapytanie nie jest błędem."
+    },
+    "q07-scalar-empty": {
+      "prompt": "Co zwraca podzapytanie skalarne na liście SELECT, gdy nie znajdzie żadnego wiersza?",
+      "options": [
+        "0",
+        "NULL",
+        "Błąd: no data found",
+        "Wiersz zostaje usunięty z wyniku"
+      ],
+      "explanation": "Podzapytanie skalarne, które nie zwraca wierszy, daje NULL; wiersz zewnętrzny zostaje zachowany. Jeśli zwróci więcej niż jeden wiersz, zgłasza ORA-01427. 'No data found' to błąd SELECT INTO w PL/SQL, a nie w SQL."
+    },
+    "q07-having-subquery": {
+      "prompt": "Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "Działa: podzapytanie jednowierszowe jest dozwolone w klauzuli HAVING.",
+        "Podzapytanie nie jest skorelowane, więc jego jedyna wartość jest obliczana raz i porównywana ze średnią każdej grupy.",
+        "Zgłasza ORA-00934, bo funkcji grupowej nie można użyć w HAVING.",
+        "Zgłasza ORA-01427, bo zapytanie zewnętrzne zwraca jeden wiersz na departament.",
+        "Zwraca tylko departamenty, w których każdy pracownik zarabia więcej niż średnia w firmie."
+      ],
+      "explanation": "HAVING przyjmuje podzapytanie jednowierszowe tak samo jak WHERE, a nieskorelowane podzapytanie daje jedną wartość (średnią w firmie), z którą porównywana jest każda grupa. ORA-00934 jest zgłaszany dla funkcji grupowej w WHERE, a nie w HAVING, a ORA-01427 zależy tylko od liczby wierszy zwróconych przez podzapytanie, a nie przez zapytanie zewnętrzne. Warunek porównuje średnią grupy, a nie pensję każdego pracownika."
+    },
+    "q07-nested-aggregate": {
+      "prompt": "Co się stanie, gdy uruchomisz to zapytanie?",
+      "options": [
+        "Zwraca pracowników, których pensja jest równa najwyższej średniej pensji departamentu",
+        "Zgłasza ORA-01427, bo podzapytanie ma klauzulę GROUP BY",
+        "Zgłasza ORA-00978: nested group function without GROUP BY",
+        "Zgłasza ORA-00935: group function is nested too deeply"
+      ],
+      "explanation": "Dwie funkcje grupowe można zagnieździć, gdy zapytanie ma GROUP BY: AVG jest liczona dla każdego departamentu, a MAX zwija te średnie do jednego wiersza, więc podzapytanie jest jednowierszowe. ORA-00978 jest zgłaszany tylko przy braku GROUP BY, ORA-00935 wymaga trzeciego poziomu zagnieżdżenia, a bez zewnętrznego MAX podzapytanie zwróciłoby jeden wiersz na departament i zgłosiło ORA-01427."
+    },
+    "q07-single-row-no-rows": {
+      "prompt": "Żaden pracownik nie ma employee_id 999. Jaki jest wynik tego zapytania?",
+      "options": [
+        "Brak wierszy",
+        "Każdy pracownik, którego pensja nie jest NULL",
+        "ORA-01403: no data found",
+        "ORA-01427: single-row subquery returns more than one row"
+      ],
+      "explanation": "Podzapytanie jednowierszowe, które nic nie znajduje, daje NULL, a salary <> NULL jest UNKNOWN dla każdego wiersza, więc nawet <> nic nie zwraca. Błąd nie jest zgłaszany: ORA-01403 należy do SELECT INTO w PL/SQL, a ORA-01427 wymaga dwóch lub więcej wierszy."
+    },
+    "q07-order-by-in-subquery": {
+      "prompt": "Co się stanie, gdy uruchomisz to zapytanie?",
+      "options": [
+        "Zwraca pracowników, którzy zarabiają więcej niż pracownik 103",
+        "Zgłasza ORA-00907: missing right parenthesis",
+        "Zgłasza ORA-01427: single-row subquery returns more than one row",
+        "ORDER BY jest ignorowane i zwracane jest ostrzeżenie"
+      ],
+      "explanation": "Podzapytanie użyte w warunku WHERE nie może mieć własnego ORDER BY; parser oczekuje nawiasu zamykającego tam, gdzie pojawia się ORDER BY, i zgłasza ORA-00907. ORDER BY jest dozwolone w widoku inline w klauzuli FROM (na przykład dla top-N z ROWNUM). Bez ORDER BY zapytanie zwróciłoby pracowników zarabiających więcej niż pracownik 103, a employee_id 103 pasuje do co najwyżej jednego wiersza, więc ORA-01427 jest niemożliwy."
+    },
+    "q07-single-row-rules": {
+      "prompt": "Które dwa stwierdzenia o podzapytaniach jednowierszowych są prawdziwe?",
+      "options": [
+        "Jeśli podzapytanie nie zwraca wierszy, porównanie odbywa się z NULL i błąd nie jest zgłaszany.",
+        "Podzapytanie może zawierać GROUP BY, o ile w czasie wykonania zwraca co najwyżej jeden wiersz.",
+        "Podzapytanie może kończyć się własną klauzulą ORDER BY.",
+        "Podzapytanie nie może odwoływać się do kolumn zapytania zewnętrznego.",
+        "Jeśli podzapytanie zwraca kilka wierszy, Oracle porównuje z pierwszym z nich."
+      ],
+      "explanation": "Puste podzapytanie jednowierszowe daje NULL (bez błędu), a liczba wierszy jest sprawdzana w czasie wykonania, więc GROUP BY jest w porządku, jeśli wraca tylko jeden wiersz (na przykład MAX(AVG(...)) GROUP BY ...). ORDER BY w podzapytaniu w WHERE zgłasza ORA-00907, podzapytanie jednowierszowe może być skorelowane, a dwa lub więcej wierszy zawsze zgłaszają ORA-01427."
+    },
+    "q07-scalar-places": {
+      "prompt": "Które trzy miejsca przyjmują podzapytanie skalarne w Oracle 19c?",
+      "options": [
+        "Lista SELECT zapytania",
+        "Klauzula ORDER BY zapytania",
+        "Klauzula VALUES polecenia INSERT",
+        "Klauzula GROUP BY zapytania",
+        "Ograniczenie (constraint) CHECK",
+        "Wyrażenie DEFAULT kolumny"
+      ],
+      "explanation": "Podzapytania skalarne są poprawne w większości miejsc, w których dozwolone jest wyrażenie: na liście SELECT, w WHERE, HAVING, ORDER BY, w wyrażeniach CASE, w klauzuli SET polecenia UPDATE i w klauzuli VALUES polecenia INSERT. Nie są dozwolone w GROUP BY (ORA-22818: subquery expressions not allowed here), w ograniczeniach CHECK (ORA-02251) ani w wyrażeniach DEFAULT kolumn."
+    },
+    "q07-inline-view": {
+      "prompt": "Co się stanie, gdy uruchomisz to zapytanie?",
+      "options": [
+        "Zwraca jeden wiersz dla każdej grupy departamentu, której średnia pensja przekracza 8000",
+        "Zgłasza ORA-00934: group function is not allowed here",
+        "Zgłasza ORA-00904: \"V\".\"AVG_SAL\": invalid identifier",
+        "Zgłasza ORA-00937: not a single-group group function"
+      ],
+      "explanation": "Widok inline oblicza jedną średnią na departament i udostępnia ją pod aliasem AVG_SAL, więc zewnętrzne WHERE filtruje ją jak zwykłą kolumnę. W zewnętrznym WHERE nie ma funkcji grupowej (brak ORA-00934), alias jest widoczny dla zapytania zewnętrznego (brak ORA-00904), a department_id jest grupowane wewnątrz widoku (brak ORA-00937)."
+    },
+    "q07-scalar-count": {
+      "prompt": "Co pokazuje kolumna HEADCOUNT dla Research (departament 40, bez pracowników)?",
+      "options": [
+        "0",
+        "NULL",
+        "Wiersz Research nie zostaje zwrócony",
+        "Zgłasza ORA-01403: no data found"
+      ],
+      "explanation": "Podzapytanie to agregacja bez GROUP BY, więc zawsze zwraca dokładnie jeden wiersz, a COUNT na zbiorze bez wierszy daje 0. Porównaj z podzapytaniem skalarnym, które wybiera zwykłą kolumnę (albo SUM/MAX): tam pusty wynik daje NULL. Podzapytanie skalarne nigdy nie usuwa wiersza zewnętrznego."
+    },
+    "q07-correlated-rules": {
+      "prompt": "Które dwa stwierdzenia o podzapytaniach skorelowanych są prawdziwe?",
+      "options": [
+        "Podzapytanie odwołuje się do kolumny tabeli z zewnętrznego polecenia SQL.",
+        "Można go użyć w klauzulach SET i WHERE polecenia UPDATE.",
+        "Jest wykonywane dokładnie raz, zanim zacznie się zapytanie zewnętrzne.",
+        "Podzapytanie musi czytać tę samą tabelę co zapytanie zewnętrzne.",
+        "Nie można go użyć na liście SELECT."
+      ],
+      "explanation": "Korelacja oznacza, że zapytanie wewnętrzne używa kolumny zewnętrznej (e.department_id w e2.department_id = e.department_id), więc logicznie jest wyliczane raz dla każdego wiersza zewnętrznego, a nie raz z góry. Może czytać dowolną tabelę i jest poprawne na liście SELECT, w WHERE, HAVING oraz w UPDATE SET / WHERE i DELETE WHERE."
+    },
+    "q07-equivalent-hunold": {
+      "prompt": "employee_id jest kluczem głównym, pracownik 103 (Hunold) istnieje, a departament 30 ma czterech pracowników. Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "Gdy podzapytanie zwraca dokładnie jeden wiersz, > ALL i > ANY działają jak >, a samozłączenie (self-join) zachowuje każdego pracownika raz, bo pasuje tylko jeden wiersz h (Hunold). >= zwraca też samego Hunolda. Ostatnie zapytanie porównuje z całym departamentem 30 operatorem jednowierszowym i zgłasza ORA-01427."
+    },
+    "q07-any-all-rules": {
+      "prompt": "Podzapytanie zwraca kilka wierszy i żadnych NULL. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "x > ALL (subquery) daje ten sam wynik co x > (SELECT MAX(...)).",
+        "x = ANY (subquery) daje ten sam wynik co x IN (subquery).",
+        "x < ALL (subquery) daje ten sam wynik co x < (SELECT MAX(...)).",
+        "x <> ANY (subquery) daje ten sam wynik co x NOT IN (subquery)."
+      ],
+      "explanation": "> ALL musi przewyższyć największą wartość, a = ANY pasuje do dowolnej wartości, jak IN. < ALL musi być poniżej najmniejszej wartości, więc odpowiada < MIN. NOT IN to <> ALL; <> ANY jest TRUE, gdy tylko jedna wartość się różni, czyli prawie zawsze."
+    },
+    "q07-equivalent-in-exists": {
+      "prompt": "customer_name jest unikalne, niektórzy klienci mają kilka zamówień, a jeden klient (Umbrella) nie ma żadnych. Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "IN, = ANY i skorelowane EXISTS to półzłączenia (semi-join): każdy klient pojawia się raz, niezależnie od liczby zamówień. Zwykłe złączenie (JOIN) powtarza Acme Corp trzy razy, a Globex dwa razy, więc wymaga DISTINCT (tu bezpiecznego, bo nazwy klientów są unikalne). NOT IN z pustym podzapytaniem zachowuje każdego klienta, łącznie z Umbrella."
+    },
+    "q07-equivalent-not-exists": {
+      "prompt": "Departament 40 nie ma pracowników, a pracownik 108 ma department_id równe NULL. Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "Zapytanie bazowe zwraca Research. Zwykłe NOT IN i jego bliźniak <> ALL nic nie zwracają, bo NULL w departamencie pracownika 108 sprawia, że każde porównanie daje UNKNOWN. Odfiltrowanie NULL-i w podzapytaniu naprawia NOT IN, a antyzłączenie (anti-join) przez złączenie (JOIN) zewnętrzne zachowuje departamenty, których strona pracowników jest NULL."
+    },
+    "q07-in-with-null": {
+      "prompt": "Podzapytanie zwraca ID każdego departamentu oraz jeden NULL. Które stwierdzenie o wyniku jest prawdziwe?",
+      "options": [
+        "Zwraca każdego pracownika, którego department_id pasuje do departamentu; NULL na liście nie ma wpływu",
+        "Nie zwraca wierszy, bo lista zawiera NULL",
+        "Zwraca też pracowników, których department_id jest NULL, bo pasują do NULL na liście",
+        "Zgłasza ORA-01790, bo NULL FROM dual nie ma typu danych"
+      ],
+      "explanation": "IN to OR równości, więc NULL dodaje tylko gałąź UNKNOWN; wiersz nadal spełnia warunek, gdy pasuje inna wartość. Pracownik z departamentem NULL nigdy nie jest równy niczemu, nawet NULL na liście. NULL na liście psuje tylko NOT IN, a literał NULL jest zgodny z każdym typem danych, więc nie ma ORA-01790."
+    },
+    "q07-multi-row-operators": {
+      "prompt": "Które trzy operatory mogą porównać kolumnę z podzapytaniem, które zwraca kilka wierszy?",
+      "options": [
+        "IN",
+        "> ALL",
+        "= ANY",
+        "=",
+        "LIKE",
+        "BETWEEN"
+      ],
+      "explanation": "Porównania wielowierszowe używają IN / NOT IN albo operatora jednowierszowego z ANY (SOME) lub ALL. Zwykłe =, LIKE i BETWEEN oczekują jednej wartości z podzapytania i zgłaszają ORA-01427, gdy zwraca ono dwa lub więcej wierszy."
+    },
+    "q07-exists-rules": {
+      "prompt": "Które dwa stwierdzenia o EXISTS i NOT EXISTS są prawdziwe?",
+      "options": [
+        "EXISTS jest TRUE, gdy tylko podzapytanie zwróci jeden wiersz; lista SELECT podzapytania nie ma znaczenia.",
+        "Na NOT EXISTS nie wpływają NULL-e w kolumnach wybieranych przez podzapytanie.",
+        "EXISTS (SELECT NULL FROM ...) jest zawsze FALSE, bo podzapytanie zwraca NULL.",
+        "EXISTS wymaga kolumny po lewej stronie, jak IN: e.department_id EXISTS (...).",
+        "Podzapytanie w NOT EXISTS nie może być skorelowane."
+      ],
+      "explanation": "EXISTS sprawdza obecność wierszy, nigdy ich wartości, więc SELECT 1, SELECT * i SELECT NULL działają tak samo, a NULL-e nie mogą sprawić, że NOT EXISTS zwróci UNKNOWN. EXISTS przyjmuje jako operand tylko podzapytanie i zwykle jest skorelowane z wierszem zewnętrznym."
+    },
+    "q07-null-results": {
+      "prompt": "EMPLOYEES ma 9 wierszy: 8 należy do departamentów 10, 20 lub 30, a jeden ma department_id równe NULL. Departament 40 nie ma pracowników. Które dwa zapytania nie zwracają wierszy?",
+      "explanation": "NULL na liście NOT IN sprawia, że warunek jest UNKNOWN lub FALSE dla każdego wiersza, a ANY na pustym zbiorze to FALSE. IN nadal dopasowuje ośmiu pracowników z departamentem, a ALL na pustym zbiorze to TRUE, co zwraca wszystkich dziewięciu."
+    },
+    "q07-update-ora-01427": {
+      "prompt": "Departamenty 20 i 30 mają po kilku pracowników. Co się stanie, gdy uruchomisz to polecenie SQL?",
+      "options": [
+        "Aktualizuje wszystkie dziewięć wierszy",
+        "Zgłasza ORA-01427 i żaden wiersz nie zostaje zmieniony",
+        "Aktualizowany jest tylko King (jedyny pracownik departamentu 10), a pozostałe wiersze są pomijane",
+        "Aktualizowany jest każdy wiersz oprócz wiersza Grant, którego departament jest NULL"
+      ],
+      "explanation": "Dla departamentów 20 i 30 skorelowane podzapytanie zwraca kilka wierszy, więc wyrażenie w SET zgłasza ORA-01427. Polecenie SQL, które się nie powiedzie, jest wycofywane w całości (atomowość na poziomie polecenia), więc nawet wiersze przetworzone przed błędem zachowują swoje wartości. Użyj agregacji, takiej jak AVG lub MAX, aby zagwarantować jeden wiersz. (Oracle 21c i nowsze zgłaszają zamiast tego ORA-30926: unable to get a stable set of rows for this statement; egzamin dotyczy 19c.)"
+    },
+    "q07-update-avg-value": {
+      "prompt": "Departament 30 ma czterech pracowników z różnymi pensjami. Które stwierdzenie o pensjach w departamencie 30 po tym UPDATE jest prawdziwe?",
+      "options": [
+        "Wszyscy czterej dostają tę samą wartość: średnią pensję departamentu z chwili rozpoczęcia polecenia SQL",
+        "Każdy dostaje inną wartość, bo każdy zaktualizowany wiersz zmienia średnią widzianą przez następny wiersz",
+        "Wszyscy czterej dostają średnią pensję całej firmy",
+        "Polecenie SQL zgłasza ORA-04091: table EMPLOYEES is mutating"
+      ],
+      "explanation": "Podzapytanie widzi tabelę taką, jaka była w chwili rozpoczęcia polecenia SQL (spójność odczytu na poziomie polecenia), więc każdy wiersz departamentu 30 dostaje pierwotną średnią, niezależnie od kolejności aktualizacji wierszy. Średnia całej firmy wymagałaby nieskorelowanego podzapytania, a ORA-04091 to błąd wyzwalacza, a nie coś, co zgłasza zwykły UPDATE z podzapytaniem."
+    },
+    "q07-update-avg-rules": {
+      "prompt": "EMPLOYEES ma 9 wierszy; department_id pracownika Grant jest NULL, a kolumna salary ma ograniczenie (constraint) CHECK (salary > 0). Które dwa stwierdzenia o tym UPDATE są prawdziwe?",
+      "options": [
+        "Aktualizuje wszystkie dziewięć wierszy.",
+        "Grant (department_id NULL) dostaje pensję NULL.",
+        "Zgłasza ORA-01427, bo departamenty mają po kilku pracowników.",
+        "Kończy się błędem ORA-02290 dla Grant z powodu CHECK (salary > 0).",
+        "Każda średnia jest liczona na nowo po każdym zaktualizowanym wierszu, więc wynik zależy od kolejności wierszy."
+      ],
+      "explanation": "Nie ma klauzuli WHERE, więc aktualizowany jest każdy wiersz. Dla Grant podzapytanie nie znajduje wierszy (NULL nigdy nie jest równy NULL), a AVG zwraca NULL; ograniczenie CHECK jest naruszone tylko wtedy, gdy daje FALSE, a NULL > 0 to UNKNOWN. AVG czyni podzapytanie jednowierszowym, a wszystkie średnie są liczone z danych według stanu z początku polecenia SQL."
+    },
+    "q07-update-syntax": {
+      "prompt": "Które dwa polecenia UPDATE są poprawne?",
+      "explanation": "Kilka kolumn można ustawić jednym skorelowanym podzapytaniem, gdy lista kolumn jest w nawiasach, a podzapytanie zwraca tyle samo kolumn; można też każdej kolumnie dać osobne wyrażenie. Bez nawiasów parser oczekuje = po pierwszej kolumnie (ORA-00927: missing equal sign), a lista kolumn z podzapytaniem jednokolumnowym zgłasza ORA-00947: not enough values."
+    },
+    "q07-delete-no-orders": {
+      "prompt": "Które dwa polecenia SQL usuwają dokładnie tych klientów, którzy nie mają zamówień?",
+      "explanation": "Skorelowane NOT EXISTS i odporne na NULL NOT IN wybierają tylko Umbrella. EXISTS z <> jest TRUE dla każdego klienta (dla każdego istnieje zamówienie kogoś innego), więc polecenie próbuje usunąć klientów, którzy mają zamówienia, i kończy się błędem ORA-02292. COUNT(*) nigdy nie jest NULL, więc ostatnie polecenie niczego nie usuwa."
+    },
+    "q07-scalar-select-multirow": {
+      "prompt": "DEPARTMENTS ma 4 wiersze. Departamenty 20 i 30 mają po kilku pracowników, departament 10 ma jednego, a departament 40 żadnego. Co się stanie, gdy uruchomisz to zapytanie?",
+      "options": [
+        "Zgłasza ORA-01427: single-row subquery returns more than one row",
+        "Zwraca 4 wiersze; EMP jest NULL dla każdego departamentu z więcej niż jednym pracownikiem",
+        "Zwraca 9 wierszy, po jednym na pracownika",
+        "Zwraca 4 wiersze z pierwszym znalezionym pracownikiem każdego departamentu"
+      ],
+      "explanation": "Podzapytanie na liście SELECT to podzapytanie skalarne: może zwrócić zero wierszy (NULL) albo jeden wiersz, nigdy więcej. Sales i IT mają po kilku pracowników, więc zapytanie kończy się w czasie wykonania błędem ORA-01427. Oracle ani nie powtarza wiersza departamentu dla każdego pracownika (tak działa złączenie (JOIN)), ani po cichu nie wybiera jednego wiersza, ani nie podstawia NULL; NULL daje tylko pusty wynik, jak dla Research."
+    },
+    "q07-with-max-count": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "department_id każdego departamentu z najwyższą liczbą pracowników, łącznie z remisami",
+        "Dokładnie jeden department_id, nawet jeśli dwa departamenty mają tę samą, najwyższą liczbę pracowników",
+        "Zgłasza błąd: do nazwy zapytania z WITH można odwołać się tylko raz",
+        "Zgłasza ORA-01427, bo dept_cnt zawiera kilka wierszy"
+      ],
+      "explanation": "Klauzula WITH definiuje dept_cnt raz, a zapytanie główne może go używać dowolnie często, tu zarówno w FROM, jak i w podzapytaniu. MAX(c.cnt) to agregacja bez GROUP BY, więc podzapytanie zwraca dokładnie jeden wiersz (brak ORA-01427), a zwracany jest każdy departament, którego liczba jest równa temu maksimum, więc remisy dają kilka wierszy."
+    },
+    "q07-fix-equals-programmer": {
+      "prompt": "To zapytanie powinno wymienić pracowników, którzy zarabiają tyle samo co co najmniej jeden programista, ale zgłasza ORA-01427. Trzej programiści zarabiają 9000, 6000 i 4800. Które dwa poprawione zapytania zwracają zamierzone wiersze?",
+      "explanation": "Programiści zarabiają 9000, 6000 i 4800, więc podzapytanie zwraca trzy wiersze i wymaga operatora wielowierszowego: IN i = ANY to to samo (5 wierszy). DISTINCT nadal zostawia trzy wartości, więc ORA-01427 pozostaje. = ALL działa, ale szuka pensji równej jednocześnie wszystkim trzem wartościom (brak wierszy), a MAX zmienia pytanie na 'zarabia najwyższą pensję programisty' (tylko Hunold)."
+    },
+    "q07-inline-view-no-alias": {
+      "prompt": "Co się stanie, gdy uruchomisz to zapytanie?",
+      "options": [
+        "Zgłasza ORA-00904: \"V\".\"TOTAL\": invalid identifier",
+        "Zwraca 6 wierszy, po jednym na zamówienie, które ma pozycje",
+        "Zgłasza ORA-00937: not a single-group group function",
+        "Zgłasza ORA-00907, bo widok inline nie może zawierać GROUP BY"
+      ],
+      "explanation": "Zapytanie zewnętrzne widzi tylko nazwy kolumn, które udostępnia widok inline. Wyrażenie SUM nie ma aliasu, więc jego kolumna nazywa się tak jak wyrażenie i nie ma kolumny TOTAL: ORA-00904. Zapis SUM(...) AS total to naprawia i wtedy wraca 6 wierszy. GROUP BY (a nawet ORDER BY) jest w porządku wewnątrz widoku inline, a order_id jest grupowane, więc nie ma ORA-00937."
+    },
+    "q07-all-any-null-price": {
+      "prompt": "Ceny katalogowe to 1200, 25, 300, 50 i NULL (Consulting Hour). EMPLOYEES ma 9 wierszy, a każda pensja mieści się między 3500 a 24000. Które dwa stwierdzenia są prawdziwe?",
+      "code": "-- Zapytanie 1\nSELECT e.last_name FROM employees e\nWHERE  e.salary > ALL (SELECT p.list_price FROM products p);\n\n-- Zapytanie 2\nSELECT e.last_name FROM employees e\nWHERE  e.salary > ANY (SELECT p.list_price FROM products p);",
+      "options": [
+        "Zapytanie 1 nie zwraca wierszy",
+        "Zapytanie 2 zwraca wszystkich dziewięciu pracowników",
+        "Zapytanie 1 zwraca wszystkich dziewięciu pracowników, bo każda pensja przekracza 1200",
+        "Zapytanie 2 nie zwraca wierszy, bo jedna z cen katalogowych jest NULL",
+        "Oba zapytania zgłaszają błąd, bo podzapytanie zwraca NULL"
+      ],
+      "explanation": "> ALL to AND porównań: salary > 1200 AND ... AND salary > NULL; ostatnia część jest UNKNOWN, więc żaden wiersz nie może dać TRUE i Zapytanie 1 nic nie zwraca, choć każda pensja przekracza 1200. > ANY to OR: wystarczy jedno porównanie TRUE (salary > 25), więc NULL nie szkodzi i warunek spełnia wszystkie dziewięć wierszy. NULL-e w podzapytaniu nigdy nie zgłaszają błędu."
+    },
+    "q07-equivalent-any-min": {
+      "prompt": "Pracownicy departamentu 20 zarabiają 14000, 6000 i 4800. Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "> ANY oznacza 'powyżej co najmniej jednej wartości', czyli to samo co powyżej najmniejszej (> MIN, tu > 4800): 6 pracowników. SOME to synonim ANY, a skorelowane EXISTS wyraża ten sam warunek wiersz po wierszu. > MAX i > ALL oznaczają 'powyżej każdej wartości' i zwracają tylko Kinga."
+    },
+    "q07-pairwise-vs-nonpairwise": {
+      "prompt": "Które dwa stwierdzenia o tych zapytaniach są prawdziwe dla dowolnych danych w EMPLOYEES?",
+      "code": "-- Zapytanie 1 (parami)\nSELECT e.last_name FROM employees e\nWHERE  (e.job_title, e.salary) IN (SELECT e2.job_title, MIN(e2.salary)\n                                   FROM   employees e2\n                                   GROUP  BY e2.job_title);\n\n-- Zapytanie 2 (nie parami)\nSELECT e.last_name FROM employees e\nWHERE  e.job_title IN (SELECT e2.job_title FROM employees e2)\nAND    e.salary IN (SELECT MIN(e2.salary) FROM employees e2 GROUP BY e2.job_title);",
+      "options": [
+        "Zapytanie 1 porównuje job_title i salary razem, jako jedną parę",
+        "Każdy wiersz zwrócony przez Zapytanie 1 jest też zwracany przez Zapytanie 2",
+        "Oba zapytania zawsze zwracają te same wiersze",
+        "Zapytanie 1 zgłasza ORA-00913, bo podzapytanie zwraca dwie kolumny",
+        "Zapytanie 2 nigdy nie może zwrócić więcej wierszy niż Zapytanie 1"
+      ],
+      "explanation": "Porównanie parami (pairwise) dopasowuje tylko wiersz, którego para (job_title, salary) jest jedną z par zwracanych przez podzapytanie: najniżej zarabiającego na każdym stanowisku. Każdy taki wiersz przechodzi też oba osobne testy Zapytania 2, ale Zapytanie 2 akceptuje dodatkowo pensję, która jest minimum innego stanowiska, więc może zwrócić więcej wierszy (na przykładowych danych dodaje Partners). Lista IN z dwiema kolumnami jest poprawna, gdy obie strony mają po dwie kolumny."
+    },
+    "q07-exists-uncorrelated": {
+      "prompt": "Co najmniej jeden pracownik zarabia więcej niż 10000. Autor chciał uzyskać tylko departamenty, które mają takiego pracownika. Które stwierdzenie o wyniku jest prawdziwe?",
+      "options": [
+        "Zwracany jest każdy wiersz DEPARTMENTS, łącznie z departamentami bez takiego pracownika",
+        "Zwracane są tylko departamenty, które mają pracownika zarabiającego więcej niż 10000",
+        "Nie są zwracane żadne wiersze, bo podzapytanie nie odwołuje się do DEPARTMENTS",
+        "Zgłasza błąd: podzapytanie w EXISTS musi być skorelowane"
+      ],
+      "explanation": "Podzapytanie nie odwołuje się do d, więc daje tę samą odpowiedź dla każdego departamentu: znajduje wiersz, EXISTS jest TRUE i zwracane są wszystkie departamenty. Dodanie AND e.department_id = d.department_id czyni je skorelowanym i daje zamierzony wynik. Nieskorelowane EXISTS jest dozwolone; po prostu zwraca wszystkie wiersze albo żaden."
+    },
+    "q07-update-exists-null-price": {
+      "prompt": "ORDER_ITEMS ma 9 wierszy, product_id każdej pozycji istnieje w PRODUCTS (której kluczem głównym jest product_id), a produkt 15 (Consulting Hour, zamówienie 1004, pozycja 2) ma list_price równe NULL. Które dwa stwierdzenia o tym UPDATE są prawdziwe?",
+      "options": [
+        "Aktualizuje wszystkie 9 pozycji zamówień",
+        "Pozycja Consulting Hour (zamówienie 1004, pozycja 2) kończy z unit_price równym NULL",
+        "Aktualizuje 8 pozycji: EXISTS pomija pozycję, której produkt nie ma ceny katalogowej",
+        "Zgłasza ORA-01427, bo products ma kilka wierszy",
+        "Żadne unit_price nie może stać się NULL, bo jest zabezpieczenie WHERE EXISTS"
+      ],
+      "explanation": "EXISTS sprawdza tylko, czy istnieje pasujący wiersz produktu, a każda pozycja go ma, więc UPDATE zmienia wszystkie 9 pozycji. Nie patrzy na wartość: produkt 15 istnieje z list_price równym NULL, więc jego pozycja dostaje NULL. Podzapytanie jest skorelowane po kluczu głównym i zwraca jeden wiersz na pozycję, więc nie ma ORA-01427. Aby chronić wartość, filtruj p.list_price IS NOT NULL w podzapytaniu EXISTS albo obejmij podzapytanie w SET funkcją NVL."
+    },
+    "q07-delete-not-in-sales-rep": {
+      "prompt": "Zamówienie 1007 ma sales_rep_id równe NULL. Ilu pracowników usuwa to polecenie SQL?",
+      "options": [
+        "0",
+        "6",
+        "3",
+        "Zgłasza ORA-02292, bo do niektórych pracowników odwołują się inne wiersze"
+      ],
+      "explanation": "Podzapytanie zwraca 105, 106, 108 i NULL, a NOT IN z NULL na liście nigdy nie jest TRUE, więc klauzula WHERE nie pasuje do żadnego wiersza: 0 usuniętych wierszy, bez błędu. Sześciu pracowników, którzy nie są niczyim przedstawicielem handlowym, wskazałoby NOT EXISTS, a ta wersja trafiłaby wtedy na ORA-02292, bo King, Kochhar i De Haan są menedżerami innych pracowników. Tutaj nic nie jest usuwane, więc żadne ograniczenie (constraint) nie jest nawet sprawdzane."
+    },
+    "q07-update-set-pair-error": {
+      "prompt": "Co się stanie, gdy uruchomisz to polecenie SQL?",
+      "options": [
+        "Zgłasza ORA-00947: not enough values",
+        "Zgłasza ORA-00913: too many values",
+        "Ustawia salary na maksimum departamentu, a commission_pct na NULL",
+        "Zgłasza ORA-01427: single-row subquery returns more than one row"
+      ],
+      "explanation": "Przy SET (col1, col2) = (subquery) podzapytanie musi zwrócić dokładnie tyle kolumn, ile ich wymieniono; tu dwa cele dostają jedną kolumnę, więc polecenie SQL kończy się błędem ORA-00947, zanim zmieni się jakikolwiek wiersz. Oracle nie uzupełnia brakującej wartości NULL-em. ORA-00913 to odwrotny błąd (więcej kolumn podzapytania niż celów), a MAX zawsze zwraca jeden wiersz, więc ORA-01427 nie może wystąpić."
+    },
+    "q07-delete-min-fk": {
+      "prompt": "Najniżej zarabiający w departamentach 10, 20 i 30 to King, Partners i Lorentz. King jest menedżerem innych pracowników, a Partners jest przedstawicielem handlowym zamówień 1002 i 1005; obie relacje to klucze obce bez klauzuli ON DELETE. Co się stanie, gdy uruchomisz to polecenie SQL?",
+      "options": [
+        "Zgłasza ORA-02292 (child record found) i żaden pracownik nie zostaje usunięty",
+        "Lorentz zostaje usunięty; King i Partners są pomijani, bo mają wiersze podrzędne",
+        "King, Partners i Lorentz zostają usunięci, a zamówienia Partners tracą przedstawiciela handlowego",
+        "Zgłasza ORA-01427, bo w departamentach 20 i 30 są równe najniższe pensje"
+      ],
+      "explanation": "Skorelowane podzapytanie poprawnie wybiera trzech pracowników, ale usunięcie Kinga lub Partners osierociłoby wiersze, które odwołują się do nich przez klucz obcy bez ON DELETE, więc Oracle zgłasza ORA-02292. Całe polecenie SQL jest wycofywane (atomowość na poziomie polecenia), więc nawet Lorentz zostaje: Oracle nigdy nie pomija wierszy powodujących błąd. MIN zwraca jeden wiersz na departament, więc ORA-01427 jest niemożliwy."
+    },
+    "q07-correlated-dml-rules": {
+      "prompt": "Które trzy stwierdzenia o skorelowanych poleceniach UPDATE i DELETE są prawdziwe?",
+      "options": [
+        "Podzapytanie może odpytywać tę samą tabelę, którą modyfikuje polecenie SQL",
+        "Podzapytanie skorelowane może wystąpić zarówno w klauzuli SET, jak i w klauzuli WHERE jednego UPDATE",
+        "DELETE może filtrować wiersze podzapytaniem skorelowanym z EXISTS, IN lub operatorem porównania",
+        "Jeśli podzapytanie w SET nie znajdzie wiersza dla wiersza docelowego, ten wiersz jest pomijany i zachowuje starą wartość",
+        "Kolejne wyliczenia podzapytania widzą wiersze zmienione wcześniej przez to samo polecenie SQL",
+        "Podzapytanie skorelowane jest wykonywane tylko raz, przed zmianą pierwszego wiersza"
+      ],
+      "explanation": "Oracle pozwala podzapytaniu czytać tabelę, która jest aktualizowana lub z której usuwane są wiersze (podzapytanie widzi spójny odczyt z chwili rozpoczęcia polecenia SQL, więc wcześniejsze zmiany tego samego polecenia są niewidoczne). Podzapytania skorelowane mogą wystąpić jednocześnie w SET i WHERE, a DELETE przyjmuje podzapytania z EXISTS, IN lub porównaniem. Podzapytanie w SET, które nic nie znajduje, przypisuje NULL zamiast pomijać wiersz, a podzapytanie skorelowane jest logicznie wyliczane dla każdego wiersza zewnętrznego, a nie raz."
+    },
+    "q07-fix-update-unmatched": {
+      "prompt": "To polecenie SQL powinno ustawić credit_limit klientów na największą wartość pozycji ich zamówień, ale klienci bez zamówień muszą zachować obecny limit. W obecnej postaci Umbrella (bez zamówień, obecny limit 2000) dostaje NULL. Initech ma zamówienia i limit NULL. Które trzy zmiany dają zamierzony wynik?",
+      "options": [
+        "Dodaj WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id)",
+        "Dodaj WHERE c.customer_id IN (SELECT o.customer_id FROM orders o)",
+        "Obejmij podzapytanie: SET c.credit_limit = NVL((SELECT MAX(...) ...), c.credit_limit)",
+        "Zastąp MAX przez COUNT, aby podzapytanie nigdy nie zwracało NULL",
+        "Dodaj WHERE c.credit_limit IS NOT NULL"
+      ],
+      "explanation": "Bez klauzuli WHERE aktualizowany jest każdy klient, a klient bez zamówień dostaje NULL z podzapytania. Ograniczenie wierszy przez EXISTS lub IN zostawia Umbrella bez zmian, a NVL(subquery, c.credit_limit) zapisuje z powrotem starą wartość. COUNT zwraca 0 dla Umbrella (a dla pozostałych liczbę pozycji zamiast wartości), a credit_limit IS NOT NULL nadal obejmuje Umbrella (2000), błędnie pomijając Initech."
+    },
+    "q07-inline-view-rules": {
+      "prompt": "Które dwa stwierdzenia o widokach inline (podzapytaniach w klauzuli FROM) są prawdziwe?",
+      "options": [
+        "Widok inline może zawierać klauzule GROUP BY i ORDER BY.",
+        "Widok inline może złączać (JOIN) kilka tabel.",
+        "Widok inline musi mieć alias tabeli.",
+        "Widok inline jest przechowywany w słowniku danych, jak widok utworzony przez CREATE VIEW.",
+        "Zapytanie zewnętrzne może używać kolumn widoku inline bez wymieniania go w FROM."
+      ],
+      "explanation": "Widok inline to pełne zapytanie, więc może złączać tabele, grupować wiersze, a nawet je sortować (klasyczny wzorzec top-N z ROWNUM wymaga tego ORDER BY). Alias jest w Oracle opcjonalny, choć jest potrzebny do kwalifikowania kolumn widoku. Nic nie jest zapisywane w słowniku danych; widok inline istnieje tylko na czas polecenia SQL, a jego kolumny są widoczne tylko dlatego, że jest źródłem wierszy w FROM."
+    },
+    "q07-group-function-in-where": {
+      "prompt": "Które zapytanie zwraca pracowników, którzy zarabiają więcej niż średnia pensja wszystkich pracowników?",
+      "explanation": "Średnią trzeba obliczyć w podzapytaniu jednowierszowym i porównać w WHERE. Funkcja grupowa bezpośrednio w WHERE zgłasza ORA-00934, a HAVING bez GROUP BY traktuje tabelę jako jedną grupę, więc niezgrupowane e.salary zgłasza ORA-00979. Wersja z > ALL działa, ale szuka pensji wyższej niż średnia każdego departamentu, a to inne pytanie."
+    },
+    "q07-literal-lists-null": {
+      "prompt": "Które dwa zapytania zwracają wiersz?",
+      "explanation": "IN to OR równości, więc 3 = 3 daje TRUE mimo NULL, a <> ALL (1, 2) to 3 <> 1 AND 3 <> 2, czyli TRUE. NOT IN z NULL dodaje AND 3 <> NULL, co daje UNKNOWN, więc nie ma wiersza. NULL = NULL to również UNKNOWN, a > ANY (5, NULL) to FALSE OR UNKNOWN, czyli UNKNOWN."
+    },
+    "q07-multi-column-too-many": {
+      "prompt": "Co się stanie, gdy uruchomisz to zapytanie?",
+      "options": [
+        "Zgłasza ORA-00913: too many values",
+        "Zgłasza ORA-00947: not enough values",
+        "Zgłasza ORA-01427: single-row subquery returns more than one row",
+        "Porównuje department_id z pierwszą kolumną podzapytania i ignoruje drugą"
+      ],
+      "explanation": "Lewa strona IN ma jedną kolumnę, a podzapytanie zwraca dwie, więc Oracle zgłasza ORA-00913. ORA-00947 to odwrotny błąd (mniej kolumn podzapytania niż na liście kolumn po lewej), a IN przyjmuje wiele wierszy, więc ORA-01427 nie może wystąpić. Oracle nigdy nie ignoruje nadmiarowych kolumn; dla testu parami napisz (e.department_id, x) IN (SELECT ..., ...)."
+    },
+    "q07-empty-subquery-in-not-in": {
+      "prompt": "Podzapytanie w obu zapytaniach nie zwraca wierszy. Które dwa stwierdzenia są prawdziwe?",
+      "code": "-- Zapytanie 1\nSELECT e.last_name FROM employees e\nWHERE  e.department_id IN (SELECT d.department_id FROM departments d WHERE 1 = 0);\n\n-- Zapytanie 2\nSELECT e.last_name FROM employees e\nWHERE  e.department_id NOT IN (SELECT d.department_id FROM departments d WHERE 1 = 0);",
+      "options": [
+        "Zapytanie 2 zwraca każdego pracownika, łącznie z pracownikami, których department_id jest NULL",
+        "Zapytanie 1 nie zwraca wierszy",
+        "Zapytanie 2 zwraca tylko pracowników, których department_id nie jest NULL",
+        "Oba zapytania zgłaszają błąd, bo podzapytanie nie zwraca wierszy",
+        "Zapytanie 1 zwraca każdego pracownika, bo pusta lista pasuje do każdej wartości"
+      ],
+      "explanation": "x IN (pusty zbiór) jest FALSE dla każdego wiersza, a x NOT IN (pusty zbiór) jest TRUE dla każdego wiersza, nawet gdy x jest NULL, bo nie zostaje żadne porównanie, które mogłoby dać UNKNOWN. Puste podzapytanie nigdy nie jest błędem. Pułapka NULL w NOT IN pojawia się tylko wtedy, gdy podzapytanie zwraca NULL, a nie wtedy, gdy nic nie zwraca."
+    },
+    "q07-multi-column-valid": {
+      "prompt": "Które dwa zapytania działają bez błędu?",
+      "explanation": "Porównanie wielokolumnowe umieszcza listę kolumn w nawiasach i wymaga podzapytania z tą samą liczbą kolumn; IN działa dla wielu wierszy, a = dla jednego wiersza (employee_id jest kluczem głównym). Operatory porządkujące, takie jak > ANY, nie mogą porównywać list kolumn (ORA-01796), lista bez nawiasów to błąd składni (ORA-00920 w 19c, ORA-03048 w 23ai), a podzapytanie jednokolumnowe dla dwóch kolumn zgłasza ORA-00947."
+    },
+    "q07-equivalent-all-min": {
+      "prompt": "salary nigdy nie jest NULL, a departament 30 ma co najmniej jednego pracownika. Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "< ALL oznacza poniżej każdej wartości, czyli poniżej najmniejszej, więc odpowiada < MIN, gdy podzapytanie nie jest puste (na pustym zbiorze ALL jest TRUE, ale MIN jest NULL). NOT (x >= ANY ...) to ten sam warunek przez negację. < MAX i < ANY oznaczają poniżej co najmniej jednej wartości, a <= ALL akceptuje też pensję równą minimum."
+    },
+    "q07-multi-row-operator-rules": {
+      "prompt": "Które trzy stwierdzenia o wielowierszowych operatorach porównania są prawdziwe?",
+      "options": [
+        "SOME jest synonimem ANY.",
+        "= ANY jest równoważne IN.",
+        "<> ALL jest równoważne NOT IN.",
+        "IN nie można użyć z podzapytaniem, które zwraca tylko jeden wiersz.",
+        "> ANY z podzapytaniem, które nie zwraca wierszy, jest TRUE dla każdego wiersza zewnętrznego.",
+        "ALL można użyć tylko z podzapytaniem, a nie z listą literałów."
+      ],
+      "explanation": "SOME i ANY są wymienne, = ANY to OR równości jak IN, a <> ALL to AND nierówności jak NOT IN (z tą samą pułapką NULL). IN działa z dowolną liczbą wierszy, także z jednym lub zerem. > ANY na pustym zbiorze to FALSE (TRUE daje ALL), a ANY / ALL przyjmują też listę literałów, taką jak salary > ALL (1000, 2000)."
+    },
+    "q07-delete-lowest-per-dept": {
+      "prompt": "Które polecenie DELETE usuwa dokładnie najniżej opłacanego pracownika (lub pracowników) każdego departamentu?",
+      "explanation": "Tylko podzapytanie skorelowane oblicza minimum dla departamentu danego wiersza. Wersja nieskorelowana zwraca jedno minimum na departament i zgłasza ORA-01427, a wersja z IN porównuje wartości osobno, nie parami: usuwa też każdego, czyja pensja jest przypadkiem równa minimum innego departamentu (oraz najniżej zarabiającego pracownika bez departamentu). Funkcja grupowa bezpośrednio w WHERE zgłasza ORA-00934."
+    },
+    "q07-update-unqualified-columns": {
+      "prompt": "Autor zapomniał aliasów tabel w podzapytaniu. Co się stanie, gdy uruchomisz to polecenie SQL?",
+      "options": [
+        "Każdy pracownik dostaje tę samą pensję: średnią wszystkich pracowników, którzy mają departament",
+        "Każdy pracownik dostaje średnią pensję własnego departamentu",
+        "Zgłasza ORA-00918: column ambiguously defined",
+        "Pracownicy z department_id równym NULL dostają pensję NULL; pozostali dostają średnią swojego departamentu"
+      ],
+      "explanation": "Niekwalifikowana nazwa kolumny jest rozpoznawana najpierw w najbardziej wewnętrznym zapytaniu, więc obie strony department_id = department_id odnoszą się do wewnętrznej tabeli EMPLOYEES. Warunek jest TRUE dla każdego wewnętrznego wiersza z departamentem, podzapytanie przestaje być skorelowane i każdy wiersz (także ten z departamentem NULL) dostaje tę samą średnią. Oracle nie zgłasza tu ORA-00918, bo każda nazwa jest jednoznacznie znajdowana w wewnętrznej klauzuli FROM."
+    },
+    "q07-delete-syntax": {
+      "prompt": "Kilka zamówień ma status SHIPPED. Które dwa polecenia DELETE działają bez błędu?",
+      "explanation": "Skorelowane EXISTS i IN porównujące parami to poprawne filtry DELETE, a słowo kluczowe FROM jest w Oracle opcjonalne. DELETE nie przyjmuje listy kolumn, więc DELETE * zgłasza ORA-00903, a EXISTS wymaga podzapytania w nawiasach (ORA-00906). Ostatnie polecenie SQL jest poprawne składniowo, ale jego podzapytanie jednowierszowe zwraca kilka zamówień SHIPPED i kończy się błędem ORA-01427."
+    },
+    "q07-fix-update-multirow": {
+      "prompt": "Ten UPDATE kończy się błędem, bo podzapytanie zwraca kilka wierszy dla departamentów z więcej niż jednym pracownikiem. Które dwie zmiany sprawiają, że działa bez błędu?",
+      "options": [
+        "Wybierz MAX(e2.salary) zamiast e2.salary",
+        "Wybierz AVG(e2.salary) zamiast e2.salary",
+        "Wybierz DISTINCT e2.salary zamiast e2.salary",
+        "Dodaj ORDER BY e2.salary na końcu podzapytania",
+        "Dodaj WHERE e.department_id IS NOT NULL do UPDATE"
+      ],
+      "explanation": "Agregacja bez GROUP BY zawsze zwraca dokładnie jeden wiersz, więc MAX lub AVG czyni podzapytanie w SET bezpiecznym. DISTINCT nadal zostawia kilka różnych pensji, ORDER BY w podzapytaniu to błąd składni (ORA-00907), a wykluczenie departamentów NULL nie zmniejsza liczby wierszy zwracanych dla pozostałych departamentów. W 19c błędem jest ORA-01427; Oracle 21c i nowsze zgłaszają tę samą sytuację jako ORA-30926."
+    }
+  },
+  "labs": {
+    "lab-no-orders": {
+      "title": "Klienci bez zamówień",
+      "task": "Zwróć customer_name klientów, którzy nigdy nie złożyli zamówienia. Kolejność dowolna.",
+      "hint": "Zachowaj klienta, gdy żaden wiersz zamówienia się do niego nie odwołuje.",
+      "hint2": "WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id)."
+    },
+    "lab-unsold": {
+      "title": "Produkty, których nie sprzedano",
+      "task": "Zwróć product_name produktów, które nie występują w żadnej pozycji zamówienia. Kolejność dowolna.",
+      "hint": "Porównaj product_id z listą ID produktów w order_items.",
+      "hint2": "NOT IN (SELECT i.product_id FROM order_items i WHERE i.product_id IS NOT NULL) albo skorelowane NOT EXISTS."
+    },
+    "lab-top-per-dept": {
+      "title": "Najlepiej zarabiający w departamencie",
+      "task": "Dla pracowników, którzy należą do departamentu, zwróć department_id, last_name i salary najlepiej opłacanego pracownika (lub pracowników) w każdym departamencie. Posortuj po department_id.",
+      "hint": "Znajdź w podzapytaniu maksymalną pensję w każdym departamencie, a potem dopasuj zarówno departament, jak i pensję.",
+      "hint2": "Porównanie parami: WHERE (e.department_id, e.salary) IN (SELECT department_id, MAX(salary) ... GROUP BY department_id)."
+    },
+    "lab-above-company-avg": {
+      "title": "Powyżej średniej w firmie",
+      "task": "Zwróć last_name i salary pracowników, którzy zarabiają więcej niż średnia pensja wszystkich pracowników. Posortuj po salary malejąco, a potem po last_name.",
+      "hint": "Funkcja grupowa nie może stać bezpośrednio w WHERE; oblicz średnią w podzapytaniu jednowierszowym.",
+      "hint2": "WHERE e.salary > (SELECT AVG(e2.salary) FROM employees e2)."
+    },
+    "lab-bigger-than-admin": {
+      "title": "Departamenty większe niż Administration",
+      "task": "Zwróć department_id i headcount (liczbę pracowników) dla każdego departamentu, który ma więcej pracowników niż departament 10. Posortuj po department_id.",
+      "hint": "Pogrupuj pracowników według departamentu i przefiltruj grupy przez HAVING.",
+      "hint2": "HAVING COUNT(*) > (SELECT COUNT(*) FROM employees e2 WHERE e2.department_id = 10)."
+    },
+    "lab-sync-unit-price": {
+      "title": "Podnieś ceny w zamówieniach do ceny katalogowej",
+      "task": "Dla każdej pozycji zamówienia, której unit_price jest niższa niż list_price jej produktu, ustaw unit_price na tę list_price. Pozostałe pozycje zostaw bez zmian (łącznie z pozycjami produktów bez ceny katalogowej).",
+      "hint": "Skorelowany UPDATE: podzapytanie wyszukuje cenę katalogową produktu danej pozycji.",
+      "hint2": "Użyj tego samego skorelowanego podzapytania w SET i w WHERE (unit_price < (SELECT p.list_price ... WHERE p.product_id = i.product_id))."
+    },
+    "lab-raise-below-dept-avg": {
+      "title": "Podwyżka dla dolnej połowy",
+      "task": "Daj podwyżkę 5% każdemu pracownikowi, którego pensja jest niższa niż średnia pensja jego własnego departamentu. Pracownicy bez departamentu i wszyscy pozostali zachowują swoją pensję.",
+      "hint": "Klauzula WHERE porównuje każdą pensję ze skorelowaną średnią departamentu.",
+      "hint2": "WHERE e.salary < (SELECT AVG(e2.salary) FROM employees e2 WHERE e2.department_id = e.department_id); departament NULL daje średnią NULL, więc Grant jest automatycznie pomijany."
+    },
+    "lab-delete-cancelled-lines": {
+      "title": "Usuń pozycje anulowanych zamówień",
+      "task": "Usuń każdą pozycję zamówienia (wiersz order_items), która należy do zamówienia o statusie CANCELLED. Nie usuwaj samych zamówień.",
+      "hint": "Status jest w orders; skoreluj każdą pozycję z jej zamówieniem.",
+      "hint2": "DELETE FROM order_items i WHERE EXISTS (SELECT 1 FROM orders o WHERE o.order_id = i.order_id AND o.status = 'CANCELLED')."
+    },
+    "lab-delete-empty-orders": {
+      "title": "Usuń zamówienia bez pozycji",
+      "task": "Usuń każde zamówienie, które nie ma pozycji w order_items.",
+      "hint": "Zachowaj zamówienia, dla których istnieje co najmniej jedna pozycja; usuń pozostałe.",
+      "hint2": "DELETE FROM orders o WHERE NOT EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.order_id)."
+    },
+    "lab-fix-not-sales-reps": {
+      "title": "Popraw: pracownicy, którzy nie są niczyim przedstawicielem handlowym",
+      "task": "Zwróć last_name pracowników, którzy nie są przedstawicielem handlowym żadnego zamówienia. Kod startowy nie zwraca wierszy; sprawdź dlaczego i popraw go. Posortuj po last_name.",
+      "hint": "Spójrz na zamówienie 1007: co jego sales_rep_id robi z listą NOT IN?",
+      "hint2": "NULL w podzapytaniu sprawia, że NOT IN nigdy nie jest TRUE. Użyj NOT EXISTS (SELECT 1 FROM orders o WHERE o.sales_rep_id = e.employee_id) albo dodaj WHERE o.sales_rep_id IS NOT NULL do podzapytania."
+    },
+    "lab-with-above-dept-avg": {
+      "title": "Powyżej średniej departamentu, ze średnią",
+      "task": "Zwróć last_name, salary i dept_avg (średnią pensję departamentu pracownika, zaokrągloną do 2 miejsc po przecinku) dla pracowników, którzy zarabiają więcej niż ta średnia. Oblicz średnie raz, w klauzuli WITH albo w widoku inline. Posortuj po last_name.",
+      "hint": "Podzapytanie skorelowane nie pokaże średniej na liście SELECT bez jej powtarzania; nazwane podzapytanie złączone (JOIN) po department_id to umożliwia.",
+      "hint2": "WITH dept_avg AS (SELECT department_id, ROUND(AVG(salary), 2) AS dept_avg FROM employees GROUP BY department_id), a potem złącz z nim employees ON department_id i zachowaj salary > dept_avg."
+    },
+    "lab-fix-credit-by-orders": {
+      "title": "Popraw: limit kredytowy z liczby zamówień",
+      "task": "Ustaw credit_limit każdego klienta, który ma co najmniej jedno zamówienie, na 1000 razy liczba jego zamówień. Klienci bez zamówień muszą zachować obecny credit_limit. Kod startowy zmienia też Umbrella (bez zamówień); popraw go.",
+      "hint": "UPDATE bez WHERE zmienia każdy wiersz; COUNT(*) daje 0 dla klienta bez zamówień.",
+      "hint2": "Zostaw klauzulę SET i dodaj WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id)."
+    },
+    "lab-headcount-order-scalar": {
+      "title": "Departamenty według liczby pracowników",
+      "task": "Zwróć department_name każdego departamentu (łącznie z departamentami bez pracowników), posortowane według liczby pracowników w departamencie, od największej, a potem według department_name. Nie pokazuj liczby: sortuj skorelowanym podzapytaniem skalarnym w ORDER BY.",
+      "hint": "Podzapytanie skalarne może wystąpić w ORDER BY i odwoływać się do wiersza zewnętrznego.",
+      "hint2": "ORDER BY (SELECT COUNT(*) FROM employees e WHERE e.department_id = d.department_id) DESC, d.department_name. Dla departamentu bez pracowników COUNT zwraca 0, a nie NULL."
+    },
+    "lab-above-all-it": {
+      "title": "Więcej niż cały dział IT",
+      "task": "Zwróć last_name i salary pracowników, którzy zarabiają więcej niż każdy pracownik departamentu 30. Użyj operatora wielowierszowego. Posortuj po salary malejąco.",
+      "hint": "'Więcej niż każda wartość' to > ALL; 'więcej niż co najmniej jedna wartość' byłoby > ANY.",
+      "hint2": "WHERE e.salary > ALL (SELECT e2.salary FROM employees e2 WHERE e2.department_id = 30). To samo co > MAX pensji w departamencie; pracownik, który zarabia dokładnie to maksimum, nie jest zwracany."
+    },
+    "lab-managers-exists": {
+      "title": "Pracownicy, którzy kimś kierują",
+      "task": "Zwróć employee_id i last_name pracowników, którzy są menedżerem co najmniej jednego innego pracownika. Użyj EXISTS. Posortuj po employee_id.",
+      "hint": "Skoreluj podzapytanie na tej samej tabeli: czy istnieje wiersz, którego manager_id jest id tego pracownika?",
+      "hint2": "WHERE EXISTS (SELECT 1 FROM employees r WHERE r.manager_id = e.employee_id). To, co wybiera podzapytanie, nie ma znaczenia; działa nawet SELECT NULL."
+    },
+    "lab-fix-not-london": {
+      "title": "Popraw: pracownicy spoza Londynu",
+      "task": "Zwróć last_name pracowników, którzy nie pracują w departamencie położonym w Londynie. Pracownicy bez departamentu nie pracują w Londynie i też muszą zostać zwróceni. Kod startowy pomija jednego z nich; popraw go. Posortuj po last_name.",
+      "hint": "Podzapytanie nie ma tu NULL-i; spójrz zamiast tego na kolumnę zewnętrzną. Jaki jest wynik NULL NOT IN (20)?",
+      "hint2": "NULL <> 20 to UNKNOWN, więc Grant odpada. Użyj NOT EXISTS (SELECT 1 FROM departments d WHERE d.department_id = e.department_id AND d.location = 'London') albo dodaj OR e.department_id IS NULL."
+    },
+    "lab-fix-not-equal-any": {
+      "title": "Popraw: ani departament 20, ani 30",
+      "task": "Zwróć last_name pracowników, których departament nie jest ani 20, ani 30; te dwa ID departamentów pobierz podzapytaniem z DEPARTMENTS. Pracownicy bez departamentu nie są zwracani. Kod startowy zwraca prawie wszystkich; popraw go. Posortuj po last_name.",
+      "hint": "<> ANY jest TRUE, gdy tylko wartość różni się od jednej wartości z listy; 20 różni się od 30.",
+      "hint2": "'Różny od każdej wartości' to <> ALL, czyli to samo co NOT IN. Podzapytanie nie ma NULL-i, więc zadziała każda z tych form."
+    },
+    "lab-delete-below-order-avg": {
+      "title": "Usuń małe pozycje zamówień",
+      "task": "Usuń każdą pozycję zamówienia, której quantity jest niższa niż średnia quantity pozycji jej własnego zamówienia. Pozycje równe średniej zamówienia lub wyższe zostają.",
+      "hint": "Podzapytanie skorelowane na tej samej tabeli oblicza średnią dla zamówienia danej pozycji.",
+      "hint2": "WHERE i.quantity < (SELECT AVG(i2.quantity) FROM order_items i2 WHERE i2.order_id = i.order_id). Średnie są liczone z danych według stanu z początku polecenia SQL, więc usunięte wiersze ich nie zmieniają."
+    },
+    "lab-fix-credit-bonus-null": {
+      "title": "Popraw: premia kredytowa za zamówienie",
+      "task": "Dodaj 100 do credit_limit każdego klienta, który ma zamówienia, raz za każde zamówienie. credit_limit równy NULL liczy się jako 0, więc taki klient kończy ze 100 za każde zamówienie. Klienci bez zamówień zachowują obecny credit_limit. Kod startowy zostawia jednego klienta bez zmian; popraw go.",
+      "hint": "Spójrz na Initech: ile to NULL + 300?",
+      "hint2": "Arytmetyka z NULL daje NULL, więc użyj NVL(c.credit_limit, 0) + (SELECT COUNT(*) * 100 ...). Dodaj WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id), aby nie zmieniać klientów bez zamówień."
+    }
+  }
+}
