@@ -1,0 +1,580 @@
+{
+  "questions": {
+    "q12-uppercase": {
+      "prompt": "Masz tabelę utworzoną przez CREATE TABLE employees (...), bez cudzysłowów. Co zwraca to zapytanie?",
+      "options": [
+        "Brak wierszy, bo słownik zapisuje nazwę bez cudzysłowów jako EMPLOYEES",
+        "Jeden wiersz, bo porównania w widokach słownika ignorują wielkość liter",
+        "Jeden wiersz z TABLE_NAME 'employees'",
+        "ORA-00942: table or view does not exist"
+      ],
+      "explanation": "Identyfikatory bez cudzysłowów są zamieniane na wielkie litery i tak zapisywane, więc literał tekstowy musi mieć postać 'EMPLOYEES'. Porównania tekstów w Oracle rozróżniają wielkość liter, także w widokach słownika. Samo zapytanie jest poprawne, więc nie ma błędu; po prostu nic nie znajduje."
+    },
+    "q12-notnull-type": {
+      "prompt": "Jaki CONSTRAINT_TYPE ma w USER_CONSTRAINTS ograniczenie NOT NULL?",
+      "options": [
+        "N",
+        "C",
+        "U",
+        "R"
+      ],
+      "explanation": "Ograniczenia NOT NULL są zapisywane jako ograniczenia CHECK, typ C. P to klucz główny, U unikalność, R referencja (klucz obcy)."
+    },
+    "q12-prefixes": {
+      "prompt": "Które stwierdzenie o prefiksach widoków słownika jest prawdziwe?",
+      "options": [
+        "Widoki USER_ pokazują twoje obiekty; widoki ALL_ obiekty, do których masz dostęp; widoki DBA_ wszystkie obiekty w bazie danych.",
+        "Widoki ALL_ pokazują każdemu użytkownikowi wszystkie obiekty w bazie danych.",
+        "Widoki USER_ zawsze mają kolumnę OWNER.",
+        "Widoki DBA_ może domyślnie odpytywać każdy użytkownik."
+      ],
+      "explanation": "Większość widoków USER_ pomija OWNER, bo właścicielem zawsze jesteś ty (kilka, np. USER_CONSTRAINTS, ją zachowuje). ALL_ dodaje obiekty, do których masz uprawnienia. DBA_ wymaga uprawnień takich jak SELECT ANY DICTIONARY. Widoki V$ pokazują dynamiczne dane o wydajności."
+    },
+    "q12-columns": {
+      "prompt": "Który widok wymienia kolumny twoich tabel razem z typami danych?",
+      "options": [
+        "USER_COLUMNS",
+        "USER_TAB_COLUMNS",
+        "USER_CONS_COLUMNS",
+        "USER_OBJECTS"
+      ],
+      "explanation": "USER_TAB_COLUMNS opisuje kolumny twoich tabel i widoków. USER_CONS_COLUMNS wymienia kolumny należące do ograniczeń. USER_COLUMNS nie istnieje."
+    },
+    "q12-r-constraint-name": {
+      "prompt": "Tabele utworzono tak, jak pokazano. Co zwraca to zapytanie?",
+      "options": [
+        "CUSTOMERS",
+        "CUSTOMERS_PK",
+        "CUSTOMER_ID",
+        "ORDERS"
+      ],
+      "explanation": "Wiersz klucza obcego zapisuje w R_CONSTRAINT_NAME nazwę wskazywanego ograniczenia klucza głównego lub unikalnego, a nie tabeli czy kolumny. Aby dostać wskazywaną TABLE_NAME, złącz USER_CONSTRAINTS z samym sobą przez r_constraint_name = constraint_name.",
+      "code": "-- CREATE TABLE customers (\n--   customer_id  NUMBER(6)  CONSTRAINT customers_pk PRIMARY KEY, ...);\n-- CREATE TABLE orders (\n--   order_id     NUMBER(8)  CONSTRAINT orders_pk PRIMARY KEY,\n--   customer_id  NUMBER(6)  CONSTRAINT orders_customer_fk REFERENCES customers (customer_id), ...);\nSELECT r_constraint_name\nFROM   user_constraints\nWHERE  constraint_name = 'ORDERS_CUSTOMER_FK';"
+    },
+    "q12-delete-rule": {
+      "prompt": "Klucz obcy utworzono tak, jak pokazano. Co zwraca to zapytanie?",
+      "options": [
+        "RESTRICT",
+        "NO ACTION",
+        "CASCADE",
+        "SET NULL"
+      ],
+      "explanation": "Klucz obcy utworzony bez ON DELETE pokazuje DELETE_RULE 'NO ACTION': usunięcie wiersza nadrzędnego, który ma wiersze podrzędne, kończy się błędem ORA-02292. ORDER_ITEMS_ORDER_FK, utworzony z ON DELETE CASCADE, pokazuje 'CASCADE'. Oracle nie ma słowa kluczowego ON DELETE RESTRICT.",
+      "code": "-- CREATE TABLE employees (\n--   employee_id  NUMBER(6)  CONSTRAINT employees_pk PRIMARY KEY,\n--   ...\n--   manager_id   NUMBER(6)  CONSTRAINT employees_manager_fk REFERENCES employees (employee_id),\n--   ...);\nSELECT delete_rule\nFROM   user_constraints\nWHERE  constraint_name = 'EMPLOYEES_MANAGER_FK';"
+    },
+    "q12-date-length": {
+      "prompt": "Ile wynosi DATA_LENGTH w USER_TAB_COLUMNS dla employees.hire_date (typ danych DATE)?",
+      "options": [
+        "7",
+        "8",
+        "10",
+        "19"
+      ],
+      "explanation": "DATA_LENGTH to rozmiar zapisu w bajtach, a DATE zawsze zajmuje 7 bajtów (wiek, rok, miesiąc, dzień, godzina, minuta, sekunda), niezależnie od formatu wyświetlania. Liczby pokazują 22, a kolumny VARCHAR2 swoją zadeklarowaną maksymalną długość."
+    },
+    "q12-pk-nullable": {
+      "prompt": "employees.employee_id zadeklarowano jako NUMBER(6) CONSTRAINT employees_pk PRIMARY KEY, bez NOT NULL. Co pokazuje dla niej NULLABLE w USER_TAB_COLUMNS?",
+      "options": [
+        "N",
+        "Y",
+        "NULL",
+        "P"
+      ],
+      "explanation": "Klucz główny oznacza NOT NULL, więc kolumna jest raportowana jako niedopuszczająca NULL (N), choć w USER_CONSTRAINTS nie ma osobnego ograniczenia NOT NULL. NULLABLE przyjmuje tylko wartości Y i N."
+    },
+    "q12-search-condition": {
+      "prompt": "Ograniczenie utworzono tak, jak pokazano. Co zwraca to zapytanie?",
+      "options": [
+        "\"LAST_NAME\" IS NOT NULL",
+        "NOT NULL",
+        "last_name IS NOT NULL",
+        "NULL"
+      ],
+      "explanation": "Ograniczenie NOT NULL to ograniczenie CHECK, którego warunek Oracle zapisuje jako \"COLUMN\" IS NOT NULL, z nazwą kolumny w cudzysłowie i wielkimi literami. SEARCH_CONDITION to kolumna LONG; SEARCH_CONDITION_VC (od 12c) to jej kopia VARCHAR2, której można użyć w WHERE, na przykład NOT LIKE '%IS NOT NULL'.",
+      "code": "-- CREATE TABLE employees (\n--   ...\n--   last_name  VARCHAR2(25)  CONSTRAINT employees_last_name_nn NOT NULL,\n--   ...);\nSELECT search_condition_vc\nFROM   user_constraints\nWHERE  constraint_name = 'EMPLOYEES_LAST_NAME_NN';"
+    },
+    "q12-no-constraint-objects": {
+      "prompt": "Masz kilka tabel z ograniczeniami klucza głównego, klucza obcego i CHECK. Co zwraca SELECT COUNT(*) FROM user_objects WHERE object_type = 'CONSTRAINT'?",
+      "options": [
+        "0, w każdym schemacie",
+        "Liczbę twoich ograniczeń",
+        "Liczbę tylko ograniczeń PRIMARY KEY i UNIQUE",
+        "ORA-00904: invalid identifier"
+      ],
+      "explanation": "Ograniczenia nie są obiektami schematu z własnym wierszem w USER_OBJECTS; wymienia je USER_CONSTRAINTS. Indeksy wymuszające klucze główne i unikalne są tam widoczne, ale z OBJECT_TYPE 'INDEX', a nie 'CONSTRAINT'. Zapytanie jest poprawne, po prostu nic nie znajduje."
+    },
+    "q12-tab-comments-row": {
+      "prompt": "Masz tabelę lab_t z czterema kolumnami. Nigdy nie wykonano na niej ani na jej kolumnach polecenia COMMENT. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "USER_TAB_COMMENTS ma jeden wiersz dla LAB_T, z COMMENTS równym NULL.",
+        "USER_COL_COMMENTS ma cztery wiersze dla LAB_T, z COMMENTS równym NULL.",
+        "USER_TAB_COMMENTS nie ma wiersza dla LAB_T, dopóki nie wykonasz COMMENT ON TABLE.",
+        "USER_COL_COMMENTS ma jeden wiersz dla LAB_T, opisujący wszystkie jej kolumny.",
+        "Zapytanie do USER_COL_COMMENTS o LAB_T zgłasza ORA-00942, bo nie ma komentarzy."
+      ],
+      "explanation": "Widoki komentarzy mają wiersz niezależnie od tego, czy komentarz istnieje: USER_TAB_COMMENTS po jednym na każdą twoją tabelę lub widok, USER_COL_COMMENTS po jednym na kolumnę, z COMMENTS równym NULL, dopóki COMMENT ON go nie ustawi. Dlatego filtruj WHERE comments IS NOT NULL, aby zobaczyć tylko prawdziwe komentarze. Widoki zawsze istnieją, więc nie ma błędu."
+    },
+    "q12-index-name-of-uk": {
+      "prompt": "Tabelę utworzono tak, jak pokazano. Co zwraca to zapytanie?",
+      "options": [
+        "EMPLOYEES_EMAIL_UK",
+        "EMPLOYEES_PK",
+        "Nazwę SYS_C wygenerowaną przez system",
+        "NULL, bo indeksy są wymienione tylko w USER_INDEXES"
+      ],
+      "explanation": "Kolumna INDEX_NAME w USER_CONSTRAINTS pokazuje indeks, który wymusza klucz główny lub unikalny. Gdy Oracle tworzy taki indeks dla nazwanego ograniczenia, nadaje mu nazwę ograniczenia. Nazwy SYS_C dostają tylko ograniczenia bez nazwy.",
+      "code": "-- CREATE TABLE employees (\n--   employee_id  NUMBER(6)     CONSTRAINT employees_pk PRIMARY KEY,\n--   ...\n--   email        VARCHAR2(50)  CONSTRAINT employees_email_uk UNIQUE,\n--   ...);\n-- Na employees nie utworzono jawnie żadnego indeksu.\nSELECT index_name\nFROM   user_constraints\nWHERE  constraint_name = 'EMPLOYEES_EMAIL_UK';"
+    },
+    "q12-pk-columns-equivalent": {
+      "prompt": "ORDER_ITEMS utworzono tak, jak pokazano, i nie utworzono jawnie żadnego indeksu. Które dwa zapytania zwracają nazwy kolumn klucza głównego tej tabeli (i nic więcej)?",
+      "options": [
+        "SELECT cc.column_name FROM user_constraints c JOIN user_cons_columns cc ON cc.constraint_name = c.constraint_name WHERE c.table_name = 'ORDER_ITEMS' AND c.constraint_type = 'P'",
+        "SELECT column_name FROM user_ind_columns WHERE index_name = 'ORDER_ITEMS_PK'",
+        "SELECT column_name FROM user_cons_columns WHERE table_name = 'ORDER_ITEMS'",
+        "SELECT constraint_name FROM user_constraints WHERE table_name = 'ORDER_ITEMS' AND constraint_type = 'P'"
+      ],
+      "explanation": "USER_CONSTRAINTS podaje typ ograniczenia, a USER_CONS_COLUMNS jego kolumny, więc złączenie zwraca ORDER_ID i LINE_NO. Indeks klucza głównego ma te same kolumny w USER_IND_COLUMNS. Bez filtra po typie USER_CONS_COLUMNS zwraca też kolumny klucza obcego i CHECK; ostatnie zapytanie zwraca nazwę ograniczenia, a nie kolumny.",
+      "code": "-- ORDER_ITEMS utworzono tym poleceniem; nie ma na niej innych ograniczeń.\n-- CREATE TABLE order_items (\n--   order_id    NUMBER(8)  CONSTRAINT order_items_order_fk REFERENCES orders (order_id) ON DELETE CASCADE,\n--   line_no     NUMBER(3),\n--   product_id  NUMBER(6)  CONSTRAINT order_items_product_fk REFERENCES products (product_id),\n--   quantity    NUMBER(5)  CONSTRAINT order_items_quantity_ck CHECK (quantity > 0),\n--   unit_price  NUMBER(8,2),\n--   CONSTRAINT order_items_pk PRIMARY KEY (order_id, line_no)\n-- );"
+    },
+    "q12-fk-referenced-equivalent": {
+      "prompt": "Które dwa zapytania wymieniają wszystkie klucze obce tabeli ORDERS razem z tabelą, do której się odwołują?",
+      "options": [
+        "SELECT c.constraint_name, r.table_name FROM user_constraints c JOIN user_constraints r ON r.constraint_name = c.r_constraint_name WHERE c.table_name = 'ORDERS' AND c.constraint_type = 'R'",
+        "SELECT c.constraint_name, (SELECT r.table_name FROM user_constraints r WHERE r.constraint_name = c.r_constraint_name) FROM user_constraints c WHERE c.table_name = 'ORDERS' AND c.constraint_type = 'R'",
+        "SELECT c.constraint_name, c.r_constraint_name FROM user_constraints c WHERE c.table_name = 'ORDERS' AND c.constraint_type = 'R'",
+        "SELECT c.constraint_name, r.table_name FROM user_constraints c JOIN user_constraints r ON r.table_name = c.table_name WHERE c.table_name = 'ORDERS' AND c.constraint_type = 'R'"
+      ],
+      "explanation": "R_CONSTRAINT_NAME przechowuje nazwę wskazywanego klucza, więc to ograniczenie wyszukujesz ponownie w USER_CONSTRAINTS (złączeniem albo podzapytaniem skalarnym), aby dostać jego TABLE_NAME: CUSTOMERS i EMPLOYEES. Zwrócenie r_constraint_name daje zamiast tego CUSTOMERS_PK i EMPLOYEES_PK, a złączenie po table_name łączy ORDERS z samą sobą."
+    },
+    "q12-all-vs-user": {
+      "prompt": "Które dwa stwierdzenia o USER_TABLES i ALL_TABLES są prawdziwe?",
+      "options": [
+        "ALL_TABLES ma kolumnę OWNER; USER_TABLES jej nie ma.",
+        "ALL_TABLES obejmuje także tabele, których jesteś właścicielem.",
+        "ALL_TABLES wymaga uprawnienia SELECT ANY DICTIONARY.",
+        "USER_TABLES obejmuje tabele, do których nadano ci SELECT.",
+        "ALL_TABLES wymienia wszystkie tabele w bazie danych niezależnie od uprawnień."
+      ],
+      "explanation": "Widoki ALL_ obejmują to, czego jesteś właścicielem, plus to, do czego masz uprawnienia, więc potrzebują kolumny OWNER. Widoki USER_ obejmują tylko twoje obiekty, nawet jeśli masz dostęp do cudzych. Każdy użytkownik może odpytywać widoki USER_ i ALL_; widoki DBA_ (wszystkie obiekty) wymagają dodatkowych uprawnień."
+    },
+    "q12-dictionary-search": {
+      "prompt": "Które dwa zapytania zwracają nazwy widoków słownika, których nazwy kończą się na CONSTRAINTS?",
+      "options": [
+        "SELECT table_name FROM dictionary WHERE table_name LIKE '%CONSTRAINTS'",
+        "SELECT table_name FROM dict WHERE table_name LIKE '%CONSTRAINTS'",
+        "SELECT view_name FROM user_views WHERE view_name LIKE '%CONSTRAINTS'",
+        "SELECT object_name FROM user_objects WHERE object_name LIKE '%CONSTRAINTS'"
+      ],
+      "explanation": "DICTIONARY (publiczny synonim DICT) wymienia widoki słownika danych (z opisem w COMMENTS, jeśli komentarze są zainstalowane). USER_VIEWS i USER_OBJECTS pokazują tylko twoje obiekty, a widoki słownika należą do SYS, więc te zapytania nic nie znajdują."
+    },
+    "q12-column-name-views": {
+      "prompt": "Które trzy widoki słownika mają kolumnę COLUMN_NAME?",
+      "options": [
+        "USER_TAB_COLUMNS",
+        "USER_CONS_COLUMNS",
+        "USER_IND_COLUMNS",
+        "USER_CONSTRAINTS",
+        "USER_INDEXES",
+        "USER_TABLES"
+      ],
+      "explanation": "Widoki *_COLUMNS mają jeden wiersz na kolumnę: tabeli lub widoku, ograniczenia albo indeksu. USER_CONSTRAINTS, USER_INDEXES i USER_TABLES mają jeden wiersz na ograniczenie, indeks lub tabelę, więc aby znaleźć kolumny, złączasz je z odpowiednim widokiem *_COLUMNS."
+    },
+    "q12-tab-columns-facts": {
+      "prompt": "Które dwa stwierdzenia o USER_TAB_COLUMNS są prawdziwe?",
+      "options": [
+        "Wymienia także kolumny twoich widoków.",
+        "COLUMN_ID podaje kolejność kolumn używaną przez SELECT *.",
+        "DATA_LENGTH kolumny NUMBER(8,2) wynosi 8.",
+        "Wymienia tylko kolumny, które mają ograniczenie.",
+        "DATA_TYPE kolumny VARCHAR2(30) ma wartość 'VARCHAR2(30)'."
+      ],
+      "explanation": "USER_TAB_COLUMNS obejmuje tabele, widoki i widoki zmaterializowane, uporządkowane według COLUMN_ID. Dla NUMBER(8,2) DATA_LENGTH wynosi 22 (bajty); 8 i 2 są w DATA_PRECISION i DATA_SCALE. DATA_TYPE przechowuje tylko nazwę typu; długość jest w DATA_LENGTH i CHAR_LENGTH."
+    },
+    "q12-user-constraints-columns": {
+      "prompt": "Które dwie kolumny istnieją w USER_CONSTRAINTS?",
+      "options": [
+        "R_CONSTRAINT_NAME",
+        "DELETE_RULE",
+        "COLUMN_NAME",
+        "R_TABLE_NAME",
+        "DATA_TYPE"
+      ],
+      "explanation": "USER_CONSTRAINTS ma jeden wiersz na ograniczenie: jego typ, wskazywane ograniczenie (R_CONSTRAINT_NAME), DELETE_RULE, STATUS, INDEX_NAME i warunek CHECK. Kolumny są w USER_CONS_COLUMNS, a wskazywaną tabelę trzeba wyszukać przez R_CONSTRAINT_NAME; nie ma kolumny R_TABLE_NAME."
+    },
+    "q12-user-objects-facts": {
+      "prompt": "Które dwa stwierdzenia o USER_OBJECTS są prawdziwe?",
+      "options": [
+        "STATUS pokazuje VALID albo INVALID, na przykład dla widoku, którego tabelę bazową usunięto.",
+        "Wymienia twoje tabele, indeksy, widoki, sekwencje i synonimy.",
+        "Wymienia ograniczenia z OBJECT_TYPE 'CONSTRAINT'.",
+        "CREATED pokazuje czas ostatniego DDL na obiekcie.",
+        "Wymienia kolumny każdej tabeli."
+      ],
+      "explanation": "USER_OBJECTS ma jeden wiersz na obiekt schematu, z OBJECT_TYPE i STATUS. CREATED to czas utworzenia; LAST_DDL_TIME przechowuje ostatni DDL. Ograniczenia (USER_CONSTRAINTS) i kolumny (USER_TAB_COLUMNS) nie są obiektami schematu."
+    },
+    "q12-dictionary-readonly": {
+      "prompt": "Które dwa stwierdzenia o słowniku danych są prawdziwe?",
+      "options": [
+        "Jego widoki są dla użytkowników tylko do odczytu: DML na nich, na przykład UPDATE user_tables, kończy się błędem.",
+        "Oracle aktualizuje go automatycznie, gdy wykonujesz DDL, na przykład CREATE TABLE.",
+        "Nazwę tabeli zmieniasz, aktualizując TABLE_NAME w USER_TABLES.",
+        "Widoki V$ przechowują trwałą historię wszystkich minionych sesji.",
+        "Jego tabele bazowe należą do użytkownika, który utworzył obiekty bazy danych."
+      ],
+      "explanation": "Słownik jest utrzymywany przez Oracle jako skutek uboczny DDL; użytkownicy tylko go czytają przez widoki takie jak USER_TABLES, a DML na nich kończy się błędem (19c zgłasza ORA-02030: can only select from fixed tables/views). Tabele bazowe należą do SYS. Widoki V$ pokazują bieżący stan instancji, a nie trwałą historię."
+    },
+    "q12-comment-views": {
+      "prompt": "Wykonano COMMENT ON TABLE orders IS '...' i COMMENT ON COLUMN orders.status IS '...'. Które dwa widoki pokazują te komentarze?",
+      "options": [
+        "USER_TAB_COMMENTS",
+        "USER_COL_COMMENTS",
+        "USER_COMMENTS",
+        "USER_TABLES",
+        "USER_TAB_COLUMNS"
+      ],
+      "explanation": "Komentarze tabel i widoków są w USER_TAB_COMMENTS (TABLE_NAME, TABLE_TYPE, COMMENTS); komentarze kolumn w USER_COL_COMMENTS (TABLE_NAME, COLUMN_NAME, COMMENTS). USER_COMMENTS nie istnieje (ORA-00942), a USER_TABLES i USER_TAB_COLUMNS nie mają kolumny COMMENTS."
+    },
+    "q12-view-text": {
+      "prompt": "Gdzie słownik danych przechowuje zapytanie definiujące twój widok?",
+      "options": [
+        "W kolumnie TEXT widoku USER_VIEWS (od 12c także TEXT_VC jako VARCHAR2)",
+        "W kolumnie COMMENTS widoku USER_TAB_COMMENTS",
+        "W kolumnie SQL_TEXT widoku USER_OBJECTS",
+        "Nigdzie: zapisywane są tylko wiersze wyniku widoku"
+      ],
+      "explanation": "Widok przechowuje tylko swoje zapytanie, które USER_VIEWS pokazuje w TEXT (kolumna LONG) i TEXT_VC. USER_OBJECTS nie ma kolumny SQL_TEXT, a widoki nie przechowują wierszy. Kolumny widoku są w USER_TAB_COLUMNS."
+    },
+    "q12-sequence-last-number": {
+      "prompt": "Sekwencja z CACHE 20 wydała wartości od 1 do 3. Które stwierdzenie o jej wierszu w USER_SEQUENCES jest prawdziwe?",
+      "options": [
+        "LAST_NUMBER pokazuje następną wartość, która zostałaby zapisana na dysk po cache, tu 21, a nie 3.",
+        "CURRVAL pokazuje 3.",
+        "LAST_NUMBER zawsze pokazuje 3.",
+        "USER_SEQUENCES pokazuje kolumnę NEXTVAL z wartością 4."
+      ],
+      "explanation": "USER_SEQUENCES ma MIN_VALUE, MAX_VALUE, INCREMENT_BY, CYCLE_FLAG, CACHE_SIZE i LAST_NUMBER. LAST_NUMBER odzwierciedla to, co zapisano na dysk, a przy wartościach w cache wyprzedza wydane wartości. Nie ma kolumn CURRVAL ani NEXTVAL: to pseudokolumny, które odczytujesz z samej sekwencji."
+    },
+    "q12-user-tables-owner": {
+      "prompt": "Co się stanie po uruchomieniu SELECT owner, table_name FROM user_tables?",
+      "options": [
+        "Zwróci nazwę twojego schematu obok każdej twojej tabeli",
+        "Zwróci NULL w OWNER dla każdej tabeli",
+        "ORA-00904: \"OWNER\": invalid identifier",
+        "ORA-00942: table or view does not exist"
+      ],
+      "explanation": "USER_TABLES wymienia tylko twoje tabele, więc nie ma kolumny OWNER, a podanie nieistniejącej kolumny zgłasza ORA-00904. ALL_TABLES i DBA_TABLES mają OWNER. Sam widok istnieje dla każdego użytkownika, więc ORA-00942 jest błędną odpowiedzią. (USER_CONSTRAINTS to wyjątek, który zachowuje kolumnę OWNER.)"
+    },
+    "q12-long-text-like": {
+      "prompt": "Chcesz znaleźć swoje widoki, których zapytanie wspomina dział 30. To polecenie kończy się błędem ORA-00932. Która zmiana to naprawia?",
+      "options": [
+        "Użyj text_vc zamiast text w klauzuli WHERE.",
+        "Użyj UPPER(text) LIKE '%30%'.",
+        "Odpytaj ALL_VIEWS zamiast USER_VIEWS.",
+        "Użyj kolumny query_text zamiast text."
+      ],
+      "explanation": "TEXT to kolumna LONG, a LONG nie może być użyty w LIKE ani w funkcjach: ORA-00932: inconsistent datatypes (23ai formułuje komunikat inaczej, kod jest ten sam). TEXT_VC (od 12c) przechowuje ten sam tekst jako VARCHAR2 i działa z LIKE. UPPER(text) zawodzi z tego samego powodu, ALL_VIEWS ma tę samą kolumnę LONG, a QUERY_TEXT nie istnieje."
+    },
+    "q12-dba-views-privilege": {
+      "prompt": "Twój użytkownik nie ma specjalnych uprawnień do słownika. SELECT COUNT(*) FROM dba_tables kończy się błędem ORA-00942. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Widoki DBA_ wymagają uprawnienia takiego jak SELECT ANY DICTIONARY albo roli SELECT_CATALOG_ROLE.",
+        "ALL_TABLES wymienia tabele twojego użytkownika oraz te, do których ma uprawnienia, bez żadnego dodatkowego uprawnienia.",
+        "Ten błąd oznacza, że DBA_TABLES nie istnieje w tej bazie danych.",
+        "USER_TABLES wymaga tego samego uprawnienia co DBA_TABLES.",
+        "Prefiks SYS.DBA_TABLES pozwala uniknąć błędu."
+      ],
+      "explanation": "Oracle zgłasza widok, którego nie możesz zobaczyć, tak jakby nie istniał, więc ORA-00942 oznacza tu brak uprawnień, a nie brak widoku. Każdy użytkownik może odpytywać widoki USER_ i ALL_; ALL_TABLES to właściwy wybór dla „tabel, do których mam dostęp”. Prefiks schematu niczego nie nadaje."
+    },
+    "q12-salary-precision": {
+      "prompt": "employees.salary ma typ NUMBER(8,2). Co zwraca to zapytanie?",
+      "options": [
+        "8",
+        "2",
+        "10",
+        "22"
+      ],
+      "explanation": "DATA_PRECISION przechowuje łączną liczbę cyfr (8), a DATA_SCALE liczbę cyfr po przecinku (2). DATA_LENGTH wynosi 22, czyli maksymalny rozmiar zapisu dowolnego NUMBER w bajtach. 10 to błędne zsumowanie precyzji i skali."
+    },
+    "q12-ltz-data-type": {
+      "prompt": "events.logged_at zadeklarowano jako TIMESTAMP(0) WITH LOCAL TIME ZONE. Co zwraca SELECT data_type FROM user_tab_columns WHERE table_name = 'EVENTS' AND column_name = 'LOGGED_AT'?",
+      "options": [
+        "TIMESTAMP(0) WITH LOCAL TIME ZONE",
+        "TIMESTAMP WITH LOCAL TIME ZONE",
+        "TIMESTAMP",
+        "TIMESTAMP(6) WITH LOCAL TIME ZONE"
+      ],
+      "explanation": "Dla typów daty i czasu oraz interwałów DATA_TYPE zawiera precyzję ułamków sekund, więc pokazuje TIMESTAMP(0) WITH LOCAL TIME ZONE (oraz INTERVAL DAY(2) TO SECOND(0) dla duration). Dla VARCHAR2 i NUMBER rozmiar nie jest częścią DATA_TYPE. 6 to tylko domyślna precyzja, gdy żadnej nie podano."
+    },
+    "q12-constraint-status": {
+      "prompt": "ORDERS_STATUS_CK utworzono jako ograniczenie CHECK w definicji kolumny z domyślnymi opcjami i nigdy go nie zmieniano. Co zwraca SELECT status FROM user_constraints WHERE constraint_name = 'ORDERS_STATUS_CK'?",
+      "options": [
+        "ENABLED",
+        "VALID",
+        "VALIDATED",
+        "Y"
+      ],
+      "explanation": "STATUS w USER_CONSTRAINTS ma wartość ENABLED albo DISABLED. To, czy istniejące wiersze sprawdzono, jest w osobnej kolumnie VALIDATED (VALIDATED / NOT VALIDATED). VALID i INVALID to wartości STATUS w USER_OBJECTS, używane dla widoków, synonimów i kodu."
+    },
+    "q12-user-catalog-count": {
+      "prompt": "Których dwóch rodzajów twoich obiektów nigdy nie ma w USER_CATALOG?",
+      "options": [
+        "Indeksy",
+        "Procedury",
+        "Tabele",
+        "Widoki",
+        "Sekwencje"
+      ],
+      "explanation": "USER_CATALOG (synonim CAT) wymienia tylko tabele, widoki, synonimy i sekwencje, z TABLE_NAME i TABLE_TYPE. Nie ma w nim indeksów ani kodu PL/SQL, takiego jak procedury. Wszystkie typy obiektów, w tym indeksy i procedury, wymienia USER_OBJECTS."
+    },
+    "q12-comment-facts": {
+      "prompt": "Które trzy stwierdzenia o COMMENT ON są prawdziwe?",
+      "options": [
+        "Ponowne wykonanie COMMENT ON TABLE t zastępuje poprzedni komentarz.",
+        "COMMENT ON TABLE t IS '' usuwa komentarz (COMMENTS staje się NULL).",
+        "COMMENT ON TABLE działa też dla widoku; USER_TAB_COMMENTS pokazuje wtedy TABLE_TYPE 'VIEW'.",
+        "COMMENT ON INDEX i IS '...' zapisuje komentarz do indeksu.",
+        "ROLLBACK cofa polecenie COMMENT ON."
+      ],
+      "explanation": "Każda tabela, widok czy kolumna ma jeden komentarz, więc nowe COMMENT ON go nadpisuje, a pusty tekst (w Oracle NULL) go usuwa. Widoki przyjmują komentarze tabel i kolumn. Indeksów nie można komentować (ORA-32594: invalid object category for COMMENT command). COMMENT to DDL, więc zatwierdza transakcję i nie da się go wycofać. Wszystko sprawdzono na obiektach LAB_."
+    },
+    "q12-tables-without-fk": {
+      "prompt": "Które dwa zapytania zwracają przykładowe tabele (nazwy niezaczynające się od LAB), które nie mają klucza obcego?",
+      "options": [
+        "SELECT t.table_name FROM user_tables t WHERE t.table_name NOT LIKE 'LAB%' AND NOT EXISTS (SELECT 1 FROM user_constraints c WHERE c.table_name = t.table_name AND c.constraint_type = 'R')",
+        "SELECT table_name FROM user_tables WHERE table_name NOT LIKE 'LAB%' MINUS SELECT table_name FROM user_constraints WHERE constraint_type = 'R'",
+        "SELECT DISTINCT table_name FROM user_constraints WHERE constraint_type <> 'R' AND table_name NOT LIKE 'LAB%'",
+        "SELECT t.table_name FROM user_tables t LEFT JOIN user_constraints c ON c.table_name = t.table_name WHERE c.constraint_type = 'R' AND c.constraint_name IS NULL AND t.table_name NOT LIKE 'LAB%'"
+      ],
+      "explanation": "NOT EXISTS i MINUS usuwają tabele mające ograniczenie 'R', zostawiając CUSTOMERS, DEPARTMENTS, EVENTS, PRODUCTS, PROMOTIONS i SALARY_GRADES. Wersja z <> 'R' zwraca każdą tabelę mającą jakiekolwiek inne ograniczenie, czyli wszystkie dziewięć. W złączeniu zewnętrznym filtr po typie jest w WHERE, więc wymaga pasującego wiersza ograniczenia, a test IS NULL usuwa potem wszystko: brak wierszy."
+    },
+    "q12-updatable-columns": {
+      "prompt": "Widok złączenia ma kolumny, które można zmieniać, i takie, których nie można. Który widok słownika podaje, kolumna po kolumnie, czy dozwolone są INSERT, UPDATE i DELETE?",
+      "options": [
+        "USER_UPDATABLE_COLUMNS",
+        "USER_VIEWS",
+        "USER_TAB_COLUMNS",
+        "USER_CONS_COLUMNS"
+      ],
+      "explanation": "USER_UPDATABLE_COLUMNS ma dla każdej kolumny UPDATABLE, INSERTABLE i DELETABLE (YES/NO); dla widoku z salary * 12 AS annual pokazuje NO dla ANNUAL. USER_VIEWS ma tylko tekst zapytania i flagę READ_ONLY, USER_TAB_COLUMNS opisuje typy danych i dopuszczalność NULL, a USER_CONS_COLUMNS wymienia kolumny ograniczeń."
+    },
+    "q12-fbi-dictionary": {
+      "prompt": "Tworzysz CREATE INDEX lab_upper_ix ON lab_emp (UPPER(last_name)). Które dwa stwierdzenia o słowniku danych są prawdziwe?",
+      "options": [
+        "USER_INDEXES pokazuje dla tego indeksu INDEX_TYPE 'FUNCTION-BASED NORMAL'.",
+        "USER_IND_EXPRESSIONS pokazuje wyrażenie UPPER(\"LAST_NAME\").",
+        "USER_IND_COLUMNS pokazuje dla tego indeksu COLUMN_NAME 'LAST_NAME'.",
+        "USER_IND_COLUMNS pokazuje COLUMN_NAME 'UPPER(LAST_NAME)'.",
+        "Indeksu nie ma w USER_INDEXES, bo indeksuje wyrażenie."
+      ],
+      "explanation": "Indeks funkcyjny to zwykły wiersz indeksu z INDEX_TYPE 'FUNCTION-BASED NORMAL', a jego wyrażenie jest przechowywane w USER_IND_EXPRESSIONS. USER_IND_COLUMNS pokazuje ukrytą kolumnę wirtualną, którą Oracle tworzy dla wyrażenia, z nazwą systemową w rodzaju SYS_NC00011$, a nie LAST_NAME ani tekst wyrażenia (sprawdzono na kopii LAB_)."
+    },
+    "q12-sequence-columns": {
+      "prompt": "Które dwie kolumny istnieją w USER_SEQUENCES?",
+      "options": [
+        "CYCLE_FLAG",
+        "LAST_NUMBER",
+        "START_WITH",
+        "CURRVAL",
+        "NEXTVAL"
+      ],
+      "explanation": "USER_SEQUENCES pokazuje MIN_VALUE, MAX_VALUE, INCREMENT_BY, CYCLE_FLAG, ORDER_FLAG, CACHE_SIZE i LAST_NUMBER. Wartość START WITH nie jest przechowywana w kolumnie, co jest jednym z powodów, dla których nie można jej zmienić. CURRVAL i NEXTVAL to pseudokolumny samej sekwencji (seq.NEXTVAL), a nie kolumny słownika."
+    },
+    "q12-pk-object-type": {
+      "prompt": "EMPLOYEES_PK to nazwa ograniczenia klucza głównego tabeli employees. Co zwraca SELECT object_type FROM user_objects WHERE object_name = 'EMPLOYEES_PK'?",
+      "options": [
+        "INDEX",
+        "CONSTRAINT",
+        "PRIMARY KEY",
+        "TABLE"
+      ],
+      "explanation": "Ograniczenia nie są obiektami schematu, więc USER_OBJECTS nie ma wiersza dla samego ograniczenia. Znaleziony wiersz to indeks utworzony przez Oracle do wymuszania klucza, który dostał nazwę ograniczenia. Samo ograniczenie jest w USER_CONSTRAINTS z typem P."
+    },
+    "q12-dict-columns-view": {
+      "prompt": "Chcesz wiedzieć, co oznacza każda kolumna USER_CONSTRAINTS. Który widok słownika wymienia kolumny samych widoków słownika, po jednym wierszu na kolumnę, z kolumną COMMENTS?",
+      "options": [
+        "DICT_COLUMNS",
+        "DICTIONARY",
+        "USER_TAB_COLUMNS",
+        "USER_COL_COMMENTS"
+      ],
+      "explanation": "DICT_COLUMNS ma TABLE_NAME, COLUMN_NAME i COMMENTS dla każdej kolumny widoków słownika (komentarze są wypełnione, gdy zainstalowano komentarze słownika). DICTIONARY ma jeden wiersz na widok, a nie na kolumnę. USER_TAB_COLUMNS i USER_COL_COMMENTS obejmują tylko twoje obiekty, a widoki słownika należą do SYS."
+    },
+    "q12-tab-cols-hidden": {
+      "prompt": "Tabela lab_emp ma cztery kolumny. Wykonujesz CREATE INDEX lab_emp_up_ix ON lab_emp (UPPER(last_name)). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "USER_TAB_COLUMNS nadal pokazuje dla LAB_EMP cztery kolumny.",
+        "USER_TAB_COLS pokazuje piątą kolumnę o nazwie systemowej, z HIDDEN_COLUMN 'YES'.",
+        "USER_TAB_COLUMNS pokazuje piątą kolumnę o nazwie UPPER(LAST_NAME).",
+        "SELECT * FROM lab_emp zwraca teraz pięć kolumn.",
+        "USER_TAB_COLS i USER_TAB_COLUMNS zawsze zwracają te same wiersze."
+      ],
+      "explanation": "Indeks funkcyjny dodaje ukrytą kolumnę wirtualną (o nazwie w rodzaju SYS_NC00005$), która przechowuje wyrażenie. USER_TAB_COLS obejmuje kolumny ukryte, a USER_TAB_COLUMNS je odfiltrowuje, więc nadal pokazuje cztery. Kolumny ukryte nie mają COLUMN_ID i nigdy nie pojawiają się w SELECT * (sprawdzono na tabeli LAB_ w 19c i 23ai)."
+    },
+    "q12-cons-columns-position": {
+      "prompt": "Które trzy stwierdzenia o USER_CONS_COLUMNS są prawdziwe?",
+      "options": [
+        "Ma jeden wiersz na każdą kolumnę każdego ograniczenia, więc dwukolumnowy klucz główny ma dwa wiersze.",
+        "POSITION podaje kolejność kolumny w kluczu głównym, kluczu unikalnym albo kluczu obcym.",
+        "Ograniczenia NOT NULL też w nim występują, z jednym wierszem dla swojej kolumny.",
+        "Ma kolumnę CONSTRAINT_TYPE, więc nie trzeba złączać z USER_CONSTRAINTS.",
+        "POSITION kolumny ograniczenia CHECK zawsze wynosi 1."
+      ],
+      "explanation": "USER_CONS_COLUMNS ma OWNER, CONSTRAINT_NAME, TABLE_NAME, COLUMN_NAME i POSITION: jeden wiersz na kolumnę ograniczenia, łącznie z ograniczeniami NOT NULL. POSITION to kolejność kolumny w kluczu i dla ograniczeń CHECK oraz NOT NULL wynosi NULL (sprawdzono w 19c i 23ai). Typ ograniczenia jest tylko w USER_CONSTRAINTS, więc złączasz po constraint_name."
+    },
+    "q12-v-dollar-views": {
+      "prompt": "Które stwierdzenie o dynamicznych widokach wydajności, takich jak V$SESSION, jest prawdziwe?",
+      "options": [
+        "Pokazują bieżący stan działającej instancji, a zwykły użytkownik potrzebuje dodatkowych uprawnień, by je odpytywać.",
+        "Są aktualizowane tylko przy wykonywaniu DDL, podobnie jak USER_TABLES.",
+        "Każdy użytkownik może je odpytywać, bo pokazują tylko jego własne obiekty.",
+        "Przechowują trwałą historię wszystkich sesji od utworzenia bazy danych."
+      ],
+      "explanation": "Widoki V$ czytają struktury pamięci i informacje sterujące instancji, więc ich zawartość zmienia się nieustannie w czasie jej działania (sesje, blokady, pamięć). Dostęp nie jest nadany wszystkim: twój użytkownik dostaje ORA-00942 na V$SESSION bez uprawnienia takiego jak SELECT_CATALOG_ROLE. Widoki statyczne (USER_, ALL_, DBA_) zmieniają się wraz z DDL, a dane V$ nie są trwałą historią."
+    },
+    "q12-quoted-name-case": {
+      "prompt": "Utworzono tabelę przez CREATE TABLE \"lab_Mixed\" (id NUMBER). Które zapytanie znajdzie jej wiersz w USER_TABLES?",
+      "options": [
+        "SELECT table_name FROM user_tables WHERE table_name = 'lab_Mixed';",
+        "SELECT table_name FROM user_tables WHERE table_name = 'LAB_MIXED';",
+        "SELECT table_name FROM user_tables WHERE table_name = '\"lab_Mixed\"';",
+        "SELECT table_name FROM user_tables WHERE table_name = lab_Mixed;"
+      ],
+      "explanation": "Identyfikator w cudzysłowie jest zapisywany dokładnie tak, jak go napisano, bez cudzysłowów, więc TABLE_NAME to lab_Mixed w mieszanej wielkości liter. 'LAB_MIXED' pasowałoby tylko do nazwy bez cudzysłowów, a cudzysłowy nie są częścią zapisanej nazwy. Bez apostrofów lab_Mixed jest czytane jako nazwa kolumny i zgłasza ORA-00904 (sprawdzono na 19c i 23ai)."
+    },
+    "q12-user-indexes-columns": {
+      "prompt": "Które dwie kolumny istnieją w USER_INDEXES?",
+      "options": [
+        "UNIQUENESS",
+        "VISIBILITY",
+        "COLUMN_NAME",
+        "CONSTRAINT_NAME",
+        "IS_UNIQUE"
+      ],
+      "explanation": "USER_INDEXES ma jeden wiersz na indeks, z INDEX_TYPE, TABLE_NAME, UNIQUENESS (UNIQUE albo NONUNIQUE), STATUS i VISIBILITY (VISIBLE albo INVISIBLE). Indeksowane kolumny są w USER_IND_COLUMNS, a ograniczenie wymuszane przez indeks znajdujesz od drugiej strony, w kolumnie INDEX_NAME w USER_CONSTRAINTS. Kolumny IS_UNIQUE nie ma."
+    },
+    "q12-other-schema-columns": {
+      "prompt": "Użytkownik HR nadał ci SELECT na swojej tabeli EMPLOYEES. Które zapytanie wymienia kolumny HR.EMPLOYEES?",
+      "options": [
+        "SELECT column_name FROM all_tab_columns WHERE owner = 'HR' AND table_name = 'EMPLOYEES';",
+        "SELECT column_name FROM user_tab_columns WHERE table_name = 'HR.EMPLOYEES';",
+        "SELECT column_name FROM all_tab_columns WHERE table_name = 'HR.EMPLOYEES';",
+        "SELECT column_name FROM user_tab_columns WHERE owner = 'HR' AND table_name = 'EMPLOYEES';"
+      ],
+      "explanation": "ALL_TAB_COLUMNS obejmuje wszystkie tabele, do których masz dostęp, i identyfikuje je przez OWNER i TABLE_NAME, zapisane jako dwie osobne wartości. TABLE_NAME nigdy nie zawiera prefiksu schematu, więc 'HR.EMPLOYEES' nic nie znajduje. USER_TAB_COLUMNS wymienia tylko twoje tabele i nie ma kolumny OWNER, więc ostatnie zapytanie zgłasza ORA-00904."
+    },
+    "q12-last-ddl-time": {
+      "prompt": "Tabelę lab_t utworzono wczoraj. Dziś wykonujesz ALTER TABLE lab_t ADD (note VARCHAR2(20)). Które dwa stwierdzenia o jej wierszu w USER_OBJECTS są prawdziwe?",
+      "options": [
+        "LAST_DDL_TIME pokazuje teraz dzisiejszy czas.",
+        "CREATED nadal pokazuje wczorajszy czas.",
+        "OBJECT_ID się zmienia, bo zmieniła się definicja tabeli.",
+        "STATUS staje się INVALID, dopóki tabela nie zostanie przekompilowana.",
+        "Dla note dodawany jest nowy wiersz z OBJECT_TYPE 'COLUMN'."
+      ],
+      "explanation": "CREATED zapisuje moment utworzenia obiektu, a LAST_DDL_TIME ostatni DDL na nim, więc ALTER TABLE aktualizuje tylko LAST_DDL_TIME (sprawdzono na tabeli LAB_). Obiekt zachowuje swój OBJECT_ID, a tabela nigdy nie staje się INVALID z powodu własnego ALTER. Kolumny nie są obiektami schematu; pojawiają się w USER_TAB_COLUMNS."
+    },
+    "q12-recyclebin-dictionary": {
+      "prompt": "Kosz (recycle bin) jest włączony. Tabela lab_t ma klucz główny, a widok lab_v wybiera z niej dane. Wykonujesz DROP TABLE lab_t (bez PURGE). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "USER_RECYCLEBIN pokazuje wiersz z ORIGINAL_NAME 'LAB_T' i wygenerowaną przez system nazwą OBJECT_NAME zaczynającą się od BIN$.",
+        "USER_OBJECTS nadal wymienia LAB_V, ze STATUS 'INVALID'.",
+        "USER_TABLES nadal wymienia LAB_T, dopóki kosz nie zostanie opróżniony.",
+        "LAB_V trafia do kosza razem z tabelą.",
+        "Po FLASHBACK TABLE lab_t TO BEFORE DROP indeks klucza głównego znów ma swoją pierwotną nazwę."
+      ],
+      "explanation": "Usunięta tabela i jej indeksy dostają nazwy BIN$ i są wymienione w USER_RECYCLEBIN ze swoimi ORIGINAL_NAME; USER_TABLES już nie pokazuje tabeli. Widoki nie są częścią tabeli, więc lab_v zostaje jako INVALID. FLASHBACK TABLE przywraca nazwę tabeli, ale jej indeksy zachowują nazwy BIN$, dopóki ich nie zmienisz (sprawdzono na 19c i 23ai)."
+    }
+  },
+  "labs": {
+    "lab-t12-emp-constraints": {
+      "title": "Ograniczenia tabeli",
+      "task": "Wymień wszystkie ograniczenia tabeli EMPLOYEES: constraint_name i constraint_type, posortowane po constraint_name.",
+      "hint": "USER_CONSTRAINTS ma jeden wiersz na każde ograniczenie twoich tabel.",
+      "hint2": "Nazwy tabel są zapisane wielkimi literami: WHERE table_name = 'EMPLOYEES'."
+    },
+    "lab-t12-order-columns": {
+      "title": "Kolumny i typy danych",
+      "task": "Wymień kolumny tabeli ORDERS w kolejności z definicji: column_name, data_type, data_length i nullable, posortowane po pozycji kolumny.",
+      "hint": "USER_TAB_COLUMNS opisuje kolumny twoich tabel.",
+      "hint2": "COLUMN_ID to pozycja kolumny w tabeli; sortuj po niej."
+    },
+    "lab-t12-foreign-keys": {
+      "title": "Klucze obce i tabele, do których się odwołują",
+      "task": "Dla każdego klucza obcego w twoim schemacie pokaż table_name (tabela podrzędna), constraint_name, referenced_table (tabela nadrzędna) i delete_rule. Pomiń tabele, których nazwy zaczynają się od LAB. Posortuj po table_name, potem po constraint_name.",
+      "hint": "Klucze obce mają constraint_type 'R'. Ich R_CONSTRAINT_NAME to nazwa wskazywanego klucza głównego.",
+      "hint2": "Złącz USER_CONSTRAINTS z samym sobą: JOIN user_constraints r ON r.constraint_name = c.r_constraint_name, a potem weź r.table_name."
+    },
+    "lab-t12-pk-columns": {
+      "title": "Kolumny kluczy głównych",
+      "task": "Dla każdego klucza głównego w twoim schemacie pokaż table_name, column_name i position (pozycję kolumny w kluczu). Pomiń tabele, których nazwy zaczynają się od LAB. Posortuj po table_name, potem po position.",
+      "hint": "USER_CONSTRAINTS mówi, które ograniczenia są kluczami głównymi (typ 'P'); USER_CONS_COLUMNS wymienia ich kolumny.",
+      "hint2": "Złącz oba widoki po constraint_name. POSITION jest w USER_CONS_COLUMNS."
+    },
+    "lab-t12-check-constraints": {
+      "title": "Prawdziwe ograniczenia CHECK",
+      "task": "Wymień ograniczenia CHECK w twoim schemacie, które nie są ograniczeniami NOT NULL: table_name, constraint_name i search_condition (tekst warunku). Pomiń tabele, których nazwy zaczynają się od LAB. Posortuj po table_name, potem po constraint_name.",
+      "hint": "Ograniczenia NOT NULL też mają typ 'C'. Tekst ich warunku kończy się na IS NOT NULL.",
+      "hint2": "SEARCH_CONDITION to kolumna LONG, której nie można użyć z LIKE; użyj SEARCH_CONDITION_VC z aliasem search_condition."
+    },
+    "lab-t12-index-columns": {
+      "title": "Indeksy i ich kolumny",
+      "task": "Wymień indeksy tabel EMPLOYEES i ORDER_ITEMS razem z ich kolumnami: table_name, index_name, uniqueness, column_name i column_position. Posortuj po table_name, index_name, column_position.",
+      "hint": "USER_INDEXES ma jeden wiersz na indeks (z UNIQUENESS); USER_IND_COLUMNS jeden wiersz na indeksowaną kolumnę.",
+      "hint2": "Złącz po index_name. Zauważ, że dla kluczy obcych nie ma żadnego indeksu."
+    },
+    "lab-t12-column-counts": {
+      "title": "Tabele i liczba ich kolumn",
+      "task": "Dla każdej tabeli (nie widoku) w twoim schemacie pokaż table_name i column_count, czyli liczbę jej kolumn. Pomiń tabele, których nazwy zaczynają się od LAB. Posortuj po column_count malejąco, potem po table_name.",
+      "hint": "USER_TAB_COLUMNS zawiera też kolumny widoków; złącz z USER_TABLES, aby zostawić tylko tabele.",
+      "hint2": "GROUP BY t.table_name z COUNT(*), potem ORDER BY column_count DESC, table_name."
+    },
+    "lab-n12-unindexed-fks": {
+      "title": "Klucze obce bez indeksu",
+      "task": "Kolumny kluczy obcych powinny być pierwszą kolumną jakiegoś indeksu. Wymień kolumny kluczy obcych w twoim schemacie, które nie są pierwszą kolumną (column_position 1) żadnego indeksu na ich tabeli: table_name, constraint_name i column_name. Pomiń tabele, których nazwy zaczynają się od LAB. Posortuj po table_name, potem po constraint_name.",
+      "hint": "Kolumny kluczy obcych weź z USER_CONSTRAINTS (typ 'R') złączonego z USER_CONS_COLUMNS, a potem sprawdź USER_IND_COLUMNS przez NOT EXISTS.",
+      "hint2": "ORDER_ITEMS_ORDER_FK nie ma w wyniku: order_id jest pierwszą kolumną indeksu klucza głównego ORDER_ITEMS_PK. Zostaje pięć wierszy."
+    },
+    "lab-n12-comment-views": {
+      "title": "Przeszukaj słownik",
+      "task": "Użyj katalogu samego słownika, aby wymienić nazwy widoków słownika USER_, których nazwy kończą się na COMMENTS: jedna kolumna, table_name, posortowana po table_name.",
+      "hint": "DICTIONARY (synonim DICT) ma jeden wiersz na widok słownika, w TABLE_NAME.",
+      "hint2": "WHERE table_name LIKE 'USER%COMMENTS'. Nazwy są zapisane wielkimi literami; wśród wyników są USER_TAB_COMMENTS i USER_COL_COMMENTS."
+    },
+    "lab-n12-fix-fk-count": {
+      "title": "Napraw: klucze obce w każdej tabeli",
+      "task": "Dla każdej tabeli w twoim schemacie pokaż table_name i foreign_keys, czyli liczbę ograniczeń klucza obcego tej tabeli, łącznie z tabelami, które ich nie mają (0). Pomiń tabele, których nazwy zaczynają się od LAB. Posortuj po table_name. Kod startowy gubi tabele bez kluczy obcych.",
+      "hint": "Warunek w WHERE na tabeli złączonej zewnętrznie usuwa wiersze dodane przez złączenie zewnętrzne (ich constraint_type to NULL).",
+      "hint2": "Przenieś c.constraint_type = 'R' do klauzuli ON; zostaw COUNT(c.constraint_name), aby tabele bez dopasowania dawały 0."
+    },
+    "lab-t12-index-constraints": {
+      "title": "Które ograniczenie wymusza każdy indeks?",
+      "task": "Dla każdego indeksu na twoich tabelach (pomiń tabele, których nazwy zaczynają się od LAB) pokaż table_name, index_name, uniqueness i constraint_type, czyli typ ograniczenia wymuszanego przez indeks (NULL, jeśli żadnego nie wymusza). Posortuj po table_name, potem po index_name.",
+      "hint": "USER_CONSTRAINTS ma kolumnę INDEX_NAME dla kluczy głównych i unikalnych. Złącz ją z USER_INDEXES.",
+      "hint2": "Użyj LEFT JOIN user_constraints c ON c.index_name = i.index_name, aby indeks bez ograniczenia też się pojawił. Zauważ, że żaden klucz obcy nie ma indeksu."
+    },
+    "lab-t12-order-items-cons-columns": {
+      "title": "Kolumny ograniczeń ORDER_ITEMS",
+      "task": "Wymień wszystkie kolumny ograniczeń tabeli ORDER_ITEMS: constraint_name, constraint_type, column_name i position. Posortuj po constraint_name, potem po position.",
+      "hint": "USER_CONS_COLUMNS ma jeden wiersz na ograniczenie i kolumnę; typ jest w USER_CONSTRAINTS.",
+      "hint2": "Złącz po constraint_name. ORDER_ID występuje dwa razy (klucz główny i klucz obcy), a dla ograniczenia CHECK POSITION wynosi NULL."
+    },
+    "lab-t12-constraint-type-counts": {
+      "title": "Ograniczenia według tabeli i typu",
+      "task": "Dla tabel EMPLOYEES i ORDERS pokaż table_name, constraint_type i constraints, czyli liczbę ograniczeń tego typu na tabeli. Posortuj po table_name, potem po constraint_type.",
+      "hint": "USER_CONSTRAINTS ma jeden wiersz na ograniczenie, łącznie z ograniczeniami NOT NULL (typ C).",
+      "hint2": "GROUP BY table_name, constraint_type z COUNT(*). Liczby dla C obejmują ograniczenia NOT NULL, a nie tylko prawdziwe ograniczenia CHECK."
+    },
+    "lab-t12-fix-mandatory-columns": {
+      "title": "Napraw: kolumny, które nie mogą być NULL",
+      "task": "Wymień wszystkie kolumny tabel EMPLOYEES i ORDERS, które nie mogą zawierać NULL: table_name i column_name, posortowane po table_name, potem po column_name. Kod startowy patrzy tylko na ograniczenia NOT NULL i pomija niektóre kolumny.",
+      "hint": "Kolumna klucza głównego też jest obowiązkowa, ale nie ma osobnego ograniczenia NOT NULL.",
+      "hint2": "Zamiast tego czytaj NULLABLE w USER_TAB_COLUMNS: WHERE nullable = 'N'. Ma wartość 'N' dla kolumn NOT NULL i dla kolumn klucza głównego."
+    },
+    "lab-t12-fix-object-types": {
+      "title": "Napraw: policz obiekty według typu",
+      "task": "Policz obiekty schematu, których jesteś właścicielem i których nazwy zaczynają się od ORDER, według typu: object_type i objects (liczba), posortowane po object_type. Muszą być uwzględnione wszystkie typy obiektów. Kod startowy używa widoku, który pomija niektóre typy obiektów.",
+      "hint": "USER_CATALOG wymienia tylko tabele, widoki, synonimy i sekwencje. Który widok wymienia wszystkie obiekty schematu?",
+      "hint2": "Użyj USER_OBJECTS z OBJECT_NAME i OBJECT_TYPE. Indeksy kluczy głównych ORDERS_PK i ORDER_ITEMS_PK też są obiektami."
+    }
+  }
+}

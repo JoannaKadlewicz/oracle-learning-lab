@@ -1,0 +1,598 @@
+{
+  "questions": {
+    "q13-grant-option": {
+      "prompt": "A jest właścicielem T i wykonuje GRANT SELECT ON t TO b WITH GRANT OPTION. B wykonuje GRANT SELECT ON a.t TO c. Potem A wykonuje REVOKE SELECT ON t FROM b. Co jest prawdą?",
+      "options": [
+        "B i C tracą SELECT na A.T.",
+        "B traci SELECT; C go zachowuje.",
+        "REVOKE kończy się błędem, bo B nadał to uprawnienie innemu użytkownikowi.",
+        "B zachowuje SELECT, bo otrzymał je WITH GRANT OPTION."
+      ],
+      "explanation": "Odebranie uprawnienia obiektowego przechodzi kaskadowo na użytkowników, którzy otrzymali je przez WITH GRANT OPTION. Uprawnienia systemowe nadane WITH ADMIN OPTION nie są odbierane kaskadowo."
+    },
+    "q13-admin-option": {
+      "prompt": "DBA nadaje B uprawnienie CREATE TABLE WITH ADMIN OPTION. B nadaje CREATE TABLE użytkownikowi C. DBA odbiera CREATE TABLE użytkownikowi B. Co jest prawdą?",
+      "options": [
+        "C też traci CREATE TABLE.",
+        "C zachowuje CREATE TABLE.",
+        "Odebranie kończy się błędem.",
+        "Istniejące tabele C zostają usunięte."
+      ],
+      "explanation": "Odebranie uprawnienia systemowego nie działa kaskadowo. Odebranie uprawnienia nigdy też nie usuwa obiektów utworzonych w czasie, gdy je posiadano."
+    },
+    "q13-references": {
+      "prompt": "Jakie uprawnienie obiektowe musisz mieć na tabeli innego użytkownika, aby utworzyć klucz obcy, który się do niej odwołuje?",
+      "options": [
+        "SELECT",
+        "REFERENCES",
+        "ALTER",
+        "INDEX"
+      ],
+      "explanation": "REFERENCES pozwala utworzyć na twojej tabeli ograniczenie FOREIGN KEY odwołujące się do tamtej tabeli. Musi być nadane bezpośrednio użytkownikowi, a nie przez rolę."
+    },
+    "q13-roles": {
+      "prompt": "Które dwa stwierdzenia o rolach są prawdziwe?",
+      "options": [
+        "Rola może zawierać zarówno uprawnienia systemowe, jak i obiektowe.",
+        "Rolę można nadać innej roli.",
+        "Rola należy do schematu, który ją utworzył.",
+        "Uprawnienia nadane przez rolę są zawsze dostępne w PL/SQL z prawami definiującego (definer's rights)."
+      ],
+      "explanation": "Role grupują uprawnienia i można je zagnieżdżać. Role nie są obiektami schematu i nie należą do żadnego schematu. W PL/SQL z prawami definiującego role są wyłączone, więc potrzebne tam uprawnienia trzeba nadać bezpośrednio."
+    },
+    "q13-public": {
+      "prompt": "Co robi GRANT SELECT ON departments TO PUBLIC?",
+      "options": [
+        "Daje SELECT na departments każdemu obecnemu i przyszłemu użytkownikowi.",
+        "Tworzy publiczny synonim dla departments.",
+        "Sprawia, że tabela jest widoczna bez prefiksu właściciela.",
+        "Daje SELECT tylko użytkownikom z rolą CONNECT."
+      ],
+      "explanation": "PUBLIC to specjalna grupa obejmująca wszystkich użytkowników. Nadanie uprawnienia PUBLIC nie tworzy synonimu, więc inni użytkownicy nadal piszą orastudy.departments, chyba że istnieje synonim."
+    },
+    "q13-classify-sys": {
+      "prompt": "Które dwa z nich to uprawnienia systemowe?",
+      "options": [
+        "CREATE SESSION",
+        "SELECT ANY TABLE",
+        "REFERENCES",
+        "SELECT",
+        "EXECUTE"
+      ],
+      "explanation": "Uprawnienie systemowe to prawo do wykonywania pewnego rodzaju działań (logowania, tworzenia tabel, odpytywania dowolnej tabeli) i jest nadawane bez klauzuli ON. SELECT, REFERENCES i EXECUTE to uprawnienia obiektowe: zawsze wskazują jeden obiekt, jak w GRANT SELECT ON orastudy.employees TO u. SELECT ANY TABLE zawiera słowo SELECT, ale jest uprawnieniem systemowym obejmującym tabele we wszystkich schematach."
+    },
+    "q13-create-session": {
+      "prompt": "DBA tworzy użytkownika U i nadaje mu tylko CREATE TABLE. Co się stanie, gdy U spróbuje się połączyć?",
+      "options": [
+        "Logowanie zostanie odrzucone z ORA-01045, bo U nie ma CREATE SESSION.",
+        "U połączy się, ale nie utworzy tabel, dopóki nie dostanie limitu (quota) w przestrzeni tabel.",
+        "U połączy się; CREATE TABLE implikuje CREATE SESSION.",
+        "U połączy się, bo każdy użytkownik dostaje CREATE SESSION przez PUBLIC."
+      ],
+      "explanation": "Połączenie wymaga uprawnienia systemowego CREATE SESSION (bezpośrednio albo przez rolę, np. CONNECT); bez niego logowanie kończy się błędem ORA-01045: user lacks CREATE SESSION privilege; logon denied. Uprawnienia systemowe nie implikują się nawzajem, a CREATE SESSION nie jest domyślnie nadane PUBLIC. Limit miejsca ma znaczenie dopiero później, gdy tabela faktycznie przydziela przestrzeń."
+    },
+    "q13-owner-rights": {
+      "prompt": "Użytkownik U ma tylko CREATE SESSION i CREATE TABLE i utworzył tabelę U.T. Które trzy rzeczy U może zrobić bez dodatkowych uprawnień?",
+      "options": [
+        "Odpytywać, wstawiać, zmieniać i usuwać wiersze w T",
+        "Nadać SELECT na T innemu użytkownikowi",
+        "Usunąć T",
+        "Utworzyć widok na T",
+        "Utworzyć publiczny synonim dla T",
+        "Odpytywać tabele innych użytkowników"
+      ],
+      "explanation": "Właściciel ma wszystkie uprawnienia obiektowe do swoich obiektów i może je nadawać innym, a usunięcie własnej tabeli nie wymaga dodatkowego uprawnienia. Utworzenie widoku wymaga uprawnienia systemowego CREATE VIEW, a publicznego synonimu CREATE PUBLIC SYNONYM, nawet gdy tabela bazowa jest twoja. Tabele innych użytkowników wymagają uprawnień obiektowych albo uprawnienia ANY."
+    },
+    "q13-any-privilege": {
+      "prompt": "Na co pozwala uprawnienie systemowe SELECT ANY TABLE?",
+      "options": [
+        "Na odpytywanie tabel i widoków w dowolnym schemacie, z wyjątkiem tabel słownika danych SYS przy domyślnych ustawieniach",
+        "Na nadawanie SELECT na dowolnej tabeli innym użytkownikom",
+        "Na odpytywanie dowolnej tabeli tylko w twoim własnym schemacie",
+        "Na tworzenie tabel w dowolnym schemacie"
+      ],
+      "explanation": "Uprawnienia ANY działają we wszystkich schematach. Przy O7_DICTIONARY_ACCESSIBILITY = FALSE (domyślnie) nie sięgają obiektów słownika należących do SYS. Używanie uprawnienia to nie to samo co jego nadawanie: nadawanie SELECT na tabelach innych użytkowników wymaga GRANT ANY OBJECT PRIVILEGE albo nadania WITH GRANT OPTION. Tworzenie tabel w innych schematach to CREATE ANY TABLE, a własnych tabel nigdy nie trzeba odpytywać z uprawnieniem."
+    },
+    "q13-admin-option-abilities": {
+      "prompt": "DBA nadaje użytkownikowi B uprawnienie CREATE VIEW WITH ADMIN OPTION. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "B może nadawać CREATE VIEW innym użytkownikom i rolom.",
+        "B może odebrać CREATE VIEW każdemu użytkownikowi, który je ma, nawet jeśli dostał je od DBA.",
+        "Jeśli DBA później odbierze B uprawnienie CREATE VIEW, użytkownicy, którzy dostali je od B, też je stracą.",
+        "B może teraz nadawać SELECT na tabelach DBA.",
+        "WITH ADMIN OPTION można było też zapisać jako WITH GRANT OPTION."
+      ],
+      "explanation": "ADMIN OPTION pozwala nadawać uprawnienie systemowe i odbierać je każdemu użytkownikowi lub roli, niezależnie od tego, kto je nadał. Odebranie uprawnienia systemowego nigdy nie działa kaskadowo, więc osoby, którym B je nadał, je zachowują. WITH GRANT OPTION dotyczy tylko uprawnień obiektowych; użycie go z uprawnieniem systemowym kończy się błędem ORA-01939."
+    },
+    "q13-grant-sys-no-admin": {
+      "prompt": "Twój użytkownik ma CREATE TABLE bez ADMIN OPTION. Co się stanie, gdy wykona GRANT CREATE TABLE TO PUBLIC?",
+      "options": [
+        "ORA-01031: insufficient privileges",
+        "Grant succeeded, bo twój użytkownik sam ma to uprawnienie",
+        "Grant succeeded, ale tylko dla tabel w twoim schemacie",
+        "ORA-00942: table or view does not exist"
+      ],
+      "explanation": "Posiadanie uprawnienia systemowego nie pozwala go przekazać. Potrzebne jest WITH ADMIN OPTION albo uprawnienie systemowe GRANT ANY PRIVILEGE, więc polecenie kończy się błędem ORA-01031. Wykonano jako konto uczącego się w 19c. Polecenie GRANT nigdy nie ogranicza uprawnień systemowych do jednego schematu."
+    },
+    "q13-own-password": {
+      "prompt": "Użytkownik U ma tylko uprawnienie CREATE SESSION. Które dwie rzeczy U może zrobić?",
+      "options": [
+        "Zmienić własne hasło poleceniem ALTER USER u IDENTIFIED BY new_password",
+        "Odpytać USER_SYS_PRIVS i SESSION_PRIVS, aby zobaczyć swoje uprawnienia",
+        "Utworzyć tabelę we własnym schemacie",
+        "Zmienić hasło innego użytkownika",
+        "Utworzyć prywatny synonim"
+      ],
+      "explanation": "Każdy użytkownik może zmienić własne hasło bez uprawnienia ALTER USER; zmiana cudzego hasła wymaga ALTER USER. Widoki słownika USER_ i SESSION_ opisują bieżącego użytkownika i nie wymagają nadań. Tworzenie tabel czy synonimów, nawet we własnym schemacie, wymaga CREATE TABLE albo CREATE SYNONYM."
+    },
+    "q13-grant-option-on-sys": {
+      "prompt": "DBA mający wszystkie uprawnienia wykonuje te polecenia; użytkownik U i tabela A.T istnieją. Które polecenie kończy się błędem?",
+      "options": [
+        "GRANT CREATE TABLE TO u WITH GRANT OPTION;",
+        "GRANT CREATE TABLE TO u WITH ADMIN OPTION;",
+        "GRANT SELECT ON a.t TO u WITH GRANT OPTION;",
+        "GRANT CREATE SESSION, CREATE TABLE TO u;"
+      ],
+      "explanation": "Uprawnienia systemowe przyjmują WITH ADMIN OPTION; WITH GRANT OPTION dotyczy uprawnień obiektowych, więc pierwsze polecenie kończy się błędem ORA-01939: only the ADMIN OPTION can be specified. W jednym GRANT można wymienić kilka uprawnień systemowych. Odwrotny błąd, czyli WITH ADMIN OPTION po uprawnieniu obiektowym, kończy się błędem ORA-00993."
+    },
+    "q13-column-select-fails": {
+      "prompt": "Twój użytkownik ma tabelę lab_t (id, name, note). Które polecenie kończy się błędem?",
+      "options": [
+        "GRANT SELECT (name) ON lab_t TO PUBLIC;",
+        "GRANT UPDATE (name, note) ON lab_t TO PUBLIC;",
+        "GRANT INSERT (name) ON lab_t TO PUBLIC;",
+        "GRANT REFERENCES (id) ON lab_t TO PUBLIC;"
+      ],
+      "explanation": "Na liście kolumn można nadać tylko INSERT, UPDATE i REFERENCES. GRANT SELECT (name) kończy się błędem ORA-00969: missing ON keyword; aby udostępnić część kolumn, utwórz widok i nadaj SELECT na widoku. Wykonano w 19c: trzy nadania na kolumnach się udają i pojawiają się w USER_COL_PRIVS_MADE."
+    },
+    "q13-revoke-column": {
+      "prompt": "Twój użytkownik wykonał GRANT UPDATE (name, note) ON lab_t TO PUBLIC. Co robi REVOKE UPDATE (name) ON lab_t FROM PUBLIC?",
+      "options": [
+        "Kończy się błędem ORA-01750; UPDATE można odebrać tylko dla całej tabeli.",
+        "Odbiera UPDATE na name; UPDATE na note zostaje.",
+        "Odbiera UPDATE na obu kolumnach.",
+        "Kończy się błędem ORA-01927, bo uprawnienie nadano na dwóch kolumnach."
+      ],
+      "explanation": "Nadania na poziomie kolumn są dozwolone, ale odbieranie na poziomie kolumn nie: ORA-01750: UPDATE/REFERENCES may only be REVOKEd from the whole table, not by column. REVOKE UPDATE ON lab_t FROM PUBLIC odbiera uprawnienie na wszystkich kolumnach, po czym możesz ponownie nadać je na wybranych kolumnach. Wykonano w 19c."
+    },
+    "q13-grant-all": {
+      "prompt": "Twój użytkownik wykonuje GRANT ALL ON lab_t TO PUBLIC na swojej tabeli. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Nadanie obejmuje INDEX i REFERENCES.",
+        "REVOKE ALL ON lab_t FROM PUBLIC odbiera wszystkie uprawnienia nadane przez GRANT ALL.",
+        "Nadanie obejmuje uprawnienie DROP, więc każdy użytkownik może usunąć lab_t.",
+        "Nadanie daje też CREATE TABLE w twoim schemacie.",
+        "Każdy użytkownik może nadawać te uprawnienia innym."
+      ],
+      "explanation": "ALL oznacza wszystkie uprawnienia obiektowe dotyczące obiektu; dla tabeli w 19c USER_TAB_PRIVS_MADE pokazuje wtedy ALTER, DEBUG, DELETE, FLASHBACK, INDEX, INSERT, ON COMMIT REFRESH, QUERY REWRITE, READ, REFERENCES, SELECT i UPDATE. Nie ma uprawnienia obiektowego DROP (usunięcie cudzej tabeli wymaga DROP ANY TABLE), a uprawnienia systemowe nigdy nie są obejmowane. Bez WITH GRANT OPTION odbiorcy nie mogą przekazywać uprawnień dalej."
+    },
+    "q13-sequence-privs": {
+      "prompt": "Które dwa uprawnienia obiektowe można nadać na sekwencji?",
+      "options": [
+        "SELECT",
+        "ALTER",
+        "UPDATE",
+        "INSERT",
+        "EXECUTE"
+      ],
+      "explanation": "SELECT pozwala odbiorcy używać NEXTVAL i CURRVAL; ALTER pozwala zmieniać przyrost, cache i tak dalej. Wszystko inne kończy się błędem ORA-02205: only SELECT and ALTER privileges are valid for sequences (wykonano w 19c). EXECUTE dotyczy procedur, funkcji, pakietów i typów."
+    },
+    "q13-view-privs": {
+      "prompt": "Których dwóch uprawnień NIE można nadać na widoku?",
+      "options": [
+        "ALTER",
+        "INDEX",
+        "SELECT",
+        "INSERT",
+        "DELETE"
+      ],
+      "explanation": "Widoki przyjmują SELECT, INSERT, UPDATE, DELETE, REFERENCES i podobne uprawnienia typu DML, bo DML można wykonywać przez modyfikowalny widok. ALTER i INDEX kończą się błędem ORA-02204: ALTER, INDEX and EXECUTE not allowed for views (wykonano w 19c). Widoki zmienia się przez CREATE OR REPLACE VIEW, a indeksy tworzy się na tabelach bazowych."
+    },
+    "q13-revoke-not-granted": {
+      "prompt": "Twój użytkownik nadał PUBLIC tylko SELECT na lab_t. Co się stanie, gdy wykona REVOKE SELECT, INSERT ON lab_t FROM PUBLIC?",
+      "options": [
+        "ORA-01927: cannot REVOKE privileges you did not grant; SELECT nadal jest nadane.",
+        "SELECT zostaje odebrane, a INSERT po cichu pominięte.",
+        "SELECT zostaje odebrane, a dla INSERT zwracane jest ostrzeżenie.",
+        "ORA-01031: insufficient privileges"
+      ],
+      "explanation": "REVOKE działa na zasadzie wszystko albo nic: ponieważ INSERT nigdy nie nadano, polecenie kończy się błędem ORA-01927 i nic nie jest odbierane. Wykonano w 19c: następne REVOKE SELECT ON lab_t FROM PUBLIC nadal się udało, co dowodzi, że SELECT przetrwało. ORA-01031 oznaczałoby, że w ogóle nie masz prawa odbierać."
+    },
+    "q13-drop-table-grants": {
+      "prompt": "Twój użytkownik nadał PUBLIC SELECT i INSERT na lab_t, a potem wykonuje DROP TABLE lab_t PURGE. Co dzieje się z nadaniami?",
+      "options": [
+        "Są usuwane razem z tabelą.",
+        "Zostają w USER_TAB_PRIVS_MADE i dotyczą nowej tabeli o tej samej nazwie.",
+        "DROP kończy się błędem, dopóki uprawnienia nie zostaną odebrane.",
+        "Zamieniają się w SELECT ANY TABLE dla PUBLIC."
+      ],
+      "explanation": "Uprawnienia obiektowe należą do obiektu, więc jego usunięcie je usuwa; nowa tabela o tej samej nazwie zaczyna bez nadań. Wykonano w 19c: po usunięciu USER_TAB_PRIVS_MADE nie ma wierszy dla tej tabeli. Usunięcie nigdy nie wymaga wcześniejszego odebrania nadań, a uprawnienia obiektowe nigdy nie zamieniają się w systemowe."
+    },
+    "q13-regrant-grantable": {
+      "prompt": "Twój użytkownik wykonuje GRANT SELECT ON lab_t TO PUBLIC, a potem GRANT SELECT ON lab_t TO PUBLIC WITH GRANT OPTION. Co pokazuje USER_TAB_PRIVS_MADE dla lab_t?",
+      "options": [
+        "Jeden wiersz SELECT z GRANTABLE = YES",
+        "Dwa wiersze SELECT, jeden z GRANTABLE = NO i jeden z YES",
+        "Jeden wiersz SELECT z GRANTABLE = NO; drugi GRANT jest pomijany",
+        "Brak wierszy; drugi GRANT kończy się błędem ORA-01700"
+      ],
+      "explanation": "Uprawnienie jest zapisywane raz dla każdej trójki nadający, odbiorca i obiekt; ponowne nadanie WITH GRANT OPTION ulepsza istniejące nadanie. Wykonano w 19c. ORA-01700 (duplicate username in list) pojawia się tylko wtedy, gdy ten sam odbiorca jest wymieniony dwa razy w jednym poleceniu."
+    },
+    "q13-grant-option-role": {
+      "prompt": "Tabela A.T istnieje, podobnie jak użytkownik U i rola R. Które polecenie, wykonane przez A, kończy się błędem?",
+      "options": [
+        "GRANT SELECT ON t TO r WITH GRANT OPTION;",
+        "GRANT SELECT ON t TO u WITH GRANT OPTION;",
+        "GRANT SELECT ON t TO PUBLIC WITH GRANT OPTION;",
+        "GRANT SELECT, UPDATE ON t TO r;"
+      ],
+      "explanation": "WITH GRANT OPTION można dać użytkownikowi albo PUBLIC, ale nie roli (ORA-01926: cannot GRANT to a role WITH GRANT OPTION). Same uprawnienia obiektowe można nadawać rolom bez tej opcji. Wersję z PUBLIC wykonano w 19c i udaje się z GRANTABLE = YES."
+    },
+    "q13-revoke-grant-option-for": {
+      "prompt": "Twój użytkownik nadał PUBLIC SELECT na lab_t WITH GRANT OPTION, a teraz chce, by PUBLIC zachowało SELECT, ale straciło opcję nadawania. Co działa w Oracle?",
+      "options": [
+        "REVOKE SELECT ON lab_t FROM PUBLIC, potem GRANT SELECT ON lab_t TO PUBLIC",
+        "REVOKE GRANT OPTION FOR SELECT ON lab_t FROM PUBLIC",
+        "GRANT SELECT ON lab_t TO PUBLIC WITHOUT GRANT OPTION",
+        "ALTER GRANT SELECT ON lab_t FOR PUBLIC NOGRANT"
+      ],
+      "explanation": "Oracle nie ma polecenia, które odbiera tylko opcję nadawania. REVOKE GRANT OPTION FOR to standardowy SQL (i PostgreSQL), ale Oracle 19c odrzuca go z ORA-00990: missing or invalid privilege (wykonano). Dlatego odbierasz uprawnienie i nadajesz je ponownie bez opcji. Pamiętaj, że odebranie działa kaskadowo na każdego, kto otrzymał uprawnienie przez opcję nadawania."
+    },
+    "q13-insert-column": {
+      "prompt": "Użytkownik U ma INSERT (last_name, email) ON a.staff i żadnych innych uprawnień do tej tabeli. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "U może wstawiać wiersze z wartościami tylko dla last_name i email.",
+        "Wstawienie kończy się błędem, jeśli staff ma kolumnę NOT NULL bez wartości domyślnej spoza nadanych kolumn.",
+        "U może zmieniać last_name i email w istniejących wierszach.",
+        "U może odpytywać wiersze, które wstawił.",
+        "U może wstawiać wartości do dowolnej kolumny, bo INSERT nie da się ograniczyć do kolumn."
+      ],
+      "explanation": "Nadanie INSERT na poziomie kolumn pozwala odbiorcy podawać tylko te kolumny; pozostałe dostają wartość domyślną albo NULL, więc kolumna NOT NULL bez wartości domyślnej sprawia, że każde takie wstawienie kończy się błędem. INSERT nie implikuje UPDATE ani SELECT; każde z nich to osobne uprawnienie obiektowe."
+    },
+    "q13-no-privilege-942": {
+      "prompt": "Użytkownik B nie ma żadnych uprawnień do tabeli A.SECRET. Co B dostaje z SELECT * FROM a.secret?",
+      "options": [
+        "ORA-00942: table or view does not exist",
+        "ORA-01031: insufficient privileges",
+        "Pusty wynik",
+        "Nazwy kolumn, ale bez wierszy"
+      ],
+      "explanation": "Bez żadnego uprawnienia do obiektu Oracle zgłasza ORA-00942, aby użytkownicy nie mogli odkryć, jakie obiekty istnieją. ORA-01031 pojawia się, gdy widzisz obiekt, ale brakuje ci uprawnienia do konkretnej operacji, na przykład UPDATE, gdy masz tylko SELECT. Sprawdź: twój użytkownik dostaje ORA-00942 dla tabeli OBJ$ należącej do SYS."
+    },
+    "q13-tab-privs-made": {
+      "prompt": "Twój użytkownik wykonał GRANT INSERT (name) ON lab_t TO PUBLIC. Który widok słownika pokazuje to nadanie?",
+      "options": [
+        "USER_COL_PRIVS_MADE",
+        "USER_TAB_PRIVS_MADE",
+        "USER_SYS_PRIVS",
+        "USER_TAB_PRIVS_RECD"
+      ],
+      "explanation": "Nadania na poziomie kolumn są wymienione w widokach COL_PRIVS, po jednym wierszu na kolumnę; po wykonaniu w 19c USER_TAB_PRIVS_MADE nie miało wiersza dla INSERT na kolumnie. Twoje nadania na poziomie tabeli są w USER_TAB_PRIVS_MADE, a widoki _RECD pokazują nadania, które otrzymałeś. USER_SYS_PRIVS przechowuje tylko uprawnienia systemowe."
+    },
+    "q13-role-enable": {
+      "prompt": "Gdy użytkownik U jest połączony, DBA nadaje mu rolę R i bezpośrednio uprawnienie obiektowe SELECT na tabeli A.T. Co jest prawdą dla bieżącej sesji U?",
+      "options": [
+        "SELECT na A.T działa od razu; R zaczyna działać po SET ROLE albo w nowej sesji.",
+        "Oba zaczynają działać dopiero w nowej sesji.",
+        "Oba działają natychmiast.",
+        "R działa od razu; uprawnienie obiektowe wymaga nowej sesji."
+      ],
+      "explanation": "Nadania i odebrania uprawnień systemowych i obiektowych działają natychmiast. Nadania i odebrania ról zaczynają działać, gdy sesja włączy rolę przez SET ROLE albo gdy rozpocznie się nowa sesja. Zmiany uprawnień wewnątrz roli, która jest już włączona, też działają natychmiast."
+    },
+    "q13-create-role": {
+      "prompt": "Jakie uprawnienie systemowe jest potrzebne do wykonania CREATE ROLE clerk?",
+      "options": [
+        "CREATE ROLE",
+        "CREATE ANY ROLE",
+        "ALTER ANY ROLE",
+        "CREATE USER"
+      ],
+      "explanation": "Role nie są obiektami schematu, więc nie ma wariantu ANY do ich tworzenia: uprawnienie to po prostu CREATE ROLE. ALTER ANY ROLE, DROP ANY ROLE i GRANT ANY ROLE służą do zarządzania istniejącymi rolami. Twój użytkownik nie ma CREATE ROLE, więc CREATE ROLE kończy się błędem ORA-01031 (wykonano)."
+    },
+    "q13-role-two": {
+      "prompt": "Które dwa stwierdzenia o rolach są prawdziwe?",
+      "options": [
+        "Rolę można chronić hasłem przez IDENTIFIED BY.",
+        "Użytkownik, który otrzymał rolę WITH ADMIN OPTION, może nadawać tę rolę innym użytkownikom.",
+        "Rolę nadaje się z WITH GRANT OPTION, aby odbiorca mógł ją przekazać dalej.",
+        "Odebranie roli użytkownikowi usuwa tabele, które utworzył dzięki uprawnieniom tej roli.",
+        "Rola należy do schematu użytkownika, który ją utworzył."
+      ],
+      "explanation": "Role mogą być chronione hasłem (CREATE ROLE r IDENTIFIED BY pwd); jeśli nie jest rolą domyślną, użytkownik włącza ją przez SET ROLE r IDENTIFIED BY pwd. Role, tak jak uprawnienia systemowe, przekazuje się z WITH ADMIN OPTION; WITH GRANT OPTION dotyczy tylko uprawnień obiektowych. Odebrania nigdy nie usuwają obiektów, a role istnieją poza wszystkimi schematami."
+    },
+    "q13-mix-grants": {
+      "prompt": "Użytkownik U i tabela LAB_T w twoim schemacie istnieją, a nadający ma wszystkie potrzebne uprawnienia. Które dwa polecenia GRANT mają poprawną składnię?",
+      "options": [
+        "GRANT CREATE TABLE, CREATE VIEW TO u;",
+        "GRANT SELECT, UPDATE (name) ON lab_t TO u;",
+        "GRANT CREATE VIEW, SELECT ON lab_t TO u;",
+        "GRANT SELECT (name) ON lab_t TO u;",
+        "GRANT SELECT ON lab_t TO u WITH ADMIN OPTION;"
+      ],
+      "explanation": "Jedno GRANT może wymieniać kilka uprawnień systemowych i ról albo kilka uprawnień obiektowych (na poziomie tabeli i kolumn) na jednym obiekcie, ale nie może mieszać uprawnień systemowych i obiektowych: to kończy się błędem ORA-00990 (wykonano). SELECT nie ma listy kolumn (ORA-00969), a uprawnienia obiektowe przyjmują WITH GRANT OPTION, a nie WITH ADMIN OPTION (ORA-00993)."
+    },
+    "q13-public-two": {
+      "prompt": "Które dwa stwierdzenia o PUBLIC są prawdziwe?",
+      "options": [
+        "Uprawnienie nadane PUBLIC jest dostępne dla każdego użytkownika, także utworzonego później.",
+        "Uprawnienie nadane PUBLIC odbiera się przez REVOKE ... FROM PUBLIC.",
+        "Pojedynczy użytkownik może sam sobie odebrać uprawnienie PUBLIC.",
+        "PUBLIC można usunąć jak każdą inną rolę.",
+        "Nadanie SELECT dla PUBLIC tworzy publiczny synonim tabeli."
+      ],
+      "explanation": "PUBLIC to specjalna grupa, do której należy każdy użytkownik; nie można jej usunąć, a użytkownicy nie mogą z niej wystąpić. Uprawnienie usuwa tylko REVOKE od PUBLIC wykonane przez nadającego albo przez użytkownika z prawem do odbierania. Synonimy to osobne obiekty tworzone przez CREATE PUBLIC SYNONYM."
+    },
+    "q13-direct-views": {
+      "prompt": "Które dwa stwierdzenia o tych widokach słownika danych są prawdziwe?",
+      "options": [
+        "SESSION_PRIVS wymienia uprawnienia systemowe dostępne w sesji, łącznie z tymi z włączonych ról.",
+        "USER_ROLE_PRIVS wymienia role nadane bieżącemu użytkownikowi.",
+        "USER_SYS_PRIVS wymienia otrzymane uprawnienia obiektowe.",
+        "ROLE_SYS_PRIVS wymienia uprawnienia systemowe każdej roli w bazie danych.",
+        "USER_TAB_PRIVS_MADE wymienia nadane przez ciebie uprawnienia systemowe."
+      ],
+      "explanation": "SESSION_PRIVS to zbiór efektywny: nadania bezpośrednie plus włączone role. USER_ROLE_PRIVS pokazuje role nadane tobie, a USER_SYS_PRIVS nadane tobie uprawnienia systemowe. ROLE_SYS_PRIVS obejmuje tylko role, do których masz dostęp, a nie każdą rolę, a widoki TAB_PRIVS dotyczą uprawnień obiektowych."
+    },
+    "q13-grant-via-synonym": {
+      "prompt": "Twój użytkownik ma tabelę lab_t i prywatny synonim lab_s FOR lab_t. Wykonuje GRANT SELECT ON lab_s TO PUBLIC. Co pokazuje USER_TAB_PRIVS_MADE?",
+      "options": [
+        "Jeden wiersz: SELECT na LAB_T, tabeli, na którą wskazuje synonim",
+        "Jeden wiersz: SELECT na LAB_S",
+        "Dwa wiersze: SELECT na LAB_S i na LAB_T",
+        "Brak wierszy; GRANT kończy się błędem ORA-02225, bo nie można nadawać uprawnień na synonimie"
+      ],
+      "explanation": "Synonim to tylko alias, więc nadanie na nim jest nadaniem na obiekcie bazowym: po wykonaniu w 19c i 23ai USER_TAB_PRIVS_MADE pokazało TABLE_NAME = LAB_T z TYPE = TABLE i nic dla LAB_S. Sam synonim nie przechowuje uprawnień, dlatego nie ma ani wiersza LAB_S, ani drugiego wiersza. Nadanie się udaje; późniejsze usunięcie synonimu pozostawia nadanie na tabeli."
+    },
+    "q13-grant-unknown-grantee": {
+      "prompt": "Nie istnieje użytkownik ani rola o nazwie CLERK_X. Co się stanie, gdy twój użytkownik wykona GRANT SELECT ON lab_t TO clerk_x na swojej tabeli?",
+      "options": [
+        "ORA-01917: user or role 'CLERK_X' does not exist",
+        "Nadanie zostanie zapisane i zacznie działać, gdy później powstanie użytkownik CLERK_X.",
+        "ORA-01031: insufficient privileges",
+        "ORA-00942: table or view does not exist"
+      ],
+      "explanation": "Odbiorca musi istnieć w chwili wykonania GRANT, inaczej polecenie kończy się błędem ORA-01917 (wykonano w 19c i 23ai). Oracle nigdy nie przechowuje nadań dla przyszłych użytkowników; tylko nadania dla PUBLIC docierają do użytkowników utworzonych później. ORA-01031 oznaczałoby, że nadającemu brakuje prawa do nadawania, które właściciel zawsze ma na własnej tabeli, a ORA-00942 dotyczy obiektu, a nie odbiorcy."
+    },
+    "q13-revoke-which-succeed": {
+      "prompt": "Twój użytkownik nadał PUBLIC tylko SELECT na swojej tabeli lab_t. Które dwa polecenia się udają, gdy zostaną wykonane samodzielnie?",
+      "options": [
+        "REVOKE ALL ON lab_t FROM PUBLIC;",
+        "REVOKE SELECT ON lab_t FROM PUBLIC CASCADE CONSTRAINTS;",
+        "REVOKE SELECT, INSERT ON lab_t FROM PUBLIC;",
+        "REVOKE SELECT (id) ON lab_t FROM PUBLIC;",
+        "REVOKE SELECT ON lab_t FROM PUBLIC CASCADE;"
+      ],
+      "explanation": "REVOKE ALL odbiera wszystko, co nadający nadał, i nie zgłasza problemu z uprawnieniami, których nigdy nie nadano, a CASCADE CONSTRAINTS jest akceptowane z każdym uprawnieniem obiektowym (ma znaczenie tylko dla REFERENCES). Wymienienie INSERT, którego nigdy nie nadano, kończy się błędem ORA-01927 i nic nie odbiera. SELECT nie ma listy kolumn (ORA-00969), a samo CASCADE nie jest składnią Oracle (ORA-00905 w 19c, ORA-02000 w 23ai). Wszystko wykonano w obu wersjach."
+    },
+    "q13-update-without-privilege": {
+      "prompt": "Twój użytkownik może odpytywać SYS.DUAL, bo SELECT na niej jest nadane PUBLIC. Co zwraca UPDATE sys.dual SET dummy = 'Y'?",
+      "options": [
+        "ORA-01031: insufficient privileges",
+        "ORA-00942: table or view does not exist",
+        "1 row updated",
+        "ORA-02030: can only select from fixed tables/views"
+      ],
+      "explanation": "Twój użytkownik widzi DUAL dzięki uprawnieniu SELECT, ale nie ma uprawnienia UPDATE, więc Oracle zgłasza ORA-01031, zamiast ukrywać tabelę przez ORA-00942 (ten błąd dostajesz, gdy nie masz żadnego uprawnienia). Oracle 23ai zgłasza dokładniejszy błąd ORA-41900: missing UPDATE privilege on \"SYS\".\"DUAL\". ORA-02030 pojawia się przy DML na widokach stałych, takich jak SESSION_PRIVS."
+    },
+    "q13-view-grant-option": {
+      "prompt": "Użytkownik B ma SELECT na A.T bez opcji nadawania i ma CREATE VIEW. B tworzy widok B.V AS SELECT * FROM a.t, a potem wykonuje GRANT SELECT ON v TO c. Co się stanie?",
+      "options": [
+        "GRANT kończy się błędem ORA-01720: grant option does not exist for 'A.T'.",
+        "GRANT się udaje, bo B jest właścicielem widoku.",
+        "Już CREATE VIEW kończy się błędem ORA-01031.",
+        "GRANT się udaje, a C dostaje też bezpośrednio SELECT na A.T."
+      ],
+      "explanation": "B może utworzyć widok, bo może odpytywać A.T dzięki nadaniu bezpośredniemu. Aby pozwolić innym odpytywać widok oparty na cudzej tabeli, właściciel widoku musi mieć uprawnienie bazowe WITH GRANT OPTION; inaczej nadanie kończy się błędem ORA-01720. Bycie właścicielem widoku nie wystarcza, a nadanie na widoku nigdy nie daje odbiorcy uprawnień do tabeli bazowej."
+    },
+    "q13-fix-view-role": {
+      "prompt": "Użytkownik B ma CREATE VIEW i dostaje SELECT na A.T tylko przez rolę R. B może odpytywać A.T, ale CREATE VIEW v AS SELECT * FROM a.t kończy się błędem ORA-01031. Która zmiana to naprawia?",
+      "options": [
+        "A nadaje B bezpośrednio SELECT na A.T.",
+        "B wykonuje SET ROLE r przed utworzeniem widoku.",
+        "A ponownie nadaje B rolę R WITH ADMIN OPTION.",
+        "DBA nadaje B uprawnienie CREATE ANY VIEW."
+      ],
+      "explanation": "Uprawnienia, na których polega właściciel widoku, procedury czy innego obiektu składowanego, muszą być nadane bezpośrednio, bo przy tworzeniu takich obiektów role są ignorowane. Zapytanie działa, bo rola jest włączona w sesji, więc SET ROLE niczego nie zmienia, podobnie jak ADMIN OPTION na roli. CREATE ANY VIEW dotyczy tego, gdzie można utworzyć widok, a nie dostępu do A.T."
+    },
+    "q13-scenario-column-update": {
+      "prompt": "Użytkownik CLERK musi móc czytać wszystkie kolumny twojej tabeli orders i zmieniać tylko kolumnę status. Które polecenie robi dokładnie to?",
+      "options": [
+        "GRANT SELECT, UPDATE (status) ON orders TO clerk;",
+        "GRANT SELECT, UPDATE ON orders TO clerk;",
+        "GRANT SELECT (status), UPDATE (status) ON orders TO clerk;",
+        "GRANT SELECT ANY TABLE, UPDATE ANY TABLE TO clerk;"
+      ],
+      "explanation": "Jedno GRANT może łączyć SELECT na poziomie tabeli z UPDATE na poziomie kolumny; lista kolumn ogranicza UPDATE do status. UPDATE na poziomie tabeli pozwala CLERK zmieniać każdą kolumnę, a SELECT nie przyjmuje listy kolumn (ORA-00969). Uprawnienia ANY to uprawnienia systemowe obejmujące tabele we wszystkich schematach, czyli znacznie więcej, niż trzeba."
+    },
+    "q13-scenario-pass-on": {
+      "prompt": "Liderka zespołu LEAD musi odpytywać twoją tabelę employees i móc pozwolić na to członkom swojego zespołu. Które polecenie należy wykonać?",
+      "options": [
+        "GRANT SELECT ON employees TO lead WITH GRANT OPTION;",
+        "GRANT SELECT ON employees TO lead WITH ADMIN OPTION;",
+        "GRANT SELECT ANY TABLE TO lead WITH ADMIN OPTION;",
+        "GRANT SELECT ON employees TO lead; LEAD może je potem nadać, bo je ma."
+      ],
+      "explanation": "WITH GRANT OPTION to sposób przekazywania uprawnienia obiektowego dalej. WITH ADMIN OPTION dotyczy uprawnień systemowych i ról, a po uprawnieniu obiektowym kończy się błędem ORA-00993 (wykonano). SELECT ANY TABLE otworzyłoby wszystkie tabele w bazie danych, a posiadanie uprawnienia obiektowego bez opcji nadawania nie pozwala go przekazać."
+    },
+    "q13-synonym-three": {
+      "prompt": "Które trzy stwierdzenia o synonimach i uprawnieniach są prawdziwe?",
+      "options": [
+        "Utworzenie prywatnego synonimu we własnym schemacie wymaga uprawnienia systemowego CREATE SYNONYM.",
+        "Utworzenie publicznego synonimu wymaga uprawnienia systemowego CREATE PUBLIC SYNONYM.",
+        "Synonim sam z siebie nie daje dostępu: użytkownicy nadal potrzebują uprawnień do obiektu, na który wskazuje.",
+        "Nadanie SELECT na tabeli dla PUBLIC tworzy dla niej publiczny synonim.",
+        "Każdy użytkownik, który widzi publiczny synonim, może odpytywać tabelę, na którą wskazuje."
+      ],
+      "explanation": "Synonimy tworzy się z własnymi uprawnieniami systemowymi: twój użytkownik ma CREATE SYNONYM, ale CREATE PUBLIC SYNONYM kończy się błędem ORA-01031 (wykonano w 19c i 23ai). Synonim to tylko nazwa; odpytywanie przez niego nadal wymaga SELECT na tabeli bazowej, inaczej ORA-00942. Nadania i synonimy są niezależne, więc nadanie dla PUBLIC nie tworzy synonimu."
+    },
+    "q13-direct-in-session": {
+      "prompt": "Co zwraca to zapytanie dla dowolnego normalnie połączonego użytkownika?",
+      "options": [
+        "0",
+        "Liczbę uprawnień systemowych otrzymanych przez role",
+        "Liczbę uprawnień systemowych nadanych bezpośrednio",
+        "NULL"
+      ],
+      "explanation": "Uprawnienia systemowe nadane bezpośrednio są zawsze aktywne, więc każdy wiersz USER_SYS_PRIVS jest też w SESSION_PRIVS, a różnica jest pusta. W drugą stronę różnica może być niepusta: użytkownik z rolą ma w SESSION_PRIVS więcej uprawnień niż w USER_SYS_PRIVS (w 23ai sama DB_DEVELOPER_ROLE dodaje około 22). Twój schemat ćwiczeniowy ma swoje uprawnienia nadane bezpośrednio i nie ma ról, więc dla ciebie oba kierunki dają 0. COUNT(*) nigdy nie zwraca NULL."
+    },
+    "q13-role-admin-revoke": {
+      "prompt": "DBA nadaje B rolę R WITH ADMIN OPTION, a B nadaje R użytkownikowi C. Potem DBA odbiera R użytkownikowi B. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "C zachowuje rolę R.",
+        "B nie może już nadawać R innym użytkownikom.",
+        "C traci rolę R, bo B otrzymał ją WITH ADMIN OPTION.",
+        "Odebranie kończy się błędem, bo B nadał R innemu użytkownikowi.",
+        "Tabele, które B utworzył dzięki uprawnieniom R, zostają usunięte."
+      ],
+      "explanation": "Role zachowują się jak uprawnienia systemowe: odebranie roli nadanej WITH ADMIN OPTION nie działa kaskadowo, więc C zachowuje R. B traci rolę, a wraz z nią ADMIN OPTION. Odebrania kaskadowe zdarzają się tylko dla uprawnień obiektowych nadanych WITH GRANT OPTION, odebranie nigdy nie kończy się błędem z powodu dalszych nadań, a odbieranie uprawnień nigdy nie usuwa obiektów."
+    },
+    "q13-grant-role-no-admin": {
+      "prompt": "Użytkownik B ma rolę R jako rolę domyślną, bez ADMIN OPTION, i nie ma uprawnienia GRANT ANY ROLE. Co się stanie, gdy B wykona GRANT r TO PUBLIC?",
+      "options": [
+        "Kończy się błędem ORA-01932: ADMIN option not granted for role.",
+        "Udaje się, bo B ma tę rolę.",
+        "Udaje się tylko wtedy, gdy R nie jest chroniona hasłem.",
+        "Kończy się błędem ORA-01926, bo ról nie można nadawać PUBLIC."
+      ],
+      "explanation": "Nadanie roli wymaga roli WITH ADMIN OPTION albo uprawnienia systemowego GRANT ANY ROLE; samo posiadanie roli nie wystarcza. Na przykład użytkownik, który ma tylko DB_DEVELOPER_ROLE (23ai) i wykonuje GRANT db_developer_role TO PUBLIC, dostaje ORA-01932. Role może nadać PUBLIC ktoś, kto ma do tego prawo. ORA-01926 dotyczy WITH GRANT OPTION przekazanego roli."
+    },
+    "q13-cascade-chain": {
+      "prompt": "A nadaje B SELECT na A.T WITH GRANT OPTION. B nadaje je C WITH GRANT OPTION, a C nadaje je D. A nadaje też SELECT na A.T bezpośrednio użytkownikowi D. Potem A odbiera SELECT użytkownikowi B. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "C traci SELECT na A.T.",
+        "D nadal może odpytywać A.T.",
+        "D traci SELECT na A.T, bo odebranie przechodzi kaskadowo przez cały łańcuch.",
+        "B zachowuje SELECT, bo otrzymał je WITH GRANT OPTION.",
+        "Odebranie kończy się błędem, bo B nadał uprawnienie innym."
+      ],
+      "explanation": "Odebranie uprawnienia obiektowego przechodzi kaskadowo na nadania, które od niego zależały: B i C tracą SELECT, podobnie jak nadanie od C dla D. D nadal ma osobne nadanie, które otrzymał bezpośrednio od A, więc zachowuje dostęp; kaskada usuwa tylko nadania, a nie każdą ścieżkę. Opcja nadawania nigdy nie chroni odbiorcy przed odebraniem, a odebranie nigdy nie kończy się błędem z powodu późniejszych nadań."
+    },
+    "q13-connect-resource": {
+      "prompt": "Nowy użytkownik APP musi móc się logować i wykonywać CREATE TABLE we własnym schemacie (limit w przestrzeni tabel jest ustawiany osobno). Które dwa polecenia dają APP obie te możliwości?",
+      "options": [
+        "GRANT CREATE SESSION, CREATE TABLE TO app;",
+        "GRANT CONNECT, RESOURCE TO app;",
+        "GRANT RESOURCE TO app;",
+        "GRANT CONNECT TO app;",
+        "GRANT CREATE ANY TABLE TO app;"
+      ],
+      "explanation": "Logowanie wymaga CREATE SESSION; daje je CONNECT, a RESOURCE daje CREATE TABLE, CREATE SEQUENCE i podobne uprawnienia, ale nie CREATE SESSION (w 23ai ROLE_SYS_PRIVS wymienia RESOURCE bez CREATE SESSION, wykonano). Dlatego samo RESOURCE nie pozwala się zalogować, a samo CONNECT nie pozwala tworzyć tabel. CREATE ANY TABLE bez CREATE SESSION też nie pozwala się zalogować, a do tego jest znacznie szersze, niż trzeba."
+    },
+    "q13-public-and-direct": {
+      "prompt": "A nadał SELECT na A.T użytkownikowi U bezpośrednio, a także PUBLIC. Potem A wykonuje REVOKE SELECT ON t FROM u. Co jest prawdą?",
+      "options": [
+        "U nadal może odpytywać A.T dzięki nadaniu dla PUBLIC.",
+        "U nie może już odpytywać A.T.",
+        "Odebranie kończy się błędem ORA-01927, bo U ma też uprawnienie przez PUBLIC.",
+        "Odebranie usuwa też nadanie dla PUBLIC."
+      ],
+      "explanation": "Każde nadanie jest zapisywane osobno dla każdego odbiorcy. Odebranie usuwa tylko bezpośrednie nadanie dla U, a U zachowuje dostęp jako członek PUBLIC. Aby odebrać dostęp wszystkim, A musi też odebrać go PUBLIC. ORA-01927 pojawia się tylko wtedy, gdy nadający nigdy nie nadał tego uprawnienia temu odbiorcy."
+    },
+    "q13-references-revoke": {
+      "prompt": "Użytkownik U użył uprawnienia REFERENCES na A.DEPT, aby utworzyć klucz obcy w U.EMP. Co się stanie, gdy A wykona REVOKE REFERENCES ON dept FROM u?",
+      "options": [
+        "Kończy się błędem ORA-01981: CASCADE CONSTRAINTS must be specified to perform this revoke.",
+        "Udaje się, a klucz obcy zostaje, ale nie jest już wymuszany.",
+        "Udaje się, a U.EMP zostaje usunięta.",
+        "Udaje się, a klucz obcy zostaje po cichu usunięty."
+      ],
+      "explanation": "Dopóki klucz obcy zależy od uprawnienia REFERENCES, odebranie wymaga CASCADE CONSTRAINTS (inaczej ORA-01981); REVOKE REFERENCES ON dept FROM u CASCADE CONSTRAINTS usuwa wtedy zależne klucze obce. Oracle nigdy nie usuwa tabeli, nie zostawia niewymuszanego ograniczenia i nie usuwa ograniczeń bez wyraźnego polecenia."
+    },
+    "q13-schema-privileges-23ai": {
+      "prompt": "W Oracle Database 23ai wykonujesz GRANT SELECT ANY TABLE ON SCHEMA <your schema> TO PUBLIC, gdzie <your schema> to twój własny schemat. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Każdy użytkownik może odpytywać wszystkie tabele i widoki twojego schematu, także tabele utworzone później.",
+        "Nadanie pojawia się w USER_SCHEMA_PRIVS.",
+        "Kończy się błędem ORA-00990, bo uprawnień ANY nie można ograniczyć do jednego schematu.",
+        "Każdy użytkownik może teraz odpytywać także tabele w innych schematach.",
+        "Pozwala też każdemu użytkownikowi tworzyć tabele w twoim schemacie."
+      ],
+      "explanation": "Uprawnienia do schematu, nowe w 23ai, stosują uprawnienie ANY do jednego schematu i obejmują też obiekty utworzone później. Użytkownik może je nadać na swoim własnym schemacie bez dodatkowych uprawnień: wykonano jako właściciel schematu w 23ai, a wiersz (PUBLIC, SELECT ANY TABLE, <your schema>) pojawił się w USER_SCHEMA_PRIVS. 19c odrzuca tę składnię z ORA-00990. Uprawnienie jest ograniczone do tego schematu i do odpytywania; tworzenie tam tabel to CREATE ANY TABLE ON SCHEMA."
+    },
+    "q13-db-developer-role": {
+      "prompt": "Które dwa stwierdzenia o predefiniowanej roli DB_DEVELOPER_ROLE w Oracle Database 23ai są prawdziwe?",
+      "options": [
+        "Łączy uprawnienia zwykle potrzebne programiście aplikacji, takie jak CREATE SESSION, CREATE DOMAIN i CREATE JOB, i zawiera rolę RESOURCE.",
+        "Nie zawiera żadnych uprawnień systemowych ANY, takich jak SELECT ANY TABLE.",
+        "Zastępuje CONNECT i RESOURCE, które w 23ai już nie istnieją.",
+        "Jest obiektem schematu należącym do SYS i można się do niej odwołać jako sys.db_developer_role.",
+        "Jest domyślnie nadana PUBLIC."
+      ],
+      "explanation": "Sprawdzono w 23ai w ROLE_SYS_PRIVS i ROLE_ROLE_PRIVS: rola wymienia CREATE SESSION, CREATE DOMAIN, CREATE JOB, CREATE MLE i inne, RESOURCE jest jej nadana i nie zawiera żadnego uprawnienia ANY. Twój schemat ćwiczeniowy nie ma tej roli; ma tylko kilka uprawnień CREATE nadanych bezpośrednio (zobacz SESSION_PRIVS). CONNECT i RESOURCE nadal istnieją. Role nigdy nie są obiektami schematu, a tę rolę trzeba nadać jawnie."
+    }
+  },
+  "labs": {
+    "lab-grant-select-insert": {
+      "title": "Udostępnij tabelę wszystkim",
+      "task": "Utwórz tabelę lab_acl_contacts z contact_id NUMBER(6) jako kluczem głównym, full_name VARCHAR2(40) i phone VARCHAR2(20). Potem pozwól każdemu użytkownikowi bazy danych ją odpytywać i dodawać do niej wiersze, bez prawa do przekazywania tych uprawnień dalej.",
+      "hint": "Każdy użytkownik oznacza odbiorcę PUBLIC. Jedno GRANT może wymieniać kilka uprawnień obiektowych.",
+      "hint2": "GRANT SELECT, INSERT ON lab_acl_contacts TO PUBLIC; bez WITH GRANT OPTION. Właściciel nie potrzebuje żadnego uprawnienia, aby nadawać uprawnienia na własnej tabeli."
+    },
+    "lab-grant-column-update": {
+      "title": "UPDATE na poziomie kolumny",
+      "task": "Utwórz tabelę lab_acl_rooms z room_id NUMBER(4) jako kluczem głównym, room_name VARCHAR2(30) i capacity NUMBER(4). Pozwól każdemu użytkownikowi odpytywać tabelę i zmieniać tylko kolumnę capacity.",
+      "hint": "UPDATE przyjmuje listę kolumn w nawiasie po nazwie uprawnienia.",
+      "hint2": "Dwa nadania: GRANT SELECT ON ... TO PUBLIC i GRANT UPDATE (capacity) ON ... TO PUBLIC. UPDATE na poziomie tabeli pozwoliłby zmieniać każdą kolumnę."
+    },
+    "lab-grant-with-grant-option": {
+      "title": "Opcja nadawania dla jednego uprawnienia",
+      "task": "Utwórz tabelę lab_acl_vendors z vendor_id NUMBER(6) jako kluczem głównym i vendor_name VARCHAR2(40). Nadaj PUBLIC SELECT tak, aby odbiorcy mogli je przekazywać dalej, a DELETE bez tego prawa.",
+      "hint": "Opcja, która pozwala odbiorcy przekazać uprawnienie obiektowe dalej, to WITH GRANT OPTION, i dotyczy każdego uprawnienia w danym poleceniu GRANT.",
+      "hint2": "Użyj dwóch poleceń GRANT: jednego z WITH GRANT OPTION dla SELECT i jednego bez niej dla DELETE. Sprawdzenie pokazuje GRANTABLE YES i NO."
+    },
+    "lab-revoke-some": {
+      "title": "Nadaj, potem odbierz",
+      "task": "Utwórz tabelę lab_acl_tickets z ticket_id NUMBER(8) jako kluczem głównym i status VARCHAR2(10). Nadaj na niej PUBLIC SELECT, INSERT i UPDATE, a potem odbierz INSERT i UPDATE tak, aby zostało tylko SELECT.",
+      "hint": "REVOKE lista_uprawnień ON obiekt FROM odbiorca to lustrzane odbicie GRANT ... TO.",
+      "hint2": "REVOKE INSERT, UPDATE ON lab_acl_tickets FROM PUBLIC; Odebranie uprawnienia, którego nigdy nie nadano, kończy się błędem ORA-01927 i nic nie odbiera."
+    },
+    "lab-grant-references": {
+      "title": "Pozwól innym odwoływać się do klucza",
+      "task": "Utwórz tabelę lab_acl_codes z code_id NUMBER(4) jako kluczem głównym i label VARCHAR2(30). Pozwól każdemu użytkownikowi odpytywać tabelę i tworzyć klucze obce odwołujące się do jej kolumny code_id (REFERENCES tylko na tej kolumnie).",
+      "hint": "REFERENCES, podobnie jak INSERT i UPDATE, można nadać na liście kolumn.",
+      "hint2": "Uprawnienia na poziomie tabeli i kolumn można łączyć w jednym poleceniu: GRANT SELECT, REFERENCES (code_id) ON lab_acl_codes TO PUBLIC;"
+    },
+    "lab-grant-all": {
+      "title": "GRANT ALL, potem zawężenie",
+      "task": "Utwórz tabelę lab_acl_archive z doc_id NUMBER(8) jako kluczem głównym i title VARCHAR2(60). Nadaj na niej PUBLIC wszystkie uprawnienia (ALL), potem odbierz je wszystkie i nadaj z powrotem tylko SELECT.",
+      "hint": "ALL to skrót oznaczający wszystkie uprawnienia obiektowe dotyczące obiektu. Po GRANT ALL wykonaj SELECT na user_tab_privs_made, aby zobaczyć listę.",
+      "hint2": "GRANT ALL ON ... TO PUBLIC; REVOKE ALL ON ... FROM PUBLIC; GRANT SELECT ON ... TO PUBLIC;"
+    },
+    "lab-my-sys-privs": {
+      "title": "Twoje uprawnienia systemowe",
+      "task": "Wymień uprawnienia systemowe nadane bieżącemu użytkownikowi i to, czy każde nadano WITH ADMIN OPTION. Zwróć privilege i admin_option, posortowane po privilege.",
+      "hint": "Poszukaj widoku słownika USER_ dotyczącego uprawnień systemowych.",
+      "hint2": "USER_SYS_PRIVS ma kolumny USERNAME, PRIVILEGE i ADMIN_OPTION."
+    },
+    "lab-session-privs-source": {
+      "title": "Nadanie bezpośrednie czy rola?",
+      "task": "Dla każdego uprawnienia systemowego dostępnego w twojej sesji pokaż privilege i source: 'DIRECT', jeśli to uprawnienie jest też nadane ci bezpośrednio (występuje w USER_SYS_PRIVS), w przeciwnym razie 'ROLE'. Posortuj po privilege.",
+      "hint": "SESSION_PRIVS to zbiór efektywny; USER_SYS_PRIVS zawiera tylko nadania bezpośrednie.",
+      "hint2": "Użyj CASE WHEN EXISTS (SELECT 1 FROM user_sys_privs u WHERE u.privilege = s.privilege) THEN 'DIRECT' ELSE 'ROLE' END. Twój użytkownik nie ma ról, więc każdy wiersz pokazuje DIRECT."
+    },
+    "lab-my-roles-count": {
+      "title": "Ile masz ról?",
+      "task": "Zwróć jeden wiersz z liczbą ról nadanych bieżącemu użytkownikowi i liczbą uprawnień systemowych dostępnych obecnie w sesji, jako role_count i session_priv_count.",
+      "hint": "Dwa podzapytania skalarne w SELECT z dual dają jeden wiersz.",
+      "hint2": "USER_ROLE_PRIVS wymienia nadane role; SESSION_PRIVS wymienia efektywne uprawnienia systemowe."
+    },
+    "lab-n13-view-columns": {
+      "title": "Udostępnij część kolumn przez widok",
+      "task": "Utwórz tabelę lab_n13_staff ze staff_id NUMBER(6) jako kluczem głównym, full_name VARCHAR2(40) i salary NUMBER(8,2). Utwórz widok lab_n13_staff_v pokazujący tylko staff_id i full_name. Pozwól każdemu użytkownikowi odpytywać widok, ale na tabeli nic nie nadawaj.",
+      "hint": "SELECT nie można nadać na liście kolumn. Widok, który wymienia tylko dozwolone kolumny, robi to samo.",
+      "hint2": "CREATE VIEW lab_n13_staff_v AS SELECT s.staff_id, s.full_name FROM lab_n13_staff s; potem GRANT SELECT ON lab_n13_staff_v TO PUBLIC;"
+    },
+    "lab-n13-synonym-grant": {
+      "title": "Nadanie przez synonim",
+      "task": "Utwórz tabelę lab_n13_rates z rate_code VARCHAR2(5) jako kluczem głównym i pct NUMBER(5,2) oraz prywatny synonim lab_n13_r dla niej. Używając w GRANT tylko nazwy synonimu, pozwól każdemu użytkownikowi odpytywać i zmieniać tabelę.",
+      "hint": "Synonim to tylko inna nazwa; GRANT przyjmuje ją wszędzie tam, gdzie przyjmuje nazwę tabeli.",
+      "hint2": "GRANT SELECT, UPDATE ON lab_n13_r TO PUBLIC; Potem zajrzyj do USER_TAB_PRIVS_MADE: nadanie jest zapisane na LAB_N13_RATES, a nie na synonimie."
+    },
+    "lab-n13-drop-grant-option": {
+      "title": "Odbierz tylko opcję nadawania",
+      "task": "Utwórz tabelę lab_n13_docs z doc_id NUMBER(6) jako kluczem głównym i title VARCHAR2(60). Nadaj na niej PUBLIC SELECT WITH GRANT OPTION. Potem zmień nadanie tak, aby PUBLIC nadal mogło odpytywać tabelę, ale nie mogło już przekazywać uprawnienia dalej.",
+      "hint": "Oracle nie ma REVOKE GRANT OPTION FOR, a ponowne nadanie bez opcji nie obniża istniejącego nadania.",
+      "hint2": "Odbierz uprawnienie całkowicie, a potem nadaj je ponownie bez WITH GRANT OPTION. Sprawdzenie musi pokazać GRANTABLE = NO."
+    }
+  }
+}
