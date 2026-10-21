@@ -23,6 +23,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from oracle_lab import exams
+
 from . import (
     t01_basic_select,
     t02_restricting_sorting,
@@ -40,7 +42,12 @@ from . import (
     t14_time_zones_intervals,
     t15_oracle_23ai,
 )
-from .objectives import DEFAULT_EXAM, EXAM, EXAMS, OBJECTIVES, SECTION_EXAMS, SECTIONS  # noqa: F401
+from .objectives import OBJECTIVES, SECTION_EXAMS, SECTIONS  # noqa: F401
+
+# The exam facts live in the registry; content keeps the public dicts under the old names.
+EXAMS = {code: exam.public() for code, exam in exams.EXAMS.items()}
+DEFAULT_EXAM = exams.DEFAULT_EXAM
+EXAM = EXAMS[DEFAULT_EXAM]
 
 TOPICS = {
     "t01": "Basic SELECT",

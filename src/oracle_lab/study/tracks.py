@@ -10,7 +10,7 @@ from oracle_lab.study.state import State
 
 def exam_code(state: State) -> str:
     code = state.get("settings", {}).get("exam")
-    return code if code in content.EXAMS else content.DEFAULT_EXAM
+    return code if isinstance(code, str) and code in content.EXAMS else content.DEFAULT_EXAM
 
 
 def track(state: State) -> SimpleNamespace:

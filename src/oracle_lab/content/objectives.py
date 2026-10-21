@@ -15,17 +15,11 @@ re-check against Oracle's exam page). It covers the same SQL areas as 1Z0-071 on
 the app uses sections 1-16 for both exams and adds section 17 for the SQL features new in 23ai.
 Their published weights disagree with each other, so mocks stay one question per objective first.
 
+The exams themselves (code, size, pass mark, database) live in oracle_lab.exams.
+
 Every question, flashcard and exercise has an "objective" key from OBJECTIVES.
 """
 
-EXAMS = {
-    "1Z0-071": {"code": "1Z0-071", "name": "Oracle Database SQL", "database": "Oracle Database 19c",
-                "questions": 63, "minutes": 120, "passing_pct": 63},
-    "1Z0-171": {"code": "1Z0-171", "name": "Oracle AI Database SQL Associate",
-                "database": "Oracle AI Database 23ai", "questions": 60, "minutes": 120, "passing_pct": 65},
-}
-DEFAULT_EXAM = "1Z0-071"
-EXAM = EXAMS[DEFAULT_EXAM]
 # Sections only on one exam; every other section belongs to both.
 SECTION_EXAMS = {"17": ["1Z0-171"]}
 
