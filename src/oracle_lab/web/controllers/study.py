@@ -23,7 +23,7 @@ class StudyController:
                             sql_available=context.sql_available)
 
     def register(self, router: Router) -> None:
-        router.get("/api/content", lambda r: Response.json(self.study(r).track_content()))
+        router.get("/api/content", lambda r: Response.json(self.study(r).track_content(r.language)))
         router.get("/api/state", lambda r: Response.json(self.study(r).state()))
         router.get("/api/progress", lambda r: Response.json(self.study(r).progress()))
         router.get("/report", self.readiness_report)

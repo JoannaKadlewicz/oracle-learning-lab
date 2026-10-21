@@ -232,3 +232,108 @@ Database safety while authoring:
 - Experiment with `server.run_script(sql)` (rolled back) or a connection you roll back.
 - Never COMMIT changes to the sample tables, never run DDL on them, never reset the schema.
 - Drop any `LAB_` objects you create while experimenting.
+
+## Translations
+
+The app speaks English (`en`) and Polish (`pl`). Content stays in the topic modules in its
+**source language**; every other language is an overlay file next to it. The source languages
+are `Pack.source_languages` in `content/__init__.py`: questions, labs and the topic, section and
+objective names are English; **flashcards are Polish** (so flashcards get an `en` overlay, and
+questions and labs a `pl` one). A field without a translation shows the source text.
+
+**Every new item needs its translation entry** (a question or lab in `pl/<topic>.json`, a
+flashcard in `en/<topic>.json`), and every new built-in note its `.pl` sibling.
+
+### Files
+
+    src/oracle_lab/content/i18n/<lang>/<topic>.json   items of one topic (t01 ... t15)
+    src/oracle_lab/content/i18n/<lang>/_pack.json     topic, section and objective names
+    src/oracle_lab/resources/notes/.../<name>.pl.md   Polish text of <name>.md
+    src/oracle_lab/resources/notes/.../<name>.pl.sql  Polish comments of <name>.sql
+    src/oracle_lab/analysis/i18n/pl.json              ORA- error titles and explanations
+    src/oracle_lab/i18n/pl.json                       server messages, exam "about", home-note texts
+
+A topic file maps item ids to the translated fields, in the order the items appear in the topic
+module, each kind only when it has entries:
+
+```json
+{
+  "questions": {
+    "q01-concat-null": {
+      "prompt": "Co zwraca to zapytanie?",
+      "code": "-- || pomija NULL\nSELECT 'King' || NULL || '!' AS r\nFROM   dual;",
+      "options": ["King!", "NULL", "Błąd", "KingNULL!"],
+      "explanation": "W Oracle || traktuje NULL jak pusty tekst, więc wynik to King!, a nie NULL. ..."
+    }
+  },
+  "labs": {
+    "lab-all-departments": {
+      "title": "Wszystkie kolumny departments",
+      "task": "Zwróć wszystkie kolumny tabeli departments w kolejności z definicji tabeli, posortowane po department_id.",
+      "hint": "SELECT * zwraca każdą kolumnę w kolejności, w jakiej ją zdefiniowano."
+    }
+  }
+}
+```
+
+`_pack.json` is `{"topics": {"t01": "..."}, "sections": {"2": "..."}, "objectives": {"2.1": "..."}}`.
+The error overlay is `{"ORA-00904": {"title": "...", "explanation": "..."}}`.
+
+Write files as UTF-8 JSON with 2-space indent and `ensure_ascii=False`, keys in the source order.
+Write **atomically**: write `<name>.json.tmp` in the same directory, then `os.replace` it onto
+`<name>.json`, so another process never reads half a file. Never edit the topic modules, code or
+another batch's files.
+
+### Allowed fields
+
+| Kind | Fields you may translate |
+|---|---|
+| question | `prompt`, `options`, `explanation`, `code`, `try_sql` |
+| lab | `title`, `task`, `hint`, `hint2`, `starter`, `solution` |
+| flashcard | `front`, `back`, `try_sql` |
+
+Only translate fields the source item has. Never copy `id`, `answer`, `columns`, `check`,
+`cleanup`, `try_error` or any other field into an overlay: they are not translated, and the
+validator rejects them.
+
+### Rules
+
+- **SQL fields** (`code`, `try_sql`, `starter`, `solution`) are SQL: translate only the comments
+  (`-- ...` and `/* ... */`). Once comments are removed and whitespace is normalised, the
+  translation must equal the source exactly: same statements, identifiers, literals and sample
+  data. You may add, drop or move comment lines. Leave a SQL field out when it has no comments.
+- **Options** keep their count and order; `answer` indexes point into them, so never reorder,
+  merge or split options. An option that is SQL (it starts with a statement keyword such as
+  `SELECT`, `WITH`, `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `CREATE`, `ALTER`, `DROP`, `GRANT`, or
+  with `col ` / `employees `) must be copied **byte-identical**. Options that are values or output
+  (`King!`, `NULL`, `ORA-01427`) stay as they are; translate only prose ("An error" -> "Błąd").
+- **Placeholders and code spans**: every `{name}` and every backtick span (`` `NVL(a, b)` ``)
+  of the source appears in the translation unchanged, the same number of times.
+- **No empty strings.** Leave a field out instead.
+- Keep every number, row count, column name and technical claim. Keep product and exam names,
+  SQL keywords, function names and ORA- codes in English. Use the glossary in the i18n plan's
+  global constraints and the informal "ty" form ("Wpisz…", "Sprawdź…"); no exclamation marks.
+
+### Notes
+
+A note is translated by a sibling file next to it: `notes.md` -> `notes.pl.md`,
+`examples.sql` -> `examples.pl.sql`. The app serves the sibling under the English path and lists
+only the English file (its title comes from the English file name or heading).
+
+- In a `.pl.md` translate the prose freely, but keep **every fenced code block** (```` ```sql ````)
+  in the same order and count: inside a block translate only the comments; the SQL, and any
+  SQL*Plus output, stays identical once comments are removed.
+- A `.pl.sql` file is the English file with translated comments only.
+
+### Checking
+
+    .venv/bin/oracle-lab validate --static --lang pl --topic t06   # one topic file + topics/06-*/ notes
+    .venv/bin/oracle-lab validate --static --lang en --topic t06   # flashcards of t06 into English
+    .venv/bin/oracle-lab validate --static --lang pl --topic docs  # the docs/ notes
+    .venv/bin/oracle-lab validate --static --lang pl --topic _pack # topic, section and objective names
+    .venv/bin/oracle-lab validate --static --lang pl --complete    # also every missing translation
+
+It must print `Translations (<lang>): 0 problem(s).` for your files. It reports unknown ids
+and fields, items in the wrong topic file, wrong option counts, changed SQL options, SQL fields or
+code blocks that differ outside comments, placeholder and code-span mismatches and empty texts;
+`--complete` also lists every missing item, field, name and note sibling.

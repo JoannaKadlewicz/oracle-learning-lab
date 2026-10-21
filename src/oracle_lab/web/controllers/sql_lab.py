@@ -45,12 +45,13 @@ class SqlLabController:
 
     def run(self, request: Request) -> Response:
         lab, data = self.lab(request), request.json()
-        return Response.json(lab.run(str(data.get("sql", "")), keep=bool(data.get("keep")), card_id=data.get("card")))
+        return Response.json(lab.run(str(data.get("sql", "")), keep=bool(data.get("keep")), card_id=data.get("card"),
+                                     lang=request.language))
 
     def visualize(self, request: Request) -> Response:
         lab = self.lab(request)
         try:
-            return Response.json(lab.visualize(str(request.json().get("sql", ""))))
+            return Response.json(lab.visualize(str(request.json().get("sql", "")), request.language))
         except _NOT_SHOWN_IN_PAGE:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -82,7 +83,7 @@ class ExerciseController:
     def grade(self, request: Request) -> Response:
         exercises, data = self.exercises(request), request.json()
         try:
-            result = exercises.grade(data.get("id"), str(data.get("sql", "")))
+            result = exercises.grade(data.get("id"), str(data.get("sql", "")), request.language)
         except NotFoundError as exc:
             raise HttpError(404, message_of(exc)) from exc
         except _NOT_SHOWN_IN_PAGE:

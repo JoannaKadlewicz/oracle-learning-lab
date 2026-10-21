@@ -13,22 +13,24 @@ from oracle_lab.study.state import StateStore
 from oracle_lab.study.tracks import mock_exam
 
 
-def _report(mock: dict) -> dict[str, Any]:
-    return engine.mock_report(content.for_exam(mock_exam(mock)), mock)
+def _report(mock: dict, lang: str = "en") -> dict[str, Any]:
+    return engine.mock_report(content.for_exam(mock_exam(mock), lang), mock)
 
 
 class MockExamService:
-    def __init__(self, store: StateStore, clock: Clock, sql_available: bool = True):
+    def __init__(self, store: StateStore, clock: Clock, sql_available: bool = True, lang: str = "en"):
         self.store = store
         self.clock = clock
         self.sql_available = sql_available
+        self.lang = lang
 
     def get(self, mock_id: str) -> dict[str, Any]:
         try:
             mock = mocks.find_mock(self.store.load(), mock_id)
         except ValueError as exc:
             raise NotFoundError(message_of(exc)) from exc
-        return {"mock": {**mock, "position": mock.get("position")}, "report": _report(mock) if mock["submitted"] else None}
+        report = _report(mock, self.lang) if mock["submitted"] else None
+        return {"mock": {**mock, "position": mock.get("position")}, "report": report}
 
     def start(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
@@ -43,7 +45,7 @@ class MockExamService:
     def submit(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
             mock = mocks.submit_mock_by_id(state, data, self.clock())
-        return {**snapshot(state, self.clock(), self.sql_available), "report": _report(mock)}
+        return {**snapshot(state, self.clock(), self.sql_available), "report": _report(mock, self.lang)}
 
     def abandon(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:

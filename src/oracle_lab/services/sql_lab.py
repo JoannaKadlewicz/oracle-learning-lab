@@ -40,25 +40,26 @@ class _TrackDatabase:
 
 
 class SqlLabService(_TrackDatabase):
-    def run(self, sql: str, keep: bool, card_id: str | None = None) -> dict[str, Any]:
+    def run(self, sql: str, keep: bool, card_id: str | None = None, lang: str = "en") -> dict[str, Any]:
         """Run a script. From a flashcard with DDL in its sample, the card's cleanup runs before
-        and after, so the sample can be run again and leaves none of its LAB_ objects behind."""
+        and after, so the sample can be run again and leaves none of its LAB_ objects behind.
+        The lab's notes and explanations are in `lang`."""
         database, engine = self.current()
         card = CARDS_BY_ID.get(card_id, {})
         with self.guarded():
             if card.get("cleanup"):
                 engine.run_cleanup(database, card)
-            result = engine.run_script(database, sql, keep_changes=keep, inspect=True)
+            result = engine.run_script(database, sql, keep_changes=keep, inspect=True, lang=lang)
             if card.get("cleanup"):
                 engine.run_cleanup(database, card)
         with self.store.transaction() as state:
             recording.record_history(state, sql, result, self.clock())
         return {**result, "history": state["history"]}
 
-    def visualize(self, sql: str) -> dict[str, Any]:
+    def visualize(self, sql: str, lang: str = "en") -> dict[str, Any]:
         database, engine = self.current()
         with self.guarded():
-            return engine.visualize(database, sql)
+            return engine.visualize(database, sql, lang=lang)
 
     def schema(self) -> dict[str, Any]:
         database, engine = self.current()
@@ -73,13 +74,13 @@ class SqlLabService(_TrackDatabase):
 
 
 class ExerciseService(_TrackDatabase):
-    def grade(self, lab_id: str | None, sql: str) -> dict[str, Any]:
+    def grade(self, lab_id: str | None, sql: str, lang: str = "en") -> dict[str, Any]:
         lab = LABS_BY_ID.get(lab_id)
         if lab is None:
             raise NotFoundError("Unknown exercise")
         database, engine = self.current()
         with self.guarded():
-            result = engine.grade(database, lab, sql)
+            result = engine.grade(database, lab, sql, lang=lang)
         with self.store.transaction() as state:
             recording.record_lab_result(state, lab["id"], sql, result["passed"], self.clock())
         return result

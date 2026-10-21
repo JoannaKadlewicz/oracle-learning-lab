@@ -21,6 +21,7 @@ from pathlib import Path
 
 from oracle_lab import __version__
 from oracle_lab.config import ConfigurationError, Settings
+from oracle_lab.i18n import LANGUAGES
 
 log = logging.getLogger("oracle_lab")
 
@@ -117,6 +118,10 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--coverage", action="store_true", help="print item counts per objective")
     validate.add_argument("--topic", help="run the database checks for one topic only, for example t08")
     validate.add_argument("--exam", help="check one exam's items only, by its exam code")
+    validate.add_argument("--lang", choices=[lang for lang in LANGUAGES],
+                          help="also check the translations into this language (with --topic: one topic's, "
+                               "'docs' for the docs notes, '_pack' for the topic, section and objective names)")
+    validate.add_argument("--complete", action="store_true", help="with --lang: also list every missing translation")
     validate.set_defaults(run=_validate)
 
     demo = commands.add_parser("demo", help="write a simulated study history to PATH")

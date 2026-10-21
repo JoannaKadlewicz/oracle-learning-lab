@@ -86,16 +86,16 @@ class FakeEngine:
     def provisioner(self, target, call_timeout_ms):
         raise NotImplementedError
 
-    def run_script(self, database, script, *, keep_changes=False, inspect=False):
+    def run_script(self, database, script, *, keep_changes=False, inspect=False, lang="en"):
         raise NotImplementedError
 
     def run_cleanup(self, database, item):
         raise NotImplementedError
 
-    def grade(self, database, lab, sql):
+    def grade(self, database, lab, sql, *, lang="en"):
         raise NotImplementedError
 
-    def visualize(self, database, sql):
+    def visualize(self, database, sql, *, lang="en"):
         raise NotImplementedError
 
     def describe(self, database):

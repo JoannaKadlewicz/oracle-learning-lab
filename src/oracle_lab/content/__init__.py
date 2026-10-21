@@ -20,12 +20,14 @@ Lab fields:
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 
 from oracle_lab import exams
+from oracle_lab.i18n import translate
 
+from . import i18n as overlays
 from . import (
     t01_basic_select,
     t02_restricting_sorting,
@@ -94,7 +96,12 @@ class Pack:
     questions: list[dict]
     flashcards: list[dict]
     labs: list[dict]
+    # The language each kind of item is written in ("meta": topic, section and objective names); the
+    # other languages read translation overlays (content/i18n).
+    source_languages: dict[str, str] = field(default_factory=lambda: dict.fromkeys(SOURCE_KINDS, "en"))
 
+
+SOURCE_KINDS = ("questions", "labs", "flashcards", "meta")
 
 TOPICS = {
     "t01": "Basic SELECT",
@@ -134,6 +141,7 @@ PACKS = {
         questions=QUESTIONS,
         flashcards=FLASHCARDS,
         labs=LABS,
+        source_languages={"questions": "en", "labs": "en", "flashcards": "pl", "meta": "en"},
     ),
 }
 
@@ -167,26 +175,60 @@ def item_exams(item: dict, pack: Pack | None = None) -> list[str]:
     return item.get("exams") or pack.topic_exams.get(item.get("topic")) or pack_exams(pack)
 
 
-def _with_needs(items: list[dict], pack: Pack) -> list[dict]:
+def _with_needs(items: list[dict], pack: Pack, lang: str = "en") -> list[dict]:
     """The items, those of a topic that needs a database version as copies carrying "needs"."""
-    return [{**i, "needs": pack.topic_needs[i["topic"]]} if i.get("topic") in pack.topic_needs else i for i in items]
+    needs = {t: {**n, "label": translate(lang, n["label"])} for t, n in pack.topic_needs.items()}
+    return [{**i, "needs": needs[i["topic"]]} if i.get("topic") in needs else i for i in items]
 
 
-def for_exam(code):
-    """The content of one exam track, with the same attributes as this module (used by the engine)."""
+def _localized(kind: str, items: list[dict], pack: Pack, lang: str) -> list[dict]:
+    """The items in `lang`: as they are in their source language, else copies with the overlay applied."""
+    if pack.source_languages.get(kind, "en") == lang:
+        return items
+    overlay = overlays.load(lang)
+    return [overlays.localize(kind, item, overlay) for item in items]
+
+
+def _names(kind: str, names: dict[str, str], pack: Pack, lang: str) -> dict[str, str]:
+    if pack.source_languages.get("meta", "en") == lang:
+        return names
+    overlay = overlays.load(lang)
+    return {key: overlay.name(kind, key, name) for key, name in names.items()}
+
+
+def public_exam(exam: exams.Exam, lang: str = "en") -> dict:
+    """The exam facts for the front end, the about text in `lang`."""
+    facts = exam.public()
+    return {**facts, "about": translate(lang, facts["about"])}
+
+
+def home_notes(pack: Pack, lang: str = "en") -> list[dict]:
+    return [{**n, "title": translate(lang, n["title"]), "blurb": translate(lang, n["blurb"])} for n in pack.home_notes]
+
+
+def for_exam(code, lang: str = "en"):
+    """The content of one exam track in `lang`, with the same attributes as this module (used by the engine).
+    Items not written in `lang` are localized copies; the module's own lists are never changed."""
     exam = exams.get(code)
     pack = PACKS[exam.pack]
     code = exam.code
     sections = {s: t for s, t in pack.sections.items() if code in pack.section_exams.get(s, pack_exams(pack))}
+
+    def items(kind, source):
+        mine = [i for i in source if code in item_exams(i, pack)]
+        return _with_needs(_localized(kind, mine, pack, lang), pack, lang)
+
     return SimpleNamespace(
         CODE=code,
-        EXAM=exam.public(),
+        EXAM=public_exam(exam, lang),
         PACK=pack,
-        HOME_NOTES=list(pack.home_notes),
-        TOPICS={t: n for t, n in pack.topics.items() if code in pack.topic_exams.get(t, pack_exams(pack))},
-        SECTIONS=sections,
-        OBJECTIVES={o: t for o, t in pack.objectives.items() if o.split(".")[0] in sections},
-        QUESTIONS=_with_needs([q for q in pack.questions if code in item_exams(q, pack)], pack),
-        FLASHCARDS=_with_needs([c for c in pack.flashcards if code in item_exams(c, pack)], pack),
-        LABS=_with_needs([lab for lab in pack.labs if code in item_exams(lab, pack)], pack),
+        HOME_NOTES=home_notes(pack, lang),
+        TOPICS=_names("topics", {t: n for t, n in pack.topics.items()
+                                 if code in pack.topic_exams.get(t, pack_exams(pack))}, pack, lang),
+        SECTIONS=_names("sections", sections, pack, lang),
+        OBJECTIVES=_names("objectives", {o: t for o, t in pack.objectives.items() if o.split(".")[0] in sections},
+                          pack, lang),
+        QUESTIONS=items("questions", pack.questions),
+        FLASHCARDS=items("flashcards", pack.flashcards),
+        LABS=items("labs", pack.labs),
     )

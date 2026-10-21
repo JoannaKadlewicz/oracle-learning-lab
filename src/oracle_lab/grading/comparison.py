@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from oracle_lab.i18n import Msg, translate
+
 NULL = "\x00NULL"  # a key for NULL that no string value can collide with
 
 Key = tuple[str, ...]
@@ -49,30 +51,34 @@ def diff_rows(got: list[list], want: list[list], ordered: bool) -> list[dict[str
 
 def _feedback(lab: dict, columns: list[str], rows: list[list], exp_columns: list[str],
               exp_rows: list[list]) -> tuple[bool, list[str]]:
+    """Passed, and the feedback in English (Msg, translated by compare_results)."""
     got, want = normalize_rows(rows), normalize_rows(exp_rows)
     if len(columns) != len(exp_columns):
-        return False, [f"Expected {len(exp_columns)} columns ({', '.join(exp_columns)}), got {len(columns)}."]
+        return False, [Msg.of("Expected {count} columns ({names}), got {got}.", count=len(exp_columns),
+                              names=", ".join(exp_columns), got=len(columns))]
     if len(rows) != len(exp_rows):
-        return False, [f"Expected {len(exp_rows)} rows, got {len(rows)}."]
+        return False, [Msg.of("Expected {count} rows, got {got}.", count=len(exp_rows), got=len(rows))]
     if sorted(got) != sorted(want):
-        feedback = ["Row values differ from the expected result."]
+        feedback = [Msg.of("Row values differ from the expected result.")]
         missing = [r for r in want if r not in got]
         if missing:
-            feedback.append("Example expected row not in your result: "
-                            + ", ".join("NULL" if v == NULL else v for v in missing[0]))
+            feedback.append(Msg.of("Example expected row not in your result: {row}",
+                                   row=", ".join("NULL" if v == NULL else v for v in missing[0])))
         return False, feedback
     if lab.get("ordered", True) and got != want:
-        return False, ["The right rows, but in the wrong order. Check ORDER BY and tie-breakers."]
+        return False, [Msg.of("The right rows, but in the wrong order. Check ORDER BY and tie-breakers.")]
     return True, []
 
 
 def compare_results(lab: dict, columns: list[str], rows: list[list], exp_columns: list[str],
-                    exp_rows: list[list]) -> dict[str, Any]:
+                    exp_rows: list[list], lang: str = "en") -> dict[str, Any]:
     passed, feedback = _feedback(lab, columns, rows, exp_columns, exp_rows)
     if passed and lab.get("kind", "query") == "query":
         expected_names = [c.strip().upper() for c in lab["columns"].split(",")]
         if [c.upper() for c in columns] != expected_names:
-            feedback.append("Correct values. Column names differ from " + lab["columns"] + "; aliases are not graded.")
+            feedback.append(Msg.of("Correct values. Column names differ from {columns}; aliases are not graded.",
+                                   columns=lab["columns"]))
+    feedback = [translate(lang, f) for f in feedback]
     return {
         "passed": passed,
         "feedback": feedback,

@@ -14,9 +14,9 @@ def exam_code(state: State) -> str:
     return code if isinstance(code, str) and code in exams.EXAMS else exams.DEFAULT_EXAM
 
 
-def track(state: State) -> SimpleNamespace:
-    """The content of the exam track chosen in the settings."""
-    return content.for_exam(exam_code(state))
+def track(state: State, lang: str = "en") -> SimpleNamespace:
+    """The content of the exam track chosen in the settings, in `lang`."""
+    return content.for_exam(exam_code(state), lang)
 
 
 def mock_exam(mock: dict) -> str:

@@ -2,6 +2,8 @@
 
 With `inspect` (the interactive lab), every result also carries the transaction state, DML
 results the rows of the target table before and after, and errors an explanation.
+The lab's own notes and explanations are in the run's language; Oracle's error texts and the
+SQL*Plus-style result lines ("1 row inserted.") stay English.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from oracle_lab.database.policy import BLOCKED_MESSAGE, is_blocked
 from oracle_lab.database.query import MAX_ROWS, execute_query, format_error
 from oracle_lab.database.schema import SchemaContext
 from oracle_lab.database.values import to_json_row
+from oracle_lab.i18n import Msg, ntranslate, translate
 from oracle_lab.sqltext.messages import PLSQL_DONE, describe_success
 from oracle_lab.sqltext.statements import Statement, StatementKind, first_words, split_statements, strip_leading_comments
 
@@ -36,7 +39,8 @@ TableSnapshot = tuple[list[str], dict[str, list]]
 class Transaction:
     """What the lab session has changed since the last commit, as shown after each statement."""
 
-    def __init__(self) -> None:
+    def __init__(self, lang: str = "en") -> None:
+        self.lang = lang
         self.pending = 0
         self.savepoints: list[list] = []  # [name, pending rows when it was set]
 
@@ -51,7 +55,8 @@ class Transaction:
             self._rollback(text)
         elif verb == "COMMIT" or verb in DDL_VERBS:
             if verb in DDL_VERBS and self.pending:
-                note = f"This DDL statement committed {self.pending} pending row change{'s' if self.pending != 1 else ''} first."
+                note = ntranslate(self.lang, self.pending, "This DDL statement committed {n} pending row change first.",
+                                  "This DDL statement committed {n} pending row changes first.", n=self.pending)
             self.pending, self.savepoints = 0, []
         return {"pending": self.pending, "savepoints": [sp[0] for sp in self.savepoints], "note": note}
 
@@ -115,11 +120,11 @@ def execute_one(cur: oracledb.Cursor, stmt: Statement) -> dict[str, Any]:
     return {"type": "message", "message": describe_success(stmt.text, cur.rowcount), "ms": elapsed}
 
 
-def client_command_result(stmt: Statement) -> dict[str, Any]:
+def client_command_result(stmt: Statement, lang: str = "en") -> dict[str, Any]:
     m = PROMPT.match(stmt.text)
     if m:
         return {"type": "prompt", "message": m.group(1)}
-    return {"type": "skipped", "message": "SQL*Plus command ignored by the lab."}
+    return {"type": "skipped", "message": translate(lang, Msg.of("SQL*Plus command ignored by the lab."))}
 
 
 class ScriptRunner:
@@ -129,14 +134,14 @@ class ScriptRunner:
         self.database = database
 
     def run(self, script: str, keep_changes: bool = False, stop_on_error: bool = False,
-            inspect: bool = False) -> dict[str, Any]:
+            inspect: bool = False, lang: str = "en") -> dict[str, Any]:
         statements = split_statements(script)
         try:
             conn = self.database.connect()
         except Exception as exc:  # noqa: BLE001 - any failure to connect is reported to the user
             return {"ok": False, "connect_error": format_error(exc), "results": []}
         try:
-            results = self._run_all(conn, statements, stop_on_error, inspect)
+            results = self._run_all(conn, statements, stop_on_error, inspect, lang)
             if keep_changes:
                 conn.commit()
             else:
@@ -147,15 +152,15 @@ class ScriptRunner:
 
     @staticmethod
     def _run_all(conn: oracledb.Connection, statements: list[Statement], stop_on_error: bool,
-                 inspect: bool) -> list[dict[str, Any]]:
+                 inspect: bool, lang: str = "en") -> list[dict[str, Any]]:
         results = []
-        tx = Transaction()
+        tx = Transaction(lang)
         ctx = SchemaContext(conn)
         with conn.cursor() as cur:
             for stmt in statements:
                 entry: dict[str, Any] = {"sql": stmt.text}
                 if stmt.kind is StatementKind.CLIENT:
-                    results.append(entry | client_command_result(stmt))
+                    results.append(entry | client_command_result(stmt, lang))
                     continue
                 target = DML_TARGET.match(strip_leading_comments(stmt.text)) \
                     if inspect and stmt.kind is StatementKind.SQL else None
@@ -163,9 +168,9 @@ class ScriptRunner:
                 try:
                     entry.update(execute_one(cur, stmt))
                 except oracledb.Error as exc:
-                    entry.update({"type": "error", "error": format_error(exc)})
+                    entry.update({"type": "error", "error": translate(lang, format_error(exc))})  # BLOCKED_MESSAGE
                     if inspect:
-                        entry["explain"] = error_hints.explain(entry["error"], stmt.text, ctx)
+                        entry["explain"] = error_hints.explain(entry["error"], stmt.text, ctx, lang)
                         entry["tx"] = tx.after("", 0)
                     results.append(entry)
                     if stop_on_error:

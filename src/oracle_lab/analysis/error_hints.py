@@ -1,15 +1,23 @@
 """Explanations for Oracle errors, with a hint about the query that caused them.
 
-explain(error_text, sql, ctx) returns {"code", "title", "text", "hint", "topic"} or None.
+explain(error_text, sql, ctx, lang) returns {"code", "title", "text", "hint", "topic"} or None, in `lang`:
+titles and explanations from the overlay analysis/i18n/<lang>.json ({code: {"title", "explanation"}}),
+hints through the server catalog. A missing translation falls back to English.
 ctx provides the schema: ctx.columns() -> {TABLE: [COLUMN, ...]} and
 ctx.constraint(name) -> {"table", "type", "columns", "r_table", "r_columns", "condition"} or None.
 Hints are best effort: when the query cannot be analysed, only the general text is shown.
 """
 
 import difflib
+import json
 import re
+from functools import cache
+from pathlib import Path
 
+from oracle_lab.i18n import DEFAULT_LANGUAGE, Msg, ntranslate, translate
 from oracle_lab.sqltext import clauses as sqltext
+
+OVERLAY_DIR = Path(__file__).with_name("i18n")
 
 # code: (title, explanation, topic of the study notes)
 ERRORS = {
@@ -188,7 +196,20 @@ def _select_items(sql):
     return (parts, sqltext.split_commas(parts["select"])) if parts else (None, [])
 
 
-def hint_00904(message, sql, ctx):
+@cache
+def overlay(lang):
+    """{code: {"title", "explanation"}} of `lang`, read once; {} for English or without a file."""
+    file = OVERLAY_DIR / f"{lang}.json"
+    if lang == DEFAULT_LANGUAGE or not file.is_file():
+        return {}
+    return json.loads(file.read_text("utf-8"))
+
+
+def _and(names, lang):
+    return translate(lang, " and ").join(names)
+
+
+def hint_00904(message, sql, ctx, lang="en"):
     names = _quoted_names(message)
     if not names:
         return None
@@ -198,9 +219,10 @@ def hint_00904(message, sql, ctx):
         where = [c for c in ("where", "group", "having") if c in parts and re.search(rf"\b{re.escape(name)}\b", parts[c], re.I)]
         if where:
             clause = {"where": "WHERE", "group": "GROUP BY", "having": "HAVING"}[where[0]]
-            return (f"{name} is a column alias from your SELECT list, used in {clause}. {clause} is evaluated before "
-                    "the SELECT list, so the alias does not exist there yet. Repeat the expression, or wrap the query "
-                    "in an inline view.")
+            return translate(lang, Msg.of(
+                "{name} is a column alias from your SELECT list, used in {clause}. {clause} is evaluated before "
+                "the SELECT list, so the alias does not exist there yet. Repeat the expression, or wrap the query "
+                "in an inline view.", name=name, clause=clause))
     columns = ctx.columns()
     if columns is None:
         return None
@@ -208,19 +230,23 @@ def hint_00904(message, sql, ctx):
         if len(names) == 2:
             prefix = names[0].upper()
             owner = [t for t, cols in columns.items() if name in cols]
-            return (f"The column {name} exists (in {', '.join(sorted(owner))}), but not in the table that {prefix} "
-                    f"refers to, or {prefix} is not an alias or table name of this query block.")
-        return (f"{name} is a column of {', '.join(sorted(t for t, c in columns.items() if name in c))}. "
-                "Is that table in this query block's FROM clause?")
+            return translate(lang, Msg.of(
+                "The column {name} exists (in {tables}), but not in the table that {prefix} refers to, or {prefix} "
+                "is not an alias or table name of this query block.", name=name, tables=", ".join(sorted(owner)),
+                prefix=prefix))
+        return translate(lang, Msg.of(
+            "{name} is a column of {tables}. Is that table in this query block's FROM clause?",
+            name=name, tables=", ".join(sorted(t for t, c in columns.items() if name in c))))
     all_columns = {c for cols in columns.values() for c in cols}
     suggestion = _closest(name, all_columns)
     if suggestion:
         tables = sorted(t for t, c in columns.items() if suggestion in c)
-        return f"No column is called {name}. Did you mean {suggestion} ({', '.join(tables)})?"
-    return f"No table in your schema has a column called {name}."
+        return translate(lang, Msg.of("No column is called {name}. Did you mean {suggestion} ({tables})?",
+                                      name=name, suggestion=suggestion, tables=", ".join(tables)))
+    return translate(lang, Msg.of("No table in your schema has a column called {name}.", name=name))
 
 
-def hint_00942(message, sql, ctx):
+def hint_00942(message, sql, ctx, lang="en"):
     columns = ctx.columns()
     if columns is None:
         return None
@@ -231,7 +257,10 @@ def hint_00942(message, sql, ctx):
             name = words[j + 1].text.strip('"').upper()
             if name not in known and name not in ("SELECT",) and not name.startswith(("USER_", "ALL_", "DBA_", "V$")):
                 suggestion = _closest(name, known)
-                return f"There is no table or view {name} in your schema." + (f" Did you mean {suggestion}?" if suggestion else "")
+                if suggestion:
+                    return translate(lang, Msg.of("There is no table or view {name} in your schema. "
+                                                  "Did you mean {suggestion}?", name=name, suggestion=suggestion))
+                return translate(lang, Msg.of("There is no table or view {name} in your schema.", name=name))
     return None
 
 
@@ -250,25 +279,32 @@ def _non_grouped(sql):
     return parts, missing
 
 
-def hint_00979(message, sql, ctx):
+def hint_00979(message, sql, ctx, lang="en"):
     parts, missing = _non_grouped(sql)
     if missing:
-        return (f"In your SELECT list, {', '.join(missing)} {'is' if len(missing) == 1 else 'are'} not inside a group "
-                "function and not in GROUP BY. Add to GROUP BY, or aggregate it.")
+        return ntranslate(lang, len(missing),
+                          "In your SELECT list, {items} is not inside a group function and not in GROUP BY. "
+                          "Add to GROUP BY, or aggregate it.",
+                          "In your SELECT list, {items} are not inside a group function and not in GROUP BY. "
+                          "Add to GROUP BY, or aggregate it.", items=", ".join(missing))
     if parts and "order" in parts:
-        return "Check ORDER BY too: after GROUP BY it may only use grouped expressions or group functions."
+        return translate(lang, Msg.of(
+            "Check ORDER BY too: after GROUP BY it may only use grouped expressions or group functions."))
     return None
 
 
-def hint_00937(message, sql, ctx):
+def hint_00937(message, sql, ctx, lang="en"):
     parts, missing = _non_grouped(sql)
     if parts and missing and "group" not in parts:
-        return (f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} next to a group function without GROUP BY. "
-                f"Add GROUP BY {', '.join(missing)} for one row per group.")
+        return ntranslate(lang, len(missing),
+                          "{items} is next to a group function without GROUP BY. Add GROUP BY {items} for one row "
+                          "per group.",
+                          "{items} are next to a group function without GROUP BY. Add GROUP BY {items} for one row "
+                          "per group.", items=", ".join(missing))
     return None
 
 
-def hint_00918(message, sql, ctx):
+def hint_00918(message, sql, ctx, lang="en"):
     parts = sqltext.select_parts(sql)
     columns = ctx.columns()
     if not parts or columns is None or "from" not in parts:
@@ -284,55 +320,68 @@ def hint_00918(message, sql, ctx):
                 and t.upper not in unqualified):
             unqualified.append(t.upper)
     if unqualified:
-        return f"{', '.join(unqualified)} exists in {' and '.join(sorted(set(tables)))}. Qualify it, for example with a table alias."
+        return translate(lang, Msg.of("{columns} exists in {tables}. Qualify it, for example with a table alias.",
+                                      columns=", ".join(unqualified), tables=_and(sorted(set(tables)), lang)))
     return None
 
 
-def hint_00933(message, sql, ctx):
+def hint_00933(message, sql, ctx, lang="en"):
     if re.search(r"\b(FROM|JOIN)\s+\w+\s+AS\s+\w+", sql, re.I):
-        return "Oracle does not allow AS before a table alias: write FROM employees e, not FROM employees AS e."
+        return translate(lang, Msg.of(
+            "Oracle does not allow AS before a table alias: write FROM employees e, not FROM employees AS e."))
     compound = sqltext.split_set_operators(sql)
     if compound and any(re.search(r"\bORDER\s+BY\b", b, re.I) for b in compound[0][:-1]):
-        return "ORDER BY may appear only once, after the last query of a UNION, INTERSECT or MINUS."
+        return translate(lang, Msg.of(
+            "ORDER BY may appear only once, after the last query of a UNION, INTERSECT or MINUS."))
     return None
 
 
-def hint_00923(message, sql, ctx):
+def hint_00923(message, sql, ctx, lang="en"):
     parts = sqltext.select_parts(sql)
     select = parts["select"] if parts else ""
     if re.search(r"'[^']*'\s*(,|$)", select) and re.search(r"\s(AS\s+)?'[^']+'\s*(,|$)", select, re.I):
-        return "A column alias goes in double quotes (\"Annual Pay\"); single quotes make a string literal."
-    return "Check the SELECT list for a missing comma between columns, and for aliases with spaces that need double quotes."
+        return translate(lang, Msg.of(
+            "A column alias goes in double quotes (\"Annual Pay\"); single quotes make a string literal."))
+    return translate(lang, Msg.of(
+        "Check the SELECT list for a missing comma between columns, and for aliases with spaces that need double quotes."))
 
 
-def hint_00936(message, sql, ctx):
+def hint_00936(message, sql, ctx, lang="en"):
     if re.search(r",\s*FROM\b", sql, re.I):
-        return "There is a comma right before FROM: remove the trailing comma from the SELECT list."
+        return translate(lang, Msg.of(
+            "There is a comma right before FROM: remove the trailing comma from the SELECT list."))
     return None
 
 
-def _constraint_hint(message, ctx, kind):
+def _constraint_hint(message, ctx, kind, lang="en"):
     m = re.search(r"\((\w+)\.(\w+)\)", message)
     info = ctx.constraint(m.group(2)) if m else None
     if not info:
         return None
     cols = ", ".join(f"{info['table']}.{c}" for c in info["columns"])
+    name = m.group(2)
     if kind == "parent":
-        return (f"{cols} must match an existing {', '.join(info['r_columns'])} in {info['r_table']} "
-                f"(constraint {m.group(2)}).")
+        return translate(lang, Msg.of(
+            "{columns} must match an existing {parent_columns} in {parent} (constraint {name}).",
+            columns=cols, parent_columns=", ".join(info["r_columns"]), parent=info["r_table"], name=name))
     if kind == "child":
-        return (f"Rows in {info['table']} still reference this row through {cols} (constraint {m.group(2)}).")
+        return translate(lang, Msg.of(
+            "Rows in {table} still reference this row through {columns} (constraint {name}).",
+            table=info["table"], columns=cols, name=name))
     if kind == "unique":
-        return f"The value of {cols} already exists (constraint {m.group(2)})."
+        return translate(lang, Msg.of("The value of {columns} already exists (constraint {name}).", columns=cols,
+                                      name=name))
     if kind == "check":
-        return f"The row fails CHECK ({info['condition']}) on {info['table']} (constraint {m.group(2)})."
+        return translate(lang, Msg.of("The row fails CHECK ({condition}) on {table} (constraint {name}).",
+                                      condition=info["condition"], table=info["table"], name=name))
     return None
 
 
-def hint_01400(message, sql, ctx):
+def hint_01400(message, sql, ctx, lang="en"):
     names = _quoted_names(message)
     if len(names) >= 3:
-        return f"{names[-2]}.{names[-1]} cannot be NULL: give it a value in your INSERT."
+        return translate(lang, Msg.of("{table}.{column} cannot be NULL: give it a value in your INSERT.",
+                                      table=names[-2], column=names[-1]))
     return None
 
 
@@ -346,22 +395,24 @@ HINTS = {
     "ORA-00923": hint_00923,
     "ORA-00936": hint_00936,
     "ORA-01400": hint_01400,
-    "ORA-02291": lambda m, s, c: _constraint_hint(m, c, "parent"),
-    "ORA-02292": lambda m, s, c: _constraint_hint(m, c, "child"),
-    "ORA-00001": lambda m, s, c: _constraint_hint(m, c, "unique"),
-    "ORA-02290": lambda m, s, c: _constraint_hint(m, c, "check"),
+    "ORA-02291": lambda m, s, c, lang="en": _constraint_hint(m, c, "parent", lang),
+    "ORA-02292": lambda m, s, c, lang="en": _constraint_hint(m, c, "child", lang),
+    "ORA-00001": lambda m, s, c, lang="en": _constraint_hint(m, c, "unique", lang),
+    "ORA-02290": lambda m, s, c, lang="en": _constraint_hint(m, c, "check", lang),
 }
 
 
-def explain(error_text, sql, ctx):
+def explain(error_text, sql, ctx, lang="en"):
     m = re.search(r"ORA-\d{5}", error_text or "")
     if not m or m.group(0) not in ERRORS:
         return None
     code = m.group(0)
     title, text, topic = ERRORS[code]
+    translated = overlay(lang).get(code) or {}
+    title, text = translated.get("title") or title, translated.get("explanation") or text
     hint = None
     try:
-        hint = HINTS[code](error_text, sql, ctx) if code in HINTS else None
+        hint = HINTS[code](error_text, sql, ctx, lang) if code in HINTS else None
     except Exception:  # noqa: BLE001  a hint is optional; never let it break the error display
         hint = None
     return {"code": code, "title": title, "text": text, "hint": hint, "topic": topic, "note": NOTES[topic]}

@@ -5,6 +5,7 @@ from __future__ import annotations
 import oracledb
 
 from oracle_lab.database.values import to_json_row
+from oracle_lab.i18n import Msg
 from oracle_lab.sqltext.statements import QUERY_VERBS, executable_statements
 
 MAX_ROWS = 500
@@ -72,7 +73,7 @@ def single_query(conn: oracledb.Connection, sql: str) -> Result:
     """(columns, rows) of a script that must hold exactly one SELECT; ValueError otherwise."""
     statements = executable_statements(sql)
     if len(statements) != 1:
-        raise ValueError("Submit exactly one SELECT statement.")
+        raise ValueError(Msg.of("Submit exactly one SELECT statement."))
     if statements[0].verb not in QUERY_VERBS:
-        raise ValueError("Exercises expect a SELECT (or WITH ... SELECT) query.")
+        raise ValueError(Msg.of("Exercises expect a SELECT (or WITH ... SELECT) query."))
     return query_rows(conn, statements[0].executable_text())

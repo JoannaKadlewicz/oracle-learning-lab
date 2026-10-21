@@ -39,19 +39,19 @@ class OracleEngine:
                                  proxy_factory=lambda name: ProxyDatabase(target.gateway, name, timeout))
 
     def run_script(self, database: Database, script: str, *, keep_changes: bool = False,
-                   inspect: bool = False) -> dict[str, Any]:
-        return ScriptRunner(database).run(script, keep_changes=keep_changes, inspect=inspect)
+                   inspect: bool = False, lang: str = "en") -> dict[str, Any]:
+        return ScriptRunner(database).run(script, keep_changes=keep_changes, inspect=inspect, lang=lang)
 
     def run_cleanup(self, database: Database, item: dict) -> None:
         with session(database) as conn:
             labs.run_cleanup(conn, item)
 
-    def grade(self, database: Database, lab: dict, sql: str) -> dict[str, Any]:
-        return labs.grade(database, lab, sql)
+    def grade(self, database: Database, lab: dict, sql: str, *, lang: str = "en") -> dict[str, Any]:
+        return labs.grade(database, lab, sql, lang)
 
-    def visualize(self, database: Database, sql: str) -> dict[str, Any]:
+    def visualize(self, database: Database, sql: str, *, lang: str = "en") -> dict[str, Any]:
         with session(database) as conn:
-            return visualizer.visualize(conn, sql, query_rows)
+            return visualizer.visualize(conn, sql, query_rows, lang)
 
     def describe(self, database: Database) -> dict[str, Any]:
         result = describe_schema(database)

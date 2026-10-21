@@ -6,10 +6,12 @@ join:  for a query over exactly two tables (ANSI JOIN or comma syntax, any WHERE
 set:   for two queries combined with UNION [ALL], INTERSECT or MINUS, each query runs on its own
        and every distinct row is marked with its count in each query and in the result.
 
-visualize(conn, sql, run) returns a dict for the front end, or {"error": "..."} explaining why the
-query is not supported. `run(conn, sql)` executes a query and returns (columns, rows).
+visualize(conn, sql, run, lang) returns a dict for the front end, or {"error": "..."} explaining why the
+query is not supported, in `lang` (Oracle's error texts inside stay English). `run(conn, sql)` executes a
+query and returns (columns, rows).
 """
 
+from oracle_lab.i18n import Msg, translate
 from oracle_lab.sqltext import clauses as sqltext
 
 ROW_LIMIT = 200
@@ -17,26 +19,31 @@ UNSUPPORTED = ("The visualizer shows one join between exactly two tables, or two
                "with UNION, UNION ALL, INTERSECT or MINUS.")
 
 
-def visualize(conn, sql, run):
+def _error(lang, template, **params):
+    return {"error": translate(lang, Msg.of(template, **params))}
+
+
+def visualize(conn, sql, run, lang="en"):
     sql = sqltext.strip_terminator(sql)
     if ";" in [t.text for t in sqltext.tokens(sql)]:
-        return {"error": "Visualize one statement at a time."}
+        return _error(lang, "Visualize one statement at a time.")
     compound = sqltext.split_set_operators(sql)
     if compound:
-        return set_operator(conn, compound, run)
+        return set_operator(conn, compound, run, lang)
     parts = sqltext.select_parts(sql)
     if not parts or "from" not in parts:
-        return {"error": UNSUPPORTED}
+        return _error(lang, UNSUPPORTED)
     refs = sqltext.from_tables(parts["from"])
     if not refs or len(refs) != 2:
-        return {"error": UNSUPPORTED}
-    return join(conn, sql, parts, refs, run)
+        return _error(lang, UNSUPPORTED)
+    return join(conn, sql, parts, refs, run, lang)
 
 
-def join(conn, sql, parts, refs, run):
+def join(conn, sql, parts, refs, run, lang="en"):
     names = [r["alias"] or r["table"] for r in refs]
     if names[0] == names[1]:
-        return {"error": "Give the two tables different aliases (for a self-join: employees e JOIN employees m)."}
+        return {"error": translate(lang, Msg.of(
+            "Give the two tables different aliases (for a self-join: employees e JOIN employees m)."))}
     # Everything from FROM up to (not including) GROUP BY / HAVING / ORDER BY / FETCH.
     end = min([parts[k + "_start"] for k in ("group", "having", "order", "offset", "fetch") if k + "_start" in parts],
               default=len(sql))
@@ -45,14 +52,15 @@ def join(conn, sql, parts, refs, run):
     try:
         _, pairs = run(conn, pairs_sql)
     except Exception as exc:  # noqa: BLE001
-        return {"error": f"Could not trace this join: {first_line(exc)}"}
+        return {"error": translate(lang, Msg.of("Could not trace this join: {error}", error=first_line(exc)))}
     sides = []
     for ref, name, mine, other in ((refs[0], names[0], 0, 1), (refs[1], names[1], 1, 0)):
         try:
             columns, rows = run(conn, f"SELECT ROWIDTOCHAR(t.ROWID) AS row_id__, t.* FROM {ref['table']} t "
                                       f"WHERE ROWNUM <= {ROW_LIMIT}")
         except Exception as exc:  # noqa: BLE001
-            return {"error": f"Could not read {ref['table']}: {first_line(exc)}"}
+            return {"error": translate(lang, Msg.of("Could not read {table}: {error}", table=ref["table"],
+                                                    error=first_line(exc)))}
         partners = {}
         for pair in pairs:
             if pair[mine] is not None:
@@ -67,23 +75,23 @@ def join(conn, sql, parts, refs, run):
     join_type = refs[1]["join"] or ","
     return {
         "kind": "join",
-        "join": "comma syntax (joined in WHERE)" if join_type == "," else join_type,
+        "join": translate(lang, Msg.of("comma syntax (joined in WHERE)")) if join_type == "," else join_type,
         "result_rows": len(pairs),
         "grouped": any(k in parts for k in ("group", "having")) or parts["distinct"],
         "sides": sides,
     }
 
 
-def set_operator(conn, compound, run):
+def set_operator(conn, compound, run, lang="en"):
     branches, ops, _ = compound
     if len(branches) != 2:
-        return {"error": UNSUPPORTED + " Split longer chains into steps."}
+        return {"error": translate(lang, UNSUPPORTED) + " " + translate(lang, Msg.of("Split longer chains into steps."))}
     results = []
     for branch in branches + [f"{branches[0]}\n{ops[0]}\n{branches[1]}"]:
         try:
             results.append(run(conn, branch))
         except Exception as exc:  # noqa: BLE001
-            return {"error": f"Could not run this part: {first_line(exc)}"}
+            return {"error": translate(lang, Msg.of("Could not run this part: {error}", error=first_line(exc)))}
     (columns, first), (_, second), (_, combined) = results
 
     def key(row):

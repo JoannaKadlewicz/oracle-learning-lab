@@ -23,21 +23,35 @@ later checks the 1Z0-171 items, older versions the 1Z0-071 items (an item's "exa
 else both). --exam CODE checks one exam's items only, on that exam's own database (else its fallback's),
 with a warning when the database's version is outside the exam's.
 Changes are rolled back. --reset drops and recreates the ORASTUDY sample tables.
+
+    oracle-lab validate --static --lang pl              # + the Polish translations
+    oracle-lab validate --static --lang pl --topic t06  # one topic's overlay file and notes only
+    oracle-lab validate --static --lang pl --complete   # + every missing translation
+
+Translation checks (translation_problems, see AUTHORING.md "Translations"): overlay files name only known
+items and fields, keep the option count, keep SQL options identical, change SQL fields (code, try_sql,
+starter, solution) only in their comments, keep {placeholders} and `code spans`, and have no empty text.
+Note siblings (notes.pl.md, examples.pl.sql) keep every fenced code block, and every .sql file, identical
+to the English note outside comments. --complete also lists every missing translation.
 Exits with status 1 if any check fails.
 """
 
 import argparse
+import json
 import re
 from collections import Counter
 
 from oracle_lab import content, engines, exams
+from oracle_lab.content import i18n as overlays
 from oracle_lab.database.connection import Database, DatabaseCatalog
 from oracle_lab.database.executor import ScriptRunner
 from oracle_lab.database.query import first_line, format_error, single_query
 from oracle_lab.database.sample_schema import SampleSchema
 from oracle_lab.grading.comparison import compare_results, normalize_rows
 from oracle_lab.grading.labs import DML_LAB_VERBS, LabKind, lab_kind, lab_result, run_cleanup
+from oracle_lab.resources import NOTES_DIR
 from oracle_lab.sqltext.statements import StatementKind, split_statements
+from oracle_lab.study.notes import source_files, translated
 
 QUESTION_KEYS = {"id", "topic", "objective", "prompt", "code", "options", "answer", "explanation",
                  "try_sql", "try_error", "try_error_since", "answer_sql", "equivalent_sql", "exams"}
@@ -247,6 +261,229 @@ def coverage():
             if item.get("objective") in table:
                 table[item["objective"]][col] += 1
     return table
+
+
+# --------------------------------------------------------------------------- translations
+
+KIND_LABELS = {"questions": "question", "labs": "lab", "flashcards": "flashcard"}
+PACK_LABELS = {"topics": "topic", "sections": "section", "objectives": "objective"}
+# An option that is SQL (shown as code): it starts with a statement keyword, or matches the front end's
+# inlineCode pattern. A translation must keep it byte-identical.
+SQL_OPTION = re.compile(r"(?:SELECT|WITH|INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|"
+                        r"COMMIT|ROLLBACK|SAVEPOINT|RENAME|COMMENT|FLASHBACK|PURGE)\b|col |employees ")
+# Comments, and the literals and quoted identifiers that may contain "--" or "/*" without starting one.
+SQL_PIECES = re.compile(r"""[nN]?[qQ]'\[.*?\]'|[nN]?[qQ]'\{.*?\}'|[nN]?[qQ]'\(.*?\)'|[nN]?[qQ]'<.*?>'"""
+                        r"""|[nN]?[qQ]'([^\s\[{(<])(?:.*?)\1'|'(?:[^']|'')*'|"[^"]*"|(--[^\n]*|/\*.*?\*/)""", re.DOTALL)
+PLACEHOLDER = re.compile(r"\{\w+\}")
+CODE_SPAN = re.compile(r"`[^`\n]+`")
+FENCE = re.compile(r"^```[^\n]*\n(.*?)^```", re.DOTALL | re.MULTILINE)
+
+
+def sql_without_comments(sql: str) -> str:
+    """The SQL with its -- and /* */ comments removed, whitespace runs made one space and none kept next to
+    ; , ( or ) (so a comment may sit anywhere a space may)."""
+    text = SQL_PIECES.sub(lambda m: " " if m.group(2) else m.group(0), sql)
+    return re.sub(r" ?([;,()]) ?", r"\1", " ".join(text.split()))
+
+
+def _text_problems(name: str, value: str, source: str) -> list[str]:
+    problems = []
+    if Counter(PLACEHOLDER.findall(value)) != Counter(PLACEHOLDER.findall(source)):
+        problems.append(f"{name} placeholders differ from the source ({', '.join(PLACEHOLDER.findall(source)) or 'none'})")
+    if Counter(CODE_SPAN.findall(value)) != Counter(CODE_SPAN.findall(source)):
+        problems.append(f"{name} code spans differ from the source (keep every `...` span byte-identical)")
+    return problems
+
+
+def _field_problems(kind: str, name: str, value, source) -> list[str]:  # noqa: C901 - one rule after the other
+    """What is wrong with one translated field (empty when it is fine)."""
+    if name == "options":
+        if not (isinstance(value, list) and all(isinstance(o, str) for o in value)):
+            return ["options must be a list of strings"]
+        if len(value) != len(source):
+            return [f"options has {len(value)} entries, the source has {len(source)}"]
+        problems = []
+        for n, (option, original) in enumerate(zip(value, source, strict=True), 1):
+            if not option.strip():
+                problems.append(f"option {n} is empty")
+            elif SQL_OPTION.match(original) and option != original:
+                problems.append(f"option {n} is SQL and must stay identical")
+            else:
+                problems += _text_problems(f"option {n}", option, original)
+        return problems
+    if not isinstance(value, str):
+        return [f"{name} must be a string"]
+    if not value.strip():
+        return [f"{name} is empty"]
+    if source is None:
+        return [f"{name} has no source text to translate"]
+    if name in overlays.SQL_FIELDS:
+        if sql_without_comments(value) != sql_without_comments(source):
+            return [f"{name} differs from the source outside comments"]
+        return []
+    return _text_problems(name, value, source)
+
+
+def _topic_files(lang: str, topic: str | None) -> list[str]:
+    stems = sorted(overlays.load(lang).files)
+    return [s for s in stems if s != overlays.PACK_FILE and (topic is None or s == topic)]
+
+
+def _overlay_problems(lang: str, topic: str | None, complete: bool) -> list[str]:  # noqa: C901
+    overlay = overlays.load(lang)
+    problems = []
+    for stem in _topic_files(lang, topic):
+        data = overlay.files[stem]
+        label = f"{lang}/{stem}.json"
+        if not isinstance(data, dict):
+            problems.append(f"{label}: must be a JSON object")
+            continue
+        for kind in data.keys() - set(overlays.KINDS):
+            problems.append(f"{label}: unknown kind {kind!r}")
+        for kind in overlays.KINDS:
+            entries = data.get(kind, {})
+            if not isinstance(entries, dict):
+                problems.append(f"{label}: {kind} must map ids to fields")
+                continue
+            sources = {i["id"]: i for i in _items(kind)}
+            for item_id, fields in entries.items():
+                where = f"{label}: {KIND_LABELS[kind]} {item_id}"
+                item = sources.get(item_id)
+                if item is None:
+                    problems.append(f"{where}: unknown id")
+                    continue
+                if _source_language(kind, item) == lang:
+                    problems.append(f"{where}: {lang} is the source language of {kind}")
+                    continue
+                if item["topic"] != stem:
+                    problems.append(f"{where}: belongs to {item['topic']}, put it in {lang}/{item['topic']}.json")
+                if not isinstance(fields, dict):
+                    problems.append(f"{where}: must map fields to texts")
+                    continue
+                for name in fields.keys() - set(overlays.FIELDS[kind]):
+                    problems.append(f"{where}: unknown field {name}")
+                for name in fields.keys() & set(overlays.FIELDS[kind]):
+                    problems += [f"{where}: {p}" for p in _field_problems(kind, name, fields[name], item.get(name))]
+    if complete:
+        problems += _missing_items(lang, topic)
+    return problems
+
+
+def _items(kind: str) -> list[dict]:
+    return {"questions": content.QUESTIONS, "labs": content.LABS, "flashcards": content.FLASHCARDS}[kind]
+
+
+def _source_language(kind: str, item: dict) -> str:
+    return content.pack_holding(item).source_languages.get(kind, "en")
+
+
+def _missing_items(lang: str, topic: str | None) -> list[str]:
+    overlay = overlays.load(lang)
+    problems = []
+    for kind in overlays.KINDS:
+        for item in _items(kind):
+            if _source_language(kind, item) == lang or (topic is not None and item["topic"] != topic):
+                continue
+            where = f"{lang}/{item['topic']}.json: {KIND_LABELS[kind]} {item['id']}"
+            found = overlay.item(kind, item["id"])
+            if not found:
+                problems.append(f"{where}: missing")
+                continue
+            problems += [f"{where}: missing {name}" for name in overlays.FIELDS[kind] if name in item and name not in found]
+    return problems
+
+
+def _pack_problems(lang: str, complete: bool) -> list[str]:
+    overlay = overlays.load(lang)
+    label = f"{lang}/{overlays.PACK_FILE}.json"
+    data = overlay.files.get(overlays.PACK_FILE, {})
+    problems = []
+    if not isinstance(data, dict):
+        return [f"{label}: must be a JSON object"]
+    for pack in content.PACKS.values():
+        if pack.source_languages.get("meta", "en") == lang:
+            if data:
+                problems.append(f"{label}: {lang} is the source language of the pack names")
+            return problems
+    names = {"topics": content.TOPICS, "sections": content.SECTIONS, "objectives": content.OBJECTIVES}
+    for kind in data.keys() - set(names):
+        problems.append(f"{label}: unknown kind {kind!r}")
+    for kind, source in names.items():
+        given = data.get(kind, {})
+        if not isinstance(given, dict):
+            problems.append(f"{label}: {kind} must map ids to names")
+            continue
+        for key, name in given.items():
+            where = f"{label}: {PACK_LABELS[kind]} {key}"
+            if key not in source:
+                problems.append(f"{where}: unknown id")
+            elif not (isinstance(name, str) and name.strip()):
+                problems.append(f"{where}: name is empty")
+        if complete:
+            problems += [f"{label}: {PACK_LABELS[kind]} {key}: missing" for key in source if key not in given]
+    return problems
+
+
+def _note_area(rel: str) -> str:
+    """The --topic value that selects a note: "docs", or the topic of topics/NN-name/ ("t06")."""
+    parts = rel.split("/")
+    if parts[0] == "topics" and len(parts) > 1 and parts[1][:2].isdigit():
+        return f"t{parts[1][:2]}"
+    return parts[0]
+
+
+def _note_problems(lang: str, topic: str | None, complete: bool) -> list[str]:
+    if lang == "en" or not NOTES_DIR.is_dir():
+        return []
+    problems = []
+    english = [f for pattern in ("docs/*.md", "topics/*/*.md", "topics/*/*.sql") for f in source_files(NOTES_DIR, pattern)]
+    expected = set()
+    for file in english:
+        rel = file.relative_to(NOTES_DIR).as_posix()
+        if topic is not None and _note_area(rel) != topic:
+            continue
+        sibling = translated(file, lang)
+        expected.add(sibling)
+        label = f"notes/{sibling.relative_to(NOTES_DIR).as_posix()}"
+        if not sibling.is_file():
+            if complete:
+                problems.append(f"notes/{rel}: missing")
+            continue
+        text, source = sibling.read_text("utf-8"), file.read_text("utf-8")
+        if not text.strip():
+            problems.append(f"{label}: is empty")
+        elif file.suffix == ".sql":
+            if sql_without_comments(text) != sql_without_comments(source):
+                problems.append(f"{label}: differs from the English file outside comments")
+        else:
+            mine, theirs = FENCE.findall(text), FENCE.findall(source)
+            if len(mine) != len(theirs):
+                problems.append(f"{label}: {len(mine)} code blocks, the English note has {len(theirs)}")
+            else:
+                problems += [f"{label}: code block {n} differs from the English one outside comments"
+                             for n, (a, b) in enumerate(zip(mine, theirs, strict=True), 1)
+                             if sql_without_comments(a) != sql_without_comments(b)]
+    for pattern in ("docs/*", "topics/*/*"):
+        for file in sorted(NOTES_DIR.glob(pattern)):
+            rel = file.relative_to(NOTES_DIR).as_posix()
+            if (file.name.endswith((f".{lang}.md", f".{lang}.sql")) and file not in expected
+                    and (topic is None or _note_area(rel) == topic)):
+                original = file.with_name(file.name.replace(f".{lang}.", ".", 1)).relative_to(NOTES_DIR).as_posix()
+                problems.append(f"notes/{rel}: no English note {original}")
+    return problems
+
+
+def translation_problems(lang: str, topic: str | None = None, complete: bool = False) -> list[str]:
+    """Problems of the `lang` translations: overlays and note siblings. `topic` narrows the check to one
+    topic's overlay file and notes ("t06"), the docs notes ("docs") or the pack names ("_pack")."""
+    problems = []
+    if topic in (None, overlays.PACK_FILE):
+        problems += _pack_problems(lang, complete)
+    if topic != overlays.PACK_FILE:
+        if topic != "docs":
+            problems += _overlay_problems(lang, topic, complete)
+        problems += _note_problems(lang, topic, complete)
+    return problems
 
 
 def query_or_error(conn, sql):
@@ -463,6 +700,13 @@ def run(args: argparse.Namespace, database: Database, engine: str | None = None)
     errors = static_errors()
     print(f"Structure: {len(content.QUESTIONS)} questions, {len(content.FLASHCARDS)} flashcards, "
           f"{len(content.LABS)} labs, {len(errors)} problem(s).")
+    if getattr(args, "lang", None):
+        try:
+            translations = translation_problems(args.lang, args.topic, getattr(args, "complete", False))
+        except json.JSONDecodeError as exc:
+            translations = [f"{args.lang}: an overlay file is not valid JSON: {exc}"]
+        print(f"Translations ({args.lang}): {len(translations)} problem(s).")
+        errors += translations
 
     if not args.static and not errors:
         if args.reset:

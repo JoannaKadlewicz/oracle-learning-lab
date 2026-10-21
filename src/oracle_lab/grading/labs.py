@@ -20,6 +20,7 @@ from oracle_lab.database.policy import BLOCKED_MESSAGE, is_blocked
 from oracle_lab.database.query import Result, format_error, single_query
 from oracle_lab.database.schema import SchemaContext
 from oracle_lab.grading.comparison import compare_results
+from oracle_lab.i18n import Msg, message_of, translate
 from oracle_lab.sqltext.statements import StatementKind, executable_statements, split_statements
 
 DML_LAB_VERBS = frozenset({"INSERT", "UPDATE", "DELETE", "MERGE", "SAVEPOINT", "ROLLBACK", "SELECT", "WITH"})
@@ -49,20 +50,20 @@ def run_lab_statements(conn: oracledb.Connection, lab: dict, script: str) -> Res
     """Run a dml or ddl lab script, then return the lab's check query result."""
     statements = executable_statements(script)
     if not statements:
-        raise ValueError("Write at least one statement.")
+        raise ValueError(Msg.of("Write at least one statement."))
     with conn.cursor() as cur:
         for n, stmt in enumerate(statements, 1):
             if stmt.kind is StatementKind.PLSQL:
-                raise ValueError(f"Statement {n}: this exercise does not use PL/SQL blocks.")
+                raise ValueError(Msg.of("Statement {n}: this exercise does not use PL/SQL blocks.", n=n))
             if is_blocked(stmt.text):
-                raise ValueError(f"Statement {n}: {BLOCKED_MESSAGE}")
+                raise ValueError(Msg.of("Statement {n}: " + BLOCKED_MESSAGE, n=n))
             if lab_kind(lab) is LabKind.DML and stmt.verb not in DML_LAB_VERBS:
-                raise ValueError(f"Statement {n}: this exercise expects DML only. {stmt.verb} is not allowed "
-                                 "(COMMIT and DDL would make the changes permanent).")
+                raise ValueError(Msg.of("Statement {n}: this exercise expects DML only. {verb} is not allowed "
+                                        "(COMMIT and DDL would make the changes permanent).", n=n, verb=stmt.verb))
             try:
                 cur.execute(stmt.executable_text())
             except oracledb.Error as exc:
-                raise ValueError(f"Statement {n} failed: {format_error(exc)}") from exc
+                raise ValueError(Msg.of("Statement {n} failed: {error}", n=n, error=format_error(exc))) from exc
     return single_query(conn, lab["check"])
 
 
@@ -84,16 +85,18 @@ def lab_result(conn: oracledb.Connection, lab: dict, sql: str) -> Result:
             run_cleanup(conn, lab)
 
 
-def grade(database: Database, lab: dict, sql: str) -> dict[str, Any]:
-    """Grade a submission by comparing its result with the result of the lab's solution."""
+def grade(database: Database, lab: dict, sql: str, lang: str = "en") -> dict[str, Any]:
+    """Grade a submission by comparing its result with the result of the lab's solution; feedback in `lang`
+    (Oracle's own error texts stay as Oracle wrote them)."""
     conn = database.connect()
     try:
         try:
             columns, rows = lab_result(conn, lab, sql)
         except (oracledb.Error, ValueError) as exc:
-            message = format_error(exc)
-            return {"passed": False, "error": message, "explain": error_hints.explain(message, sql, SchemaContext(conn))}
+            message = translate(lang, message_of(exc)) if isinstance(exc, ValueError) else format_error(exc)
+            return {"passed": False, "error": message,
+                    "explain": error_hints.explain(message, sql, SchemaContext(conn), lang)}
         exp_columns, exp_rows = lab_result(conn, lab, lab["solution"])
     finally:
         conn.close()
-    return compare_results(lab, columns, rows, exp_columns, exp_rows)
+    return compare_results(lab, columns, rows, exp_columns, exp_rows, lang)

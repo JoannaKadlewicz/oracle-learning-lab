@@ -23,7 +23,7 @@ version = { attr = "oracle_lab.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-oracle_lab = ["resources/static/**/*", "resources/sql/*.sql", "resources/notes/**/*", "resources/*.txt", "content/*.md", "content/*.json", "i18n/*.json"]
+oracle_lab = ["resources/static/**/*", "resources/sql/*.sql", "resources/notes/**/*", "resources/*.txt", "content/*.md", "content/*.json", "content/i18n/*/*.json", "analysis/i18n/*.json", "i18n/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -33,7 +33,7 @@ class NotesController:
 
     def read(self, request: Request) -> Response:
         path = request.query("path")
-        text = self.notes(request).read(path, self.globs(request))
+        text = self.notes(request).read(path, self.globs(request), request.language)
         if text is None:
             raise HttpError(404, "Not found")
         return Response.json({"path": path, "text": text})

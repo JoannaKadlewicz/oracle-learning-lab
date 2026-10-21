@@ -4,6 +4,10 @@ Notes are addressed by a path relative to the library, e.g. "docs/cheat-sheet.md
 "topics/06-joins/notes.md" or "personal/2026-10-19-outer-joins.md". Only listed notes can be
 read, so a path from the browser can never reach other files.
 
+A built-in note may have translations next to it: "notes.pl.md" or "examples.pl.sql" is the Polish
+text of "notes.md" or "examples.sql". It is served under the English path for that language and is
+never listed itself; the title comes from the English file.
+
 Personal notes are kept as files (FileNotes) or, without a persistent disk, in Oracle
 (accounts.oracle_store.OracleNotes).
 """
@@ -15,6 +19,8 @@ import fnmatch
 import re
 from pathlib import Path
 from typing import Protocol
+
+from oracle_lab.i18n import DEFAULT_LANGUAGE, LANGUAGES
 
 PERSONAL = "personal"
 TITLE_LIMIT = 80
@@ -68,11 +74,15 @@ class NotesLibrary:
         notes += [{"path": f"{PERSONAL}/{name}", "title": f"My notes / {title}"} for name, title in self.personal.entries()]
         return notes
 
-    def read(self, path: str, globs: tuple[str, ...] | None = None) -> str | None:
+    def read(self, path: str, globs: tuple[str, ...] | None = None, lang: str = DEFAULT_LANGUAGE) -> str | None:
+        """The text of a listed note; for a built-in one, its `lang` sibling's text when there is one."""
         if path.startswith(f"{PERSONAL}/"):
             return self.personal.read(path.removeprefix(f"{PERSONAL}/"))
         file = next((f for p, _, f in self._builtin(globs) if p == path), None)
-        return file.read_text(encoding="utf-8") if file else None
+        if file is None:
+            return None
+        sibling = translated(file, lang)
+        return (sibling if sibling.is_file() else file).read_text(encoding="utf-8")
 
     def save(self, title: str, sql: str, now: float) -> str:
         """Save a SQL snippet as a Markdown note; returns its path in the library."""
@@ -85,9 +95,9 @@ class NotesLibrary:
     def _builtin(self, globs: tuple[str, ...] | None = None) -> list[tuple[str, str, Path]]:
         """(library path, title, file) of every built-in note matching globs (all when None), in display order."""
         root = self.builtin_dir
-        entries = [(self._rel(f), f.stem.replace("-", " ").capitalize(), f) for f in sorted((root / "docs").glob("*.md"))]
-        entries += [(self._rel(f), f"{f.parent.name} / {f.stem}", f) for f in sorted((root / "topics").glob("*/*.md"))]
-        entries += [(self._rel(f), f"{f.parent.name} / {f.name}", f) for f in sorted((root / "topics").glob("*/*.sql"))
+        entries = [(self._rel(f), f.stem.replace("-", " ").capitalize(), f) for f in source_files(root / "docs", "*.md")]
+        entries += [(self._rel(f), f"{f.parent.name} / {f.stem}", f) for f in source_files(root / "topics", "*/*.md")]
+        entries += [(self._rel(f), f"{f.parent.name} / {f.name}", f) for f in source_files(root / "topics", "*/*.sql")
                     if f.name not in HIDDEN_FILES]
         if globs is not None:
             entries = [e for e in entries if any(fnmatch.fnmatchcase(e[0], g) for g in globs)]
@@ -95,6 +105,22 @@ class NotesLibrary:
 
     def _rel(self, file: Path) -> str:
         return file.relative_to(self.builtin_dir).as_posix()
+
+
+def translation_language(file: Path) -> str | None:
+    """The language of a translated sibling ("pl" for notes.pl.md), else None."""
+    lang = Path(file.stem).suffix.removeprefix(".")
+    return lang if lang in LANGUAGES and lang != DEFAULT_LANGUAGE else None
+
+
+def source_files(directory: Path, pattern: str) -> list[Path]:
+    """The English notes matching `pattern` under `directory`, sorted, without their translated siblings."""
+    return [f for f in sorted(directory.glob(pattern)) if translation_language(f) is None]
+
+
+def translated(file: Path, lang: str) -> Path:
+    """Where the `lang` sibling of an English note is (notes.md -> notes.pl.md); the note itself for English."""
+    return file if lang == DEFAULT_LANGUAGE else file.with_name(f"{file.stem}.{lang}{file.suffix}")
 
 
 def _heading(file: Path) -> str:
