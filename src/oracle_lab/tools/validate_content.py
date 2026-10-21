@@ -17,8 +17,9 @@ Database checks:
   - query labs: the solution runs, returns rows and the columns the task names
   - dml/ddl labs: the solution changes the check result, and gives the same result twice
   - labs with a starter (a "fix the bug" exercise): the starter does not already pass
-Items are checked on the database of their exam track: Oracle 23ai or later checks the 1Z0-171
-items, older versions the 1Z0-071 items (an item's "exams" field, else its topic's, else both).
+Items are checked on the database of their exam track, chosen through the exam registry: Oracle 23ai or
+later checks the 1Z0-171 items, older versions the 1Z0-071 items (an item's "exams" field, else its topic's,
+else both). --exam CODE checks one exam's items only.
 Changes are rolled back. --reset drops and recreates the ORASTUDY sample tables.
 Exits with status 1 if any check fails.
 """
@@ -27,7 +28,7 @@ import argparse
 import re
 from collections import Counter
 
-from oracle_lab import content
+from oracle_lab import content, exams
 from oracle_lab.database.connection import Database
 from oracle_lab.database.executor import ScriptRunner
 from oracle_lab.database.query import first_line, format_error, single_query
@@ -380,23 +381,27 @@ def lab_db_errors(conn, lab):
     return errors
 
 
-def track_of(conn):
-    """The exam track a database checks: 1Z0-171 on Oracle 23ai or later, else 1Z0-071."""
-    return "1Z0-171" if int(conn.version.split(".")[0]) >= 23 else "1Z0-071"
+def exams_to_check(version: str, only: str | None = None) -> list[str]:
+    """The exam codes to check on a database of this version: those the registry matches, or just `only`."""
+    if only is not None:
+        if only not in exams.EXAMS:
+            raise SystemExit(f"unknown exam: {only}")
+        return [only]
+    return [e.code for e in exams.matching("oracle", int(version.split(".")[0]))]
 
 
-def db_errors(database: Database, topic=None):
+def db_errors(database: Database, topic=None, only=None):
     try:
         conn = database.connect()
     except Exception as exc:  # noqa: BLE001
         return [f"cannot connect: {first_line(format_error(exc))}"]
     errors = []
-    track = track_of(conn)
-    print(f"Database: Oracle {conn.version}, checking the {track} items"
+    codes = exams_to_check(conn.version, only)
+    print(f"Database: Oracle {conn.version}, checking the {' and '.join(codes)} items"
           + (f" of topic {topic}" if topic else "") + ".")
 
     def wanted(item):
-        return track in content.item_exams(item) and (topic is None or item["topic"] == topic)
+        return any(code in content.item_exams(item) for code in codes) and (topic is None or item["topic"] == topic)
 
     try:
         for q in filter(wanted, content.QUESTIONS):
@@ -423,7 +428,7 @@ def run(args: argparse.Namespace, database: Database) -> int:
             if not reset["ok"]:
                 print(f"Reset failed: {reset['error']}")
                 return 1
-        db = db_errors(database, args.topic)
+        db = db_errors(database, args.topic, getattr(args, "exam", None))
         print(f"Database: {len(db)} problem(s).")
         errors += db
 

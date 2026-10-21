@@ -112,6 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--reset", action="store_true", help="reset the sample data before the database checks")
     validate.add_argument("--coverage", action="store_true", help="print item counts per objective")
     validate.add_argument("--topic", help="run the database checks for one topic only, for example t08")
+    validate.add_argument("--exam", help="check one exam's items only, for example 1Z0-171")
     validate.set_defaults(run=_validate)
 
     demo = commands.add_parser("demo", help="write a simulated study history to PATH")
