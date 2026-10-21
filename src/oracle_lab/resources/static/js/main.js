@@ -34,7 +34,8 @@ registerViews({
 // Single-key shortcuts (quiz options, flashcard ratings) never fire while typing.
 document.addEventListener("keydown", e => {
   const t = e.target;
-  const typing = t.isContentEditable || t.closest?.(".CodeMirror, dialog")
+  // The exam picker reads Enter, Space and letters itself (typeahead).
+  const typing = t.isContentEditable || t.closest?.(".CodeMirror, dialog, .exam-picker")
     || ["TEXTAREA", "SELECT"].includes(t.tagName)
     || (t.tagName === "INPUT" && !["radio", "checkbox"].includes(t.type));
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;

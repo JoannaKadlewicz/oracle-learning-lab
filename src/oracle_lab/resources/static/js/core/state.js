@@ -54,7 +54,6 @@ export async function loadContent() {
 export const topicName = id => C.topics[id] || id;
 export const topicNo = id => Number(id.slice(1));
 export const topicLabel = id => `${topicNo(id)}. ${topicName(id)}`;
-export const dbLabel = code => code === "1Z0-171" ? "Oracle 23ai" : "Oracle 19c";
 
 /** Items whose SQL only runs on Oracle 23ai, when the connected database is older. */
 export const blockedOn23ai = item => item.topic === "t15" && DB && DB.major < 23;

@@ -1,14 +1,15 @@
-/* The app chrome around the views: exam switcher, mistakes badge, database status, theme, and
+/* The app chrome around the views: exam picker, mistakes badge, database status, theme, and
    the navigation drawer on narrow screens. */
 
-import { $, $$, esc } from "./core/dom.js";
+import { $, $$ } from "./core/dom.js";
 import { api } from "./core/api.js";
 import { store } from "./core/store.js";
 import { currentUser, signOut } from "./core/session.js";
-import { C, P, mistakes, apply, loadContent, setDatabase, dbLabel, sqlOff } from "./core/state.js";
+import { C, P, mistakes, apply, loadContent, setDatabase, sqlOff } from "./core/state.js";
 import { route, currentView, refresh, onRoute } from "./core/router.js";
 import { toast, toastError, confirmDialog } from "./ui/feedback.js";
 import { setSchema } from "./ui/editor.js";
+import { examPicker } from "./ui/exam-picker.js";
 
 let onExamChange = () => {};
 
@@ -34,8 +35,7 @@ export function applyTheme(theme) {
 /* ---------------------------------------------------------------- exam track */
 
 export function renderExamSwitch() {
-  $("#exam-switch").innerHTML = Object.values(C.exams).map(x =>
-    `<button data-exam="${x.code}" aria-pressed="${x.code === C.exam.code}">${esc(x.code)}<small>${dbLabel(x.code)}</small></button>`).join("");
+  examPicker($("#exam-picker"), { exams: Object.values(C.exams), current: C.exam.code, onPick: switchExam });
   $("#topbar-exam").textContent = C.exam.code;
 }
 
@@ -105,10 +105,6 @@ function initDrawer() {
 export function initShell({ onExamChange: handler }) {
   onExamChange = handler;
   renderExamSwitch();
-  $("#exam-switch").addEventListener("click", e => {
-    const b = e.target.closest("[data-exam]");
-    if (b) switchExam(b.dataset.exam);
-  });
   initDrawer();
   const user = currentUser();
   $("#account-name").textContent = user.display_name;
