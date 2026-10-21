@@ -8,12 +8,14 @@ database and measures your readiness without letting you fool yourself.
 
 ## What makes it different
 
-- **Two exams, one app.** Switch between 1Z0-071 and 1Z0-171 at the top of the menu: each track has its
+- **Two exams, one app.** Pick 1Z0-071 or 1Z0-171 in the exam drop-down at the top of the menu: each track has its
   own question pool, objectives, mock exams (63 questions / 63% or 60 questions / 65%) and readiness.
   Topic 15 covers the SQL new in 23ai (BOOLEAN, IF [NOT] EXISTS, GROUP BY alias, VALUES constructor,
   UPDATE/DELETE with joins, domains, annotations, schema privileges, VECTOR search). Questions whose
   answer changed in 23ai are shown on 1Z0-071 only. With a second database (`STUDY_DSN_23AI`) the
-  SQL lab and the grader switch to Oracle 23ai together with the track.
+  SQL lab and the grader use Oracle 23ai together with the track.
+  To add an exam or a database engine, see "Adding an exam" in
+  [`AUTHORING.md`](src/oracle_lab/content/AUTHORING.md).
 - **Answers are checked by Oracle, not by memory.** 750 original practice questions, 430 of them
   verified on every run by executing SQL, on Oracle 19c for the 1Z0-071 track and Oracle 23ai for 1Z0-171: the correct option must equal the query result, the
   error a statement raises must be the stated ORA- code, and the options of "which queries are

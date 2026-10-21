@@ -136,6 +136,11 @@ and stores its files in `data/oradata-23ai`. While the 1Z0-171 track is chosen, 
 exercises and the grader use it. The validator opens many short sessions, so raise `processes` on
 it before running the validator: `ALTER SYSTEM SET processes=600 SCOPE=SPFILE`, then restart.
 
+Each exam names a database key in `src/oracle_lab/exams.py`. The key `default` uses `STUDY_DSN`;
+any other key adds its upper-case form as a suffix, so 1Z0-171 (key `23ai`) uses `STUDY_DSN_23AI`,
+`STUDY_USER_23AI` and `STUDY_PASSWORD_23AI[_FILE]`. The practice provisioner and gateway variables
+take the same suffix.
+
 ## Only the app (external database)
 
 [`docker/app.Dockerfile`](../docker/app.Dockerfile) builds a small image without Oracle, for a

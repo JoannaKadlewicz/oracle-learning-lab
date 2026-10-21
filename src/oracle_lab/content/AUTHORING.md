@@ -48,6 +48,41 @@ Then, once to load the sample tables into that user and on later runs without `-
     STUDY_DSN=localhost:1522/FREEPDB1 STUDY_USER=oll_validate STUDY_PASSWORD_FILE=<file> \
         .venv/bin/oracle-lab validate --reset
 
+## Adding an exam
+
+An exam is one entry in the registry plus content and a database. Nothing else in the code names an
+exam, so a new one needs no change outside these steps.
+
+1. **Registry entry.** Add an `Exam` to `EXAMS` in `src/oracle_lab/exams.py`: `code`, `name`,
+   `product` (the group in the exam drop-down), `engine` (a key of `ENGINES`), `database` (the
+   database key, see 3), `database_label`, `fallback` (the database key of another exam of the same
+   engine, or `None`), `versions` (engine major versions the exam covers, minimum inclusive and
+   maximum exclusive, `None` for no maximum), `pack`, `questions`, `minutes`, `passing_pct` and
+   `about`. `DEFAULT_EXAM` is the exam shown when nothing is chosen. `exams.problems()` reports
+   registry mistakes (a missing default, an unknown engine, a database key shared by two engines,
+   a bad fallback), and a test runs it.
+2. **Content pack.** Add a `Pack` to `PACKS` in `content/__init__.py` with its topics, sections,
+   objectives, `notes` globs (relative to the notes directory), `home_notes` (the notes the home page
+   links to) and the items, then set the exam's `pack` to its id. To reuse a pack, leave it alone
+   and tag items with `"exams": [...]`. Use `topic_exams` and `section_exams` for topics and
+   sections that belong to some of the pack's exams only, and `topic_needs` for a topic whose items
+   need a database version (`{"major": 23, "label": "Oracle 23ai"}`). An item belongs to every exam
+   of its pack unless its own `exams` list or its topic's `topic_exams` narrows it.
+3. **Database.** Every exam names a database key. `default` is the primary database and uses
+   `STUDY_DSN`, `STUDY_USER` and `STUDY_PASSWORD[_FILE]`. Any other key adds its upper-case form as
+   a suffix: key `23ai` reads `STUDY_DSN_23AI`, `STUDY_USER_23AI` and `STUDY_PASSWORD_23AI[_FILE]`.
+   The key is used only when its `STUDY_DSN` is set. Private practice schemas take the same
+   suffix on `STUDY_PROVISIONER_USER`, `STUDY_PROVISIONER_PASSWORD[_FILE]`, `STUDY_GATEWAY_USER`,
+   `STUDY_GATEWAY_PASSWORD[_FILE]`, `STUDY_PRACTICE_TABLESPACE` and `STUDY_PRACTICE_QUOTA_MB`.
+4. **New engine.** An exam for another database product needs an engine. Implement `engines.Engine`
+   (and its `Provisioner`) in `engines/<name>.py`, register an instance in `ENGINES` in
+   `engines/__init__.py`, and provide the product's sample tables and error explanations.
+   `engines/oracle.py` is the reference. An exam for a product that already has an engine needs none
+   of this.
+5. **Validate.** Run `oracle-lab validate` against the exam's database. It picks the exams to check
+   from the connected database: those whose engine and `versions` match its version. `--exam CODE`
+   checks one exam's items only. Run it once per database, as in the 1Z0-071 and 1Z0-171 example above.
+
 ## Ground rules
 
 - **Original material only.** Never copy or paraphrase real exam questions or dumps.
