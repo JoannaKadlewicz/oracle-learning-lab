@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from oracle_lab import content
+from oracle_lab import content, exams
 from oracle_lab.tools import validate_content
 
 
@@ -133,3 +133,38 @@ def test_flashcard_ddl_samples_only_touch_their_own_objects():
     assert validate_content.check_card({**card, "try_sql": "DROP TABLE employees;"})
     assert validate_content.check_card({**card, "try_sql": "CREATE TABLE lab_other (x NUMBER);"})
     assert validate_content.check_card({**card, "cleanup": "DROP TABLE employees PURGE;"})
+
+
+def test_one_pack_holds_everything():
+    pack = content.PACKS["oracle-sql"]
+    assert set(content.PACKS) == {"oracle-sql"}
+    assert len(pack.questions) == len(content.QUESTIONS) and len(pack.flashcards) == len(content.FLASHCARDS)
+
+
+def test_untagged_items_belong_only_to_their_packs_exams(monkeypatch):
+    fake = exams.Exam(code="PG-1", name="PG", product="PostgreSQL", engine="oracle", database="default",
+                      database_label="x", fallback=None, versions=(1, None), pack="other", questions=1,
+                      minutes=1, passing_pct=1, about="")
+    monkeypatch.setitem(exams.EXAMS, "PG-1", fake)
+    monkeypatch.setitem(content.PACKS, "other", content.Pack(
+        id="other", topics={}, sections={}, objectives={}, topic_exams={}, section_exams={}, topic_needs={},
+        notes=(), home_notes=(), questions=[], flashcards=[], labs=[]))
+    untagged = next(q for q in content.QUESTIONS if "exams" not in q and q["topic"] != "t15")
+    assert content.item_exams(untagged) == ["1Z0-071", "1Z0-171"]
+    assert content.for_exam("PG-1").QUESTIONS == []
+
+
+def test_needs_marks_t15_items_without_mutating_content():
+    view = content.for_exam("1Z0-171")
+    t15 = [c for c in view.FLASHCARDS if c["topic"] == "t15"]
+    assert t15 and all(c["needs"] == {"major": 23, "label": "Oracle 23ai"} for c in t15)
+    assert all("needs" not in c for c in content.FLASHCARDS)
+    assert all("needs" not in q for q in content.for_exam("1Z0-071").QUESTIONS)
+
+
+def test_for_exam_unchanged_for_oracle():  # same filtering as before the packs
+    for code in ("1Z0-071", "1Z0-171"):
+        view = content.for_exam(code)
+        assert [q["id"] for q in view.QUESTIONS] == [q["id"] for q in content.QUESTIONS
+                                                      if code in content.item_exams(q)]
+    assert [h["title"] for h in content.for_exam("1Z0-071").HOME_NOTES] == ["Exam guide 2026", "Cheat sheet"]

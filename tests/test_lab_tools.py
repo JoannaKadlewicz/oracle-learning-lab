@@ -112,3 +112,20 @@ def test_dml_target_table_is_found_for_every_dml_form():
         "DELETE FROM order_items WHERE 1 = 1", "DELETE order_items", "UPDATE employees e SET x = 1",
         "INSERT INTO departments VALUES (1)", "MERGE INTO orastudy.products p USING dual ON (1 = 1)")}
     assert list(found.values()) == ["order_items", "order_items", "employees", "departments", "orastudy.products"]
+
+
+def test_notes_listing_can_be_limited_to_a_packs_globs(tmp_path):
+    builtin = tmp_path / "builtin"
+    (builtin / "docs").mkdir(parents=True)
+    (builtin / "topics" / "01-select").mkdir(parents=True)
+    (builtin / "docs" / "cheat-sheet.md").write_text("# Cheat sheet")
+    (builtin / "topics" / "01-select" / "notes.md").write_text("# Select")
+    notes = NotesLibrary(builtin, FileNotes(tmp_path / "personal"))
+    notes.save("Mine", "SELECT 1 FROM dual;", 1_800_000_000)
+    everything = [n["path"] for n in notes.list()]
+    assert notes.list(None) == notes.list() and "topics/01-select/notes.md" in everything
+    limited = [n["path"] for n in notes.list(("docs/*.md",))]
+    assert "docs/cheat-sheet.md" in limited and not [p for p in limited if p.startswith("topics/")]
+    assert [p for p in limited if p.startswith("personal/")]
+    assert notes.read("topics/01-select/notes.md", globs=("docs/*.md",)) is None
+    assert notes.read("topics/01-select/notes.md") == "# Select"

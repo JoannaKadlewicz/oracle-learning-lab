@@ -11,6 +11,7 @@ Personal notes are kept as files (FileNotes) or, without a persistent disk, in O
 from __future__ import annotations
 
 import datetime
+import fnmatch
 import re
 from pathlib import Path
 from typing import Protocol
@@ -61,15 +62,16 @@ class NotesLibrary:
         self.builtin_dir = builtin_dir
         self.personal = personal
 
-    def list(self) -> list[dict[str, str]]:
-        notes = [{"path": path, "title": title} for path, title, _ in self._builtin()]
+    def list(self, globs: tuple[str, ...] | None = None) -> list[dict[str, str]]:
+        """The notes to show; with globs, the built-in ones are limited to those patterns (personal ones always show)."""
+        notes = [{"path": path, "title": title} for path, title, _ in self._builtin(globs)]
         notes += [{"path": f"{PERSONAL}/{name}", "title": f"My notes / {title}"} for name, title in self.personal.entries()]
         return notes
 
-    def read(self, path: str) -> str | None:
+    def read(self, path: str, globs: tuple[str, ...] | None = None) -> str | None:
         if path.startswith(f"{PERSONAL}/"):
             return self.personal.read(path.removeprefix(f"{PERSONAL}/"))
-        file = next((f for p, _, f in self._builtin() if p == path), None)
+        file = next((f for p, _, f in self._builtin(globs) if p == path), None)
         return file.read_text(encoding="utf-8") if file else None
 
     def save(self, title: str, sql: str, now: float) -> str:
@@ -80,13 +82,15 @@ class NotesLibrary:
         text = f"# {title}\n\nSaved from the SQL lab on {day}.\n\n```sql\n{sql.strip()}\n```\n"
         return f"{PERSONAL}/{self.personal.add(f'{day}-{slug}', title, text)}"
 
-    def _builtin(self) -> list[tuple[str, str, Path]]:
-        """(library path, title, file) of every built-in note, in display order."""
+    def _builtin(self, globs: tuple[str, ...] | None = None) -> list[tuple[str, str, Path]]:
+        """(library path, title, file) of every built-in note matching globs (all when None), in display order."""
         root = self.builtin_dir
         entries = [(self._rel(f), f.stem.replace("-", " ").capitalize(), f) for f in sorted((root / "docs").glob("*.md"))]
         entries += [(self._rel(f), f"{f.parent.name} / {f.stem}", f) for f in sorted((root / "topics").glob("*/*.md"))]
         entries += [(self._rel(f), f"{f.parent.name} / {f.name}", f) for f in sorted((root / "topics").glob("*/*.sql"))
                     if f.name not in HIDDEN_FILES]
+        if globs is not None:
+            entries = [e for e in entries if any(fnmatch.fnmatchcase(e[0], g) for g in globs)]
         return entries
 
     def _rel(self, file: Path) -> str:

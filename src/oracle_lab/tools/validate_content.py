@@ -64,6 +64,7 @@ COUNT_WORDS = {"two": 2, "three": 3, "four": 4}
 def check_fields(kind, item, allowed, required):
     errors = []
     label = f"{kind} {item.get('id', '?')}"
+    pack = content.pack_holding(item)
     if missing := required - item.keys():
         errors.append(f"{label}: missing {', '.join(sorted(missing))}")
     if unknown := item.keys() - allowed:
@@ -73,9 +74,10 @@ def check_fields(kind, item, allowed, required):
             if not isinstance(item[key], bool):
                 errors.append(f"{label}: ordered must be True or False")
         elif key == "exams":
-            if not (isinstance(item[key], list) and item[key] and set(item[key]) <= set(content.EXAMS)):
-                errors.append(f"{label}: exams must be a non-empty list of {', '.join(content.EXAMS)}")
-            elif not set(item[key]) <= set(content.TOPIC_EXAMS.get(item.get("topic"), content.EXAMS)):
+            pack_codes = content.pack_exams(pack)
+            if not (isinstance(item[key], list) and item[key] and set(item[key]) <= set(pack_codes)):
+                errors.append(f"{label}: exams must be a non-empty list of {', '.join(pack_codes)}")
+            elif not set(item[key]) <= set(pack.topic_exams.get(item.get("topic"), pack_codes)):
                 errors.append(f"{label}: exams lists an exam its topic is not part of")
         elif key not in ("options", "answer", "try_error_since") and not (isinstance(item[key], str) and item[key].strip()):
             errors.append(f"{label}: {key} must be a non-empty string")
@@ -83,8 +85,9 @@ def check_fields(kind, item, allowed, required):
         errors.append(f"{label}: unknown topic {item.get('topic')!r}")
     if item.get("objective") not in content.OBJECTIVES:
         errors.append(f"{label}: unknown objective {item.get('objective')!r}")
-    elif not set(content.item_exams(item)) <= set(content.SECTION_EXAMS.get(item["objective"].split(".")[0], content.EXAMS)):
-        errors.append(f"{label}: objective {item['objective']} is not part of {', '.join(content.item_exams(item))}")
+    elif not set(content.item_exams(item, pack)) <= set(
+            pack.section_exams.get(item["objective"].split(".")[0], content.pack_exams(pack))):
+        errors.append(f"{label}: objective {item['objective']} is not part of {', '.join(content.item_exams(item, pack))}")
     return errors
 
 
