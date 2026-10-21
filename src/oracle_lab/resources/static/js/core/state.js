@@ -3,7 +3,8 @@
 
    C  content of the chosen exam track: topics, questions, flashcards, labs
    S  saved progress from the server: attempts, cards, labs, settings
-   P  computed by app/engine.py: mastery, mistakes, due items, daily plan
+   P  computed by app/engine.py: mastery, mistakes, due items, daily plan; plus
+      P.sql_available, the snapshot's top-level flag (false: this user cannot run SQL here)
    DB the connected database: version, major */
 
 import { api } from "./api.js";
@@ -19,6 +20,21 @@ export const CARD = {};
 export function apply(snapshot) {
   S = snapshot.state;
   P = snapshot.progress;
+  if (P) P.sql_available = snapshot.sql_available !== false;
+}
+
+/** The one line shown where a SQL action would be, for users without SQL practice. */
+export const NO_SQL = "SQL practice isn't enabled on this server yet.";
+export const sqlOff = () => P?.sql_available === false;
+
+/** What is left of today's plan after the questions: flashcard ids not reviewed yet, and the
+    exercise when it is planned, not passed, and SQL is available. */
+export function todayLeft() {
+  const plan = P.plan;
+  return {
+    cards: plan.cards.filter(id => !plan.done.cards.includes(id) && CARD[id]),
+    lab: plan.lab && !plan.done.lab && !sqlOff() && L[plan.lab] ? plan.lab : null,
+  };
 }
 
 export function setDatabase(db) { DB = db; }

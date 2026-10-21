@@ -4,7 +4,7 @@
 import { $, $$, esc, inlineCode, icon, plural } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
-import { C, S, L, DB, apply, loadProgress, topicLabel, blockedOn23ai } from "../core/state.js";
+import { C, S, P, L, DB, apply, loadProgress, topicLabel, blockedOn23ai, sqlOff, NO_SQL } from "../core/state.js";
 import { main, go, setTitle } from "../core/router.js";
 import { confirmDialog } from "../ui/feedback.js";
 import { pageHead, loading } from "../ui/widgets.js";
@@ -56,6 +56,7 @@ function render(arg) {
   setTitle(lab.title);
   const st = S.labs[lab.id];
   const kind = kindOf(lab);
+  const off = sqlOff();
   const draft = store("ex:" + lab.id) ?? st?.last ?? lab.starter ?? (kind === "query" ? "SELECT \nFROM   \n" : "");
   const f = { topic: "all", kind: "all", status: "all", ...(store("ex-filter") || {}) };
   const shown = filtered(f);
@@ -110,8 +111,8 @@ function render(arg) {
         <div class="editor-wrap">
           <textarea class="editor" id="ex-sql" aria-label="Your SQL" spellcheck="false" autocapitalize="off">${esc(draft)}</textarea>
           <div class="editor-bar">
-            <button class="btn" id="check-ex">Check <span class="kbd">Ctrl+Enter</span></button>
-            ${kind === "ddl" ? "" : `<button class="btn secondary" id="run-ex">Run without checking</button>`}
+            <button class="btn" id="check-ex" ${off ? "disabled" : ""}>Check <span class="kbd">Ctrl+Enter</span></button>
+            ${kind === "ddl" ? "" : `<button class="btn secondary" id="run-ex" ${off ? "disabled" : ""}>Run without checking</button>`}
             <span class="links">
               ${lab.hint ? `<button class="link-btn" id="show-hint">Show a hint</button>` : ""}
               ${lab.starter ? `<button class="link-btn quiet" id="reset-starter">Restore the starter</button>` : ""}
@@ -119,6 +120,7 @@ function render(arg) {
             </span>
           </div>
         </div>
+        ${off ? `<p class="editor-note">${NO_SQL}</p>` : ""}
         <div class="results" id="ex-results" aria-live="polite">${st?.passed ? `<div class="verdict good"><strong>Passed earlier</strong><p>You solved this in ${plural(st.tries, "attempt")}.</p></div>` : ""}</div>
       </section>
     </div>`;
@@ -127,6 +129,7 @@ function render(arg) {
   const results = $("#ex-results");
 
   const check = async () => {
+    if (off) return;
     results.innerHTML = loading("Checking against the reference solution");
     let res;
     try {
@@ -138,8 +141,11 @@ function render(arg) {
     if (res.error) {
       html = `<div class="verdict bad"><strong>Your ${what} did not run</strong><p class="mono">${esc(res.error)}</p></div>${explainHtml(res.explain) ? `<div class="result">${explainHtml(res.explain)}</div>` : ""}`;
     } else if (res.passed) {
+      // Today's exercise: passing it ends today's session, so the way back to Today comes first.
+      const today = P.plan.lab === lab.id;
       html = `<div class="verdict good"><strong>Correct</strong><p>${res.feedback.length ? esc(res.feedback.join(" ")) : "Rows and order match the reference result."}</p>
-        ${next ? `<div class="row"><button class="btn" id="go-next">Next exercise${icon("next")}</button></div>` : ""}</div>
+        ${today || next ? `<div class="row">${today ? `<a class="btn" href="/">Back to Today</a>` : ""}
+          ${next ? `<button class="btn ${today ? "secondary" : ""}" id="go-next">Next exercise${icon("next")}</button>` : ""}</div>` : ""}</div>
         <div class="result">${gridHtml(res.columns, res.rows)}</div>`;
     } else {
       html = `<div class="verdict bad"><strong>Not yet</strong><p>${esc(res.feedback.join(" "))}</p></div>

@@ -162,10 +162,12 @@ function render() {
     else if (kind === "more") startQuiz({ mode: "practice", count: 10 });
     // The next unfinished step: questions, then flashcards, then the exercise.
     else if (kind === "questions" || (kind === "next" && questionsLeft.length)) {
-      // Today's own session, still stored, picks up where it was; one from the Quiz page is replaced.
-      if (practiceSession()?.fromToday) return resumePractice();
+      // Today's own session, still stored, picks up where it was; one from the Quiz page, or one Today
+      // started on an earlier day (its questions are not all in today's plan), is replaced.
+      const stored = practiceSession();
+      if (stored?.fromToday && stored.ids.every(id => plan.questions.includes(id))) return resumePractice();
       startQuiz({ mode: "practice", ids: questionsLeft.length ? questionsLeft : plan.questions, keepOrder: true, fromToday: true });
-    } else if (kind === "cards" || cardsLeft.length) openDeck((cardsLeft.length ? cardsLeft : plan.cards).map(id => CARD[id]), true);
+    } else if (kind === "cards" || cardsLeft.length) openDeck((cardsLeft.length ? cardsLeft : plan.cards).map(id => CARD[id]).filter(Boolean), true, { fromToday: true });
     else if (lab) go(`/exercises/${lab.id}`);
   }));
   $$("[data-topic]", main).forEach(b => b.addEventListener("click", () => startQuiz({ mode: "practice", topics: [b.dataset.topic], count: 10 })));

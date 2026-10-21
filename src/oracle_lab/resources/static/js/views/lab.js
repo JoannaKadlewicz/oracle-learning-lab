@@ -4,7 +4,7 @@
 import { $, $$, esc, plural } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
-import { S, DB } from "../core/state.js";
+import { S, DB, sqlOff, NO_SQL } from "../core/state.js";
 import { main } from "../core/router.js";
 import { toast, toastError, confirmDialog, promptDialog } from "../ui/feedback.js";
 import { pageHead, loading } from "../ui/widgets.js";
@@ -22,6 +22,7 @@ export function labDraft(sql) {
 }
 
 async function render() {
+  const off = sqlOff();
   const where = DB ? `Oracle ${esc(DB.version.split(".").slice(0, 2).join("."))}` : "your Oracle database";
   main.innerHTML = `
     ${pageHead("SQL lab", `Run any SQL against the learning schema on ${where}. Separate statements with semicolons, end PL/SQL blocks with a line holding only <code>/</code>, and select text to run only that part.`)}
@@ -30,12 +31,12 @@ async function render() {
         <div class="editor-wrap">
           <textarea class="editor" id="sql" aria-label="SQL" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(labDraft())}</textarea>
           <div class="editor-bar">
-            <button class="btn" id="run"><span>Run</span> <span class="kbd">Ctrl+Enter</span></button>
-            <button class="btn secondary" id="visualize" title="Show how the rows of two joined tables, or of two combined queries, end up in the result">Visualize rows</button>
-            <label class="check small"><input type="checkbox" id="keep" ${store("keep") ? "checked" : ""}> Commit changes</label>
+            <button class="btn" id="run" ${off ? "disabled" : ""}><span>Run</span> <span class="kbd">Ctrl+Enter</span></button>
+            <button class="btn secondary" id="visualize" ${off ? "disabled" : ""} title="Show how the rows of two joined tables, or of two combined queries, end up in the result">Visualize rows</button>
+            <label class="check small"><input type="checkbox" id="keep" ${store("keep") ? "checked" : ""} ${off ? "disabled" : ""}> Commit changes</label>
             <span class="links">
               <button class="link-btn" id="save-note">Save as note</button>
-              <button class="link-btn quiet" id="reset-data">Restore sample data</button>
+              <button class="link-btn quiet" id="reset-data" ${off ? "disabled" : ""}>Restore sample data</button>
             </span>
           </div>
         </div>
@@ -43,7 +44,7 @@ async function render() {
         <div class="results" id="results" aria-live="polite"></div>
       </div>
       <aside class="lab-side panel side-panel" aria-label="Tables and history">
-        <h3>Tables</h3><div class="schema" id="schema">${loading("Loading tables")}</div>
+        <h3 ${off ? "hidden" : ""}>Tables</h3><div class="schema" id="schema" ${off ? "hidden" : ""}>${off ? "" : loading("Loading tables")}</div>
         <h3>History</h3><div id="history"></div>
       </aside>
     </div>`;
@@ -53,7 +54,7 @@ async function render() {
   const editor = makeEditor($("#sql"), { onRun: () => run(), onChange: v => labDraft(v) });
   editor.onSelection(has => { $("#run span").textContent = has ? "Run selection" : "Run"; });
   const note = () => {
-    $("#keep-note").textContent = keep.checked
+    $("#keep-note").textContent = off ? NO_SQL : keep.checked
       ? "Changes are committed after each run."
       : "Changes are rolled back after each run. DDL (CREATE, DROP, TRUNCATE…) always commits at once, including any DML before it.";
   };
@@ -73,6 +74,7 @@ async function render() {
   const refreshSchema = async () => { invalidateSchema(); $("#schema").innerHTML = await schemaHtml(); };
 
   const run = async () => {
+    if (off) return;
     const btn = $("#run");
     btn.disabled = true;
     results.innerHTML = loading("Running");
@@ -126,7 +128,7 @@ async function render() {
     editor.set(`SELECT *\nFROM   ${t.dataset.insert};`);
     editor.focus();
   });
-  $("#schema").innerHTML = await schemaHtml();
+  if (!off) $("#schema").innerHTML = await schemaHtml();
 }
 
 export const labView = { title: "SQL lab", render };

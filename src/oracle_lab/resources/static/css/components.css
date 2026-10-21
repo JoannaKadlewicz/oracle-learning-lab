@@ -74,6 +74,7 @@
 }
 .link-btn:hover { text-decoration-thickness: 2px; }
 .link-btn.quiet { color: var(--muted); }
+.link-btn:disabled { color: var(--muted); text-decoration: none; cursor: not-allowed; opacity: .6; }
 
 .icon-btn {
   display: inline-grid;

@@ -4,13 +4,14 @@
 import { $, $$, esc, inlineCode, plural, shuffle, icon, LETTERS } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store, forget } from "../core/store.js";
-import { C, S, P, Q, apply, topicLabel, blockedOn23ai, mistakes } from "../core/state.js";
+import { C, S, P, Q, CARD, apply, topicLabel, blockedOn23ai, mistakes, sqlOff, NO_SQL, todayLeft } from "../core/state.js";
 import { main, go, currentView, setLeaveGuard } from "../core/router.js";
 import { toast, clearToast, toastError, confirmDialog, closeDialogs } from "../ui/feedback.js";
 import { meter, pageHead, section } from "../ui/widgets.js";
 import { readinessHtml } from "../ui/charts.js";
 import { refreshNav } from "../shell.js";
 import { labDraft } from "./lab.js";
+import { openDeck } from "./cards.js";
 
 let quiz = null;
 let timerHandle = null;
@@ -117,12 +118,12 @@ function sessionQuiz(s) {
   };
 }
 
-/** Today's "Resume practice (k of N)": answered and total original questions, whether Today started it, or null. */
+/** Today's "Resume practice (k of N)": answered and total original questions, their ids, whether Today started it, or null. */
 export function practiceSession() {
   const s = loadSession();
   if (!s) return null;
   const firsts = s.items.filter(e => !isSecond(e));
-  return { answered: firsts.filter(id => s.checked?.[id]).length, total: firsts.length, fromToday: !!s.fromToday };
+  return { answered: firsts.filter(id => s.checked?.[id]).length, total: firsts.length, ids: firsts, fromToday: !!s.fromToday };
 }
 
 export function resumePractice() {
@@ -553,7 +554,9 @@ function renderQuestion(i, reviewing) {
     <div class="q-actions">
       ${actions}
       <span class="spacer"></span>
-      ${canTry ? (blockedOn23ai(q)
+      ${canTry ? (sqlOff()
+        ? `<span class="small muted">${NO_SQL}</span><button class="btn ghost" disabled>Run it in the SQL lab</button>`
+        : blockedOn23ai(q)
         ? `<span class="small muted" title="Set STUDY_DSN_23AI to run 23ai SQL in the lab">Runs on Oracle 23ai only</span>`
         : `<button class="btn ghost" id="try">Run it in the SQL lab</button>`) : ""}
     </div>
@@ -777,7 +780,11 @@ function reviewGrid(ok, show = e => !isSecond(e)) {
   }).join("")}</div>`;
 }
 
-function bindResults(retryIds) {
+function bindResults(retryIds, next) {
+  $("#today-next")?.addEventListener("click", () => {
+    if (next.cards.length) openDeck(next.cards.map(id => CARD[id]), true, { fromToday: true });
+    else go(`/exercises/${next.lab}`);
+  });
   $$("[data-review]", main).forEach(b => b.addEventListener("click", () => { quiz.reviewIdx = Number(b.dataset.review); render(); window.scrollTo(0, 0); }));
   $("#again").addEventListener("click", () => { resetQuiz(); main.classList.remove("reading"); render(); });
   $("#retry-wrong")?.addEventListener("click", () => startQuiz({ mode: "practice", ids: retryIds }));
@@ -804,12 +811,16 @@ function renderResults() {
     return ids.length ? `<tr><td>${label}</td><td>${meter(ids.filter(id => isCorrect(Q[id], quiz.answers[id])).length, ids.length, "Correct")}</td></tr>` : "";
   }).join("");
   const wrong = items.filter(id => !isCorrect(Q[id], quiz.answers[id]));
+  // Started from Today: the next step of today's session comes first, completed steps skipped.
+  const next = quiz.fromToday ? todayLeft() : { cards: [], lab: null };
+  const cont = next.cards.length ? `Continue: ${next.cards.length} flashcards` : next.lab ? "Continue: today's exercise" : "";
   main.innerHTML = `
     ${pageHead("Practice results")}
     <div class="score"><b>${pct}%</b><div><strong>${right} of ${items.length} correct</strong><span>in about ${plural(minutes, "minute")}. Answers you missed or guessed are on your mistakes list.</span></div></div>
     <div class="row" style="margin-top:18px">
-      ${wrong.length ? `<button class="btn" id="retry-wrong">Retry the ${wrong.length} I missed</button>` : ""}
-      <button class="btn ${wrong.length ? "secondary" : ""}" id="again">New quiz</button>
+      ${cont ? `<button class="btn" id="today-next">${cont}</button>` : ""}
+      ${wrong.length ? `<button class="btn ${cont ? "secondary" : ""}" id="retry-wrong">Retry the ${wrong.length} I missed</button>` : ""}
+      <button class="btn ${wrong.length || cont ? "secondary" : ""}" id="again">New quiz</button>
     </div>
     <div class="result-grid section">
       <section><h2>By topic</h2><div class="table-wrap"><table class="data"><tbody>
@@ -821,7 +832,7 @@ function renderResults() {
     ${section("Review answers", reviewGrid(id => isCorrect(Q[id], quiz.answers[id])), { aside: "Select a question to see its explanation." })}
     ${seconds.length ? section("Second tries", `<p>Second tries: ${secondsRight} right of ${seconds.length}</p>
       ${reviewGrid((id, e) => isCorrect(Q[id], slot(e).chosen), isSecond)}`, { aside: "Not part of the score above." }) : ""}`;
-  bindResults(wrong);
+  bindResults(wrong, next);
 }
 
 function renderMockResults(r) {

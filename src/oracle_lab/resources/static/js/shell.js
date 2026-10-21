@@ -5,7 +5,7 @@ import { $, $$, esc } from "./core/dom.js";
 import { api } from "./core/api.js";
 import { store } from "./core/store.js";
 import { currentUser, signOut } from "./core/session.js";
-import { C, P, mistakes, apply, loadContent, setDatabase, dbLabel } from "./core/state.js";
+import { C, P, mistakes, apply, loadContent, setDatabase, dbLabel, sqlOff } from "./core/state.js";
 import { route, currentView, refresh, onRoute } from "./core/router.js";
 import { toast, toastError, confirmDialog } from "./ui/feedback.js";
 import { setSchema } from "./ui/editor.js";
@@ -57,6 +57,14 @@ async function switchExam(code) {
 export function checkDatabase() {
   const el = $("#db-status");
   setSchema(null);
+  // Without SQL practice there is nothing to probe; "Database offline" stays for a real outage.
+  if (sqlOff()) {
+    setDatabase(null);
+    el.className = "db-status";
+    el.textContent = "SQL practice unavailable";
+    el.title = "";
+    return;
+  }
   api("/api/schema").then(r => {
     setSchema(r);
     setDatabase(r.ok ? r.database : null);

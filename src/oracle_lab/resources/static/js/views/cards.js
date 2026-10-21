@@ -4,7 +4,7 @@
 
 import { $, $$, esc, inlineCode, plural, shuffle } from "../core/dom.js";
 import { api } from "../core/api.js";
-import { C, P, DB, apply, dueCards, cardLearned, topicLabel, blockedOn23ai } from "../core/state.js";
+import { C, P, DB, apply, dueCards, cardLearned, topicLabel, blockedOn23ai, sqlOff, NO_SQL, todayLeft } from "../core/state.js";
 import { main, go } from "../core/router.js";
 import { toast, toastError } from "../ui/feedback.js";
 import { meter, pageHead, section, loading } from "../ui/widgets.js";
@@ -38,10 +38,12 @@ const currentCard = () => C.flashcards.find(c => c.id === deck.queue[0]);
 
 export function resetDeck() { deck = null; }
 
-/** Start studying these cards; keepOrder for decks already in a meaningful order. */
-export function openDeck(cards, keepOrder) {
+/** Start studying these cards; keepOrder for decks already in a meaningful order, fromToday for
+    today's session (its end then leads on to today's exercise). */
+export function openDeck(cards, keepOrder, { fromToday = false } = {}) {
   const ids = cards.map(c => c.id);
-  deck = { queue: keepOrder ? ids : shuffle(ids), done: 0, again: 0, flipped: false, revealed: false, tryOpen: false, total: cards.length };
+  deck = { queue: keepOrder ? ids : shuffle(ids), done: 0, again: 0, flipped: false, revealed: false, tryOpen: false, busy: false,
+    total: cards.length, fromToday };
   go("/cards");
 }
 
@@ -93,9 +95,11 @@ function renderSetup() {
 
 function renderCard() {
   if (!deck.queue.length) {
+    const lab = deck.fromToday ? todayLeft().lab : null;
     main.innerHTML = `
       ${pageHead("Deck finished", `${plural(deck.done, "card")} done${deck.again ? `, ${deck.again} sent back for another pass` : ""}. The next reviews are scheduled.`)}
-      <div class="row"><button class="btn" id="deck-back">Choose another deck</button><a class="btn secondary" href="/">Back to Today</a></div>`;
+      <div class="row">${lab ? `<a class="btn" href="/exercises/${esc(lab)}">Continue: today's exercise</a>` : ""}
+        <button class="btn ${lab ? "secondary" : ""}" id="deck-back">Choose another deck</button><a class="btn secondary" href="/">Back to Today</a></div>`;
     $("#deck-back").addEventListener("click", () => { deck = null; render(); });
     return;
   }
@@ -176,7 +180,9 @@ function updateTry(card) {
     return null;
   }
   const sample = splitSample(card.try_sql);
-  const note = blockedOn23ai(card)
+  const off = sqlOff();
+  const note = off ? NO_SQL
+    : blockedOn23ai(card)
     ? `This sample uses Oracle 23ai syntax, and your database is Oracle ${esc(DB.version)}.`
     : !sample.sql ? "No sample for this card. Write your own query; changes are rolled back."
     : card.cleanup ? "A sample for this card. Predict the result, then run it. Its LAB_ objects are dropped before and after each run."
@@ -196,9 +202,9 @@ function updateTry(card) {
     <div class="editor-wrap">
       <textarea class="editor" id="card-sql" aria-label="SQL for this card" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(sample.sql)}</textarea>
       <div class="editor-bar">
-        <button class="btn" id="card-run"><span>Run</span> <span class="kbd">Ctrl+Enter</span></button>
+        <button class="btn" id="card-run" ${off ? "disabled" : ""}><span>Run</span> <span class="kbd">Ctrl+Enter</span></button>
         ${sample.sql ? `<button class="link-btn quiet" id="card-restore">Restore the sample</button>` : ""}
-        <span class="links"><button class="link-btn" id="card-lab">Open in SQL lab</button></span>
+        <span class="links"><button class="link-btn" id="card-lab" ${off ? "disabled" : ""}>Open in SQL lab</button></span>
       </div>
     </div>
     <div class="results" id="card-results" aria-live="polite"></div>`;
@@ -210,6 +216,7 @@ function bindTry(card, sampleSql) {
   const editor = makeEditor($("#card-sql"), { onRun: () => run() });
   editor.onSelection(has => { $("#card-run span").textContent = has ? "Run selection" : "Run"; });
   const run = async () => {
+    if (sqlOff()) return;
     const sql = editor.selection() || editor.get();
     if (!sql.trim()) return toast("Type some SQL first.");
     const btn = $("#card-run");
@@ -226,6 +233,7 @@ function bindTry(card, sampleSql) {
 }
 
 function flipCard() {
+  if (deck.busy) return;
   deck.flipped = !deck.flipped;
   const el = $("#card");
   el.classList.toggle("flipped", deck.flipped);
@@ -240,7 +248,10 @@ function flipCard() {
 }
 
 async function rateCard(rating) {
-  if (!deck.flipped) return;
+  // While a rating is saving, keys and clicks wait, so the next card cannot open already flipped.
+  if (!deck.flipped || deck.busy) return;
+  deck.busy = true;
+  const current = deck;
   const id = deck.queue.shift();
   if (rating === "again") { deck.again++; deck.queue.splice(Math.min(deck.queue.length, 3), 0, id); }
   else deck.done++;
@@ -248,6 +259,8 @@ async function rateCard(rating) {
   deck.revealed = false;
   deck.tryOpen = false;
   try { apply(await api("/api/card", { id, rating })); } catch { toastError("Could not save the card result."); }
+  current.busy = false;
+  if (deck !== current) return;  // the deck was closed meanwhile
   renderCard();
   $("#card")?.focus({ preventScroll: true });
 }
