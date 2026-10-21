@@ -10,6 +10,7 @@ from dataclasses import replace
 from pathlib import PurePosixPath
 from urllib.parse import quote, urlsplit
 
+from oracle_lab import i18n
 from oracle_lab.accounts.repositories import UserRepository
 from oracle_lab.auth.models import AuthError, Principal, Throttled, WeakPassword
 from oracle_lab.auth.sessions import SessionManager
@@ -23,27 +24,35 @@ Middleware = Callable[[Request, Handler], Response]
 log = logging.getLogger("oracle_lab.access")
 
 
+def language(request: Request, call_next: Handler) -> Response:
+    """Sets request.language: a valid X-Language header, else the best Accept-Language match, else English."""
+    lang = i18n.negotiate(request.header("X-Language"), request.header("Accept-Language"))
+    return call_next(replace(request, language=lang))
+
+
 def error_boundary(request: Request, call_next: Handler) -> Response:
     """Turn HttpError, AuthError and PracticeUnavailable into their responses and unexpected exceptions into a
-    logged 500."""
+    logged 500, with the message in the request's language."""
+    lang = request.language
     try:
         return call_next(request)
     except HttpError as exc:
-        return exc.to_response()
+        return exc.to_response(lang)
     except AuthError as exc:
-        return auth_error_response(exc)
+        return auth_error_response(exc, lang)
     except PracticeUnavailable as exc:
-        return Response.json({"error": str(exc), "practice": "unavailable"}, 503)
+        return Response.json({"error": i18n.translate(lang, i18n.message_of(exc)), "practice": "unavailable"}, 503)
     except Exception:
         logging.getLogger(__name__).exception("unhandled error in %s %s", request.method, request.path)
-        return Response.json({"error": "Internal server error"}, 500)
+        return Response.json({"error": i18n.translate(lang, "Internal server error")}, 500)
 
 
-def auth_error_response(exc: AuthError) -> Response:
-    """Its status and {"error": message}, plus the problems of a WeakPassword and Retry-After for Throttled."""
-    payload: dict = {"error": str(exc)}
+def auth_error_response(exc: AuthError, lang: str = i18n.DEFAULT_LANGUAGE) -> Response:
+    """Its status and {"error": message}, plus the problems of a WeakPassword and Retry-After for Throttled,
+    in `lang`."""
+    payload: dict = {"error": i18n.translate(lang, i18n.message_of(exc))}
     if isinstance(exc, WeakPassword):
-        payload["problems"] = exc.problems
+        payload["problems"] = [i18n.translate(lang, problem) for problem in exc.problems]
     headers = {"Retry-After": str(exc.retry_after)} if isinstance(exc, Throttled) else {}
     return Response.json(payload, exc.status, headers)
 

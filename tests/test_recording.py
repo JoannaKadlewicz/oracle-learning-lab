@@ -63,6 +63,17 @@ def test_settings_are_validated():
         recording.record_settings(state, {"exam": "1Z0-999"})
 
 
+def test_the_language_setting_is_one_of_the_languages():
+    state = empty()
+    for lang in ("pl", "en"):
+        recording.record_settings(state, {"language": lang})
+        assert state["settings"]["language"] == lang
+    for bad in ("de", "", None, "PL", 1):
+        with pytest.raises(ValueError, match="language must be one of en, pl"):
+            recording.record_settings(state, {"language": bad})
+    assert state["settings"]["language"] == "en"
+
+
 def test_progress_snapshot_works_on_an_empty_state():
     snap = snapshot(empty(), time.time())
     progress = snap["progress"]

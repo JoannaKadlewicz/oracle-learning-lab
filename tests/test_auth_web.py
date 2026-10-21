@@ -112,6 +112,23 @@ def test_bad_login_and_weak_password_errors(serve):
     assert status == 401 and json.loads(body) == {"error": "Email or password is incorrect."}
 
 
+def test_errors_follow_the_request_language(serve):
+    http = serve(stores=memory_stores())
+    register(http)
+    wrong = {"email": "a@example.org", "password": "wrong password!"}
+    status, _, body = http("/api/auth/login", wrong, headers={"Origin": http.origin, "X-Language": "pl"})
+    assert status == 401 and json.loads(body) == {"error": "Niepoprawny e-mail lub hasło."}
+    status, _, body = http("/api/auth/login", wrong, headers={"Origin": http.origin, "Accept-Language": "pl-PL,pl"})
+    assert status == 401 and json.loads(body) == {"error": "Niepoprawny e-mail lub hasło."}
+    status, _, body = http("/api/auth/login", wrong, headers={"Origin": http.origin})
+    assert status == 401 and json.loads(body) == {"error": "Email or password is incorrect."}
+    status, _, body = http("/api/auth/register", {"email": "b@example.org", "password": "short"},
+                           headers={"Origin": http.origin, "X-Language": "pl"})
+    assert status == 400 and json.loads(body) == {"error": "Wybierz silniejsze hasło.",
+                                                  "problems": ["Użyj co najmniej 12 znaków."]}
+    assert json.loads(http("/api/state", headers={"X-Language": "pl"})[2]) == {"error": "Musisz się zalogować"}
+
+
 def test_post_without_csrf_token_is_403(serve):
     http = serve()
     cookie = session_cookie(register(http)[1])

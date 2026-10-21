@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlsplit
 
+from oracle_lab.i18n import DEFAULT_LANGUAGE, Msg, translate
+
 if TYPE_CHECKING:
     from oracle_lab.auth.models import Principal
 
@@ -29,7 +31,7 @@ def is_clean_path(path: str) -> bool:
 
 
 class HttpError(Exception):
-    """Stops request handling with an error status; the body is {"error": message}."""
+    """Stops request handling with an error status; the body is {"error": message}, in the request's language."""
 
     def __init__(self, status: int, message: str, headers: Mapping[str, str] | None = None):
         super().__init__(message)
@@ -37,8 +39,8 @@ class HttpError(Exception):
         self.message = message
         self.headers = dict(headers or {})
 
-    def to_response(self) -> Response:
-        return Response.json({"error": self.message}, self.status, headers=self.headers)
+    def to_response(self, lang: str = DEFAULT_LANGUAGE) -> Response:
+        return Response.json({"error": translate(lang, self.message)}, self.status, headers=self.headers)
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,7 @@ class Request:
     body: bytes = b""
     client: str = ""  # the peer IP; ClientAddress may replace it behind a trusted proxy
     principal: Principal | None = None  # the signed-in account, set by the auth middleware
+    language: str = DEFAULT_LANGUAGE  # of the messages sent back, set by the language middleware
 
     @property
     def path(self) -> str:
@@ -65,7 +68,7 @@ class Request:
         try:
             data = json.loads(self.body or b"{}")
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise HttpError(400, f"Invalid JSON: {exc}") from exc
+            raise HttpError(400, Msg.of("Invalid JSON: {detail}", detail=exc)) from exc
         if not isinstance(data, dict):
             raise HttpError(400, "Expected a JSON object")
         return data

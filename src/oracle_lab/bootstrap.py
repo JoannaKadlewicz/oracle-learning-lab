@@ -52,6 +52,7 @@ from oracle_lab.web.middleware import (
     access_log,
     csrf,
     error_boundary,
+    language,
     same_origin_only,
 )
 from oracle_lab.web.pages import Pages
@@ -193,7 +194,7 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
     pages = (path.read_text(encoding="utf-8") for path in sorted(STATIC_DIR.glob("*.html")))
     script_hashes = tuple(h for page in pages for h in inline_script_hashes(page))
     middleware: list[Middleware] = [
-        access_log, error_boundary, SecurityHeaders(settings.secure_cookies, script_hashes),
+        access_log, language, error_boundary, SecurityHeaders(settings.secure_cookies, script_hashes),
         ClientAddress(settings.trust_proxy), Authenticate(sessions, stores.users, cookies, PUBLIC_PATHS, PUBLIC_PREFIXES),
         csrf, same_origin_only,
     ]

@@ -11,6 +11,7 @@ from oracle_lab.auth.models import AuthError, LoginResult, Principal, Throttled
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.exams import EXAMS
+from oracle_lab.i18n import Msg
 from oracle_lab.web.cookies import CookiePolicy
 from oracle_lab.web.http import HttpError, Request, Response
 from oracle_lab.web.middleware import auth_error_response, safe_next
@@ -46,7 +47,7 @@ def principal_of(request: Request) -> Principal:
 def text(data: dict, name: str) -> str:
     value = data.get(name, "")
     if not isinstance(value, str):
-        raise HttpError(400, f"{name} must be a string")
+        raise HttpError(400, Msg.of("{name} must be a string", name=name))
     return value
 
 
@@ -140,7 +141,7 @@ class AuthController:
                                     request.query("code"), request.client, request.header("User-Agent"),
                                     request.principal)
         except AuthError as exc:  # the flow is single-use: clear its cookie on every way out
-            response = auth_error_response(exc)
+            response = auth_error_response(exc, request.language)
             response.cookies.append(self.cookies.clear_flow())
             return response
         cookies = [self.cookies.clear_flow()]

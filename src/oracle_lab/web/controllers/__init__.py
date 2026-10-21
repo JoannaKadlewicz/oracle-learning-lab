@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from oracle_lab.i18n import message_of
 from oracle_lab.services import NotFoundError
 from oracle_lab.web.http import HttpError, Response
 
@@ -14,6 +15,6 @@ def respond(action: Callable[[], Any], invalid: tuple[type[Exception], ...] = (V
     try:
         return Response.json(action())
     except NotFoundError as exc:
-        raise HttpError(404, str(exc)) from exc
+        raise HttpError(404, message_of(exc)) from exc
     except invalid as exc:
-        raise HttpError(400, str(exc)) from exc
+        raise HttpError(400, message_of(exc)) from exc

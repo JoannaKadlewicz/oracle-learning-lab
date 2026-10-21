@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from oracle_lab.database.query import format_error
+from oracle_lab.i18n import message_of
 from oracle_lab.provisioning.guards import RunGuard
 from oracle_lab.provisioning.practice import PracticeUnavailable
 from oracle_lab.services import Clock, NotFoundError
@@ -83,7 +84,7 @@ class ExerciseController:
         try:
             result = exercises.grade(data.get("id"), str(data.get("sql", "")))
         except NotFoundError as exc:
-            raise HttpError(404, str(exc)) from exc
+            raise HttpError(404, message_of(exc)) from exc
         except _NOT_SHOWN_IN_PAGE:
             raise
         except Exception as exc:  # noqa: BLE001

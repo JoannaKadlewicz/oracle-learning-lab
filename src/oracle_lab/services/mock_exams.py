@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from oracle_lab import content
+from oracle_lab.i18n import message_of
 from oracle_lab.services import Clock, NotFoundError
 from oracle_lab.study import engine, mocks
 from oracle_lab.study.progress import snapshot
@@ -26,7 +27,7 @@ class MockExamService:
         try:
             mock = mocks.find_mock(self.store.load(), mock_id)
         except ValueError as exc:
-            raise NotFoundError(str(exc)) from exc
+            raise NotFoundError(message_of(exc)) from exc
         return {"mock": {**mock, "position": mock.get("position")}, "report": _report(mock) if mock["submitted"] else None}
 
     def start(self, data: dict) -> dict[str, Any]:

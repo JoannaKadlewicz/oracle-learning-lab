@@ -10,6 +10,7 @@ import datetime
 from typing import Any
 
 from oracle_lab import content, exams
+from oracle_lab.i18n import LANGUAGES, Msg
 from oracle_lab.study import engine
 from oracle_lab.study.state import State
 
@@ -85,18 +86,22 @@ def record_settings(state: State, data: dict) -> None:
         minutes = int(data["daily_minutes"])
         low, high = DAILY_MINUTES_RANGE
         if not low <= minutes <= high:
-            raise ValueError(f"daily_minutes must be between {low} and {high}")
+            raise ValueError(Msg.of("daily_minutes must be between {low} and {high}", low=low, high=high))
         settings["daily_minutes"] = minutes
     if "new_cards_per_day" in data:
         count = int(data["new_cards_per_day"])
         low, high = engine.NEW_CARDS_RANGE
         if not low <= count <= high:
-            raise ValueError(f"new_cards_per_day must be between {low} and {high}")
+            raise ValueError(Msg.of("new_cards_per_day must be between {low} and {high}", low=low, high=high))
         settings["new_cards_per_day"] = count
     if "exam" in data:
         if data["exam"] not in exams.EXAMS:
-            raise ValueError("exam must be one of " + ", ".join(exams.EXAMS))
+            raise ValueError(Msg.of("exam must be one of {exams}", exams=", ".join(exams.EXAMS)))
         settings["exam"] = data["exam"]
+    if "language" in data:
+        if data["language"] not in LANGUAGES:
+            raise ValueError(Msg.of("language must be one of {languages}", languages=", ".join(LANGUAGES)))
+        settings["language"] = data["language"]
 
 
 def reset_progress(state: State) -> None:

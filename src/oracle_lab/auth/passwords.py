@@ -9,6 +9,8 @@ import hmac
 import secrets
 from pathlib import Path
 
+from oracle_lab.i18n import Msg
+
 _N, _R, _P = 32768, 8, 1
 _MAXMEM = 64 * 1024 * 1024
 _DKLEN = 32
@@ -75,9 +77,9 @@ class PasswordPolicy:
 
     def problems(self, password: str, email: str) -> list[str]:
         if len(password) < MIN_LENGTH:
-            return [f"Use at least {MIN_LENGTH} characters."]
+            return [Msg.of("Use at least {count} characters.", count=MIN_LENGTH)]
         if len(password) > MAX_LENGTH:
-            return [f"Use at most {MAX_LENGTH} characters."]
+            return [Msg.of("Use at most {count} characters.", count=MAX_LENGTH)]
         found = []
         if password.strip().lower() == email.strip().lower():
             found.append("Don't use your email address as the password.")

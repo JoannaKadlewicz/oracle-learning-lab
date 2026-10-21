@@ -8,6 +8,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from oracle_lab import __version__
+from oracle_lab.i18n import negotiate, translate
 from oracle_lab.web.application import WebApplication
 from oracle_lab.web.http import Request, Response
 
@@ -32,7 +33,8 @@ def handler_for(app: WebApplication) -> type[BaseHTTPRequestHandler]:
         def _dispatch(self) -> None:
             length = int(self.headers.get("Content-Length") or 0)
             if length > MAX_BODY_BYTES:
-                self._write(Response.json({"error": "Request body too large"}, 413))
+                lang = negotiate(self.headers.get("X-Language"), self.headers.get("Accept-Language"))
+                self._write(Response.json({"error": translate(lang, "Request body too large")}, 413))
                 self.close_connection = True
                 return
             body = self.rfile.read(length) if length else b""

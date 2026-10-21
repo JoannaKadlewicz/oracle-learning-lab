@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from oracle_lab.auth.models import Principal
+from oracle_lab.i18n import Msg, message_of
 from oracle_lab.services.admin import AdminService
 from oracle_lab.web.http import HttpError, Request, Response
 from oracle_lab.web.middleware import require_admin
@@ -16,14 +17,14 @@ OK = {"ok": True}
 def _string(data: dict, name: str) -> str:
     value = data.get(name)
     if not isinstance(value, str) or not value:
-        raise HttpError(400, f"{name} must be a non-empty string")
+        raise HttpError(400, Msg.of("{name} must be a non-empty string", name=name))
     return value
 
 
 def _optional(data: dict, name: str, kind: type) -> object:
     value = data.get(name)
     if value is not None and (not isinstance(value, kind) or (kind is int and isinstance(value, bool))):
-        raise HttpError(400, f"{name} has the wrong type")
+        raise HttpError(400, Msg.of("{name} has the wrong type", name=name))
     return value
 
 
@@ -66,7 +67,7 @@ class AdminController:
             try:
                 return handler(request)
             except ValueError as exc:
-                raise HttpError(400, str(exc)) from exc
+                raise HttpError(400, message_of(exc)) from exc
         return run
 
     def users(self, _: Request) -> Response:
