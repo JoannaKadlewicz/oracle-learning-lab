@@ -87,6 +87,12 @@ def record_settings(state: State, data: dict) -> None:
         if not low <= minutes <= high:
             raise ValueError(f"daily_minutes must be between {low} and {high}")
         settings["daily_minutes"] = minutes
+    if "new_cards_per_day" in data:
+        count = int(data["new_cards_per_day"])
+        low, high = engine.NEW_CARDS_RANGE
+        if not low <= count <= high:
+            raise ValueError(f"new_cards_per_day must be between {low} and {high}")
+        settings["new_cards_per_day"] = count
     if "exam" in data:
         if data["exam"] not in content.EXAMS:
             raise ValueError("exam must be one of " + ", ".join(content.EXAMS))

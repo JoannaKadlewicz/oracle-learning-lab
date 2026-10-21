@@ -7,7 +7,7 @@ State layout (progress.json in the data directory, see config.Settings):
     attempts  {question_id: [{"t", "correct", "chosen", "confidence", "mode"}, ...]}
     cards     {card_id: {"reviews": [[t, "again" | "hard" | "good" | "easy"], ...]}}
     labs      {lab_id: {"tries", "passed", "last", "t"}}
-    settings  {"exam_date": "YYYY-MM-DD", "daily_minutes": 30}
+    settings  {"exam_date": "YYYY-MM-DD", "daily_minutes": 30, "new_cards_per_day": 15}
     mocks     [{"id", "started", "minutes", "topics", "items", "seen_before", "answers": {qid: {"chosen",
                "confidence", "flagged"}}, "events": [[t, qid, chosen], ...], "time_on": {qid: seconds},
                "submitted", "abandoned"}]
@@ -25,6 +25,8 @@ CARD_RATINGS = {"again": 1, "hard": 3, "good": 4, "easy": 5}  # SM-2 quality
 # Minutes per item, used to fit the daily plan into the time available.
 MINUTES = {"card": 0.3, "question": 1.5, "lab": 8}
 DEFAULT_DAILY_MINUTES = 30
+DEFAULT_NEW_CARDS = 15  # unseen flashcards introduced per day
+NEW_CARDS_RANGE = (0, 100)
 
 HALF_LIFE_DAYS = 30  # evidence older than this counts half for mastery
 PROOF_DAYS = 2  # confident correct answers on different days needed to clear a mistake
@@ -268,9 +270,38 @@ def pick_questions(content, state, now, count, topics=None, rng=random):
     return [q["id"] for q in interleave(chosen, key=lambda q: q["objective"])]
 
 
-def due_cards(content, state, now):
+def new_cards_today(state, now):
+    """Cards whose first review falls on the local day of `now`: they count against the daily cap."""
+    today = local_day(now)
+    return sum(1 for entry in state.get("cards", {}).values()
+               if entry.get("reviews") and local_day(entry["reviews"][0][0]) == today)
+
+
+def card_queue(content, state, now, topic=None):
+    """Flashcards to study now: `due` reviews (by due time) and `new` unseen cards (in content order).
+
+    New cards are capped by the daily allowance, `new_cards_per_day` minus the cards already introduced
+    today, so `new_left` is what remains of it. The live queue therefore shrinks as cards are introduced.
+    The daily plan is built from the state at midnight, where nothing is introduced yet, so the plan holds
+    the day's full allowance and keeps it while those cards are studied."""
+    cap = state.get("settings", {}).get("new_cards_per_day")
+    cap = DEFAULT_NEW_CARDS if cap is None else cap
+    new_left = max(0, cap - new_cards_today(state, now))
     cards = state.get("cards", {})
-    return [c["id"] for c in content.FLASHCARDS if c["id"] not in cards or card_schedule(cards[c["id"]])["due"] <= now]
+    due, new = [], []
+    for c in content.FLASHCARDS:
+        if topic and c["topic"] != topic:
+            continue
+        if c["id"] not in cards:
+            new.append(c["id"])
+        elif (when := card_schedule(cards[c["id"]])["due"]) <= now:
+            due.append((when, c["id"]))
+    return {"due": [cid for _, cid in sorted(due)], "new": new[:new_left], "new_left": new_left}
+
+
+def due_cards(content, state, now):
+    queue = card_queue(content, state, now)
+    return queue["due"] + queue["new"]
 
 
 def due_reviews(content, state, now):
@@ -291,11 +322,9 @@ def daily_plan(content, state, now, rng=random):
     if settings.get("exam_date"):
         days_left = (datetime.date.fromisoformat(settings["exam_date"]) - today).days
 
-    cards_due = due_cards(content, state, now)
-    unseen_cards = [c for c in cards_due if c not in state.get("cards", {})]
-    review_cards = [c for c in cards_due if c in state.get("cards", {})]
+    queue = card_queue(content, state, now)
     card_budget = int(minutes * 0.25 / MINUTES["card"])
-    cards = (review_cards + unseen_cards)[:card_budget]
+    cards = (queue["due"] + queue["new"])[:card_budget]
 
     left = minutes - len(cards) * MINUTES["card"]
     lab = None
@@ -722,6 +751,9 @@ def progress(content, state, now):
         "topics": by_topic,
         "mistakes": open_mistakes(state.get("attempts", {}), questions),
         "due_cards": due_cards(content, state, now),
+        "card_queue": card_queue(content, state, now),
+        "card_topic_counts": {t: {k: len(v) for k, v in card_queue(content, state, now, topic=t).items() if k != "new_left"}
+                              for t in {c["topic"] for c in content.FLASHCARDS}},
         "due_reviews": len(due_reviews(content, state, now)),
         "cards": {cid: {"interval": round(s["interval"], 1), "due": s["due"], "reps": s["reps"]} for cid, s in cards.items()},
         "calibration": calibration(state.get("attempts", {})),

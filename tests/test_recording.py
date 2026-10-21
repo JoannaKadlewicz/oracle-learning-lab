@@ -3,7 +3,7 @@ import time
 import pytest
 
 from oracle_lab import content
-from oracle_lab.study import mocks, recording
+from oracle_lab.study import engine, mocks, recording
 from oracle_lab.study.progress import snapshot
 from oracle_lab.study.tracks import track_state
 
@@ -51,6 +51,12 @@ def test_settings_are_validated():
         recording.record_settings(state, {"exam_date": "next week"})
     with pytest.raises(ValueError):
         recording.record_settings(state, {"daily_minutes": 0})
+    recording.record_settings(state, {"new_cards_per_day": "20"})
+    assert state["settings"]["new_cards_per_day"] == 20
+    recording.record_settings(state, {"new_cards_per_day": 0})
+    for bad in (-1, 101, "many"):
+        with pytest.raises(ValueError):
+            recording.record_settings(state, {"new_cards_per_day": bad})
     recording.record_settings(state, {"exam": "1Z0-171"})
     assert state["settings"]["exam"] == "1Z0-171"
     with pytest.raises(ValueError):
@@ -64,7 +70,7 @@ def test_progress_snapshot_works_on_an_empty_state():
     assert progress["exam"] == content.DEFAULT_EXAM
     assert set(progress["objectives"]) == set(track.OBJECTIVES)
     assert progress["mistakes"] == [] and progress["due_reviews"] == 0
-    assert len(progress["due_cards"]) == len(track.FLASHCARDS)
+    assert len(progress["due_cards"]) == min(engine.DEFAULT_NEW_CARDS, len(track.FLASHCARDS))
     assert progress["plan"]["questions"] and progress["plan"]["lab"]
 
 
