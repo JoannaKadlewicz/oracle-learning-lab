@@ -62,13 +62,18 @@
 .card-text { margin: 0; padding-top: 4px; }
 .card-front .card-text { font-size: 25px; line-height: 32px; font-weight: 700; }
 .card-back .card-text { font-size: 19px; line-height: 32px; }
+/* The back repeats the question, smaller, above the answer; the sample's comment follows the answer */
+.card-question { margin: 0; font-size: var(--t-s); line-height: 32px; color: var(--card-muted); }
+.card-sample { margin: 32px 0 0; font-size: var(--t-s); line-height: 32px; }
+.card-sample b { font-weight: 600; }
 .card-text code { font-size: .85em; background: rgba(36, 87, 197, .08); border: 0; color: inherit; padding: 1px 4px; border-radius: 3px; }
 .card-hint { flex-shrink: 0; margin: auto 0 0; padding-top: 32px; font-size: var(--t-xs); line-height: 32px; color: var(--card-muted); }
 .card-box { position: absolute; top: 16px; right: 20px; font-size: var(--t-xs); color: var(--card-muted); }
 
-.ratings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: min(660px, 100%); }
-.ratings .btn { min-height: 52px; display: grid; gap: 2px; justify-items: center; }
-.ratings .btn small { font-weight: 400; font-size: 12px; opacity: .75; }
+.ratings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: min(660px, 100%); }
+.ratings .btn { min-height: 52px; display: grid; gap: 2px; justify-items: center; text-align: center; }
+.ratings .btn small { min-height: 1.4em; font-weight: 400; font-size: 12px; opacity: .75; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .ratings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 @media (max-width: 600px) {
   .card-face { padding: 32px 16px 0 50px; }
@@ -85,6 +90,13 @@
 .card-try-head p { margin: 0; color: var(--muted); font-size: var(--t-s); }
 .card-try textarea.editor { min-height: 180px; height: auto; }
 .card-try .results:empty { display: none; }
+/* Before the flip: one quiet line, so the sample cannot give the answer away */
+.card-try[data-state="later"] { padding-block: 14px; background: transparent; border-style: dashed; box-shadow: none; }
+.card-try-later { margin: 0; color: var(--muted); font-size: var(--t-s); }
+.card-try-bar { display: flex; align-items: center; gap: 16px; }
+.card-try-bar p { flex: 1; margin: 0; color: var(--muted); font-size: var(--t-s); }
+
+.new-left-none { color: var(--ink); font-weight: 600; }
 
 @media (min-width: 1180px) {
   .deck-split { grid-template-columns: minmax(0, 660px) minmax(360px, 1fr); }

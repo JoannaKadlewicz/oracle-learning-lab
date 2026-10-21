@@ -27,6 +27,10 @@ function render() {
           <select id="daily-minutes">${[15, 30, 45, 60, 90, 120].map(m => `<option value="${m}" ${m === P.plan.minutes ? "selected" : ""}>${m} minutes</option>`).join("")}</select>
         </div>
         <div class="setting">
+          <div><h3><label for="new-cards">New flashcards per day</label></h3><p>How many cards you have not seen yet are added each day, on top of the reviews that are due. From 0 to 100.</p></div>
+          <input type="number" id="new-cards" min="0" max="100" step="1" inputmode="numeric" value="${esc(settings.new_cards_per_day ?? 15)}">
+        </div>
+        <div class="setting">
           <div><h3 id="theme-label">Appearance</h3><p>Automatic follows your system setting.</p></div>
           <div class="seg" role="group" aria-labelledby="theme-label">
             ${[["auto", "Automatic"], ["light", "Light"], ["dark", "Dark"]].map(([t, label]) => `<button data-theme="${t}" aria-pressed="${theme === t}">${label}</button>`).join("")}
@@ -52,6 +56,14 @@ function render() {
   };
   $("#exam-date").addEventListener("change", e => save({ exam_date: e.target.value }, e.target.value ? "Exam date saved." : "Exam date cleared."));
   $("#daily-minutes").addEventListener("change", e => save({ daily_minutes: Number(e.target.value) }, "Study time saved."));
+  $("#new-cards").addEventListener("change", e => {
+    const count = Number(e.target.value);
+    if (e.target.value === "" || !Number.isInteger(count) || count < 0 || count > 100) {
+      e.target.value = P.settings.new_cards_per_day ?? 15;
+      return toastError("New flashcards per day must be a whole number from 0 to 100.");
+    }
+    save({ new_cards_per_day: count }, "New flashcards per day saved.");
+  });
   $$("[data-theme]", main).forEach(b => b.addEventListener("click", () => {
     applyTheme(b.dataset.theme);
     $$("[data-theme]", main).forEach(x => x.setAttribute("aria-pressed", x === b));

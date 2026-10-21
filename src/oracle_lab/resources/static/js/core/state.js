@@ -49,7 +49,15 @@ export function lastAttempt(qid) {
 }
 
 export const mistakes = () => P.mistakes;
-export const dueCards = topic => P.due_cards.map(id => CARD[id]).filter(c => !topic || c.topic === topic);
+/** Flashcards to study now: due reviews first, then new cards within today's allowance (`P.card_queue`).
+    A topic's new cards come from the same allowance, as many as `P.card_topic_counts` gives it. */
+export function dueCards(topic) {
+  const queue = P.card_queue;
+  if (!topic) return [...queue.due, ...queue.new].map(id => CARD[id]).filter(Boolean);
+  const due = queue.due.map(id => CARD[id]).filter(c => c && c.topic === topic);
+  const fresh = C.flashcards.filter(c => c.topic === topic && !P.cards[c.id]).slice(0, P.card_topic_counts[topic]?.new || 0);
+  return [...due, ...fresh];
+}
 export const cardLearned = id => (P.cards[id]?.interval || 0) >= 7;
 
 export function topicStats(topic) {
