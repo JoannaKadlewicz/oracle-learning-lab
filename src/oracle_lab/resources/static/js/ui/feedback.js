@@ -4,9 +4,12 @@
 import { $, esc } from "../core/dom.js";
 
 let toastTimer;
+let toastTag = null;
 
-export function toast(message, { error = false } = {}) {
+/** `tag` names a toast so clearToast(tag) can take it down without touching any other message. */
+export function toast(message, { error = false, tag = null } = {}) {
   const el = $("#toast");
+  toastTag = tag;
   el.textContent = message;
   el.classList.toggle("error", error);
   el.classList.add("show");
@@ -14,7 +17,9 @@ export function toast(message, { error = false } = {}) {
   toastTimer = setTimeout(() => el.classList.remove("show"), error ? 5000 : 2800);
 }
 
-export function clearToast() {
+/** Hides the toast; with a tag, only when the toast showing is that one. */
+export function clearToast(tag) {
+  if (tag !== undefined && tag !== toastTag) return;
   clearTimeout(toastTimer);
   $("#toast").classList.remove("show");
 }

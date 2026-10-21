@@ -1,10 +1,10 @@
-/* Quiz: setup, practice questions with confidence, timed mock exams (kept on the server, so a
-   reload resumes them), results and mock reports. */
+/* Quiz: setup, practice questions with confidence (kept in this browser, so a reload resumes
+   them), timed mock exams (kept on the server, so a reload resumes them), results and mock reports. */
 
 import { $, $$, esc, inlineCode, plural, shuffle, icon, LETTERS } from "../core/dom.js";
 import { api } from "../core/api.js";
-import { store } from "../core/store.js";
-import { C, S, P, Q, apply, topicLabel, blockedOn23ai } from "../core/state.js";
+import { store, forget } from "../core/store.js";
+import { C, S, P, Q, apply, topicLabel, blockedOn23ai, mistakes } from "../core/state.js";
 import { main, go } from "../core/router.js";
 import { toast, clearToast, toastError, confirmDialog } from "../ui/feedback.js";
 import { meter, pageHead, section } from "../ui/widgets.js";
@@ -27,7 +27,7 @@ const QTYPES = {
   concept: ["Concepts (no code)", q => !q.code],
 };
 
-export function resetQuiz() { stopTimer(); quiz = null; }
+export function resetQuiz() { stopTimer(); quiz = null; clearSession(); }
 
 function stopTimer() { clearInterval(timerHandle); timerHandle = null; }
 
@@ -44,9 +44,102 @@ function isCorrect(q, chosen) {
   return [...q.answer].sort().join(",") === [...(chosen || [])].sort().join(",");
 }
 
+/** The toast asking for a complete selection; clearing it leaves other messages alone. */
+const CHOOSE_TOAST = "choose-n";
+
+/* ---------------------------------------------------------------- practice session
+
+   A practice session is kept in this browser (per account), so a reload resumes it. Its items are
+   question ids in play order, plus `{id, second: true}` entries for second tries: a question
+   missed (or guessed) comes back SECOND_TRY_GAP places later, once per session, with its options
+   shuffled again. A second try keeps its own order, answer and confidence in `seconds[id]`, so
+   the first answer, which the score counts, stays as it was. */
+
+const SESSION_KEY = "practice-session";
+const SESSION_MAX_AGE = 24 * 3600 * 1000;
+const SECOND_TRY_GAP = 5;
+
+const idOf = entry => typeof entry === "string" ? entry : entry.id;
+const isSecond = entry => typeof entry === "object" && !!entry?.second;
+
+/** Order, answer, check and confidence of one entry of the sequence. */
+function slot(entry) {
+  const id = idOf(entry);
+  if (isSecond(entry)) return quiz.seconds[id];
+  return { order: quiz.order[id], chosen: quiz.answers[id] || [], checked: !!quiz.checked[id], confidence: quiz.confidence[id] };
+}
+
+function setChosen(entry, chosen) {
+  if (isSecond(entry)) quiz.seconds[idOf(entry)].chosen = chosen;
+  else quiz.answers[idOf(entry)] = chosen;
+}
+
+/** The original questions: second tries do not count toward "x of N". */
+const firstCount = () => quiz.items.filter(e => !isSecond(e)).length;
+/** 1-based place of entry i among the original questions; a second try gets the one before it. */
+const placeOf = i => quiz.items.slice(0, i + 1).filter(e => !isSecond(e)).length;
+
+const openMistake = id => mistakes().some(m => m.id === id);
+
+function saveSession() {
+  if (!quiz || quiz.mode !== "practice" || quiz.finished) return;
+  const { fromToday, items, order, idx, answers, checked, confidence, retried, seconds, started } = quiz;
+  store(SESSION_KEY, { v: 1, saved: Date.now(), fromToday, items, order, idx, answers, checked, confidence, retried, seconds, started });
+}
+
+function clearSession() { forget(SESSION_KEY); }
+
+/** The stored session, or null when there is none, it is older than 24 h, or the questions changed. */
+function loadSession() {
+  const s = store(SESSION_KEY);
+  if (!s) return null;
+  let valid = false;
+  try {
+    const fits = (id, order) => Q[id] && Array.isArray(order) && order.length === Q[id].options.length;
+    valid = s.v === 1 && Date.now() - s.saved < SESSION_MAX_AGE && s.items.length > 0
+      && s.items.every(e => isSecond(e) ? fits(e.id, s.seconds[e.id].order) : fits(e, s.order[e]))
+      && Number.isInteger(s.idx) && s.idx >= 0 && s.idx < s.items.length;
+  } catch { /* malformed: discarded below */ }
+  if (!valid) { clearSession(); return null; }
+  return s;
+}
+
+function sessionQuiz(s) {
+  return {
+    mode: "practice", items: s.items, order: s.order, idx: s.idx, answers: s.answers || {}, checked: s.checked || {},
+    confidence: s.confidence || {}, retried: s.retried || {}, seconds: s.seconds || {}, flags: {},
+    fromToday: !!s.fromToday, started: s.started || s.saved, deadline: null, finished: false, reviewIdx: null,
+  };
+}
+
+/** Today's "Resume practice (k of N)": answered and total original questions, or null. */
+export function practiceSession() {
+  const s = loadSession();
+  if (!s) return null;
+  const firsts = s.items.filter(e => !isSecond(e));
+  return { answered: firsts.filter(id => s.checked?.[id]).length, total: firsts.length };
+}
+
+export function resumePractice() {
+  const s = loadSession();
+  if (s) { stopTimer(); quiz = sessionQuiz(s); }
+  go("/quiz");
+}
+
+/** Brings a missed question back SECOND_TRY_GAP places after entry i (or last), its options reshuffled. */
+function queueSecondTry(i) {
+  const id = idOf(quiz.items[i]);
+  quiz.retried[id] = true;
+  const first = quiz.order[id];
+  let order = shuffle(first);
+  for (let n = 0; n < 5 && order.join() === first.join(); n++) order = shuffle(first);
+  quiz.seconds[id] = { order, chosen: [], checked: false, confidence: null };
+  quiz.items.splice(Math.min(i + SECOND_TRY_GAP, quiz.items.length), 0, { id, second: true });
+}
+
 /* ---------------------------------------------------------------- starting */
 
-export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder }) {
+export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder, fromToday = false }) {
   topics = topics || Object.keys(C.topics);
   if (mode === "exam") return startMock({ topics: topics.length === Object.keys(C.topics).length ? null : topics, count, minutes });
   let items;
@@ -59,9 +152,10 @@ export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder }
   const order = {};
   for (const id of items) order[id] = shuffle(Q[id].options.map((_, i) => i));
   quiz = {
-    mode, items, order, idx: 0, answers: {}, checked: {}, flags: {}, confidence: {},
-    started: Date.now(), deadline: null, finished: false, reviewIdx: null,
+    mode, items, order, idx: 0, answers: {}, checked: {}, flags: {}, confidence: {}, retried: {}, seconds: {},
+    fromToday, started: Date.now(), deadline: null, finished: false, reviewIdx: null,
   };
+  saveSession();
   go("/quiz");
 }
 
@@ -117,6 +211,8 @@ function saveMockAnswer(id, change) {
 /* ---------------------------------------------------------------- view */
 
 function render() {
+  // A practice session stored in this browser resumes, unless a mock exam is running (mocks come first).
+  if (!quiz && !P.active_mock) { const s = loadSession(); if (s) quiz = sessionQuiz(s); }
   if (!quiz) return renderSetup();
   main.classList.add("reading");
   if (quiz.finished) return quiz.reviewIdx === null ? renderResults() : renderQuestion(quiz.reviewIdx, true);
@@ -228,14 +324,17 @@ function examBar(extra = "") {
 }
 
 function renderQuestion(i, reviewing) {
-  const id = quiz.items[i];
+  const entry = quiz.items[i];
+  const id = idOf(entry);
+  const second = isSecond(entry);
   const q = Q[id];
   const multi = q.answer.length > 1;
-  const chosen = quiz.answers[id] || [];
+  const { order, chosen = [], checked, confidence } = slot(entry);
   const exam = quiz.mode === "exam" && !reviewing;
-  const revealed = reviewing || (quiz.mode === "practice" && quiz.checked[id]);
-  const order = quiz.order[id];
+  const revealed = reviewing || (quiz.mode === "practice" && checked);
   const total = quiz.items.length;
+  const firsts = firstCount();
+  const done = placeOf(i) - (revealed || second ? 0 : 1);
   const canTry = revealed && (q.try_sql || q.code);
 
   let actions;
@@ -259,12 +358,12 @@ function renderQuestion(i, reviewing) {
   main.innerHTML = `
     ${exam ? examBar(`<button class="btn secondary small" id="submit-exam">Submit exam</button>`) : ""}
     <div class="q-top">
-      <b>Question ${i + 1} of ${total}</b>
+      <b>${second ? "Second try" : `Question ${placeOf(i)} of ${firsts}`}</b>
       <span>${esc(topicLabel(q.topic))}</span>
       <span class="spacer"></span>
       ${!reviewing ? `<button class="link-btn quiet small" id="quit">${quiz.mode === "exam" ? "Abandon exam" : "End quiz"}</button>` : ""}
     </div>
-    <div class="q-progress" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${i + (revealed ? 1 : 0)}"><i style="width:${((i + (revealed ? 1 : 0)) / total) * 100}%"></i></div>
+    <div class="q-progress" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="${firsts}" aria-valuenow="${done}"><i style="width:${(done / firsts) * 100}%"></i></div>
     ${multi ? `<span class="q-choose">Choose ${q.answer.length}</span>` : ""}
     <p class="q-prompt" id="q-prompt">${inlineCode(q.prompt)}</p>
     ${q.code ? `<pre class="code"><code>${esc(q.code)}</code></pre>` : ""}
@@ -284,7 +383,7 @@ function renderQuestion(i, reviewing) {
         </label></li>`;
       }).join("")}
     </ul>
-    ${revealed ? verdictHtml(q, chosen) : ""}
+    ${revealed ? verdictHtml(q, chosen, order, confidence, second) : ""}
     ${exam ? `<div class="confidence" role="group" aria-label="How sure are you? Optional" style="margin-bottom:18px">
       <span>How sure are you? (optional)</span>
       ${CONF.map(([k, label, key]) => `<button class="chip" data-exam-conf="${k}" aria-pressed="${quiz.confidence[id] === k}">${label} <span class="kbd">${key}</span></button>`).join("")}
@@ -304,20 +403,26 @@ function renderQuestion(i, reviewing) {
     if (inp.checked && inp.type === "checkbox" && $$("input[name=opt]:checked", main).length > requiredCount(q)) {
       inp.checked = false;
       const count = $("#q-count");
-      if (count) { count.classList.remove("pulse"); void count.offsetWidth; count.classList.add("pulse"); }
+      if (count) {
+        // Said, not only shown: the live counter announces why the tick did not take.
+        count.textContent = `${requiredCount(q)} of ${requiredCount(q)} selected — untick one first`;
+        count.classList.remove("pulse"); void count.offsetWidth; count.classList.add("pulse");
+      }
       return;
     }
-    quiz.answers[id] = $$("input[name=opt]:checked", main).map(x => Number(x.value));
-    $$("[data-conf]", main).forEach(b => { b.disabled = !isComplete(q, quiz.answers[id]); });
-    if (isComplete(q, quiz.answers[id])) clearToast();
+    const now = $$("input[name=opt]:checked", main).map(x => Number(x.value));
+    setChosen(entry, now);
+    $$("[data-conf]", main).forEach(b => { b.disabled = !isComplete(q, now); });
+    if (isComplete(q, now)) clearToast(CHOOSE_TOAST);
     const count = $("#q-count");
-    if (count) count.textContent = `${quiz.answers[id].length} of ${requiredCount(q)} selected`;
+    if (count) count.textContent = `${now.length} of ${requiredCount(q)} selected`;
+    saveSession();
     if (exam) {
       saveMockAnswer(id, { chosen: quiz.answers[id] });
       $$(".qgrid button")[i].classList.toggle("answered", quiz.answers[id].length > 0);
     }
   }));
-  $$("[data-conf]", main).forEach(b => b.addEventListener("click", () => checkPractice(id, b.dataset.conf)));
+  $$("[data-conf]", main).forEach(b => b.addEventListener("click", () => checkPractice(i, b.dataset.conf)));
   $$("[data-exam-conf]", main).forEach(b => b.addEventListener("click", () => {
     quiz.confidence[id] = quiz.confidence[id] === b.dataset.examConf ? null : b.dataset.examConf;
     saveMockAnswer(id, { confidence: quiz.confidence[id] });
@@ -327,6 +432,7 @@ function renderQuestion(i, reviewing) {
     if (reviewing) { quiz.reviewIdx = i + 1; return render(); }
     if (!exam && i === total - 1) return finishQuiz();
     quiz.idx = i + 1;
+    saveSession();
     render();
   });
   $("#prev")?.addEventListener("click", () => { if (reviewing) quiz.reviewIdx = i - 1; else quiz.idx = i - 1; render(); });
@@ -357,12 +463,15 @@ async function quit() {
   render();
 }
 
-function verdictHtml(q, chosen) {
+function verdictHtml(q, chosen, order, conf, second) {
   const ok = isCorrect(q, chosen);
-  const order = quiz.order[q.id];
   const letters = joinLetters(q.answer.map(a => LETTERS[order.indexOf(a)]).sort());
-  const conf = quiz.confidence[q.id];
-  const note = ok && conf === "guess"
+  // A right second try cannot clear a mistake: the proof needs another day. Shown while the
+  // question is an open mistake; checkPractice updates it once the server has the answer.
+  const secondNote = second && ok
+    ? `<p class="small verdict-note" id="second-note" ${openMistake(q.id) ? "" : "hidden"}>Right this time. It stays in your mistakes until you get it right on another day.</p>` : "";
+  const note = secondNote ? ""
+    : ok && conf === "guess"
     ? `You guessed, so this stays on your mistakes list until you answer it confidently on ${P.proof_days} different days.`
     : !ok && conf === "sure" ? "You were sure: that makes this a misconception, the most valuable kind of mistake to fix." : "";
   const title = ok ? (conf === "guess" ? "Correct, but a guess" : "Correct")
@@ -370,20 +479,30 @@ function verdictHtml(q, chosen) {
   return `<div class="verdict ${ok ? "good" : "bad"}" role="status">
     <strong>${title}</strong>
     <p>${inlineCode(q.explanation)}</p>
-    ${note ? `<p class="small verdict-note">${note}</p>` : ""}
+    ${note ? `<p class="small verdict-note">${note}</p>` : ""}${secondNote}
   </div>`;
 }
 
-async function checkPractice(id, confidence) {
-  const chosen = quiz.answers[id] || [];
+async function checkPractice(i, confidence) {
+  const entry = quiz.items[i];
+  const id = idOf(entry);
+  const chosen = slot(entry).chosen || [];
   if (!isComplete(Q[id], chosen)) return;
-  clearToast();
-  quiz.checked[id] = true;
-  quiz.confidence[id] = confidence;
+  clearToast(CHOOSE_TOAST);
+  if (isSecond(entry)) Object.assign(quiz.seconds[id], { checked: true, confidence });
+  else {
+    quiz.checked[id] = true;
+    quiz.confidence[id] = confidence;
+    if ((!isCorrect(Q[id], chosen) || confidence === "guess") && !quiz.retried[id]) queueSecondTry(i);
+  }
+  saveSession();
   render();
   $("#next")?.focus({ preventScroll: true });
+  // A second try is recorded like any other answer.
   try { apply(await api("/api/attempt", { id, chosen, confidence, mode: "practice" })); refreshNav(); }
-  catch { toastError("Could not save this answer. Check that the server is running."); }
+  catch { toastError("Could not save this answer. Check that the server is running."); return; }
+  const note = $("#second-note");
+  if (note && quiz?.items[quiz.idx] === entry) note.hidden = !openMistake(id);
 }
 
 function showReviewScreen() {
@@ -435,6 +554,7 @@ function startTimer() {
 
 async function finishQuiz() {
   stopTimer();
+  if (quiz.mode === "practice") clearSession();
   if (quiz.mode === "exam") {
     trackTime(null);
     try {
@@ -456,11 +576,14 @@ async function finishQuiz() {
 
 /* ---------------------------------------------------------------- results */
 
-function reviewGrid(ok) {
-  return `<div class="qgrid">${quiz.items.map((id, n) => {
-    if (quiz.mode === "practice" && !quiz.checked[id]) return "";
-    const good = ok(id);
-    return `<button data-review="${n}" class="${good ? "good" : "bad"}" aria-label="Question ${n + 1}, ${good ? "correct" : "incorrect"}">${n + 1}</button>`;
+/** Buttons for the answered entries that `show` keeps, numbered by their original question. */
+function reviewGrid(ok, show = e => !isSecond(e)) {
+  return `<div class="qgrid">${quiz.items.map((entry, n) => {
+    if (!show(entry) || (quiz.mode === "practice" && !slot(entry).checked)) return "";
+    const good = ok(idOf(entry), entry);
+    const shown = placeOf(isSecond(entry) ? quiz.items.indexOf(entry.id) : n);
+    const label = isSecond(entry) ? `Second try at question ${shown}` : `Question ${shown}`;
+    return `<button data-review="${n}" class="${good ? "good" : "bad"}" aria-label="${label}, ${good ? "correct" : "incorrect"}">${shown}</button>`;
   }).join("")}</div>`;
 }
 
@@ -472,7 +595,10 @@ function bindResults(retryIds) {
 
 function renderResults() {
   if (quiz.mode === "exam") return renderMockResults(quiz.report);
-  const items = quiz.items.filter(id => quiz.checked[id]);
+  // The score counts first answers only; second tries are listed apart.
+  const items = quiz.items.filter(e => !isSecond(e) && quiz.checked[e]);
+  const seconds = quiz.items.filter(e => isSecond(e) && quiz.seconds[e.id].checked);
+  const secondsRight = seconds.filter(e => isCorrect(Q[e.id], quiz.seconds[e.id].chosen)).length;
   const right = items.filter(id => isCorrect(Q[id], quiz.answers[id])).length;
   const pct = items.length ? Math.round((right / items.length) * 100) : 0;
   const byTopic = {};
@@ -502,7 +628,9 @@ function renderResults() {
       </tbody></table></div></section>
       ${byConfidence ? `<section><h2>By confidence</h2><div class="table-wrap"><table class="data"><tbody>${byConfidence}</tbody></table></div></section>` : ""}
     </div>
-    ${section("Review answers", reviewGrid(id => isCorrect(Q[id], quiz.answers[id])), { aside: "Select a question to see its explanation." })}`;
+    ${section("Review answers", reviewGrid(id => isCorrect(Q[id], quiz.answers[id])), { aside: "Select a question to see its explanation." })}
+    ${seconds.length ? section("Second tries", `<p>Second tries: ${secondsRight} right of ${seconds.length}</p>
+      ${reviewGrid((id, e) => isCorrect(Q[id], slot(e).chosen), isSecond)}`, { aside: "Not part of the score above." }) : ""}`;
   bindResults(wrong);
 }
 
@@ -582,8 +710,9 @@ function onKey(e) {
   };
   const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
   const n = Number(e.key);
-  const q = Q[quiz.items[quiz.idx]];
-  const complete = !!q && isComplete(q, quiz.answers[q.id]);
+  const entry = quiz.items[quiz.idx];
+  const q = entry && Q[idOf(entry)];
+  const complete = !!q && isComplete(q, slot(entry).chosen);
   if (n >= 1 && n <= 8) toggle(n - 1);
   else if (key.length === 1 && "STG".includes(key) && (complete || !inputs[LETTERS.indexOf(key)])) {
     const conf = CONF.find(c => c[2] === key)[0];
@@ -595,8 +724,8 @@ function onKey(e) {
     e.preventDefault();
     const next = $("#next") || $("#finish");
     if (next) next.click();
-    else if ($("[data-conf]:not([disabled])", main)) checkPractice(q.id, "think");
-    else if (q && $("[data-conf]", main)) toast(`Choose ${plural(requiredCount(q), "answer")} first.`);
+    else if ($("[data-conf]:not([disabled])", main)) checkPractice(quiz.idx, "think");
+    else if (q && $("[data-conf]", main)) toast(`Choose ${plural(requiredCount(q), "answer")} first.`, { tag: CHOOSE_TOAST });
   }
 }
 

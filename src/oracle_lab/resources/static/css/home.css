@@ -172,6 +172,27 @@
 .next-list strong { font-weight: 650; }
 .next-list span { color: var(--muted); font-size: var(--t-s); }
 
+/* An unfinished practice session, above the session card */
+.resume-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 14px;
+  align-items: center;
+  max-width: 640px;
+  margin: 0 0 24px;
+  padding: 14px 20px;
+  color: inherit;
+  text-decoration: none;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--mark);
+  border-radius: var(--r-l);
+}
+.resume-bar:hover { background: var(--paper-2); }
+.resume-bar svg { grid-row: span 2; width: 22px; height: 22px; color: var(--muted); }
+.resume-bar strong { font-weight: 650; }
+.resume-bar span { color: var(--muted); font-size: var(--t-s); }
+
 .advice { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .advice li { display: flex; gap: 10px; color: var(--ink-2); font-size: 15px; max-width: 80ch; }
 .advice li::before { content: ""; flex: none; width: 4px; border-radius: 2px; background: var(--mark); }

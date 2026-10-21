@@ -16,6 +16,11 @@ export function store(key, value) {
   return value;
 }
 
+/** Removes one of this account's keys. */
+export function forget(key) {
+  try { localStorage.removeItem(keyOf(key)); } catch { /* storage unavailable */ }
+}
+
 const NAMESPACED = /^study:[\w-]{22}:/;
 
 /** Selects the account's keys. The first account in a browser inherits the keys of the single-user era. */

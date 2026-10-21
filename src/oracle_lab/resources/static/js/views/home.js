@@ -5,7 +5,7 @@ import { $$, esc, plural, icon } from "../core/dom.js";
 import { C, P, L, CARD, DB, mistakes, topicStats, topicLabel } from "../core/state.js";
 import { main, go } from "../core/router.js";
 import { levelBadge, meter, section } from "../ui/widgets.js";
-import { startQuiz, startMock, resumeMock } from "./quiz.js";
+import { startQuiz, startMock, resumeMock, practiceSession, resumePractice } from "./quiz.js";
 import { openDeck } from "./cards.js";
 import { openNote } from "./notes.js";
 
@@ -61,6 +61,7 @@ function render() {
   const cardsDone = plan.cards.length && !cardsLeft.length;
   const mock = P.active_mock;
   const mockLeft = mock ? Math.max(0, Math.round((mock.deadline - Date.now() / 1000) / 60)) : 0;
+  const practice = practiceSession();
 
   main.innerHTML = `
     <header class="page-head">
@@ -75,6 +76,10 @@ function render() {
       </div>
     </header>
     ${trackWarning()}
+
+    ${practice ? `<a class="resume-bar" href="/quiz" data-start="practice">${icon("quiz")}
+      <strong>Resume practice (${practice.answered} of ${practice.total})</strong>
+      <span>Pick up at the question you were on.</span></a>` : ""}
 
     <div class="today-hero">
       <article class="session-card ${plan.complete ? "complete" : ""}" aria-labelledby="session-title">
@@ -148,12 +153,13 @@ function render() {
   $$("[data-start]", main).forEach(a => a.addEventListener("click", e => {
     e.preventDefault();
     const kind = a.dataset.start;
-    if (kind === "mock") startMock();
+    if (kind === "practice") resumePractice();
+    else if (kind === "mock") startMock();
     else if (kind === "resume") resumeMock();
     else if (kind === "more") startQuiz({ mode: "practice", count: 10 });
     // The next unfinished step: questions, then flashcards, then the exercise.
     else if (kind === "questions" || (kind === "next" && questionsLeft.length)) {
-      startQuiz({ mode: "practice", ids: questionsLeft.length ? questionsLeft : plan.questions, keepOrder: true });
+      startQuiz({ mode: "practice", ids: questionsLeft.length ? questionsLeft : plan.questions, keepOrder: true, fromToday: true });
     } else if (kind === "cards" || cardsLeft.length) openDeck((cardsLeft.length ? cardsLeft : plan.cards).map(id => CARD[id]), true);
     else if (lab) go(`/exercises/${lab.id}`);
   }));
