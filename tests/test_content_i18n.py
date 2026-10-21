@@ -234,8 +234,9 @@ def test_error_explanations_follow_the_language(monkeypatch):
     assert pl["hint"] == "Nie ma kolumny SALRY. Czy chodziło ci o SALARY (EMPLOYEES)?"
     en = error_hints.explain(error, "SELECT e.salry FROM employees e", FakeSchema())
     assert en["title"] == "Invalid identifier" and en["hint"] == "No column is called SALRY. Did you mean SALARY (EMPLOYEES)?"
+    monkeypatch.delitem(error_hints.overlay("pl"), "ORA-00942", raising=False)
     other = error_hints.explain("ORA-00942: table or view does not exist", "SELECT 1 FROM nope", FakeSchema(), lang="pl")
-    assert other["title"] == "Table or view does not exist"  # no Polish entry yet: English
+    assert other["title"] == "Table or view does not exist"  # no Polish entry: English
 
 
 def test_grading_feedback_in_polish_and_unchanged_english():

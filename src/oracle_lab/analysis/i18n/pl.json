@@ -1,1 +1,246 @@
-{}
+{
+  "ORA-00001": {
+    "title": "Naruszenie ograniczenia unikalności",
+    "explanation": "Polecenie zapisałoby wartość, która już istnieje w kolumnie (lub kombinacji kolumn) chronionej ograniczeniem PRIMARY KEY albo UNIQUE. Wartości NULL nigdy nie kolidują w jednokolumnowym ograniczeniu UNIQUE."
+  },
+  "ORA-00904": {
+    "title": "Nieprawidłowy identyfikator",
+    "explanation": "Oracle nie znajduje kolumny ani aliasu o tej nazwie w miejscu użycia. Częste przyczyny: literówka, alias kolumny użyty w WHERE lub GROUP BY (aliasy istnieją tylko w ORDER BY), kolumna tabeli, której nie ma we FROM, albo identyfikator w cudzysłowie z niewłaściwą wielkością liter."
+  },
+  "ORA-00905": {
+    "title": "Brak słowa kluczowego",
+    "explanation": "Klauzula jest niepełna: na przykład JOIN bez ON, CASE bez END albo zła kolejność słów kluczowych, jak DROP VIEW v CASCADE."
+  },
+  "ORA-00907": {
+    "title": "Brak prawego nawiasu",
+    "explanation": "Nawiasy nie są zbilansowane albo w środku jest coś, co nie jest tam dozwolone: na przykład typ danych ze złym rozmiarem albo ORDER BY w podzapytaniu użytym z IN."
+  },
+  "ORA-00913": {
+    "title": "Za dużo wartości",
+    "explanation": "Więcej wartości niż kolumn: lista INSERT VALUES dłuższa niż lista kolumn albo podzapytanie zwracające więcej kolumn, niż oczekuje porównanie."
+  },
+  "ORA-00918": {
+    "title": "Niejednoznacznie zdefiniowana kolumna",
+    "explanation": "Niekwalifikowana nazwa kolumny występuje w więcej niż jednej tabeli klauzuli FROM. Poprzedź ją aliasem tabeli, na przykład e.department_id."
+  },
+  "ORA-00920": {
+    "title": "Nieprawidłowy operator relacyjny",
+    "explanation": "Warunkowi brakuje operatora porównania albo używa operatora, którego Oracle nie ma (na przykład == )."
+  },
+  "ORA-00923": {
+    "title": "Nie znaleziono słowa kluczowego FROM tam, gdzie oczekiwano",
+    "explanation": "Coś na liście SELECT kończy się wcześniej, niż oczekuje Oracle: często brakujący przecinek między kolumnami, alias kolumny ze spacjami bez cudzysłowów podwójnych albo tekst w apostrofach użyty jako alias."
+  },
+  "ORA-00927": {
+    "title": "Brak znaku równości",
+    "explanation": "Klauzula UPDATE ... SET wymaga kolumna = wartość dla każdej kolumny albo (col1, col2) = (podzapytanie)."
+  },
+  "ORA-00932": {
+    "title": "Niezgodne typy danych",
+    "explanation": "Dwie wartości, które muszą mieć zgodne typy, ich nie mają: na przykład NUMBER i DATE w porównaniu, gałęzie CASE różnych typów albo argumenty COALESCE z różnych rodzin typów."
+  },
+  "ORA-00933": {
+    "title": "Polecenie SQL niepoprawnie zakończone",
+    "explanation": "Oracle przeanalizował poprawne polecenie, ale znalazł dalszy tekst. Częste przyczyny: AS przed aliasem tabeli (Oracle na to nie pozwala), ORDER BY w jednej gałęzi operatora zbiorowego albo klauzule w złej kolejności."
+  },
+  "ORA-00934": {
+    "title": "Funkcja grupująca nie jest tu dozwolona",
+    "explanation": "Funkcja grupująca, taka jak COUNT czy AVG, występuje w WHERE (albo w GROUP BY). WHERE filtruje wiersze przed grupowaniem; wyniki grup filtruj w HAVING."
+  },
+  "ORA-00936": {
+    "title": "Brak wyrażenia",
+    "explanation": "Oczekiwano wyrażenia, a go nie ma: często końcowy przecinek przed FROM, pusta para nawiasów albo DISTINCT w złym miejscu."
+  },
+  "ORA-00937": {
+    "title": "To nie jest jednogrupowa funkcja grupująca",
+    "explanation": "Lista SELECT łączy funkcję grupującą ze zwykłą kolumną, ale nie ma GROUP BY. Dodaj zwykłe kolumny do GROUP BY albo je usuń."
+  },
+  "ORA-00942": {
+    "title": "Tabela lub widok nie istnieje",
+    "explanation": "Nazwa tabeli ma literówkę, należy do innego schematu, do którego nie masz uprawnień, albo tabelę usunięto. Nazwy bez cudzysłowów są zapisywane wielkimi literami."
+  },
+  "ORA-00947": {
+    "title": "Za mało wartości",
+    "explanation": "Mniej wartości niż kolumn: lista INSERT VALUES krótsza niż lista kolumn albo podzapytanie ze zbyt małą liczbą kolumn."
+  },
+  "ORA-00955": {
+    "title": "Nazwa jest już używana przez istniejący obiekt",
+    "explanation": "Tabele, widoki, sekwencje, prywatne synonimy i inne obiekty jednego schematu dzielą jedną przestrzeń nazw."
+  },
+  "ORA-00957": {
+    "title": "Powtórzona nazwa kolumny",
+    "explanation": "Nazwa kolumny występuje dwa razy w CREATE TABLE, w widoku albo na liście kolumn INSERT."
+  },
+  "ORA-00979": {
+    "title": "To nie jest wyrażenie GROUP BY",
+    "explanation": "Każde wyrażenie na liście SELECT (oraz w HAVING i ORDER BY), które nie jest wewnątrz funkcji grupującej, musi wystąpić w GROUP BY. Oracle nigdy nie wybiera za ciebie dowolnej wartości."
+  },
+  "ORA-00980": {
+    "title": "Tłumaczenie synonimu nie jest już prawidłowe",
+    "explanation": "Synonim wskazuje na obiekt, który usunięto albo którego nazwę zmieniono. Synonimy nie są usuwane razem z obiektem docelowym."
+  },
+  "ORA-00998": {
+    "title": "To wyrażenie musi mieć alias kolumny",
+    "explanation": "CREATE TABLE ... AS SELECT i CREATE VIEW wymagają nazwy dla każdego wyrażenia, które nie jest zwykłą kolumną."
+  },
+  "ORA-01031": {
+    "title": "Niewystarczające uprawnienia",
+    "explanation": "Nie masz uprawnienia systemowego ani obiektowego, którego wymaga to polecenie."
+  },
+  "ORA-01086": {
+    "title": "Punkt zapisu nigdy nie został ustanowiony",
+    "explanation": "W bieżącej transakcji nie ma takiego punktu zapisu. COMMIT, ROLLBACK albo dowolne polecenie DDL (które zatwierdza transakcję) usuwa wszystkie punkty zapisu."
+  },
+  "ORA-01400": {
+    "title": "Nie można wstawić NULL",
+    "explanation": "Kolumna NOT NULL (albo kolumna klucza głównego) dostałaby NULL: nie ma jej na liście kolumn INSERT i nie ma wartości domyślnej albo podana wartość to NULL. W Oracle pusty tekst '' to też NULL."
+  },
+  "ORA-01407": {
+    "title": "Nie można zmienić wartości na NULL",
+    "explanation": "UPDATE ustawiłby kolumnę NOT NULL na NULL, na przykład z podzapytania, które nie zwraca żadnego wiersza."
+  },
+  "ORA-01427": {
+    "title": "Podzapytanie jednowierszowe zwraca więcej niż jeden wiersz",
+    "explanation": "Podzapytanie użyte z =, <, > albo na liście SELECT może zwrócić najwyżej jeden wiersz. Dla wielu wierszy użyj IN, = ANY albo > ALL, albo spraw, by podzapytanie zwracało jeden wiersz."
+  },
+  "ORA-01430": {
+    "title": "Dodawana kolumna już istnieje w tabeli",
+    "explanation": "ALTER TABLE ... ADD podaje istniejącą kolumnę."
+  },
+  "ORA-01438": {
+    "title": "Wartość większa niż dozwolona precyzja tej kolumny",
+    "explanation": "Liczba ma więcej cyfr przed przecinkiem, niż pozwala NUMBER(p,s) (p - s cyfr). Nadmiarowe cyfry po przecinku są zaokrąglane."
+  },
+  "ORA-01439": {
+    "title": "Aby zmienić typ danych, modyfikowana kolumna musi być pusta",
+    "explanation": "ALTER TABLE ... MODIFY na typ z innej rodziny działa tylko wtedy, gdy kolumna nie ma wartości."
+  },
+  "ORA-01441": {
+    "title": "Nie można zmniejszyć długości kolumny, bo któraś wartość jest za duża",
+    "explanation": "Istniejące dane nie mieszczą się w nowym, mniejszym rozmiarze."
+  },
+  "ORA-01468": {
+    "title": "Predykat może odwoływać się tylko do jednej tabeli złączenia zewnętrznego",
+    "explanation": "Stara składnia (+) nie może oznaczać obu stron jednego warunku. Użyj FULL OUTER JOIN."
+  },
+  "ORA-01476": {
+    "title": "Dzielnik jest równy zero",
+    "explanation": "Oracle zgłasza błąd przy dzieleniu przez zero, zamiast zwrócić NULL. Użyj NULLIF(divisor, 0), aby dostać NULL."
+  },
+  "ORA-01722": {
+    "title": "Nieprawidłowa liczba",
+    "explanation": "Wartość znakowa, która nie jest liczbą, została przekonwertowana na NUMBER: zwykle niejawnie, gdy tekst jest porównywany z kolumną liczbową, użyty w arytmetyce albo w NVL/DECODE z liczbowym pierwszym argumentem."
+  },
+  "ORA-01732": {
+    "title": "Operacja modyfikacji danych niedozwolona dla tego widoku",
+    "explanation": "Widok zawiera DISTINCT, GROUP BY, funkcję grupującą, operator zbiorowy albo ROWNUM, więc nie można przez niego zmieniać danych."
+  },
+  "ORA-01733": {
+    "title": "Kolumna wirtualna nie jest tu dozwolona",
+    "explanation": "Próba wstawienia lub zmiany kolumny widoku, która jest wyrażeniem, a nie kolumną tabeli bazowej."
+  },
+  "ORA-01735": {
+    "title": "Nieprawidłowa opcja ALTER TABLE",
+    "explanation": "To nie jest składnia ALTER TABLE Oracle: na przykład ALTER COLUMN (użyj MODIFY) albo SET NOT NULL (użyj MODIFY col NOT NULL)."
+  },
+  "ORA-01779": {
+    "title": "Nie można zmienić kolumny odwzorowanej na tabelę bez zachowania klucza",
+    "explanation": "Przez widok złączenia możesz zmieniać tylko tabelę, której klucz główny pozostaje w widoku unikalny."
+  },
+  "ORA-01789": {
+    "title": "Blok zapytania ma niewłaściwą liczbę kolumn wyniku",
+    "explanation": "Wszystkie zapytania połączone przez UNION, INTERSECT albo MINUS muszą wybierać tyle samo kolumn. Brakującą kolumnę uzupełnij NULL albo literałem."
+  },
+  "ORA-01790": {
+    "title": "Wyrażenie musi mieć ten sam typ danych co odpowiadające mu wyrażenie",
+    "explanation": "Odpowiadające sobie kolumny operatora zbiorowego muszą należeć do tej samej rodziny typów. Operatory zbiorowe nie konwertują niejawnie NUMBER na tekst; użyj TO_CHAR."
+  },
+  "ORA-01830": {
+    "title": "Wzorzec formatu daty kończy się przed przekonwertowaniem całego tekstu",
+    "explanation": "Tekst ma więcej znaków (często część z godziną), niż opisuje model formatu."
+  },
+  "ORA-01839": {
+    "title": "Data nieprawidłowa dla podanego miesiąca",
+    "explanation": "Taka data nie istnieje: na przykład 31 lutego, często po dodaniu INTERVAL '1' MONTH do końca miesiąca. ADD_MONTHS w takim przypadku przechodzi na ostatni dzień miesiąca."
+  },
+  "ORA-01843": {
+    "title": "Nieprawidłowy miesiąc",
+    "explanation": "Część z miesiącem nie pasuje do modelu formatu albo do języka dat sesji."
+  },
+  "ORA-01847": {
+    "title": "Dzień miesiąca musi być między 1 a ostatnim dniem miesiąca",
+    "explanation": "Wartość dnia jest poza zakresem."
+  },
+  "ORA-01858": {
+    "title": "Znaleziono znak nienumeryczny tam, gdzie oczekiwano cyfry",
+    "explanation": "Tekst i model formatu się nie zgadzają: porównaj je pozycja po pozycji."
+  },
+  "ORA-01861": {
+    "title": "Literał nie pasuje do formatu",
+    "explanation": "Tekst przekonwertowano na datę z modelem formatu (często NLS_DATE_FORMAT sesji), do którego nie pasuje. Użyj literału DATE '2024-01-31' albo TO_DATE z jawnym formatem."
+  },
+  "ORA-02260": {
+    "title": "Tabela może mieć tylko jeden klucz główny",
+    "explanation": "Dla innych kluczy kandydujących użyj ograniczeń UNIQUE."
+  },
+  "ORA-02264": {
+    "title": "Nazwa jest już używana przez istniejące ograniczenie",
+    "explanation": "Nazwy ograniczeń są unikalne w obrębie schematu."
+  },
+  "ORA-02266": {
+    "title": "Do kluczy unikalnych lub głównych tabeli odwołują się włączone klucze obce",
+    "explanation": "Nie można wykonać TRUNCATE tabeli nadrzędnej, gdy odwołują się do niej włączone klucze obce i istnieją wiersze podrzędne."
+  },
+  "ORA-02270": {
+    "title": "Brak pasującego klucza unikalnego lub głównego dla tej listy kolumn",
+    "explanation": "Klucz obcy musi odwoływać się do ograniczenia PRIMARY KEY albo UNIQUE dokładnie na tych kolumnach."
+  },
+  "ORA-02287": {
+    "title": "Numer sekwencji nie jest tu dozwolony",
+    "explanation": "NEXTVAL i CURRVAL nie są dozwolone w WHERE, GROUP BY, ORDER BY, zapytaniach z DISTINCT, operatorach zbiorowych, podzapytaniach ani widokach."
+  },
+  "ORA-02290": {
+    "title": "Naruszenie ograniczenia CHECK",
+    "explanation": "Nowy lub zmieniony wiersz nie spełnia ograniczenia CHECK."
+  },
+  "ORA-02291": {
+    "title": "Naruszenie integralności - nie znaleziono klucza nadrzędnego",
+    "explanation": "Wartość klucza obcego nie ma pasującego wiersza w tabeli nadrzędnej. Najpierw wstaw wiersz nadrzędny albo użyj istniejącego klucza. Klucze obce z NULL są dozwolone."
+  },
+  "ORA-02292": {
+    "title": "Naruszenie integralności - znaleziono rekord podrzędny",
+    "explanation": "Wiersz nadrzędny wciąż ma wiersze podrzędne, a klucz obcy nie ma ON DELETE CASCADE ani SET NULL. Najpierw usuń wiersze podrzędne albo przepnij je gdzie indziej."
+  },
+  "ORA-02449": {
+    "title": "Do kluczy unikalnych lub głównych tabeli odwołują się klucze obce",
+    "explanation": "DROP TABLE tabeli nadrzędnej wymaga CASCADE CONSTRAINTS, które usuwa podrzędne klucze obce."
+  },
+  "ORA-08002": {
+    "title": "CURRVAL sekwencji nie jest jeszcze zdefiniowane w tej sesji",
+    "explanation": "CURRVAL zwraca ostatnie NEXTVAL twojej własnej sesji, więc najpierw wywołaj NEXTVAL."
+  },
+  "ORA-12899": {
+    "title": "Wartość za duża dla kolumny",
+    "explanation": "Tekst jest dłuższy niż maksymalny rozmiar kolumny."
+  },
+  "ORA-25154": {
+    "title": "Kolumna z klauzuli USING nie może mieć kwalifikatora",
+    "explanation": "Przy JOIN ... USING (col) odwołuj się do kolumny złączenia bez aliasu tabeli w całym zapytaniu."
+  },
+  "ORA-25155": {
+    "title": "Kolumna użyta w złączeniu NATURAL nie może mieć kwalifikatora",
+    "explanation": "Przy NATURAL JOIN odwołuj się do wspólnych kolumn bez aliasu tabeli w całym zapytaniu."
+  },
+  "ORA-25156": {
+    "title": "Starego złączenia zewnętrznego (+) nie można łączyć ze złączeniami ANSI",
+    "explanation": "Nie łącz (+) w WHERE z JOIN ... ON w tym samym zapytaniu; napisz LEFT albo RIGHT JOIN."
+  },
+  "ORA-30076": {
+    "title": "Nieprawidłowe pole EXTRACT dla źródła",
+    "explanation": "EXTRACT pobiera z DATE tylko YEAR, MONTH i DAY; HOUR, MINUTE i SECOND wymagają TIMESTAMP."
+  },
+  "ORA-38104": {
+    "title": "Kolumn, do których odwołuje się klauzula ON, nie można zmieniać",
+    "explanation": "MERGE nie może zmieniać kolumn używanych w klauzuli ON do dopasowania wierszy."
+  }
+}

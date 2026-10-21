@@ -191,5 +191,13 @@
   "None yet.": "Jeszcze żadnych.",
   "{pct} of {n}": "{pct} z {n}",
   "Pass": "Zdany",
-  "Below pass": "Poniżej progu"
+  "Below pass": "Poniżej progu",
+
+  "Tests Oracle Database 19c behavior. Questions whose answer changed in 23ai are shown on this exam only.": "Sprawdza działanie Oracle Database 19c. Pytania, których odpowiedź zmieniła się w 23ai, są pokazywane tylko na tym egzaminie.",
+  "Tests the same SQL on Oracle 23ai and adds topic 15, the SQL features new in 23ai.": "Sprawdza ten sam SQL na Oracle 23ai i dodaje temat 15, czyli nowe funkcje SQL w 23ai.",
+  "Exam guide 2026": "Przewodnik po egzaminach 2026",
+  "1Z0-071 and 1Z0-171 compared, with every 19c and 23ai difference.": "Porównanie 1Z0-071 i 1Z0-171 ze wszystkimi różnicami między 19c a 23ai.",
+  "Cheat sheet": "Ściąga",
+  "The rules and traps of every topic on one page.": "Zasady i pułapki wszystkich tematów na jednej stronie.",
+  "Oracle 23ai": "Oracle 23ai"
 }
