@@ -31,6 +31,23 @@ The app prepares for two exams: **1Z0-071** (Oracle Database SQL, 19c behavior) 
       STUDY_DSN=localhost:1522/FREEPDB1 STUDY_PASSWORD_FILE=~/.orastudy23_pwd \
           .venv/bin/oracle-lab validate --topic t15                                # 23ai
 
+### Validating as a learner
+
+Learners run in private schemas with only direct CREATE privileges and no roles (see
+`LEARNER_GRANTS` in `provisioning/schemas.py`), so content must not depend on ORASTUDY's extra
+privileges (for example the 23ai `DB_DEVELOPER_ROLE`). Validate once as a learner-equivalent user
+too. As a privileged account create it (local dev databases only; keep the password in a file):
+
+    CREATE USER oll_validate IDENTIFIED BY "<password>" QUOTA UNLIMITED ON USERS;
+    GRANT CREATE SESSION, CREATE TABLE, CREATE VIEW, CREATE SEQUENCE, CREATE SYNONYM TO oll_validate;
+    -- 23ai only, in addition:
+    GRANT CREATE DOMAIN, CREATE PROCEDURE TO oll_validate;
+
+Then, once to load the sample tables into that user and on later runs without `--reset`:
+
+    STUDY_DSN=localhost:1522/FREEPDB1 STUDY_USER=oll_validate STUDY_PASSWORD_FILE=<file> \
+        .venv/bin/oracle-lab validate --reset
+
 ## Ground rules
 
 - **Original material only.** Never copy or paraphrase real exam questions or dumps.
