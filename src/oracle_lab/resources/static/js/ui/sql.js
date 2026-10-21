@@ -3,6 +3,7 @@
 
 import { esc, inlineCode, plural } from "../core/dom.js";
 import { topicName } from "../core/state.js";
+import { stepCaption } from "./sample.js";
 
 /** The statement without its leading `--` comment lines (the original if nothing else is left). */
 export function displaySql(sql) {
@@ -63,17 +64,34 @@ function txHtml(tx) {
 
 export const errorBox = message => `<div class="result"><div class="result-msg error">${esc(message)}</div></div>`;
 
-export function resultsHtml(res) {
+/** Whether an error is the one the statement is meant to show: the card's `expectError`, or a code
+    named in the statement's own comment. */
+function expectedError(error, caption, expectError) {
+  const code = String(error).match(/\b[A-Z]{2,4}-\d{5}\b/)?.[0];
+  return !!code && (code === expectError || caption.includes(code));
+}
+
+/** Results of a run, one block per statement. With several statements each block is a numbered
+    step headed by its comment; `expectError` (a card's try_error) marks that error as intended. */
+export function resultsHtml(res, { expectError } = {}) {
   if (!res.ok) return errorBox(`Cannot connect to the database.\n${res.connect_error}\n\nCheck that the Oracle container is running.`);
   if (!res.results.length) return `<div class="empty"><strong>Nothing to run</strong><p>Type a statement ending with a semicolon.</p></div>`;
-  const out = res.results.map(r => {
-    const sql = `<div class="result-sql">${esc(displaySql(r.sql))}</div>`;
+  const steps = res.results.length > 1;
+  const out = res.results.map((r, n) => {
+    const caption = r.sql ? stepCaption(r.sql) : "";
+    const head = steps || caption
+      ? `<div class="result-step">${steps ? `<b>Step ${n + 1}</b>` : ""}${steps && caption ? " · " : ""}${esc(caption)}</div>` : "";
+    const sql = `${head}<div class="result-sql">${esc(displaySql(r.sql))}</div>`;
     if (r.type === "rows") {
       const foot = `${plural(r.rows.length, "row")}${r.truncated ? " shown (limit reached)" : ""} in ${r.ms} ms`;
       return `<div class="result">${sql}${r.rows.length ? gridHtml(r.columns, r.rows) : `<div class="result-msg">No rows selected.</div>`}<div class="result-foot">${foot}</div></div>`;
     }
-    if (r.type === "error") return `<div class="result">${sql}<div class="result-msg error">${esc(r.error)}</div>${explainHtml(r.explain)}${txHtml(r.tx)}</div>`;
-    if (r.type === "prompt") return `<div class="result"><div class="result-msg prompt">${esc(r.message)}</div></div>`;
+    if (r.type === "error") {
+      const expected = expectedError(r.error, caption, expectError);
+      const note = expected ? `<p class="result-expected">Expected: the sample fails here on purpose.</p>` : "";
+      return `<div class="result">${sql}<div class="result-msg ${expected ? "expected" : "error"}">${note}${esc(r.error)}</div>${explainHtml(r.explain)}${txHtml(r.tx)}</div>`;
+    }
+    if (r.type === "prompt") return `<div class="result">${head}<div class="result-msg prompt">${esc(r.message)}</div></div>`;
     return `<div class="result">${sql}<div class="result-msg">${esc(r.message)}</div>${r.changes ? changesHtml(r.changes) : ""}${txHtml(r.tx)}</div>`;
   }).join("");
   const pending = res.results.filter(r => r.tx).at(-1)?.tx.pending;

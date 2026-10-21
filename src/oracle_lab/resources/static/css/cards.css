@@ -64,8 +64,6 @@
 .card-back .card-text { font-size: 19px; line-height: 32px; }
 /* The back repeats the question, smaller, above the answer; the sample's comment follows the answer */
 .card-question { margin: 0; font-size: var(--t-s); line-height: 32px; color: var(--card-muted); }
-.card-sample { margin: 32px 0 0; font-size: var(--t-s); line-height: 32px; }
-.card-sample b { font-weight: 600; }
 .card-text code { font-size: .85em; background: rgba(36, 87, 197, .08); border: 0; color: inherit; padding: 1px 4px; border-radius: 3px; }
 .card-hint { flex-shrink: 0; margin: auto 0 0; padding-top: 32px; font-size: var(--t-xs); line-height: 32px; color: var(--card-muted); }
 .card-box { position: absolute; top: 16px; right: 20px; font-size: var(--t-xs); color: var(--card-muted); }

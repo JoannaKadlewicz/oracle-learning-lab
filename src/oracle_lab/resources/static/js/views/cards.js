@@ -2,7 +2,7 @@
    holds the card's sample (try_sql), so the rule on the card can be tried once it is answered.
    The sample stays hidden until the flip: its leading comment usually states the answer. */
 
-import { $, $$, esc, inlineCode, plural, shuffle } from "../core/dom.js";
+import { $, $$, esc, plural, shuffle } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
 import { C, P, CARD, DB, apply, dueCards, cardLearned, topicLabel, blockedOn23ai, sqlOff, NO_SQL, todayLeft } from "../core/state.js";
@@ -11,6 +11,8 @@ import { toast, toastError } from "../ui/feedback.js";
 import { meter, pageHead, section, loading } from "../ui/widgets.js";
 import { makeEditor } from "../ui/editor.js";
 import { resultsHtml, errorBox } from "../ui/sql.js";
+import { formatSample } from "../ui/sample.js";
+import { cardText } from "../ui/cardtext.js";
 import { labDraft } from "./lab.js";
 
 let deck = null;
@@ -21,19 +23,6 @@ narrow.addEventListener("change", () => { if (deck?.queue.length && $("#card-try
 
 const RATINGS = [["again", "Again", "secondary"], ["hard", "Hard", "secondary"], ["good", "Medium", ""], ["easy", "Easy", "secondary"]];
 const RATING_KEYS_SEEN = "seen-rating-keys";
-
-/** The leading `--` comment block of a sample (what it shows) and the SQL after it. */
-export function splitSample(sql) {
-  const lines = String(sql || "").split("\n");
-  const notes = [];
-  let i = 0;
-  for (; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line.startsWith("--")) notes.push(line.replace(/^--\s?/, ""));
-    else if (line) break;
-  }
-  return { notes: notes.filter(Boolean), sql: lines.slice(i).join("\n").trim() };
-}
 
 const currentCard = () => C.flashcards.find(c => c.id === deck.queue[0]);
 
@@ -110,7 +99,6 @@ function renderCard() {
   }
   const card = currentCard();
   const info = P.cards[card.id];
-  const sample = splitSample(card.try_sql);
   const status = !info ? "New card" : info.interval >= 1 ? `Every ${plural(info.interval, "day")}` : "Relearning";
   const progress = deck.total ? (deck.done / deck.total) * 100 : 0;
   main.innerHTML = `
@@ -130,13 +118,12 @@ function renderCard() {
           <div class="card-face card-front" aria-hidden="${deck.flipped}">
             <span class="card-box">${status}</span>
             <p class="card-topic">${esc(topicLabel(card.topic))}</p>
-            <div class="card-text">${inlineCode(card.front)}</div>
+            <div class="card-text">${cardText(card.front)}</div>
             <p class="card-hint">Space or click to flip</p>
           </div>
           <div class="card-face card-back" aria-hidden="${!deck.flipped}">
-            <p class="card-question">${inlineCode(card.front)}</p>
-            <div class="card-text">${inlineCode(card.back)}</div>
-            ${sample.sql && sample.notes.length ? `<p class="card-sample"><b>What the sample shows:</b> ${sample.notes.map(esc).join("<br>")}</p>` : ""}
+            <p class="card-question">${cardText(card.front)}</p>
+            <div class="card-text">${cardText(card.back)}</div>
             <p class="card-hint">1 again, 2 hard, 3 medium, 4 easy</p>
           </div>
         </button>
@@ -171,12 +158,12 @@ function updateTry(card) {
     box.innerHTML = `<p class="card-try-later">Try it in SQL after you answer</p>`;
     return null;
   }
-  const sample = splitSample(card.try_sql);
+  const sample = formatSample(card.try_sql);
   const off = sqlOff();
   const note = off ? NO_SQL
     : blockedOn23ai(card)
     ? `This sample uses Oracle 23ai syntax, and your database is Oracle ${esc(DB.version)}.`
-    : !sample.sql ? "No sample for this card. Write your own query; changes are rolled back."
+    : !sample ? "No sample for this card. Write your own query; changes are rolled back."
     : card.cleanup ? "A sample for this card. Predict the result, then run it. Its LAB_ objects are dropped before and after each run."
       : "A sample for this card. Predict the result, then run it. Changes are rolled back.";
   if (state === "closed") {
@@ -192,15 +179,15 @@ function updateTry(card) {
   box.innerHTML = `
     <div class="card-try-head"><h2>Try it</h2><p>${note}</p></div>
     <div class="editor-wrap">
-      <textarea class="editor" id="card-sql" aria-label="SQL for this card" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(sample.sql)}</textarea>
+      <textarea class="editor" id="card-sql" aria-label="SQL for this card" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(sample)}</textarea>
       <div class="editor-bar">
         <button class="btn" id="card-run" ${off ? "disabled" : ""}><span>Run</span> <span class="kbd">Ctrl+Enter</span></button>
-        ${sample.sql ? `<button class="link-btn quiet" id="card-restore">Restore the sample</button>` : ""}
+        ${sample ? `<button class="link-btn quiet" id="card-restore">Restore the sample</button>` : ""}
         <span class="links"><button class="link-btn" id="card-lab" ${off ? "disabled" : ""}>Open in SQL lab</button></span>
       </div>
     </div>
     <div class="results" id="card-results" aria-live="polite"></div>`;
-  return bindTry(card, sample.sql);
+  return bindTry(card, sample);
 }
 
 function bindTry(card, sampleSql) {
@@ -214,7 +201,7 @@ function bindTry(card, sampleSql) {
     const btn = $("#card-run");
     btn.disabled = true;
     results.innerHTML = loading("Running");
-    try { results.innerHTML = resultsHtml(await api("/api/run", { sql, keep: false, card: card.id })); }
+    try { results.innerHTML = resultsHtml(await api("/api/run", { sql, keep: false, card: card.id }), { expectError: card.try_error }); }
     catch (err) { results.innerHTML = errorBox(err.message); }
     btn.disabled = false;
   };
