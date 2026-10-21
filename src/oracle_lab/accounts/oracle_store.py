@@ -279,6 +279,16 @@ class OracleUsers:
             cur.execute("UPDATE app_users SET last_login_at = :t WHERE id = :u", t=t, u=user_id)
             conn.commit()
 
+    def set_status(self, user_id: str, status: str) -> None:
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute("UPDATE app_users SET status = :s WHERE id = :u", s=status, u=user_id)
+            conn.commit()
+
+    def set_role(self, user_id: str, role: str) -> None:
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute("UPDATE app_users SET role = :r WHERE id = :u", r=role, u=user_id)
+            conn.commit()
+
     def set_password(self, user_id: str, password_hash: str, changed_at: float) -> None:
         with session(self._db) as conn, conn.cursor() as cur:
             cur.execute("UPDATE app_users SET password_changed_at = :t WHERE id = :u", t=changed_at, u=user_id)

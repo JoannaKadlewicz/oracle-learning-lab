@@ -77,6 +77,18 @@ class MemoryUsers:
             if user is not None:
                 self._users[user_id] = dataclasses.replace(user, last_login_at=t)
 
+    def set_status(self, user_id: str, status: str) -> None:
+        with self._lock:
+            user = self._users.get(user_id)
+            if user is not None:
+                self._users[user_id] = dataclasses.replace(user, status=status)  # type: ignore[arg-type]
+
+    def set_role(self, user_id: str, role: str) -> None:
+        with self._lock:
+            user = self._users.get(user_id)
+            if user is not None:
+                self._users[user_id] = dataclasses.replace(user, role=role)  # type: ignore[arg-type]
+
     def set_password(self, user_id: str, password_hash: str, changed_at: float) -> None:
         with self._lock:
             user = self._users.get(user_id)

@@ -21,6 +21,7 @@ const DAY = 86400;
 let users = [];
 let filters = { event: "", user_id: "" };
 let inactiveDays = 180;
+let eventsRequest = 0;  // only the newest events request may fill the table
 
 const when = t => t ? new Date(t * 1000).toLocaleString(undefined,
   { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Never";
@@ -32,7 +33,15 @@ async function render() {
     return;
   }
   main.innerHTML = loading("Loading accounts…");
-  const [list, settings] = await Promise.all([api("/api/admin/users"), api("/api/admin/settings")]);
+  let list, settings;
+  try {
+    [list, settings] = await Promise.all([api("/api/admin/users"), api("/api/admin/settings")]);
+  } catch (err) {
+    main.innerHTML = empty("The admin page could not be loaded", esc(err.message),
+      `<button class="btn secondary" type="button" id="admin-retry">Try again</button>`);
+    $("#admin-retry").addEventListener("click", render);
+    return;
+  }
   users = list.users;
   main.innerHTML = `
     ${pageHead("Admin", "Accounts, sign-up and the security events of this lab.")}
@@ -287,14 +296,15 @@ async function loadEvents() {
   const query = new URLSearchParams({ limit: "200" });
   if (filters.event) query.set("event", filters.event);
   if (select.value) query.set("user_id", select.value);
+  const id = ++eventsRequest;
   let events;
   try {
     events = (await api(`/api/admin/events?${query}`)).events;
   } catch (err) {
-    box.innerHTML = empty("Could not load the events", esc(err.message));
+    if (id === eventsRequest && $("#admin-events")) box.innerHTML = empty("Could not load the events", esc(err.message));
     return;
   }
-  if (!$("#admin-events")) return;
+  if (id !== eventsRequest || !$("#admin-events")) return;  // a newer request or another page took over
   if (!events.length) { box.innerHTML = empty("No events", "Nothing matches these filters."); return; }
   box.innerHTML = `
     <table class="data admin-events">

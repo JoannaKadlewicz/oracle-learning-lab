@@ -254,6 +254,21 @@ def record_login_changes_only_last_login(stores: AppStores) -> None:
     stores.users.record_login("nobody", 1.0)  # unknown user: no-op
 
 
+def set_status_and_set_role_change_only_their_column(stores: AppStores) -> None:
+    user = dataclasses.replace(make_user(), last_login_at=5.0)
+    stores.users.add(user, password_identity(user))
+    stores.users.set_status(user.id, "locked")
+    assert stores.users.get(user.id) == dataclasses.replace(user, status="locked")
+    stores.users.set_role(user.id, "admin")
+    assert stores.users.get(user.id) == dataclasses.replace(user, status="locked", role="admin")
+    stores.users.record_login(user.id, 9.0)
+    stores.users.set_status(user.id, "active")
+    assert stores.users.get(user.id) == dataclasses.replace(user, role="admin", last_login_at=9.0)
+    stores.users.set_status("nobody", "locked")  # unknown user: no-op
+    stores.users.set_role("nobody", "admin")
+    assert stores.users.get("nobody") is None
+
+
 def session_delete_removes_exactly_that_session(stores: AppStores) -> None:
     add_user(stores, "u1")
     stores.sessions.add(make_session("a", "u1"))
@@ -351,6 +366,7 @@ CONTRACT = [
     add_identity_conflict_and_remove_identity,
     update_persists_changed_fields,
     record_login_changes_only_last_login,
+    set_status_and_set_role_change_only_their_column,
     session_delete_removes_exactly_that_session,
     failed_add_leaves_no_partial_data,
     duplicate_user_id_raises_email_taken,

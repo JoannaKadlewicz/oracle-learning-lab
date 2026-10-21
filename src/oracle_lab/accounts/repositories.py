@@ -37,6 +37,12 @@ class UserRepository(Protocol):
 
     def update(self, user: User) -> None: ...
 
+    def set_status(self, user_id: str, status: str) -> None:
+        """Set status only (an admin locking or unlocking); unknown user: no-op."""
+
+    def set_role(self, user_id: str, role: str) -> None:
+        """Set role only; unknown user: no-op."""
+
     def set_password(self, user_id: str, password_hash: str, changed_at: float) -> None: ...
 
     def record_login(self, user_id: str, t: float) -> None:

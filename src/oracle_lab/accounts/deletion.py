@@ -18,7 +18,7 @@ class AccountDeletion:
         self._audit = audit
         self._drop_schemas = drop_schemas
 
-    def delete(self, user_id: str, actor_id: str) -> None:
+    def delete(self, user_id: str, actor_id: str, *, ip: str = "", user_agent: str = "") -> None:
         user = self._stores.users.get(user_id)
         if user is not None and user.role == "admin" and sum(u.role == "admin" for u in self._stores.users.all()) <= 1:
             raise AuthError("You can't delete the only admin account.")
@@ -28,4 +28,5 @@ class AccountDeletion:
         self._stores.states.delete(user_id)
         self._stores.notes.delete(user_id)
         self._stores.users.delete(user_id)  # identities go with the user
-        self._audit.record("account_deleted", "ok", user_id=actor_id, target=user_id, actor=actor_id)
+        self._audit.record("account_deleted", "ok", user_id=actor_id, ip=ip, user_agent=user_agent, target=user_id,
+                           actor=actor_id)

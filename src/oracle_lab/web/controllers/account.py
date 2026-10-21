@@ -56,7 +56,8 @@ class AccountController:
     def delete(self, request: Request) -> Response:
         principal = principal_of(request)
         self.account.confirm_deletion(principal, text(request.json(), "password"), ip=request.client)
-        self.deletion.delete(principal.user_id, principal.user_id)
+        self.deletion.delete(principal.user_id, principal.user_id, ip=request.client,
+                             user_agent=request.header("User-Agent"))
         response = Response.json(OK)
         response.cookies.append(self.cookies.clear_session())
         return response

@@ -3,8 +3,8 @@ schemas, open or close sign-up, and read the security events. Every change is au
 
 from __future__ import annotations
 
-import dataclasses
 import logging
+import threading
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -61,6 +61,9 @@ class AdminService:
         self._audit = audit
         self._clock = clock
         self._public_url = public_url.rstrip("/")
+        # The app is one process: this makes "count the active admins + change one" atomic, so two admins
+        # demoting, locking or deleting each other at once cannot leave none.
+        self._admins_lock = threading.Lock()
 
     # --- reading -------------------------------------------------------------------------------------------------
 
@@ -101,43 +104,54 @@ class AdminService:
                 for e in self._stores.audit.recent(limit, event or None, user_id or None)]
 
     # --- changing ------------------------------------------------------------------------------------------------
+    # Every change takes the client's ip and user_agent (from the controller) for its audit record.
 
-    def reset_link(self, actor: Principal, user_id: str) -> str:
+    def reset_link(self, actor: Principal, user_id: str, *, ip: str = "", user_agent: str = "") -> str:
         """A single-use password reset link, valid for 24 hours. The token is only in the returned link."""
         user = self._user(user_id)
         token = new_token()
         self._stores.resets.add(ResetToken(token_hash(token), user.id, actor.user_id,
                                            self._clock() + RESET_LINK_SECONDS))
-        self._audit.record("reset_link_created", "ok", user_id=actor.user_id, target=user.id)
+        self._audit.record("reset_link_created", "ok", user_id=actor.user_id, ip=ip, user_agent=user_agent,
+                           target=user.id)
         return f"{self._public_url}/reset?token={token}"
 
-    def lock(self, actor: Principal, user_id: str) -> None:
-        user = self._other(actor, user_id)
-        self._users.update(dataclasses.replace(user, status="locked"))
+    def lock(self, actor: Principal, user_id: str, *, ip: str = "", user_agent: str = "") -> None:
+        meta = {"ip": ip, "user_agent": user_agent}
+        with self._admins_lock:
+            user = self._other(actor, user_id, "user_locked", meta)
+            self._keep_an_admin(actor, user, "user_locked", meta)
+            self._users.set_status(user.id, "locked")
         self._sessions.end_all(user.id)
-        self._audit.record("user_locked", "ok", user_id=actor.user_id, target=user.id)
+        self._audit.record("user_locked", "ok", user_id=actor.user_id, target=user.id, **meta)
 
-    def unlock(self, actor: Principal, user_id: str) -> None:
+    def unlock(self, actor: Principal, user_id: str, *, ip: str = "", user_agent: str = "") -> None:
         user = self._user(user_id)
-        self._users.update(dataclasses.replace(user, status="active"))
-        self._audit.record("user_unlocked", "ok", user_id=actor.user_id, target=user.id)
+        self._users.set_status(user.id, "active")
+        self._audit.record("user_unlocked", "ok", user_id=actor.user_id, ip=ip, user_agent=user_agent, target=user.id)
 
-    def set_role(self, actor: Principal, user_id: str, role: str) -> None:
+    def set_role(self, actor: Principal, user_id: str, role: str, *, ip: str = "", user_agent: str = "") -> None:
         if role not in ROLES:
             raise ValueError("Unknown role.")
-        user = self._other(actor, user_id)
-        if user.role == role:
-            return
-        if role != "admin" and sum(u.role == "admin" for u in self._users.all()) <= 1:
-            raise AuthError(ONLY_ADMIN)
-        self._users.update(dataclasses.replace(user, role=role))  # type: ignore[arg-type]
-        self._audit.record("role_changed", "ok", user_id=actor.user_id, target=user.id, role=role)
+        meta = {"ip": ip, "user_agent": user_agent}
+        with self._admins_lock:
+            user = self._other(actor, user_id, "role_changed", meta)
+            if user.role == role:
+                return
+            if role != "admin":
+                self._keep_an_admin(actor, user, "role_changed", meta)
+            self._users.set_role(user.id, role)
+        self._audit.record("role_changed", "ok", user_id=actor.user_id, target=user.id, role=role, **meta)
 
-    def delete(self, actor: Principal, user_id: str) -> None:
-        user = self._other(actor, user_id)
-        self._deletion.delete(user.id, actor.user_id)  # audits account_deleted
+    def delete(self, actor: Principal, user_id: str, *, ip: str = "", user_agent: str = "") -> None:
+        meta = {"ip": ip, "user_agent": user_agent}
+        with self._admins_lock:
+            user = self._other(actor, user_id, "account_deleted", meta)
+            self._keep_an_admin(actor, user, "account_deleted", meta)
+            self._deletion.delete(user.id, actor.user_id, **meta)  # audits account_deleted
 
-    def recreate_schema(self, actor: Principal, user_id: str, key: str) -> dict:
+    def recreate_schema(self, actor: Principal, user_id: str, key: str, *, ip: str = "",
+                        user_agent: str = "") -> dict:
         """Drops the user's schema on target `key` (if any) and creates a new one, under the same per-(user, key)
         lock as every other provisioning."""
         user = self._user(user_id)
@@ -147,10 +161,10 @@ class AdminService:
         rec = practice.provision(key)
         status = rec.status if rec is not None else "deleted"
         self._audit.record("schema_recreated", "ok" if status == "ready" else "fail", user_id=actor.user_id,
-                           target=user.id, key=key, status=status)
+                           ip=ip, user_agent=user_agent, target=user.id, key=key, status=status)
         return {"key": key, "status": status, "error": rec.error if rec is not None else None}
 
-    def delete_inactive(self, actor: Principal, days: int) -> int:
+    def delete_inactive(self, actor: Principal, days: int, *, ip: str = "", user_agent: str = "") -> int:
         """Deletes the learners (never an admin or `actor`) not seen for `days` days: last sign-in, or creation when
         they never signed in. Returns how many were deleted."""
         if isinstance(days, bool) or not isinstance(days, int) or days < 1:
@@ -163,7 +177,11 @@ class AdminService:
             if (user.last_login_at if user.last_login_at is not None else user.created_at) >= cutoff:
                 continue
             try:
-                self._deletion.delete(user.id, actor.user_id)
+                with self._admins_lock:
+                    current = self._users.get(user.id)
+                    if current is None or current.role == "admin":  # deleted or promoted meanwhile
+                        continue
+                    self._deletion.delete(user.id, actor.user_id, ip=ip, user_agent=user_agent)
             except Exception:  # noqa: BLE001 - delete the others; the summary counts the failures
                 log.exception("could not delete the inactive account %s", user.id)
                 failed += 1
@@ -173,19 +191,25 @@ class AdminService:
         if failed:
             detail["failed"] = failed
         self._audit.record("inactive_accounts_deleted", "ok" if not failed else "fail", user_id=actor.user_id,
-                           **detail)
+                           ip=ip, user_agent=user_agent, **detail)
         return deleted
 
     def update_settings(self, actor: Principal, open: bool | None = None,  # noqa: A002
-                        max_users: int | None = None) -> dict:
+                        max_users: int | None = None, *, ip: str = "", user_agent: str = "") -> dict:
         if open is not None and not isinstance(open, bool):
             raise ValueError("open must be true or false.")
         if max_users is not None and (isinstance(max_users, bool) or not isinstance(max_users, int) or max_users < 1):
             raise ValueError("The user limit must be a whole number of at least 1.")
         self._registration.set(open, max_users)
         changed = {k: v for k, v in (("open", open), ("max_users", max_users)) if v is not None}
-        self._audit.record("registration_settings_changed", "ok", user_id=actor.user_id, **changed)
+        self._audit.record("registration_settings_changed", "ok", user_id=actor.user_id, ip=ip,
+                           user_agent=user_agent, **changed)
         return self.settings()
+
+    def denied(self, principal: Principal | None, path: str, *, ip: str = "", user_agent: str = "") -> None:
+        """Records a signed-in non-admin reaching for the admin API."""
+        self._audit.record("admin_denied", "denied", user_id=principal.user_id if principal else None, ip=ip,
+                           user_agent=user_agent, path=path[:200])
 
     # --- helpers -------------------------------------------------------------------------------------------------
 
@@ -195,8 +219,18 @@ class AdminService:
             raise NotFound()
         return user
 
-    def _other(self, actor: Principal, user_id: str) -> User:
-        """The user, refusing the actor's own account (no admin locks, demotes or deletes themselves)."""
+    def _other(self, actor: Principal, user_id: str, event: str, meta: dict) -> User:
+        """The user, refusing (and auditing) the actor's own account: no admin locks, demotes or deletes
+        themselves."""
         if user_id == actor.user_id:
+            self._audit.record(event, "denied", user_id=actor.user_id, target=user_id, reason="self", **meta)
             raise ValueError(SELF)
         return self._user(user_id)
+
+    def _keep_an_admin(self, actor: Principal, user: User, event: str, meta: dict) -> None:
+        """Call with _admins_lock held: refuses (and audits) taking away the last active admin."""
+        if user.role != "admin" or user.status != "active":
+            return
+        if sum(u.role == "admin" and u.status == "active" for u in self._users.all()) <= 1:
+            self._audit.record(event, "denied", user_id=actor.user_id, target=user.id, reason="last_admin", **meta)
+            raise AuthError(ONLY_ADMIN)

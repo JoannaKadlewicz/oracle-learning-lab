@@ -309,18 +309,83 @@ def test_every_admin_action_is_audited(admin):
     _user(admin.stores, "u1")
     _user(admin.stores, "u2")
     me = _actor()
-    admin.reset_link(me, "u1")
-    admin.lock(me, "u1")
-    admin.unlock(me, "u1")
-    admin.set_role(me, "u1", "admin")
-    admin.recreate_schema(me, "u1", "default")
-    admin.update_settings(me, open=False, max_users=3)
-    admin.delete(me, "u2")
-    admin.delete_inactive(me, 1)
+    meta = {"ip": "203.0.113.7", "user_agent": "AdminBrowser/1"}
+    admin.reset_link(me, "u1", **meta)
+    admin.lock(me, "u1", **meta)
+    admin.unlock(me, "u1", **meta)
+    admin.set_role(me, "u1", "admin", **meta)
+    admin.recreate_schema(me, "u1", "default", **meta)
+    admin.update_settings(me, open=False, max_users=3, **meta)
+    admin.delete(me, "u2", **meta)
+    admin.delete_inactive(me, 1, **meta)
     seen = {e.event: e for e in admin.stores.audit.recent()}
     for event in ("reset_link_created", "user_locked", "user_unlocked", "role_changed", "schema_recreated",
                   "registration_settings_changed", "account_deleted", "inactive_accounts_deleted"):
         assert seen[event].user_id == "boss", event
+        assert (seen[event].ip, seen[event].user_agent) == ("203.0.113.7", "AdminBrowser/1"), event
+        assert seen[event].outcome == "ok", event
     assert seen["role_changed"].detail == {"target": "u1", "role": "admin"}
     assert seen["registration_settings_changed"].detail == {"open": False, "max_users": 3}
     assert seen["user_locked"].detail == {"target": "u1"}
+
+
+def test_refused_admin_actions_are_audited_as_denied(admin):
+    me = _actor()
+    for action, event in ((lambda: admin.lock(me, "boss", ip="1.2.3.4"), "user_locked"),
+                          (lambda: admin.set_role(me, "boss", "learner", ip="1.2.3.4"), "role_changed"),
+                          (lambda: admin.delete(me, "boss", ip="1.2.3.4"), "account_deleted")):
+        with pytest.raises(ValueError):
+            action()
+        (denied,) = admin.stores.audit.recent(event=event)
+        assert (denied.outcome, denied.ip, denied.detail) == ("denied", "1.2.3.4", {"target": "boss", "reason": "self"})
+
+
+def test_only_active_admins_count_as_the_last_admin(admin):
+    stores = admin.stores
+    stores.users.set_role("boss", "learner")  # e.g. demoted by another admin meanwhile
+    _user(stores, "a2", role="admin")
+    _user(stores, "a3", role="admin")
+    stores.users.set_status("a3", "locked")
+    for action, event in ((lambda: admin.set_role(_actor(), "a2", "learner"), "role_changed"),
+                          (lambda: admin.lock(_actor(), "a2"), "user_locked"),
+                          (lambda: admin.delete(_actor(), "a2"), "account_deleted")):
+        with pytest.raises(AuthError, match="You can't remove the only admin."):
+            action()
+        (denied,) = stores.audit.recent(event=event)
+        assert (denied.outcome, denied.detail["reason"]) == ("denied", "last_admin")
+    assert stores.users.get("a2").role == "admin" and stores.users.get("a2").status == "active"
+    admin.set_role(_actor(), "a3", "learner")  # a locked admin is not the last one
+    assert stores.users.get("a3").role == "learner"
+
+
+def test_lock_and_role_change_touch_only_their_column(admin):
+    _user(admin.stores, "u1")
+    admin.lock(_actor(), "u1")
+    admin.stores.users.record_login("u1", NOW + 5)  # a sign-in racing the admin keeps its timestamp
+    admin.set_role(_actor(), "u1", "admin")
+    user = admin.stores.users.get("u1")
+    assert (user.status, user.role, user.last_login_at) == ("locked", "admin", NOW + 5)
+
+
+def test_a_learner_reaching_for_the_admin_api_is_audited(serve):
+    stores = memory_stores()
+    server = serve(stores=stores)
+    server.sign_in("owner@example.org")
+    learner = Client(server.port).sign_in("learner@example.org")
+    assert learner("/api/admin/lock", {"user_id": "x"}, headers={"User-Agent": "Sneaky/2"})[0] == 404
+    (event,) = stores.audit.recent(event="admin_denied")
+    assert event.outcome == "denied" and event.user_id == stores.users.by_email("learner@example.org").id
+    assert event.detail == {"path": "/api/admin/lock"} and event.user_agent == "Sneaky/2" and event.ip == "127.0.0.1"
+
+
+def test_admin_actions_over_http_record_the_client(serve):
+    stores = memory_stores()
+    server = serve(stores=stores)
+    owner = Client(server.port).sign_in("owner@example.org")
+    Client(server.port).sign_in("learner@example.org")
+    learner = stores.users.by_email("learner@example.org")
+    owner("/api/admin/lock", {"user_id": learner.id}, headers={"User-Agent": "Owner/3"})
+    owner("/api/admin/delete", {"user_id": learner.id}, headers={"User-Agent": "Owner/3"})
+    for name in ("user_locked", "account_deleted"):
+        (event,) = stores.audit.recent(event=name)
+        assert (event.ip, event.user_agent) == ("127.0.0.1", "Owner/3"), name
