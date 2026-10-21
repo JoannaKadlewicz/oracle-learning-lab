@@ -13,12 +13,18 @@ from oracle_lab.auth.account_settings import AccountSettings
 from oracle_lab.auth.audit import AuditLog
 from oracle_lab.auth.google import GoogleSignIn, HttpTokenEndpoint, TokenEndpoint
 from oracle_lab.auth.login import PasswordLogin
+from oracle_lab.auth.models import Principal, User
 from oracle_lab.auth.passwords import PasswordPolicy, load_common_passwords
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.auth.throttle import Throttle
-from oracle_lab.config import EXAM_23AI, ConfigurationError, Settings
+from oracle_lab.config import EXAM_23AI, ConfigurationError, PracticeTarget, Settings
 from oracle_lab.database.connection import DatabaseCatalog, OracleDatabase
+from oracle_lab.database.sample_schema import SampleSchema
+from oracle_lab.provisioning.guards import RunGuard
+from oracle_lab.provisioning.practice import PracticeDatabases, drop_user_schemas, provisioning_hook
+from oracle_lab.provisioning.proxy import ProxyDatabase
+from oracle_lab.provisioning.schemas import SchemaProvisioner
 from oracle_lab.resources import COMMON_PASSWORDS, NOTES_DIR, STATIC_DIR
 from oracle_lab.services import Clock
 from oracle_lab.services.context import UserContexts
@@ -58,6 +64,16 @@ def build_catalog(settings: Settings) -> DatabaseCatalog:
     return DatabaseCatalog(default, by_exam)
 
 
+PROVISIONER_CALL_TIMEOUT_MS = 120_000  # DROP USER ... CASCADE and loading the sample tables can be slow
+
+
+def build_provisioner(target: PracticeTarget) -> SchemaProvisioner:
+    """Creates and drops practice schemas on one target, loading the sample tables into each new one."""
+    return SchemaProvisioner(OracleDatabase(target.provisioner, PROVISIONER_CALL_TIMEOUT_MS), target.gateway.user,
+                             target.tablespace, target.quota_mb, sample_loader=lambda db: SampleSchema(db).reset(),
+                             proxy_factory=lambda name: ProxyDatabase(target.gateway, name, PROVISIONER_CALL_TIMEOUT_MS))
+
+
 def build_app_stores(settings: Settings, pool=None) -> AppStores:
     """Accounts, sessions and each user's progress and notes: in Oracle (STUDY_STATE_USER) or in data_dir/app.db."""
     if settings.state_database is None:
@@ -90,12 +106,18 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
 
         pool = ConnectionPool(settings.state_database, settings.call_timeout_ms)  # shared with the legacy readers
     stores = stores or build_app_stores(settings, pool)
-    contexts = UserContexts(stores)
+    audit = AuditLog(stores.audit, clock)
+    provisioners = {key: build_provisioner(target) for key, target in settings.practice.items()}
+    gateways = {key: target.gateway for key, target in settings.practice.items()}
+
+    def practice(principal: Principal) -> PracticeDatabases:
+        return PracticeDatabases(principal, stores.schemas, provisioners, gateways, catalog, settings.call_timeout_ms,
+                                 clock, audit)
+    contexts = UserContexts(stores, practice)
 
     cookies = CookiePolicy(settings.secure_cookies)
     sessions = SessionManager(stores.sessions, clock)
     throttle = Throttle(stores.throttle, clock)
-    audit = AuditLog(stores.audit, clock)
     policy = PasswordPolicy(load_common_passwords(COMMON_PASSWORDS))
     registration_policy = RegistrationPolicy(stores.settings, stores.users, settings.registration_open,
                                              settings.max_users)
@@ -104,7 +126,12 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         if problems:
             raise ConfigurationError("STUDY_ADMIN_PASSWORD is too weak: " + " ".join(problems))
     sources = legacy_sources(settings, pool)
-    on_user_created = legacy_hook(stores, sources, audit)
+    import_legacy_data = legacy_hook(stores, sources, audit)
+    start_provisioning = provisioning_hook(provisioners, stores.schemas, clock, audit)
+
+    def on_user_created(user: User) -> None:  # neither hook raises
+        import_legacy_data(user)
+        start_provisioning(user)
     if first_user_is_admin(settings):
         logging.getLogger(__name__).warning(
             "STUDY_ADMIN_EMAIL is not set: the first account to register becomes the admin.")
@@ -112,7 +139,8 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
                                 on_user_created, first_user_is_admin=first_user_is_admin(settings))
     ensure_first_admin(stores, settings, clock, audit, on_user_created)
     retry_legacy_import(stores, sources, audit)
-    deletion = AccountDeletion(stores, sessions, audit)
+    deletion = AccountDeletion(stores, sessions, audit,
+                               lambda user_id: drop_user_schemas(user_id, stores.schemas, provisioners))
     account = AccountSettings(stores, policy, sessions, audit, clock, throttle)
     google = None
     if settings.google is not None:
@@ -120,6 +148,7 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         google = GoogleSignIn(settings.google, settings.public_url, endpoint, stores, sessions, throttle, audit,
                               clock, registration)
 
+    guard = RunGuard()
     router = Router(fallback=StaticFiles(STATIC_DIR))
     controllers = (
         HealthController(),
@@ -129,8 +158,8 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         AccountController(account, cookies, deletion),
         StudyController(contexts, clock, track_databases=catalog.has_track_databases),
         MockExamController(contexts, clock),
-        SqlLabController(contexts, catalog, clock),
-        ExerciseController(contexts, catalog, clock),
+        SqlLabController(contexts, guard, clock),
+        ExerciseController(contexts, guard, clock),
         NotesController(contexts, NOTES_DIR, clock),
     )
     for controller in controllers:

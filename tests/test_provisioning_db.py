@@ -95,3 +95,42 @@ def test_retry_after_failure_recreates(practice, provisioner_database):
     provisioner.drop(name)
     provisioner.create(name)
     assert scalar(ProxyDatabase(provisioner_database.gateway, name), "SELECT COUNT(*) FROM employees") > 0
+
+
+def test_sql_lab_runs_in_the_users_own_schema(provisioner_database, serve, tmp_path):
+    """End to end: sign-up provisions the default schema in the background; /api/run then runs in it."""
+    import dataclasses
+    import json
+    import threading
+    import time
+
+    from conftest import settings_for
+
+    from oracle_lab.accounts.memory import memory_stores
+    from oracle_lab.bootstrap import build_provisioner
+
+    stores = memory_stores()
+    settings = dataclasses.replace(settings_for(tmp_path), practice={"default": provisioner_database})
+    try:
+        server = serve(settings, stores=stores)
+        server.sign_in("admin@x.org")
+        learner = type(server)(server.port).sign_in("learner@x.org")
+        deadline = time.time() + 180
+        while True:
+            status, _, body = learner("/api/run", {"sql": "SELECT COUNT(*) FROM employees;\nSELECT USER FROM dual;"})
+            if status != 503 or time.time() > deadline:
+                break
+            assert json.loads(body)["practice"] == "unavailable"
+            time.sleep(1)
+        assert status == 200, body
+        count, user = json.loads(body)["results"]
+        assert int(count["rows"][0][0]) > 0
+        learner_id = stores.users.by_email("learner@x.org").id
+        assert user["rows"][0][0] == stores.schemas.get(learner_id, "default").schema_name
+    finally:
+        for thread in threading.enumerate():
+            if thread.name.startswith("provision-"):
+                thread.join(300)
+        cleaner = build_provisioner(provisioner_database)
+        for rec in stores.schemas.all():
+            cleaner.drop(rec.schema_name)

@@ -1,12 +1,13 @@
-"""The SQL lab and graded exercises. Both run on the database of the current exam track."""
+"""The SQL lab and graded exercises. Both run on the user's practice database of the current exam track,
+one statement at a time per user (RunGuard)."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from oracle_lab import content
 from oracle_lab.analysis import visualizer
-from oracle_lab.database.connection import Database, DatabaseCatalog, session
+from oracle_lab.database.connection import Database, session
 from oracle_lab.database.executor import ScriptRunner
 from oracle_lab.database.query import query_rows
 from oracle_lab.database.sample_schema import SampleSchema
@@ -17,20 +18,29 @@ from oracle_lab.study import recording
 from oracle_lab.study.state import StateStore
 from oracle_lab.study.tracks import exam_code
 
+if TYPE_CHECKING:
+    from oracle_lab.provisioning.guards import RunGuard
+    from oracle_lab.provisioning.practice import PracticeDatabases
+
 LABS_BY_ID = {lab["id"]: lab for lab in content.LABS}
 CARDS_BY_ID = {card["id"]: card for card in content.FLASHCARDS}
 
 
 class _TrackDatabase:
-    """Resolves the database of the exam track chosen in the settings, at the time of each request."""
+    """Resolves the user's database for the exam track chosen in the settings, at the time of each request.
+    for_exam raises PracticeUnavailable; guard.run raises HttpError 409/503."""
 
-    def __init__(self, store: StateStore, catalog: DatabaseCatalog, clock: Clock):
+    def __init__(self, store: StateStore, practice: PracticeDatabases, guard: RunGuard, clock: Clock):
         self.store = store
-        self.catalog = catalog
+        self.practice = practice
+        self.guard = guard
         self.clock = clock
 
     def current_database(self) -> Database:
-        return self.catalog.for_exam(exam_code(self.store.load()))
+        return self.practice.for_exam(exam_code(self.store.load()))
+
+    def guarded(self):
+        return self.guard.run(self.practice.principal.user_id)
 
 
 class SqlLabService(_TrackDatabase):
@@ -39,26 +49,33 @@ class SqlLabService(_TrackDatabase):
         and after, so the sample can be run again and leaves none of its LAB_ objects behind."""
         database = self.current_database()
         card = CARDS_BY_ID.get(card_id, {})
-        if card.get("cleanup"):
-            with session(database) as conn:
-                labs.run_cleanup(conn, card)
-        result = ScriptRunner(database).run(sql, keep_changes=keep, inspect=True)
-        if card.get("cleanup"):
-            with session(database) as conn:
-                labs.run_cleanup(conn, card)
+        with self.guarded():
+            if card.get("cleanup"):
+                with session(database) as conn:
+                    labs.run_cleanup(conn, card)
+            result = ScriptRunner(database).run(sql, keep_changes=keep, inspect=True)
+            if card.get("cleanup"):
+                with session(database) as conn:
+                    labs.run_cleanup(conn, card)
         with self.store.transaction() as state:
             recording.record_history(state, sql, result, self.clock())
         return {**result, "history": state["history"]}
 
     def visualize(self, sql: str) -> dict[str, Any]:
-        with session(self.current_database()) as conn:
+        database = self.current_database()
+        with self.guarded(), session(database) as conn:
             return visualizer.visualize(conn, sql, query_rows)
 
     def schema(self) -> dict[str, Any]:
-        return describe_schema(self.current_database())
+        database = self.current_database()
+        with self.guarded():
+            return describe_schema(database)
 
     def reset_sample_data(self) -> dict[str, Any]:
-        return SampleSchema(self.current_database()).reset()
+        """Drops and recreates the sample tables in the user's own schema."""
+        database = self.current_database()
+        with self.guarded():
+            return SampleSchema(database).reset()
 
 
 class ExerciseService(_TrackDatabase):
@@ -66,7 +83,9 @@ class ExerciseService(_TrackDatabase):
         lab = LABS_BY_ID.get(lab_id)
         if lab is None:
             raise NotFoundError("Unknown exercise")
-        result = labs.grade(self.current_database(), lab, sql)
+        database = self.current_database()
+        with self.guarded():
+            result = labs.grade(database, lab, sql)
         with self.store.transaction() as state:
             recording.record_lab_result(state, lab["id"], sql, result["passed"], self.clock())
         return result

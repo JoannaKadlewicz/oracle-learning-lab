@@ -13,6 +13,7 @@ from urllib.parse import quote, urlsplit
 from oracle_lab.accounts.repositories import UserRepository
 from oracle_lab.auth.models import AuthError, Principal, Throttled, WeakPassword
 from oracle_lab.auth.sessions import SessionManager
+from oracle_lab.provisioning.practice import PracticeUnavailable
 from oracle_lab.web.cookies import CookiePolicy
 from oracle_lab.web.http import HttpError, Request, Response, is_clean_path
 from oracle_lab.web.routing import Handler
@@ -23,13 +24,16 @@ log = logging.getLogger("oracle_lab.access")
 
 
 def error_boundary(request: Request, call_next: Handler) -> Response:
-    """Turn HttpError and AuthError into their responses and unexpected exceptions into a logged 500."""
+    """Turn HttpError, AuthError and PracticeUnavailable into their responses and unexpected exceptions into a
+    logged 500."""
     try:
         return call_next(request)
     except HttpError as exc:
         return exc.to_response()
     except AuthError as exc:
         return auth_error_response(exc)
+    except PracticeUnavailable as exc:
+        return Response.json({"error": str(exc), "practice": "unavailable"}, 503)
     except Exception:
         logging.getLogger(__name__).exception("unhandled error in %s %s", request.method, request.path)
         return Response.json({"error": "Internal server error"}, 500)

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 
-from oracle_lab.database.connection import DatabaseCatalog
 from oracle_lab.database.query import format_error
+from oracle_lab.provisioning.guards import RunGuard
+from oracle_lab.provisioning.practice import PracticeUnavailable
 from oracle_lab.services import Clock, NotFoundError
 from oracle_lab.services.context import UserContexts
 from oracle_lab.services.sql_lab import ExerciseService, SqlLabService
@@ -11,6 +12,9 @@ from oracle_lab.web.http import HttpError, Request, Response
 from oracle_lab.web.routing import Router
 
 log = logging.getLogger(__name__)
+
+# Not database problems: an unavailable practice database (503) and the run guard's 409/503 go to error_boundary.
+_NOT_SHOWN_IN_PAGE = (PracticeUnavailable, HttpError)
 
 
 def _database_failure(exc: Exception, **payload) -> Response:
@@ -21,15 +25,16 @@ def _database_failure(exc: Exception, **payload) -> Response:
 
 class SqlLabController:
     """Run scripts, visualize joins and set operators, browse the schema, reset the sample data.
-    The history and lab results are the signed-in user's; the databases are still shared (own schemas: Task 16)."""
+    The history, lab results and practice schema are the signed-in user's."""
 
-    def __init__(self, contexts: UserContexts, catalog: DatabaseCatalog, clock: Clock):
+    def __init__(self, contexts: UserContexts, guard: RunGuard, clock: Clock):
         self.contexts = contexts
-        self.catalog = catalog
+        self.guard = guard
         self.clock = clock
 
     def lab(self, request: Request) -> SqlLabService:
-        return SqlLabService(self.contexts(request).state, self.catalog, self.clock)
+        ctx = self.contexts(request)
+        return SqlLabService(ctx.state, ctx.practice, self.guard, self.clock)
 
     def register(self, router: Router) -> None:
         router.post("/api/run", self.run)
@@ -45,6 +50,8 @@ class SqlLabController:
         lab = self.lab(request)
         try:
             return Response.json(lab.visualize(str(request.json().get("sql", ""))))
+        except _NOT_SHOWN_IN_PAGE:
+            raise
         except Exception as exc:  # noqa: BLE001
             return _database_failure(exc)
 
@@ -52,18 +59,21 @@ class SqlLabController:
         lab = self.lab(request)
         try:
             return Response.json(lab.schema())
+        except _NOT_SHOWN_IN_PAGE:
+            raise
         except Exception as exc:  # noqa: BLE001
             return _database_failure(exc, ok=False)
 
 
 class ExerciseController:
-    def __init__(self, contexts: UserContexts, catalog: DatabaseCatalog, clock: Clock):
+    def __init__(self, contexts: UserContexts, guard: RunGuard, clock: Clock):
         self.contexts = contexts
-        self.catalog = catalog
+        self.guard = guard
         self.clock = clock
 
     def exercises(self, request: Request) -> ExerciseService:
-        return ExerciseService(self.contexts(request).state, self.catalog, self.clock)
+        ctx = self.contexts(request)
+        return ExerciseService(ctx.state, ctx.practice, self.guard, self.clock)
 
     def register(self, router: Router) -> None:
         router.post("/api/grade", self.grade)
@@ -74,6 +84,8 @@ class ExerciseController:
             result = exercises.grade(data.get("id"), str(data.get("sql", "")))
         except NotFoundError as exc:
             raise HttpError(404, str(exc)) from exc
+        except _NOT_SHOWN_IN_PAGE:
+            raise
         except Exception as exc:  # noqa: BLE001
             return _database_failure(exc, passed=False)
         return Response.json(result)
