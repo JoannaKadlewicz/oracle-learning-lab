@@ -26,11 +26,13 @@
 .auth-card {
   --line: 32px;
   --a-ink: var(--card-ink);
-  --a-muted: #5A6579;
-  --a-link: #1F4DB0;
-  --a-bad: #A3243A;
-  --a-good: #17694A;
-  --a-focus: #2457C5;
+  --a-muted: var(--card-muted);
+  --a-link: var(--card-link);
+  --a-bad: var(--card-bad);
+  --a-good: var(--card-good);
+  --a-focus: var(--card-link);
+  --a-edge: color-mix(in srgb, var(--card-ink) 35%, var(--card-rule));
+  --a-tint: color-mix(in srgb, var(--card-ink) 6%, var(--card-paper));
   position: relative;
   width: 100%;
   max-width: 460px;
@@ -72,15 +74,15 @@
   font-size: 16px;
   min-height: 44px;
   padding: 8px 12px;
-  border: 1.5px solid #9DB2D0;
+  border: 1.5px solid var(--a-edge);
   border-radius: var(--r-s);
-  background: #fff;
+  background: var(--card-paper);
   color: var(--a-ink);
 }
-.auth-card input:hover { border-color: #5E7BA6; }
-.auth-card input:focus-visible { outline: 3px solid rgb(36 87 197 / .35); outline-offset: 0; border-color: var(--a-focus); }
+.auth-card input:hover { border-color: var(--a-muted); }
+.auth-card input:focus-visible { outline: 3px solid color-mix(in srgb, var(--a-focus) 40%, transparent); outline-offset: 0; border-color: var(--a-focus); }
 .auth-card input[aria-invalid="true"] { border-color: var(--a-bad); }
-.auth-card input:disabled { background: #F1F3F7; color: var(--a-muted); }
+.auth-card input:disabled { background: var(--a-tint); color: var(--a-muted); }
 
 .pw { position: relative; }
 .pw input { padding-right: 70px; }
@@ -98,7 +100,7 @@
   border-radius: 4px;
   cursor: pointer;
 }
-.pw-toggle:hover { background: #E9EFF8; }
+.pw-toggle:hover { background: var(--a-tint); }
 .pw-toggle:disabled { color: var(--a-muted); cursor: not-allowed; background: transparent; }
 
 .problems { margin: 4px 0 0; padding: 0 0 0 20px; color: var(--a-bad); font-size: var(--t-s); line-height: 20px; }
@@ -108,25 +110,25 @@
   margin: 0 0 16px;
   padding: 10px 12px;
   border-radius: var(--r-s);
-  border: 1.5px solid #D9505F;
-  background: #FBE7EA;
-  color: #7A1426;
+  border: 1.5px solid color-mix(in srgb, var(--a-bad) 55%, var(--card-paper));
+  background: color-mix(in srgb, var(--a-bad) 9%, var(--card-paper));
+  color: var(--a-bad);
   font-size: var(--t-s);
   line-height: 1.45;
 }
-.notice { border-color: #B8A15A; background: #FCF0D4; color: #5E3E00; }
-.notice.good { border-color: #4E9E7C; background: #E4F2EA; color: #0F4F36; }
-.notice.good a { color: #0F4F36; font-weight: 700; }
-.form-error:focus-visible { outline: 3px solid rgb(36 87 197 / .35); outline-offset: 2px; }
+.notice { border-color: color-mix(in srgb, var(--mark) 60%, var(--card-ink)); background: color-mix(in srgb, var(--mark) 30%, var(--card-paper)); color: var(--a-ink); }
+.notice.good { border-color: color-mix(in srgb, var(--a-good) 55%, var(--card-paper)); background: color-mix(in srgb, var(--a-good) 10%, var(--card-paper)); color: var(--a-good); }
+.notice.good a { color: var(--a-good); font-weight: 700; }
+.form-error:focus-visible { outline: 3px solid color-mix(in srgb, var(--a-focus) 40%, transparent); outline-offset: 2px; }
 
 .auth-submit, .auth-google { width: 100%; justify-content: center; }
-.auth-card .btn { --btn-bg: #16233A; --btn-fg: #fff; --btn-border: #16233A; text-decoration: none; }
-.auth-card .btn:hover { --btn-bg: #2A3A55; }
-.auth-card .btn.secondary { --btn-bg: #fff; --btn-fg: #16233A; --btn-border: #9DB2D0; }
-.auth-card .btn.secondary:hover { --btn-bg: #F1F5FA; --btn-border: #16233A; }
+.auth-card .btn { --btn-bg: var(--card-ink); --btn-fg: var(--card-paper); --btn-border: var(--card-ink); text-decoration: none; }
+.auth-card .btn:hover { --btn-bg: color-mix(in srgb, var(--card-ink) 80%, var(--card-paper)); }
+.auth-card .btn.secondary { --btn-bg: var(--card-paper); --btn-fg: var(--card-ink); --btn-border: var(--a-edge); }
+.auth-card .btn.secondary:hover { --btn-bg: var(--a-tint); --btn-border: var(--card-ink); }
 
 .or { display: flex; align-items: center; gap: 12px; margin: 20px 0 12px; color: var(--a-muted); font-size: var(--t-s); }
-.or::before, .or::after { content: ""; flex: 1; height: 1px; background: #9DB2D0; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--a-edge); }
 .auth-alt { margin: 24px 0 0; font-size: var(--t-s); color: var(--a-muted); line-height: var(--line); }
 
 @media (min-width: 1600px) {

@@ -90,9 +90,12 @@ export function focusFirstMissing(form) {
 /** Links to the sibling page and Google keep the `next` the visitor was heading for. */
 export function carryNext(next) {
   if (!next) return;
-  const q = `next=${encodeURIComponent(next)}`;
   const google = $("#google-link");
-  if (google) google.href = `${google.getAttribute("href")}&${q}`;
+  if (google) {
+    const url = new URL(google.getAttribute("href"), location.origin);
+    url.searchParams.set("next", next);
+    google.href = url.pathname + url.search;
+  }
   const alt = $("#alt-link");
-  if (alt) alt.href = `${alt.getAttribute("href")}?${q}`;
+  if (alt) alt.href = `${alt.getAttribute("href")}?${new URLSearchParams({ next })}`;
 }

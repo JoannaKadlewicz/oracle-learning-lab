@@ -111,10 +111,15 @@ class Authenticate:
         return Principal(user.id, user.email, user.role, record.token_hash, record.csrf_token, record.reauth_until)
 
 
+# Public auth POSTs run without a session; a signed-in browser (an old cookie) must still reach them.
+# They are protected by same_origin_only instead of a token.
+CSRF_EXEMPT = frozenset({"/api/auth/login", "/api/auth/register", "/api/auth/reset"})
+
+
 def csrf(request: Request, call_next: Handler) -> Response:
     """A signed-in request that changes something must echo the session's CSRF token in X-CSRF-Token."""
     principal = request.principal
-    if principal is not None and request.method != "GET":
+    if principal is not None and request.method != "GET" and request.path not in CSRF_EXEMPT:
         given = request.header("X-CSRF-Token").encode()
         if not hmac.compare_digest(given, principal.csrf_token.encode()):
             raise HttpError(403, "Invalid CSRF token")

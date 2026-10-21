@@ -1,17 +1,19 @@
 import { $ } from "/js/core/dom.js";
-import { postForm, showError, showProblems, setBusy, wirePasswordToggles, focusFirstMissing } from "/js/auth/form.js";
+import { postForm, showError, showProblems, setBusy, disableForm, wirePasswordToggles, focusFirstMissing } from "/js/auth/form.js";
 
 const token = new URLSearchParams(location.search).get("token") || "";
 const form = $("#reset-form");
 
 wirePasswordToggles();
-if (!token) showError("This reset link is incomplete. Ask your administrator for a new one.", { focus: false });
+if (!token) {
+  showError("This reset link is invalid or has expired. Ask your administrator for a new one.", { focus: false });
+  disableForm(form);
+}
 
 form.addEventListener("submit", async event => {
   event.preventDefault();
   showError("");
   showProblems([]);
-  if (!token) return showError("This reset link is incomplete. Ask your administrator for a new one.");
   if (focusFirstMissing(form)) return showError("Enter a new password.", { focus: false });
   setBusy(form, true);
   const result = await postForm("/api/auth/reset", { token, password: $("#password").value });

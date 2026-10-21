@@ -211,6 +211,19 @@ def test_unlink_is_refused_without_a_password(serve, tmp_path):
     assert status == 400 and "password" in json.loads(body)["error"]
 
 
+def test_public_auth_posts_need_no_csrf_token_but_stay_same_origin(serve):
+    http = serve(stores=memory_stores())
+    cookie = session_cookie(register(http)[1])
+    own = {"Cookie": cookie, "Origin": http.origin}
+    assert http("/api/auth/reset", {"token": "nope", "password": "another long passphrase"}, headers=own)[0] == 400
+    assert http("/api/auth/login", {"email": "a@example.org", "password": "wrong password here"}, headers=own)[0] == 401
+    for path in ("/api/auth/reset", "/api/auth/login", "/api/auth/register"):
+        status, _, _ = http(path, {"token": "x", "email": "a@b.org", "password": "x"},
+                            headers={"Cookie": cookie, "Origin": "https://evil.example"})
+        assert status == 403, path
+    assert http("/api/auth/logout", {}, headers=own)[0] == 403  # private POSTs still need the token
+
+
 def test_password_reset_with_a_bad_token(serve):
     status, _, body = serve()("/api/auth/reset", {"token": "nope", "password": "another long passphrase"})
     assert status == 400 and "invalid" in json.loads(body)["error"]
