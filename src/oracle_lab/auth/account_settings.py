@@ -105,7 +105,7 @@ class AccountSettings:
     def sessions(self, principal: Principal) -> list[dict]:
         return [{"id": r.token_hash, "created": r.created_at, "last_seen": r.last_seen_at, "ip": r.ip,
                  "user_agent": r.user_agent, "current": r.token_hash == principal.session_hash}
-                for r in self._sessions_repo.for_user(principal.user_id)]
+                for r in self._sessions.live(principal.user_id)]
 
     def end_session(self, principal: Principal, session_id: str) -> None:
         rec = self._sessions_repo.get(session_id)

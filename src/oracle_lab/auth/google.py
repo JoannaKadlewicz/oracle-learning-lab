@@ -20,8 +20,8 @@ from typing import Protocol
 
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.audit import AuditLog
-from oracle_lab.auth.models import AuthError, EmailTaken, Identity, LoginFlow, LoginRequired, Principal
-from oracle_lab.auth.registration import Registration
+from oracle_lab.auth.models import AuthError, EmailTaken, Identity, LoginFlow, LoginRequired, Principal, Throttled
+from oracle_lab.auth.registration import ADMIN_EMAIL_CLAIM, Registration
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.auth.throttle import Throttle
 from oracle_lab.auth.tokens import new_id, new_token, normalise_email
@@ -35,6 +35,8 @@ CALLBACK_PATH = "/auth/google/callback"
 GENERIC = "Sign-in did not complete. Please try again."
 EMAIL_EXISTS = ("An account with this email already exists. Sign in with your password, "
                 "then connect Google in Settings.")
+ALREADY_LINKED = "This account is already connected to a Google account."
+LINKED_ELSEWHERE = "This Google account is already connected to another account."
 FLOW_TTL = 600
 REAUTH_SECONDS = 300
 _ISSUERS = ("https://accounts.google.com", "accounts.google.com")
@@ -133,10 +135,15 @@ def _local_path(path: str) -> str:
 
 @dataclass(frozen=True)
 class GoogleOutcome:
+    """`code` names why it failed (None on success), for the page to show a fixed message: on sign-in
+    "exists", "closed", "throttled" or "failed"; on link or reauth "already_linked", "linked_elsewhere" or
+    "failed"."""
+
     token: str | None
     next_path: str  # on a failed link or reauth, the page the user came from (they are signed in)
     message: str | None
     intent: str = "login"
+    code: str | None = None
 
 
 class GoogleSignIn:
@@ -181,11 +188,11 @@ class GoogleSignIn:
         event = f"google_{flow.intent}" if flow else "google_login"
         user_id = flow.user_id if flow else None
 
-        def fail(reason: str, message: str = GENERIC) -> GoogleOutcome:
+        def fail(reason: str, message: str = GENERIC, code: str = "failed") -> GoogleOutcome:
             self._audit.record(event, "fail", user_id=user_id, ip=ip, user_agent=user_agent, reason=reason)
             if flow is not None and flow.intent != "login":
-                return GoogleOutcome(None, flow.next_path, message, flow.intent)
-            return GoogleOutcome(None, "/login", message)
+                return GoogleOutcome(None, flow.next_path, message, flow.intent, code)
+            return GoogleOutcome(None, "/login", message, "login", code)
 
         if flow is None or flow.expires_at <= self._clock():
             return fail("flow")
@@ -217,10 +224,10 @@ class GoogleSignIn:
         owner = self._stores.users.by_identity("google", sub)
         if flow.intent == "link":
             if owner is not None and owner.id != current.user_id:
-                return fail("sub_in_use")
+                return fail("sub_in_use", LINKED_ELSEWHERE, "linked_elsewhere")
             if owner is None:
                 if any(i.provider == "google" for i in self._stores.users.identities(current.user_id)):
-                    return fail("already_linked", "This account is already connected to a Google account.")
+                    return fail("already_linked", ALREADY_LINKED, "already_linked")
                 try:
                     self._stores.users.add_identity(Identity("google", sub, current.user_id))
                 except AuthError:
@@ -240,18 +247,22 @@ class GoogleSignIn:
         created = user is None
         if user is None:
             if users.by_email(email) is not None:
-                return fail("email_exists", EMAIL_EXISTS)
+                return fail("email_exists", EMAIL_EXISTS, "exists")
             display = (name or "").strip()[:_NAME_LIMIT] or email.split("@")[0]
-            admin = self._stores.settings.get("admin_email_claim") == email
+            admin = self._stores.settings.get(ADMIN_EMAIL_CLAIM) == email
             try:
+                self._throttle.check_register(ip)  # a Google sign-up is a sign-up: same per-IP limit
                 user = self._registration.create_user(email, display, lambda uid: Identity("google", sub, uid),
                                                       admin=admin, bypass_policy=admin)
+            except Throttled as exc:
+                return fail("throttled", str(exc), "throttled")
             except EmailTaken:
-                return fail("email_exists", EMAIL_EXISTS)
+                return fail("email_exists", EMAIL_EXISTS, "exists")
             except AuthError as exc:  # registration closed or cap reached
-                return fail("registration_closed", str(exc))
+                return fail("registration_closed", str(exc), "closed")
+            self._throttle.registered(ip)
             if admin:
-                self._stores.settings.set("admin_email_claim", "")
+                self._stores.settings.set(ADMIN_EMAIL_CLAIM, "")
         elif user.status != "active":
             return fail("locked")
         now = self._clock()

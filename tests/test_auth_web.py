@@ -270,7 +270,7 @@ def test_google_round_trip_with_fake_endpoint(serve, tmp_path):
 def test_google_callback_failure_goes_back_to_login(serve, tmp_path):
     http = serve(settings_for(tmp_path, **GOOGLE_ENV), stores=memory_stores(), google_endpoint=FakeGoogle())
     status, headers, _ = http("/auth/google/callback?state=x&code=y")
-    assert status == 302 and headers["Location"] == "/login?error=google"
+    assert status == 302 and headers["Location"] == "/login?error=google_failed"
     assert http("/auth/google/start?intent=link")[0] == 401
     assert http("/auth/google/start?intent=teleport")[0] == 400
 
@@ -285,7 +285,7 @@ def test_oracle_mode_keeps_accounts_progress_and_notes_in_oracle(tmp_path):
     stores = build_app_stores(settings)  # the pool connects on first use: no database needed here
     assert isinstance(stores.users, OracleUsers) and isinstance(stores.states, OracleUserStates)
     assert isinstance(stores.notes, OracleUserNotes)
-    assert build_app(settings) is not None
+    assert build_app(settings, maintenance=False) is not None
     assert not (tmp_path / "app.db").exists() and not (tmp_path / "progress.json").exists()
 
 
@@ -344,7 +344,7 @@ def test_failed_google_link_returns_to_the_page_with_a_flag(serve, tmp_path):
     flow = next(v.split(";", 1)[0] for v in headers.get_all("Set-Cookie") if "oll_flow=" in v)
     status, headers, _ = http("/auth/google/callback?state=wrong&code=c",
                               headers={"Cookie": http.headers["Cookie"] + "; " + flow})
-    assert status == 302 and headers["Location"] == "/settings?google_error=1"
+    assert status == 302 and headers["Location"] == "/settings?google_error=failed"
     assert any("oll_flow=;" in v for v in headers.get_all("Set-Cookie"))
 
 
@@ -357,3 +357,63 @@ def test_flow_cookie_is_cleared_when_the_callback_raises(serve, tmp_path):
     flow = next(v.split(";", 1)[0] for v in headers.get_all("Set-Cookie") if "oll_flow=" in v)
     status, headers, _ = http(f"/auth/google/callback?state={state}&code=c", headers={"Cookie": flow})
     assert status == 429 and any("oll_flow=;" in v for v in headers.get_all("Set-Cookie") or [])
+
+
+def _callback(http, endpoint, start, cookie=""):
+    status, headers, _ = http(start, headers={"Cookie": cookie} if cookie else None)
+    assert status == 302, headers
+    query = parse_qs(urlsplit(headers["Location"]).query)
+    endpoint.nonce = query["nonce"][0]
+    flow = next(v.split(";", 1)[0] for v in headers.get_all("Set-Cookie") if "oll_flow=" in v)
+    cookies = "; ".join(c for c in (cookie, flow) if c)
+    return http(f"/auth/google/callback?state={query['state'][0]}&code=c", headers={"Cookie": cookies})
+
+
+def test_google_sign_in_failures_name_their_reason(serve, tmp_path):
+    stores = memory_stores()
+    endpoint = FakeGoogle(email="a@example.org")
+    http = serve(settings_for(tmp_path, **GOOGLE_ENV), stores=stores, google_endpoint=endpoint)
+    assert register(http)[0] == 200  # a@example.org has a password account
+    status, headers, _ = _callback(http, endpoint, "/auth/google/start")
+    assert status == 302 and headers["Location"] == "/login?error=google_exists"
+    stores.settings.set("registration_open", "0")
+    endpoint.email, endpoint.sub = "new@example.org", "sub-new"
+    status, headers, _ = _callback(http, endpoint, "/auth/google/start")
+    assert status == 302 and headers["Location"] == "/login?error=google_closed"
+
+
+def test_failed_google_link_keeps_the_fragment_after_the_code(serve, tmp_path):
+    stores = memory_stores()
+    endpoint = FakeGoogle()
+    http = serve(settings_for(tmp_path, **GOOGLE_ENV), stores=stores, google_endpoint=endpoint).sign_in()
+    user = stores.users.by_email("learner@example.org")
+    stores.users.add_identity(Identity("google", "other-sub", user.id))
+    status, headers, _ = _callback(http, endpoint, "/auth/google/start?intent=link&next=/settings%23account",
+                                   http.headers["Cookie"])
+    assert status == 302 and headers["Location"] == "/settings?google_error=already_linked#account"
+
+
+def test_throttled_google_start_redirects_to_the_login_page(serve, tmp_path):
+    http = serve(settings_for(tmp_path, **GOOGLE_ENV), stores=memory_stores(), google_endpoint=FakeGoogle())
+    for _ in range(30):
+        assert http("/auth/google/start")[0] == 302
+    status, headers, _ = http("/auth/google/start")
+    assert status == 302 and headers["Location"] == "/login?error=google_throttled"
+
+
+def test_admin_page_is_404_for_learners(serve, tmp_path):
+    stores = memory_stores()
+    admin = serve(settings_for(tmp_path), stores=stores).sign_in("boss@example.org")
+    assert admin("/admin")[0] == 200
+    learner = serve(settings_for(tmp_path), stores=stores).sign_in("pupil@example.org")
+    assert learner("/admin")[0] == 404
+
+
+def test_throttled_password_change_is_audited(serve):
+    stores = memory_stores()
+    http = serve(stores=stores).sign_in()
+    for _ in range(5):
+        assert http("/api/account/password", {"current": "wrong password!", "new": "another long passphrase"})[0] == 401
+    assert http("/api/account/password", {"current": "wrong password!", "new": "another long passphrase"})[0] == 429
+    (event,) = stores.audit.recent(event="throttled")
+    assert event.detail == {"kind": "login_account"} and event.ip == "127.0.0.1"

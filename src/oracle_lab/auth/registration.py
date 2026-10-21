@@ -6,6 +6,7 @@ import re
 import threading
 from collections.abc import Callable
 
+from oracle_lab.accounts.memory import TAKEN
 from oracle_lab.accounts.repositories import AppStores, SettingsRepository, UserRepository
 from oracle_lab.auth.audit import AuditLog
 from oracle_lab.auth.models import AuthError, EmailTaken, Identity, LoginResult, RegistrationClosed, User, WeakPassword
@@ -15,6 +16,7 @@ from oracle_lab.auth.throttle import Throttle
 from oracle_lab.auth.tokens import new_id, normalise_email
 from oracle_lab.services import Clock
 
+ADMIN_EMAIL_CLAIM = "admin_email_claim"  # the STUDY_ADMIN_EMAIL waiting for its Google sign-in (first_admin.py)
 _EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 _MAX_EMAIL = 254
 
@@ -54,6 +56,7 @@ class Registration:
                  on_user_created: Callable[[User], None] = lambda user: None,
                  first_user_is_admin: bool = False):
         self._users = stores.users
+        self._settings = stores.settings
         self._policy = policy
         self._registration = registration
         self._sessions = sessions
@@ -77,6 +80,10 @@ class Registration:
             raise WeakPassword("Choose a stronger password.", problems)
         encoded = hash_password(password)  # slow: outside the lock
         try:
+            if self._settings.get(ADMIN_EMAIL_CLAIM) == email:
+                # Reserved for the admin, who proves the address by signing in with Google: an unverified
+                # password sign-up must neither become that admin nor block the claim.
+                raise EmailTaken(TAKEN)
             user = self.create_user(email, email.split("@")[0], lambda uid: Identity("password", uid, uid, encoded))
         except EmailTaken:
             # Probing taken emails costs a scrypt each, so it counts toward the per-IP limit.

@@ -142,6 +142,7 @@ def serve(tmp_path):
     servers = []
 
     def start(settings=None, **kwargs):
+        kwargs.setdefault("maintenance", False)  # no purge thread outliving the test
         app = build_app(settings or settings_for(tmp_path), clock=lambda: NOW, **kwargs)
         httpd = create_server(app, "127.0.0.1", 0)
         threading.Thread(target=httpd.serve_forever, daemon=True).start()

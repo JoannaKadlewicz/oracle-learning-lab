@@ -69,13 +69,21 @@ function render() {
     } catch (err) { toastError(err.message); }
   });
   renderAccount();
-  if (new URLSearchParams(location.search).has("google_error")) {
-    toastError("Google sign-in did not complete. Please try again.");
-    history.replaceState(null, "", location.pathname);
+  const googleError = new URLSearchParams(location.search).get("google_error");
+  if (googleError !== null) {
+    toastError(GOOGLE_ERRORS[googleError] || "Google sign-in did not complete. Please try again.");
+    history.replaceState(null, "", location.pathname + location.hash);
   }
 }
 
 /* ---------------------------------------------------------------- account */
+
+// Why connecting or confirming with Google failed (google_error=<code>): fixed texts only.
+const GOOGLE_ERRORS = {
+  already_linked: "This account is already connected to a Google account.",
+  linked_elsewhere: "This Google account is already connected to another account.",
+  throttled: "Too many attempts. Try again in a few minutes.",
+};
 
 const METHOD_NAMES = { password: "Email and password", google: "Google" };
 

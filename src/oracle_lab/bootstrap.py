@@ -143,7 +143,7 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
 
     cookies = CookiePolicy(settings.secure_cookies)
     sessions = SessionManager(stores.sessions, clock)
-    throttle = Throttle(stores.throttle, clock)
+    throttle = Throttle(stores.throttle, clock, audit)
     policy = PasswordPolicy(load_common_passwords(COMMON_PASSWORDS))
     registration_policy = RegistrationPolicy(stores.settings, stores.users, settings.registration_open,
                                              settings.max_users)
@@ -152,16 +152,19 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         if problems:
             raise ConfigurationError("STUDY_ADMIN_PASSWORD is too weak: " + " ".join(problems))
     sources = legacy_sources(settings, pool)
-    import_legacy_data = legacy_hook(stores, sources, audit)
+    import_legacy_data = legacy_hook(stores, sources, audit, settings)
     start_provisioning = provisioning_hook(provisioners, stores.schemas, clock, audit, user_exists)
     on_user_created = each_hook(import_legacy_data, start_provisioning)
+    if not settings.practice:
+        log.warning("Practice schemas are off (STUDY_PROVISIONER_* / STUDY_GATEWAY_* not set): learners can't run "
+                    "SQL; admins use the shared schema.")
     if first_user_is_admin(settings):
         log.warning(
             "STUDY_ADMIN_EMAIL is not set: the first account to register becomes the admin.")
     registration = Registration(stores, policy, registration_policy, sessions, throttle, audit, clock,
                                 on_user_created, first_user_is_admin=first_user_is_admin(settings))
     ensure_first_admin(stores, settings, clock, audit, on_user_created)
-    retry_legacy_import(stores, sources, audit)
+    retry_legacy_import(stores, sources, audit, settings)
     deletion = AccountDeletion(stores, sessions, audit,
                                lambda user_id: drop_user_schemas(user_id, stores.schemas, provisioners))
     account = AccountSettings(stores, policy, sessions, audit, clock, throttle)

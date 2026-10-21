@@ -29,8 +29,10 @@ services:
         sync: false
       - key: STUDY_TRUST_PROXY     # Render's proxy sets X-Forwarded-For; rate limits then see the real client
         value: "1"
-      - key: STUDY_ADMIN_EMAIL     # the account that becomes administrator when it signs up
+      - key: STUDY_ADMIN_EMAIL     # the administrator; it also receives the single-user progress
         sync: false
+      - key: STUDY_ADMIN_PASSWORD  # its initial password (the admin is created at start-up); leave it empty only
+        sync: false                # when Google is set up below: then signing in with Google as that email does it
       - key: STUDY_GOOGLE_CLIENT_ID      # optional: "Sign in with Google" (see docs/docker.md)
         sync: false
       - key: STUDY_GOOGLE_CLIENT_SECRET

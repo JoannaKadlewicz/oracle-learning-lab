@@ -18,11 +18,13 @@ they can live in secret files. Every variable is optional and has a development 
     STUDY_AUTH_PASSWORD[_FILE]       the old basic-auth password: no longer used, only warned about
     STUDY_PUBLIC_URL                 address users reach the app at (default http://HOST:PORT); https turns on
                                      secure cookies
-    STUDY_TRUST_PROXY                1, true or yes: believe X-Forwarded-For from a reverse proxy
+    STUDY_TRUST_PROXY                1, true or yes: believe X-Forwarded-For from a reverse proxy (needs an
+                                     https STUDY_PUBLIC_URL)
     STUDY_GOOGLE_CLIENT_ID           enables "Sign in with Google" ...
     STUDY_GOOGLE_CLIENT_SECRET[_FILE] ... together with this secret
-    STUDY_ADMIN_EMAIL                account that is made administrator
-    STUDY_ADMIN_PASSWORD[_FILE]      its initial password
+    STUDY_ADMIN_EMAIL                account that is made administrator (and receives the single-user progress)
+    STUDY_ADMIN_PASSWORD[_FILE]      its initial password; without it (Google must be configured then) the
+                                     account signing in with Google under that email becomes the admin
     STUDY_REGISTRATION               open (default) or closed: may new users sign up
     STUDY_MAX_USERS                  cap on accounts (default 25)
     STUDY_PROVISIONER_USER           Oracle user that creates and drops practice schemas; with
@@ -43,6 +45,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from oracle_lab.credentials import Secret, SecretNotFoundError, resolve_secret
 
@@ -123,6 +126,18 @@ class Settings:
         host = env.get("STUDY_HOST", "127.0.0.1")
         port = _integer(env, "STUDY_PORT", 8071, minimum=1, maximum=65535)
         practice = _practice_targets(env, database.dsn, dsn_23ai)
+        public_url = _public_url(env, f"http://{host}:{port}")
+        trust_proxy = env.get("STUDY_TRUST_PROXY", "").lower() in ("1", "true", "yes")
+        if trust_proxy and not public_url.startswith("https://"):
+            raise ConfigurationError("STUDY_TRUST_PROXY is on but STUDY_PUBLIC_URL is not https: set STUDY_PUBLIC_URL "
+                                     "to your https address")
+        google = _google(env)
+        admin_email = (env.get("STUDY_ADMIN_EMAIL") or "").strip().lower() or None
+        admin_password = _optional_secret("STUDY_ADMIN_PASSWORD", env)
+        if admin_email is not None and admin_password is None and google is None:
+            raise ConfigurationError("STUDY_ADMIN_EMAIL is set, but nobody could become that admin: set "
+                                     "STUDY_ADMIN_PASSWORD (or _FILE), or STUDY_GOOGLE_CLIENT_ID and "
+                                     "STUDY_GOOGLE_CLIENT_SECRET to sign in with Google using that address")
         return cls(
             host=host,
             port=port,
@@ -135,11 +150,11 @@ class Settings:
             ) if dsn_23ai else None,
             state_database=_state_database(env, database, shared_schema=not practice),
             legacy_basic_auth=bool(env.get("STUDY_AUTH_PASSWORD") or env.get("STUDY_AUTH_PASSWORD_FILE")),
-            public_url=_public_url(env, f"http://{host}:{port}"),
-            trust_proxy=env.get("STUDY_TRUST_PROXY", "").lower() in ("1", "true", "yes"),
-            google=_google(env),
-            admin_email=(env.get("STUDY_ADMIN_EMAIL") or "").strip().lower() or None,
-            admin_password=resolve_secret("STUDY_ADMIN_PASSWORD", env),
+            public_url=public_url,
+            trust_proxy=trust_proxy,
+            google=google,
+            admin_email=admin_email,
+            admin_password=admin_password,
             registration_open=_registration_open(env),
             max_users=_integer(env, "STUDY_MAX_USERS", 25, minimum=1),
             practice=practice,
@@ -190,7 +205,24 @@ def _public_url(env: Mapping[str, str], default: str) -> str:
     url = (env.get("STUDY_PUBLIC_URL") or default).rstrip("/")
     if not url.startswith(("http://", "https://")):
         raise ConfigurationError(f"STUDY_PUBLIC_URL must start with http:// or https://, got {url!r}")
+    try:
+        host = urlsplit(url).hostname
+    except ValueError:
+        host = None
+    if not host or any(c.isspace() for c in url):
+        raise ConfigurationError(f"STUDY_PUBLIC_URL must name a host, got {url!r}")
     return url
+
+
+def _optional_secret(name: str, env: Mapping[str, str]) -> Secret | None:
+    """Like resolve_secret, but an empty secret (e.g. the empty file `make secrets` creates) counts as unset."""
+    secret = resolve_secret(name, env)
+    if secret is None:
+        return None
+    try:
+        return secret if secret.reveal() else None
+    except SecretNotFoundError:
+        return secret  # an unreadable file is reported when the secret is used
 
 
 def _google(env: Mapping[str, str]) -> GoogleConfig | None:

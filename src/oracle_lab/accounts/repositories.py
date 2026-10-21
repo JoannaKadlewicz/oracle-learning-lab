@@ -90,6 +90,9 @@ class ResetTokenRepository(Protocol):
     def take(self, token_hash: str, now: float) -> ResetToken | None:
         """Mark an unused, unexpired token used and return it (with used_at set); else None."""
 
+    def revoke_for_user(self, user_id: str) -> None:
+        """Removes the user's unused tokens, so only a link issued afterwards works."""
+
 
 class ThrottleRepository(Protocol):
     def record(self, key: str, t: float) -> None: ...

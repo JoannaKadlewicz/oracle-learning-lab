@@ -108,6 +108,7 @@ class AdminService:
         """A single-use password reset link, valid for 24 hours. The token is only in the returned link."""
         user = self._user(user_id)
         token = new_token()
+        self._stores.resets.revoke_for_user(user.id)  # only the newest link works
         self._stores.resets.add(ResetToken(token_hash(token), user.id, actor.user_id,
                                            self._clock() + RESET_LINK_SECONDS))
         self._audit.record("reset_link_created", "ok", user_id=actor.user_id, ip=ip, user_agent=user_agent,

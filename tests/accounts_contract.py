@@ -94,6 +94,17 @@ def reset_take_rejects_used_and_expired(stores: AppStores) -> None:
     assert stores.resets.take("unknown", 11.0) is None
 
 
+def reset_revoke_for_user_spares_other_users(stores: AppStores) -> None:
+    stores.resets.add(ResetToken("a", "u1", "admin", 100.0))
+    stores.resets.add(ResetToken("b", "u1", "admin", 100.0))
+    stores.resets.add(ResetToken("c", "u2", "admin", 100.0))
+    stores.resets.revoke_for_user("u1")
+    assert stores.resets.take("a", 10.0) is None and stores.resets.take("b", 10.0) is None
+    assert stores.resets.take("c", 10.0) is not None
+    stores.resets.add(ResetToken("d", "u1", "admin", 100.0))  # a new link after revoking works
+    assert stores.resets.take("d", 10.0) is not None
+
+
 def sessions_delete_for_user_keeps_one(stores: AppStores) -> None:
     add_user(stores, "u1")
     add_user(stores, "u2")
@@ -353,6 +364,7 @@ CONTRACT = [
     delete_removes_identities,
     flow_take_is_single_use,
     reset_take_rejects_used_and_expired,
+    reset_revoke_for_user_spares_other_users,
     sessions_delete_for_user_keeps_one,
     purge_drops_expired_sessions_and_flows,
     session_touch_and_reauth,

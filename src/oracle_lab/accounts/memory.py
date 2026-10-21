@@ -195,6 +195,10 @@ class MemoryResets:
             self._tokens[token_hash] = used
             return used
 
+    def revoke_for_user(self, user_id: str) -> None:
+        with self._lock:
+            self._tokens = {h: t for h, t in self._tokens.items() if t.user_id != user_id or t.used_at is not None}
+
 
 class MemoryThrottle:
     def __init__(self) -> None:

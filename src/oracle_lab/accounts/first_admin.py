@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from urllib.parse import urlsplit
 
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.audit import AuditLog
 from oracle_lab.auth.models import Identity, User
 from oracle_lab.auth.passwords import hash_password
+from oracle_lab.auth.registration import ADMIN_EMAIL_CLAIM
 from oracle_lab.auth.tokens import new_id
 from oracle_lab.config import Settings
 from oracle_lab.services import Clock
@@ -18,13 +20,30 @@ from oracle_lab.study.state import StateStore, new_state
 log = logging.getLogger(__name__)
 
 LEGACY_IMPORTED = "legacy_imported"
-ADMIN_EMAIL_CLAIM = "admin_email_claim"
 _NO_SUCH_TABLE = "ORA-00942"
+_LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
+NOT_IMPORTED = "legacy progress not imported: set STUDY_ADMIN_EMAIL to receive it"
 
 
 def first_user_is_admin(settings: Settings) -> bool:
     """Without STUDY_ADMIN_EMAIL the first account to register becomes the admin."""
     return settings.admin_email is None
+
+
+def is_local(public_url: str) -> bool:
+    """The app is reached on this machine only (the single-user setup), not as a hosted site."""
+    return urlsplit(public_url).hostname in _LOCAL_HOSTS
+
+
+def receives_legacy(user: User, settings: Settings) -> bool:
+    """Who may receive the single-user progress: the admin created from STUDY_ADMIN_EMAIL (password bootstrap or
+    Google claim); without it, a self-registered first admin only on a local install. On a hosted site whoever
+    registers first could be a stranger, so the progress waits for STUDY_ADMIN_EMAIL there."""
+    if user.role != "admin":
+        return False
+    if settings.admin_email is not None:
+        return user.email == settings.admin_email
+    return is_local(settings.public_url)
 
 
 def ensure_first_admin(stores: AppStores, settings: Settings, clock: Clock, audit: AuditLog,
@@ -97,24 +116,57 @@ def _try_import(stores: AppStores, audit: AuditLog, user: User, sources: Sources
             log.exception("could not audit the failed legacy import")
 
 
-def legacy_hook(stores: AppStores, sources: Sources, audit: AuditLog) -> Callable[[User], None]:
-    """The on_user_created hook: the first admin receives the legacy data. `sources` is called lazily."""
+def _has_legacy_data(sources: Sources) -> bool:
+    """True unless the sources are known to be empty (an unreadable source counts as data, to be safe)."""
+    try:
+        state, notes = sources()
+        if state is not None and _read(state.load, new_state()) != new_state():
+            return True
+        return notes is not None and bool(_read(notes.entries, []))
+    except Exception:  # noqa: BLE001
+        log.exception("could not read the single-user progress")
+        return True
+
+
+def _withhold(stores: AppStores, sources: Sources) -> None:
+    """The legacy data has nobody to go to (yet): marked done when there is nothing to import, else warned about
+    and left pending for a later STUDY_ADMIN_EMAIL admin."""
+    if _has_legacy_data(sources):
+        log.warning(NOT_IMPORTED)
+    else:
+        stores.settings.set(LEGACY_IMPORTED, "1")
+
+
+def legacy_hook(stores: AppStores, sources: Sources, audit: AuditLog,
+                settings: Settings) -> Callable[[User], None]:
+    """The on_user_created hook: the admin that receives_legacy() gets the legacy data. `sources` is called lazily."""
     def on_user_created(user: User) -> None:
-        if user.role == "admin" and stores.settings.get(LEGACY_IMPORTED) != "1":
+        if user.role != "admin" or stores.settings.get(LEGACY_IMPORTED) == "1":
+            return
+        if receives_legacy(user, settings):
             _try_import(stores, audit, user, sources)
+        else:
+            _withhold(stores, sources)
     return on_user_created
 
 
-def retry_legacy_import(stores: AppStores, sources: Sources, audit: AuditLog) -> None:
-    """At start-up: an import that failed earlier goes to the earliest admin, but only while that account
-    has no progress and no notes (a retry can neither overwrite nor duplicate); else it is marked done."""
+def retry_legacy_import(stores: AppStores, sources: Sources, audit: AuditLog, settings: Settings) -> None:
+    """At start-up: a pending import goes to the admin with STUDY_ADMIN_EMAIL, or without it to the earliest admin
+    on a local install only, and only while that account has no progress and no notes (a retry can neither
+    overwrite nor duplicate); else it is marked done. Without a receiving admin it stays pending."""
     try:
         if stores.settings.get(LEGACY_IMPORTED) == "1":
             return
         admins = [u for u in stores.users.all() if u.role == "admin"]
         if not admins:
             return
-        admin = min(admins, key=lambda u: u.created_at)
+        if settings.admin_email is not None:
+            admin = next((u for u in admins if u.email == settings.admin_email), None)
+        else:
+            admin = min(admins, key=lambda u: u.created_at)
+        if admin is None or not receives_legacy(admin, settings):
+            _withhold(stores, sources)
+            return
         if stores.states.for_user(admin.id).load() != new_state() or stores.notes.for_user(admin.id).entries():
             stores.settings.set(LEGACY_IMPORTED, "1")
             log.warning("legacy import skipped: the admin account %s already has progress or notes", admin.id)

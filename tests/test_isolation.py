@@ -62,7 +62,7 @@ def test_every_private_endpoint_needs_a_session(serve, method, path):
 
 
 def test_the_route_table_and_the_private_list_stay_in_sync(tmp_path):
-    app = build_app(settings_for(tmp_path), stores=memory_stores())
+    app = build_app(settings_for(tmp_path), stores=memory_stores(), maintenance=False)
     unlisted = [route for route in app.router.routes()
                 if route[1] not in PUBLIC_PATHS and route not in PRIVATE and route not in ADMIN]
     assert unlisted == []

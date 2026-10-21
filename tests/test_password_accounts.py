@@ -158,6 +158,17 @@ def test_reset_token_is_single_use_and_ends_sessions(app):
     assert app.login.login("me@example.org", "brand new passphrase", "ip", "ua")
 
 
+def test_session_listing_leaves_out_expired_sessions(app):
+    r = register(app)
+    app.t[0] += 6 * 86400
+    app.login.login("me@example.org", PW, "9.9.9.9", "fresh")
+    app.t[0] += 2 * 86400  # the first session is now idle for 8 days: past the 7-day idle limit
+    fresh = app.login.login("me@example.org", PW, "9.9.9.9", "fresher")
+    listed = app.settings.sessions(principal(app, fresh))
+    assert [s["user_agent"] for s in listed] == ["fresh", "fresher"]
+    assert token_hash(r.token) not in {s["id"] for s in listed}
+
+
 def test_session_listing_and_ending(app):
     r = register(app)
     other = app.login.login("me@example.org", PW, "9.9.9.9", "other")

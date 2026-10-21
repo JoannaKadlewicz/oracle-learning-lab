@@ -82,7 +82,7 @@ def test_public_url_defaults_to_host_and_port_and_decides_cookie_security():
 
 def test_trust_proxy_is_opt_in():
     assert Settings.from_env({}).trust_proxy is False
-    assert Settings.from_env({"STUDY_TRUST_PROXY": "yes"}).trust_proxy is True
+    assert Settings.from_env({"STUDY_TRUST_PROXY": "yes", "STUDY_PUBLIC_URL": "https://lab.example.org"}).trust_proxy
 
 
 def test_google_needs_both_id_and_secret():
@@ -151,3 +151,36 @@ def test_google_with_an_empty_secret_file_is_refused(tmp_path):
     assert Settings.from_env({"STUDY_GOOGLE_CLIENT_SECRET_FILE": str(empty)}).google is None
     with pytest.raises(ConfigurationError, match="empty"):
         Settings.from_env({"STUDY_GOOGLE_CLIENT_ID": "abc", "STUDY_GOOGLE_CLIENT_SECRET_FILE": str(empty)})
+
+
+def test_admin_email_needs_a_password_or_google():
+    with pytest.raises(ConfigurationError, match="STUDY_ADMIN_PASSWORD.*STUDY_GOOGLE_CLIENT_ID"):
+        Settings.from_env({"STUDY_ADMIN_EMAIL": "boss@example.org"})
+    assert Settings.from_env({"STUDY_ADMIN_EMAIL": "boss@example.org", "STUDY_ADMIN_PASSWORD": "pw"}).admin_email
+    google = {"STUDY_GOOGLE_CLIENT_ID": "abc", "STUDY_GOOGLE_CLIENT_SECRET": "s"}
+    assert Settings.from_env({"STUDY_ADMIN_EMAIL": "boss@example.org", **google}).admin_email == "boss@example.org"
+
+
+def test_trusting_a_proxy_needs_an_https_public_url():
+    with pytest.raises(ConfigurationError, match="set STUDY_PUBLIC_URL to your https address"):
+        Settings.from_env({"STUDY_TRUST_PROXY": "1"})
+    with pytest.raises(ConfigurationError, match="STUDY_PUBLIC_URL"):
+        Settings.from_env({"STUDY_TRUST_PROXY": "yes", "STUDY_PUBLIC_URL": "http://lab.example.org"})
+    assert Settings.from_env({"STUDY_TRUST_PROXY": "1", "STUDY_PUBLIC_URL": "https://lab.example.org"}).trust_proxy
+
+
+@pytest.mark.parametrize("url", ["http://", "https://", "https:///", "https://:8071", "http:// /x"])
+def test_public_url_needs_a_host(url):
+    with pytest.raises(ConfigurationError, match="STUDY_PUBLIC_URL"):
+        Settings.from_env({"STUDY_PUBLIC_URL": url})
+
+
+def test_an_empty_admin_password_file_counts_as_unset(tmp_path):
+    empty = tmp_path / "admin_password"
+    empty.write_text("")
+    assert Settings.from_env({"STUDY_ADMIN_PASSWORD_FILE": str(empty)}).admin_password is None
+    with pytest.raises(ConfigurationError, match="STUDY_ADMIN_PASSWORD"):
+        Settings.from_env({"STUDY_ADMIN_EMAIL": "boss@example.org", "STUDY_ADMIN_PASSWORD_FILE": str(empty)})
+    empty.write_text("a fine long passphrase\n")
+    s = Settings.from_env({"STUDY_ADMIN_EMAIL": "boss@example.org", "STUDY_ADMIN_PASSWORD_FILE": str(empty)})
+    assert s.admin_password.reveal() == "a fine long passphrase"

@@ -7,7 +7,14 @@ const form = $("#login-form");
 
 wirePasswordToggles();
 carryNext(next);
-if (params.get("error") === "google") showError("Sign-in with Google did not complete. Please try again.", { focus: false });
+// Why Google sign-in failed (error=google_<code> from /auth/google/*): fixed texts only, never the raw parameter.
+const GOOGLE_ERRORS = {
+  google_exists: "An account with this email already exists. Sign in with your password, then connect Google in Settings.",
+  google_closed: "Registration is closed.",
+  google_throttled: "Too many attempts. Try again in a few minutes.",
+};
+const GOOGLE_FAILED = "Sign-in with Google did not complete. Please try again.";
+if (params.has("error")) showError(GOOGLE_ERRORS[params.get("error")] || GOOGLE_FAILED, { focus: false });
 
 getConfig().then(config => { $("#google").hidden = !config.google; });
 

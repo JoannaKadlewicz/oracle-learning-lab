@@ -281,3 +281,33 @@ def test_init_db_ensures_the_profile_on_each_practice_target_and_survives_failur
         cli._ensure_profiles(settings)
     assert sorted(seen) == ["db:1521/a", "db:1522/b"]
     assert caplog.text.count("ORA-12541") == 2
+
+
+def test_start_up_warns_when_practice_schemas_are_off(tmp_path, caplog):
+    from conftest import settings_for
+    from oracle_lab.accounts.memory import memory_stores
+    from oracle_lab.bootstrap import build_app
+
+    warning = ("Practice schemas are off (STUDY_PROVISIONER_* / STUDY_GATEWAY_* not set): learners can't run SQL; "
+               "admins use the shared schema.")
+    with caplog.at_level(logging.WARNING):
+        build_app(settings_for(tmp_path), stores=memory_stores(), maintenance=False)
+    assert warning in caplog.text
+    caplog.clear()
+    practice = {"STUDY_PROVISIONER_USER": "prov", "STUDY_PROVISIONER_PASSWORD": "p", "STUDY_GATEWAY_USER": "gw",
+                "STUDY_GATEWAY_PASSWORD": "g"}
+    with caplog.at_level(logging.WARNING):
+        build_app(settings_for(tmp_path, **practice), stores=memory_stores(), maintenance=False)
+    assert "Practice schemas are off" not in caplog.text
+
+
+def test_build_app_without_maintenance_starts_no_thread(tmp_path):
+    import threading
+
+    from conftest import settings_for
+    from oracle_lab.accounts.memory import memory_stores
+    from oracle_lab.bootstrap import build_app
+
+    before = {t.ident for t in threading.enumerate() if t.name == "maintenance"}
+    build_app(settings_for(tmp_path), stores=memory_stores(), maintenance=False)
+    assert {t.ident for t in threading.enumerate() if t.name == "maintenance"} == before

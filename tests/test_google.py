@@ -261,7 +261,9 @@ def test_link_without_current_or_other_user_fails(g):
     other = User("o", "o@example.org", "o", "learner", "active", 1.0, None, None)
     g.stores.users.add(other, Identity("google", "sub-1", "o"))
     fid, state = g.run("link", p)
-    assert g.g.finish(fid, state, "c", "ip", "ua", p).message == GENERIC
+    out = g.g.finish(fid, state, "c", "ip", "ua", p)
+    assert out.message == "This Google account is already connected to another account."
+    assert out.code == "linked_elsewhere"
 
 
 def test_link_rejects_current_user_mismatch(g):
@@ -453,3 +455,39 @@ def test_raising_hook_still_counts_and_audits_password_registration():
         reg.with_password("me@example.org", "a fine long passphrase", "1.1.1.1", "ua")
     assert stores.throttle.count_since("register:ip:1.1.1.1", 0) == 1
     assert any(e.event == "register" and e.outcome == "ok" for e in stores.audit.recent())
+
+
+def test_outcomes_carry_a_reason_code(g):
+    fid, state = g.run()
+    assert g.g.finish(fid, state, "c", "ip", "ua", None).code is None  # success
+    fid, state = g.run()
+    assert g.g.finish(fid, "wrong", "c", "ip", "ua", None).code == "failed"
+    g.stores.users.add(User("u2", "bob@example.org", "Bob", "learner", "active", 1.0, None, None),
+                       Identity("password", "u2", "u2", "x"))
+    fid, state = g.run(sub="sub-2", email="bob@example.org")
+    assert g.g.finish(fid, state, "c", "ip", "ua", None).code == "exists"
+    g.policy.set(open=False)
+    fid, state = g.run(sub="sub-3", email="carl@example.org")
+    assert g.g.finish(fid, state, "c", "ip", "ua", None).code == "closed"
+
+
+def test_link_and_reauth_failures_carry_codes(g):
+    _, p = logged_in(g)
+    g.stores.users.add_identity(Identity("google", "sub-old", "me"))
+    fid, state = g.run("link", p)
+    assert g.g.finish(fid, state, "c", "ip", "ua", p).code == "already_linked"
+    fid, state = g.run("reauth", p)
+    assert g.g.finish(fid, state, "c", "ip", "ua", p).code == "failed"
+
+
+def test_google_sign_ups_count_toward_the_per_ip_registration_limit(g):
+    fid, state = g.run()
+    assert g.g.finish(fid, state, "c", "ip", "ua", None).token  # one sign-up from "ip"
+    assert g.stores.throttle.count_since("register:ip:ip", 0) == 1
+    for _ in range(2):
+        g.stores.throttle.record("register:ip:ip", g.t[0])
+    fid, state = g.run(sub="sub-2", email="bob@example.org")
+    out = g.g.finish(fid, state, "c", "ip", "ua", None)
+    assert out.token is None and out.code == "throttled" and g.stores.users.by_email("bob@example.org") is None
+    fid, state = g.run()  # signing in to the existing account is not a sign-up
+    assert g.g.finish(fid, state, "c", "ip", "ua", None).token

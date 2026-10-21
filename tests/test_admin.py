@@ -186,6 +186,17 @@ def test_reset_link_expires_after_a_day(admin):
         admin.reset_link(_actor(), "nobody")
 
 
+def test_a_new_reset_link_revokes_the_earlier_ones(admin):
+    _user(admin.stores, "u1")
+    _user(admin.stores, "u2")
+    first = admin.reset_link(_actor(), "u1").split("token=", 1)[1]
+    other = admin.reset_link(_actor(), "u2").split("token=", 1)[1]
+    second = admin.reset_link(_actor(), "u1").split("token=", 1)[1]
+    assert admin.stores.resets.take(token_hash(first), NOW) is None
+    assert admin.stores.resets.take(token_hash(second), NOW) is not None
+    assert admin.stores.resets.take(token_hash(other), NOW) is not None
+
+
 def test_lock_ends_sessions_and_blocks_login(serve):
     stores = memory_stores()
     server = serve(stores=stores)

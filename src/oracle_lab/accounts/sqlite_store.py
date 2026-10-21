@@ -364,6 +364,9 @@ class SqliteResets:
             ).fetchone()
         return ResetToken(*row)
 
+    def revoke_for_user(self, user_id: str) -> None:
+        self._db.conn.execute("DELETE FROM reset_tokens WHERE user_id = ? AND used_at IS NULL", (user_id,))
+
 
 class SqliteThrottle:
     def __init__(self, db: _Database):

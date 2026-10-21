@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from oracle_lab.web.http import HTML_TYPE, Request, Response
+from oracle_lab.web.http import HTML_TYPE, HttpError, Request, Response
 from oracle_lab.web.routing import Router
 
 AUTH_PAGES = {"/login": "login.html", "/register": "register.html", "/reset": "reset.html"}
@@ -23,6 +23,8 @@ class Pages:
     def page(self, name: str) -> Response:
         return Response(200, (self.static_dir / name).read_bytes(), HTML_TYPE, {"Cache-Control": "no-store"})
 
-    def admin(self, _: Request) -> Response:
-        """The single-page app; the admin view checks the role (and the admin API enforces it)."""
+    def admin(self, request: Request) -> Response:
+        """The single-page app, for admins only: anyone else gets 404, like the admin API (which enforces it)."""
+        if request.principal is None or request.principal.role != "admin":
+            raise HttpError(404, "Not found")
         return Response(200, self.index.read_bytes(), HTML_TYPE, {"Cache-Control": "no-store"})

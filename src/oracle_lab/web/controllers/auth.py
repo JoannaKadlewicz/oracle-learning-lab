@@ -7,7 +7,7 @@ from urllib.parse import quote
 from oracle_lab.auth.account_settings import AccountSettings
 from oracle_lab.auth.google import GoogleSignIn
 from oracle_lab.auth.login import PasswordLogin
-from oracle_lab.auth.models import AuthError, LoginResult, Principal
+from oracle_lab.auth.models import AuthError, LoginResult, Principal, Throttled
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.web.cookies import CookiePolicy
@@ -16,8 +16,24 @@ from oracle_lab.web.middleware import auth_error_response, safe_next
 from oracle_lab.web.routing import Router
 
 SESSION_MAX_AGE = 30 * 86400
-GOOGLE_FAILED = "/login?error=google"
+GOOGLE_LOGIN_ERRORS = {"exists", "closed", "throttled", "failed"}  # GoogleOutcome.code on sign-in
 _LOCATION_SAFE = "/?&=#%:@!$'()*+,;~"  # keeps a URL's structure; spaces and non-ASCII get percent-encoded
+
+
+def login_error(code: str) -> str:
+    """The login page naming why Google sign-in failed; the page maps the code to a fixed message."""
+    return "/login?error=google_" + (code if code in GOOGLE_LOGIN_ERRORS else "failed")
+
+
+def with_google_error(location: str, code: str) -> str:
+    """`location` with google_error=<code> in its query, before any #fragment."""
+    path, hash_, fragment = location.partition("#")
+    path += ("&" if "?" in path else "?") + "google_error=" + quote(code, safe="")
+    return path + hash_ + fragment
+
+
+def _quoted(location: str) -> str:
+    return quote(location, safe=_LOCATION_SAFE)
 
 
 def principal_of(request: Request) -> Principal:
@@ -105,7 +121,13 @@ class AuthController:
         intent = request.query("intent", "login")
         if intent not in ("login", "link", "reauth"):
             raise HttpError(400, "Unknown sign-in intent")
-        url, flow_id = google.start(intent, safe_next(request.query("next", "/")), request.principal, request.client)
+        next_path = safe_next(request.query("next", "/"))
+        try:
+            url, flow_id = google.start(intent, next_path, request.principal, request.client)
+        except Throttled:  # a browser navigation: back to a page that can say so
+            if intent == "login":
+                return Response.redirect(login_error("throttled"))
+            return Response.redirect(_quoted(with_google_error(next_path, "throttled")))
         return Response.redirect(url, cookies=[self.cookies.set_flow(flow_id)])
 
     def google_callback(self, request: Request) -> Response:
@@ -120,13 +142,13 @@ class AuthController:
             return response
         cookies = [self.cookies.clear_flow()]
         location = safe_next(outcome.next_path)
-        if outcome.message is not None:
+        if outcome.code is not None:
             if outcome.intent == "login":
-                return Response.redirect(GOOGLE_FAILED, cookies=cookies)
-            location += ("&" if "?" in location else "?") + "google_error=1"  # a signed-in user stays where they were
+                return Response.redirect(login_error(outcome.code), cookies=cookies)
+            location = with_google_error(location, outcome.code)  # a signed-in user stays where they were
         if outcome.token is not None:
             cookies.append(self.new_session_cookie(request, outcome.token))
-        return Response.redirect(quote(location, safe=_LOCATION_SAFE), cookies=cookies)
+        return Response.redirect(_quoted(location), cookies=cookies)
 
     def _google(self) -> GoogleSignIn:
         if self.google is None:

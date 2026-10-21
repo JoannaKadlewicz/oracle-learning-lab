@@ -44,8 +44,11 @@ the log). After that the startup scripts provision `ORASTUDY`, `OLL_PROVISIONER`
 app (`Oracle Learning Lab 2.0.0 on http://0.0.0.0:8071 ...`). Later starts take about a minute.
 `make ps` shows `healthy` when both the database and the app are up.
 
-Open http://127.0.0.1:8071; you are sent to the sign-in page. Register the first account there
-(it is a learner; see [Accounts and Google sign-in](#accounts-and-google-sign-in) for the administrator).
+Open http://localhost:8071; you are sent to the sign-in page. Register the first account there:
+with `STUDY_ADMIN_EMAIL` empty (the default) it becomes the administrator and receives the progress
+and notes of an earlier single-user version (see [Accounts and Google sign-in](#accounts-and-google-sign-in)).
+Use the host of `STUDY_PUBLIC_URL` (`localhost` by default) in the browser: Google sign-in only
+works there, because Google redirects back to exactly that address.
 The two provisioning scripts run on every start, so an existing database from an earlier version
 gets the new users on the next `make up`; no data is touched.
 
@@ -95,7 +98,7 @@ To back up, run `docker compose stop lab` (the database shuts down cleanly) and 
 | `STUDY_DSN_23AI` | – | `oracle23:1521/FREEPDB1` with the `23ai` profile |
 | `STUDY_LOG_LEVEL` | `INFO` | App log level |
 | `STUDY_PUBLIC_URL` | `http://localhost:8071` | Address users open the app at (also the base of the Google redirect URI) |
-| `STUDY_ADMIN_EMAIL` | – | Account that becomes administrator |
+| `STUDY_ADMIN_EMAIL` | – | Account that becomes administrator; its initial password goes into `secrets/admin_password` (or leave that file empty and sign in with Google using that address) |
 | `STUDY_GOOGLE_CLIENT_ID`, `STUDY_GOOGLE_CLIENT_SECRET` | – | Turn on "Sign in with Google" |
 
 Every app setting is listed in [`src/oracle_lab/config.py`](../src/oracle_lab/config.py).
@@ -165,6 +168,9 @@ with it. `STUDY_STATE_DSN` defaults to `STUDY_DSN`, so both users can share one 
        CREATE USER oralab_app IDENTIFIED BY "<password 2>" DEFAULT TABLESPACE data QUOTA 20M ON data;
        GRANT CREATE SESSION, CREATE TABLE TO oralab_app;
 
+   These two privileges and the quota are all the state user needs: `init-db` creates only tables
+   and indexes (no sequences or identity columns, which would also need `CREATE SEQUENCE`).
+
 3. In Render, New > Blueprint, pick this repository. It reads [`render.yaml`](../render.yaml) and
    asks for `STUDY_DSN` (the connect string), `STUDY_PASSWORD` (password 1),
    `STUDY_STATE_PASSWORD` (password 2) and the account settings described in the next section.
@@ -186,7 +192,9 @@ proxy authentication through the gateway.
 | provisioner (`OLL_PROVISIONER` locally, `ADMIN` on Autonomous) | creates, sizes and drops the practice schemas and the profile `OLL_LEARNER` | `STUDY_PROVISIONER_USER`, `STUDY_PROVISIONER_PASSWORD[_FILE]` |
 | gateway (`OLL_GATEWAY`) | `CREATE SESSION` only | `STUDY_GATEWAY_USER`, `STUDY_GATEWAY_PASSWORD[_FILE]` |
 
-Without both, the app still works but everyone shares the `ORASTUDY` schema. Locally the all-in-one
+Without both, practice schemas are off: learners can study, but the SQL lab and the exercises tell
+them "The practice database is not set up on this server."; only administrators run SQL, in the
+shared `ORASTUDY` schema. The app logs a warning about it at start-up. Locally the all-in-one
 container creates both users itself on every start. The 23ai container does the same through
 `docker/23ai-start/`, which the image runs after each start, so an existing 23ai database gets them
 too.
@@ -194,8 +202,8 @@ too.
 | Variable | Default | Meaning |
 |---|---|---|
 | `STUDY_PUBLIC_URL` | `http://HOST:PORT` | Address users open the app at; `https://` turns on secure cookies |
-| `STUDY_TRUST_PROXY` | off | `1` behind a reverse proxy such as Render's, so `X-Forwarded-For` is believed |
-| `STUDY_ADMIN_EMAIL`, `STUDY_ADMIN_PASSWORD[_FILE]` | – | The account with this e-mail is the administrator; the password is its initial one |
+| `STUDY_TRUST_PROXY` | off | `1` behind a reverse proxy such as Render's, so `X-Forwarded-For` is believed; needs an `https://` `STUDY_PUBLIC_URL` |
+| `STUDY_ADMIN_EMAIL`, `STUDY_ADMIN_PASSWORD[_FILE]` | – | The account with this e-mail is the administrator; the password is its initial one. Without a password, Google sign-in must be configured |
 | `STUDY_GOOGLE_CLIENT_ID`, `STUDY_GOOGLE_CLIENT_SECRET[_FILE]` | – | Both together turn on "Sign in with Google" |
 | `STUDY_REGISTRATION` | `open` | `closed` stops new sign-ups |
 | `STUDY_MAX_USERS` | `25` | Cap on accounts |
@@ -207,9 +215,19 @@ In `docker-compose.yml` set `STUDY_ADMIN_EMAIL`, `STUDY_PUBLIC_URL` and `STUDY_G
 `make secrets` creates empty (an empty file leaves Google sign-in off); it is mounted like the other
 secrets, never put in the environment.
 
-**The first administrator.** Set `STUDY_ADMIN_EMAIL` and register with that e-mail (or sign in with
-Google using it). Without it, the first account that registers is the administrator. The last
-administrator cannot be deleted or demoted.
+**The first administrator.** Set `STUDY_ADMIN_EMAIL` and either set `STUDY_ADMIN_PASSWORD` (locally:
+the file `secrets/admin_password`), so the account is created at start-up, or sign in with Google
+using that address (the app refuses to start with neither a password nor Google configured). A
+password sign-up with that address is refused, so nobody else can take it. Without
+`STUDY_ADMIN_EMAIL`, the first account that registers is the administrator. The last administrator
+cannot be deleted or demoted.
+
+**Progress from the single-user version** (`progress.json` and `notes/`, or `LAB_STATE` and
+`LAB_NOTES` in Oracle) is copied once into the `STUDY_ADMIN_EMAIL` administrator. Without
+`STUDY_ADMIN_EMAIL` it goes to the first account that registers only when `STUDY_PUBLIC_URL` is
+`localhost`, `127.0.0.1` or `[::1]`; on a public address the stranger who registers first must not
+get it, so the app logs "legacy progress not imported: set STUDY_ADMIN_EMAIL to receive it" and
+imports it at the next start after you set `STUDY_ADMIN_EMAIL` to an administrator's address.
 
 **Google sign-in.**
 
@@ -233,8 +251,45 @@ Then set `STUDY_PROVISIONER_USER=ADMIN` with ADMIN's password, `STUDY_GATEWAY_US
 `STUDY_PRACTICE_TABLESPACE=DATA` (all in `render.yaml`), `STUDY_PUBLIC_URL` to the service's
 `https://` address and `STUDY_ADMIN_EMAIL` to yours.
 
-**One process.** Sessions, sign-in rate limits and provisioning state live in the app's memory, so
-run one instance (one container, one Render service); several instances would not share them.
+**One process.** Sessions and sign-in rate limits are kept in the database, but the locks that keep
+sign-ups, practice-schema provisioning and SQL runs from overlapping live in the app's memory, so run
+one instance (one container, one Render service); several instances would not share them.
+
+## Upgrading an existing deployment
+
+The multi-user version adds these settings; all are optional unless noted:
+
+| Variable | Use |
+|---|---|
+| `STUDY_PUBLIC_URL` | The address users open; required in practice behind a proxy (`https://...`) |
+| `STUDY_TRUST_PROXY` | `1` behind a reverse proxy; then `STUDY_PUBLIC_URL` must be `https://` |
+| `STUDY_ADMIN_EMAIL` | The administrator, who also receives the single-user progress |
+| `STUDY_ADMIN_PASSWORD[_FILE]` | Its initial password; needed with `STUDY_ADMIN_EMAIL` unless Google is configured |
+| `STUDY_GOOGLE_CLIENT_ID`, `STUDY_GOOGLE_CLIENT_SECRET[_FILE]` | "Sign in with Google" |
+| `STUDY_REGISTRATION`, `STUDY_MAX_USERS` | Open or close sign-up; cap on accounts |
+| `STUDY_PROVISIONER_*`, `STUDY_GATEWAY_*`, `STUDY_PRACTICE_*` (and `_23AI`) | Private practice schemas |
+
+`STUDY_AUTH_PASSWORD[_FILE]` (the old shared login) is no longer used; the app warns while it is set.
+
+**Render (or another host with `STUDY_STATE_USER`):**
+
+1. Create the gateway user (see *Autonomous Database* above) and set `STUDY_PROVISIONER_USER`,
+   `STUDY_PROVISIONER_PASSWORD`, `STUDY_GATEWAY_USER`, `STUDY_GATEWAY_PASSWORD` and
+   `STUDY_PRACTICE_TABLESPACE=DATA`.
+2. Set `STUDY_PUBLIC_URL` to the service's `https://` address (required, since `render.yaml` sets
+   `STUDY_TRUST_PROXY=1`), `STUDY_ADMIN_EMAIL` to your address and `STUDY_ADMIN_PASSWORD`, or
+   configure Google and sign in with it as that address.
+3. Deploy. `init-db` creates the `APP_*` tables in the state user (it needs only `CREATE SESSION`,
+   `CREATE TABLE` and its quota); your administrator account is created (or claimed with Google)
+   and receives the progress from `LAB_STATE` and `LAB_NOTES`, which are left in place.
+
+**Local all-in-one image:**
+
+1. `git pull`, then `make up`: it creates the new (empty) `secrets/admin_password` and the practice
+   users, and rebuilds the image.
+2. Optional: set `STUDY_ADMIN_EMAIL` in `.env` and put a password into `secrets/admin_password`
+   (or set up Google), then `make up` again. Otherwise register at http://localhost:8071: the first
+   account becomes the administrator and receives your `progress.json` and notes.
 
 ## Oracle version note
 
