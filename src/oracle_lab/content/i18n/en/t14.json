@@ -1,0 +1,124 @@
+{
+  "flashcards": {
+    "c081": {
+      "front": "SYSDATE or CURRENT_DATE: how do they differ?",
+      "back": "SYSDATE takes the time from the database server's operating system. CURRENT_DATE takes the time in your session's time zone. Both return the DATE type.",
+      "try_sql": "-- SYSDATE: the server clock; CURRENT_DATE: the session time zone (compare with SESSIONTIMEZONE)\nSELECT SYSDATE, CURRENT_DATE, SESSIONTIMEZONE FROM dual;"
+    },
+    "c082": {
+      "front": "TIMESTAMP WITH TIME ZONE vs WITH LOCAL TIME ZONE: how do they differ?",
+      "back": "WITH TIME ZONE stores the time zone (an offset or a region) together with the value. WITH LOCAL TIME ZONE does not store it: it converts the value to DBTIMEZONE and shows it in your session's time zone when read.",
+      "try_sql": "-- starts_at (WITH TIME ZONE) remembers its time zone; logged_at (WITH LOCAL TIME ZONE) is shown in the session time zone\nSELECT e.event_id, TO_CHAR(e.starts_at, 'YYYY-MM-DD HH24:MI TZR') AS starts_at,\n       e.logged_at, SESSIONTIMEZONE AS sesja\nFROM   events e\nWHERE  e.event_id IN (1, 3);"
+    },
+    "c083": {
+      "front": "What can EXTRACT take from a DATE value?",
+      "back": "Only YEAR, MONTH and DAY. HOUR, MINUTE and SECOND need a TIMESTAMP, for example EXTRACT(HOUR FROM CAST(d AS TIMESTAMP)). Otherwise you get ORA-30076.",
+      "try_sql": "-- From a DATE: YEAR/MONTH/DAY work, HOUR only after CAST to TIMESTAMP\nSELECT EXTRACT(DAY FROM DATE '2024-03-31') AS d,\n       EXTRACT(HOUR FROM CAST(TO_DATE('2024-03-31 14:45', 'YYYY-MM-DD HH24:MI') AS TIMESTAMP)) AS h\nFROM   dual;\nSELECT EXTRACT(HOUR FROM SYSDATE) FROM dual;"
+    },
+    "c084": {
+      "front": "What do interval literals look like?",
+      "back": "INTERVAL '1-6' YEAR TO MONTH = 1 year and 6 months. INTERVAL '2 10:30:00' DAY TO SECOND = 2 days, 10 hours and 30 minutes. INTERVAL '90' MINUTE = 90 minutes.",
+      "try_sql": "-- Three interval literals: 1 year 6 months, 2 days 10:30, 90 minutes\nSELECT INTERVAL '1-6' YEAR TO MONTH AS a, INTERVAL '2 10:30:00' DAY TO SECOND AS b, INTERVAL '90' MINUTE AS c FROM dual;"
+    },
+    "c085": {
+      "front": "31 January + 1 month: ADD_MONTHS or + INTERVAL MONTH?",
+      "back": "ADD_MONTHS(DATE '2024-01-31', 1) gives the last day of February (2024-02-29). + INTERVAL '1' MONTH raises ORA-01839, because 31 February does not exist.",
+      "try_sql": "-- ADD_MONTHS gives the end of February, + INTERVAL '1' MONTH raises an error\nSELECT ADD_MONTHS(DATE '2024-01-31', 1) AS am FROM dual;\nSELECT DATE '2024-01-31' + INTERVAL '1' MONTH FROM dual;"
+    },
+    "c086": {
+      "front": "How do you show a TIMESTAMP in another time zone?",
+      "back": "ts AT TIME ZONE 'Europe/Warsaw': the same instant, a different clock. FROM_TZ(ts, 'UTC') only attaches a zone to a plain TIMESTAMP (the time does not change). TZ_OFFSET('Europe/Warsaw') returns the offset from UTC, for example +01:00.",
+      "try_sql": "-- AT TIME ZONE changes the clock (the same instant), FROM_TZ only attaches a time zone\nSELECT TO_CHAR(TIMESTAMP '2024-07-01 12:00:00 UTC' AT TIME ZONE 'Europe/Warsaw', 'HH24:MI TZR') AS at_tz,\n       TO_CHAR(FROM_TZ(TIMESTAMP '2024-07-01 12:00:00', 'UTC'), 'HH24:MI TZR') AS from_tz,\n       TZ_OFFSET('Europe/Warsaw') AS offset_dzis\nFROM   dual;"
+    },
+    "c710": {
+      "front": "What type do TIMESTAMP - TIMESTAMP, DATE - DATE and TIMESTAMP + 1 give?",
+      "back": "TIMESTAMP - TIMESTAMP → INTERVAL DAY TO SECOND. DATE - DATE → NUMBER (a number of days). TIMESTAMP + 1 → DATE, because adding a number turns the result into a DATE.",
+      "try_sql": "-- Result types: INTERVAL DAY TO SECOND, NUMBER (days) and DATE (no fractional seconds)\nSELECT TIMESTAMP '2024-03-10 12:00:00' - TIMESTAMP '2024-03-08 09:30:00' AS ts_minus_ts,\n       DATE '2024-03-10' - DATE '2024-03-08' AS date_minus_date,\n       TIMESTAMP '2024-03-10 12:00:00.5' + 1 AS ts_plus_1\nFROM   dual;"
+    },
+    "c711": {
+      "front": "Which units do NUMTOYMINTERVAL and NUMTODSINTERVAL accept?",
+      "back": "NUMTOYMINTERVAL: 'YEAR', 'MONTH'. NUMTODSINTERVAL: 'DAY', 'HOUR', 'MINUTE', 'SECOND'. A wrong unit raises ORA-01760.",
+      "try_sql": "-- The right units work, 'DAY' in NUMTOYMINTERVAL raises an error\nSELECT NUMTOYMINTERVAL(18, 'MONTH') AS ym, NUMTODSINTERVAL(36, 'HOUR') AS ds FROM dual;\nSELECT NUMTOYMINTERVAL(2, 'DAY') FROM dual;"
+    },
+    "c712": {
+      "front": "INTERVAL '1' DAY + INTERVAL '1' MONTH: what happens?",
+      "back": "Error ORA-30081. YEAR TO MONTH and DAY TO SECOND intervals cannot be combined, because a month has no fixed number of days.",
+      "try_sql": "-- Predict: can a day be added to a month?\nSELECT INTERVAL '1' DAY + INTERVAL '1' MONTH FROM dual;"
+    },
+    "c713": {
+      "front": "INTERVAL '123' DAY: what happens?",
+      "back": "Error ORA-01873. By default the first field of an interval may have only 2 digits. Write INTERVAL '123' DAY(3).",
+      "try_sql": "-- DAY(3) allows 3 digits, the default DAY(2) does not\nSELECT INTERVAL '123' DAY(3) AS ok FROM dual;\nSELECT INTERVAL '123' DAY FROM dual;"
+    },
+    "c714": {
+      "front": "EXTRACT(HOUR FROM ...) from a TIMESTAMP WITH TIME ZONE: which hour does it return?",
+      "back": "The hour in UTC, not the local one. For example 23:30 in New York at UTC-4 gives 3. You get the local hour with TO_CHAR(ts, 'HH24').",
+      "try_sql": "-- 23:30 in New York: EXTRACT gives the UTC hour, TO_CHAR the local one\nSELECT TO_CHAR(e.starts_at, 'YYYY-MM-DD HH24:MI TZR') AS starts_at,\n       EXTRACT(HOUR FROM e.starts_at) AS extract_hour,\n       TO_CHAR(e.starts_at, 'HH24') AS local_hour\nFROM   events e\nWHERE  e.event_id = 3;"
+    },
+    "c715": {
+      "front": "What types do CURRENT_DATE, CURRENT_TIMESTAMP, LOCALTIMESTAMP, SYSDATE and SYSTIMESTAMP return?",
+      "back": "CURRENT_DATE: DATE. CURRENT_TIMESTAMP: TIMESTAMP WITH TIME ZONE. LOCALTIMESTAMP: TIMESTAMP. SYSDATE: DATE. SYSTIMESTAMP: TIMESTAMP WITH TIME ZONE.",
+      "try_sql": "-- Which values have a time zone (WITH TIME ZONE), and which do not?\nSELECT CURRENT_DATE, CURRENT_TIMESTAMP, LOCALTIMESTAMP, SYSDATE, SYSTIMESTAMP FROM dual;"
+    },
+    "c1725": {
+      "front": "A global app: every user should see the same instant in their own time zone. Which data type?",
+      "back": "TIMESTAMP WITH LOCAL TIME ZONE: it shows the time in the session's time zone by itself. If you want to keep the original time zone, use TIMESTAMP WITH TIME ZONE.",
+      "try_sql": "-- logged_at (WITH LOCAL TIME ZONE) is shown in your session's time zone; next to it, the same instant in UTC\nSELECT e.event_id, e.logged_at, SESSIONTIMEZONE AS sesja,\n       TO_CHAR(SYS_EXTRACT_UTC(e.logged_at), 'YYYY-MM-DD HH24:MI') AS utc\nFROM   events e\nWHERE  e.event_id IN (1, 3);"
+    },
+    "c1726": {
+      "front": "How are two TIMESTAMP WITH TIME ZONE values compared and subtracted?",
+      "back": "As instants in UTC, not as clock times. Example: on the day of the clock change in Warsaw, 03:00 CEST - 01:00 CET = +00 01:00:00, because only 1 hour passed.",
+      "try_sql": "-- The clock-change day in Warsaw: 2 hours on the clock, really only 1 passed\nSELECT TIMESTAMP '2024-03-31 03:00:00 Europe/Warsaw' - TIMESTAMP '2024-03-31 01:00:00 Europe/Warsaw' AS diff,\n       CASE WHEN TIMESTAMP '2024-03-31 03:00:00 Europe/Warsaw' = TIMESTAMP '2024-03-31 01:00:00 UTC' THEN 'ta sama chwila' END AS cmp\nFROM   dual;"
+    },
+    "c1727": {
+      "front": "FROM_TZ(ts, 'UTC') AT TIME ZONE 'Europe/Warsaw': what does it do?",
+      "back": "FROM_TZ says \"this time is in UTC\" and does not change the clock. Then AT TIME ZONE converts that instant to Warsaw. For example 12:00 UTC in July → 14:00 (summer time, UTC+2).",
+      "try_sql": "-- 12:00 UTC in July is 14:00 in Warsaw (summer time)\nSELECT TO_CHAR(FROM_TZ(TIMESTAMP '2024-07-01 12:00:00', 'UTC'), 'HH24:MI TZR') AS utc,\n       TO_CHAR(FROM_TZ(TIMESTAMP '2024-07-01 12:00:00', 'UTC') AT TIME ZONE 'Europe/Warsaw', 'HH24:MI TZR TZD') AS warsaw\nFROM   dual;"
+    },
+    "c1728": {
+      "front": "What does TZ_OFFSET('Asia/Kolkata') return?",
+      "back": "The text '+05:30'. India has no daylight saving time. For regions with daylight saving time, the result depends on today's date.",
+      "try_sql": "-- Kolkata is always +05:30; the result for Warsaw depends on today's date\nSELECT TZ_OFFSET('Asia/Kolkata') AS kolkata, TZ_OFFSET('Europe/Warsaw') AS warsaw FROM dual;"
+    },
+    "c1729": {
+      "front": "EXTRACT(SECOND FROM ...) from a TIMESTAMP: what does it return?",
+      "back": "The seconds including the fraction, for example 30.5. From a DATE only YEAR, MONTH and DAY may be extracted (otherwise ORA-30076).",
+      "try_sql": "-- From a TIMESTAMP, seconds with a fraction; from a DATE, SECOND raises an error\nSELECT EXTRACT(SECOND FROM TIMESTAMP '2024-03-31 10:15:30.5') AS s FROM dual;\nSELECT EXTRACT(SECOND FROM SYSDATE) FROM dual;"
+    },
+    "c1730": {
+      "front": "From which values does EXTRACT take TIMEZONE_HOUR?",
+      "back": "From a TIMESTAMP WITH TIME ZONE, for example SYSTIMESTAMP or CURRENT_TIMESTAMP. LOCALTIMESTAMP and a plain TIMESTAMP have no time zone: you get ORA-30076.",
+      "try_sql": "-- TIMEZONE_HOUR only from a value with a time zone; LOCALTIMESTAMP has none\nSELECT EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2024-07-01 12:00:00 Europe/Warsaw') AS warsaw,\n       EXTRACT(TIMEZONE_HOUR FROM SYSTIMESTAMP) AS sys\nFROM   dual;\nSELECT EXTRACT(TIMEZONE_HOUR FROM LOCALTIMESTAMP) FROM dual;"
+    },
+    "c1731": {
+      "front": "Which text formats does TO_DSINTERVAL accept?",
+      "back": "'1 12:00:00' (days hh:mi:ss) or ISO 'PT36H'. '36:00:00' (without days) → ORA-01867. '1 25:00:00' (25 hours) → ORA-01850.",
+      "try_sql": "-- The 'days hh:mi:ss' and ISO formats work; '36:00:00' without days does not\nSELECT TO_DSINTERVAL('1 12:00:00') AS a, TO_DSINTERVAL('PT36H') AS b FROM dual;\nSELECT TO_DSINTERVAL('36:00:00') FROM dual;"
+    },
+    "c1732": {
+      "front": "What does NUMTOYMINTERVAL(2.5, 'YEAR') return?",
+      "back": "+02-06. The fraction turns into months: 2.5 years = 30 months = 2 years and 6 months.",
+      "try_sql": "-- Predict: 2.5 years as YEAR TO MONTH\nSELECT NUMTOYMINTERVAL(2.5, 'YEAR') AS i FROM dual;"
+    },
+    "c1733": {
+      "front": "What does EXTRACT(MONTH FROM INTERVAL '30' MONTH) return?",
+      "back": "6. The literal becomes +02-06 (2 years and 6 months), and EXTRACT returns one field, not the total of all months.",
+      "try_sql": "-- 30 months is +02-06: EXTRACT(MONTH) gives 6, not 30\nSELECT INTERVAL '30' MONTH AS i,\n       EXTRACT(YEAR FROM INTERVAL '30' MONTH) AS y,\n       EXTRACT(MONTH FROM INTERVAL '30' MONTH) AS m\nFROM   dual;"
+    },
+    "c1734": {
+      "front": "How do you get the last day of the previous month without ORA-01839?",
+      "back": "ADD_MONTHS(d, -1) for month-end dates, or TRUNC(d, 'MM') - 1. Note: DATE '2024-03-31' - INTERVAL '1' MONTH raises an error, because 31 February does not exist.",
+      "try_sql": "-- Two safe ways, and then an INTERVAL subtraction that fails\nSELECT ADD_MONTHS(DATE '2024-03-31', -1) AS a, TRUNC(DATE '2024-03-31', 'MM') - 1 AS b FROM dual;\nSELECT DATE '2024-03-31' - INTERVAL '1' MONTH FROM dual;"
+    },
+    "c1735": {
+      "front": "An INTERVAL DAY(2) TO SECOND(0) column: what if the value is too large? And if it has too many fractional seconds?",
+      "back": "A first field that is too large (for example 120 days) → error ORA-01873. Too many fractional seconds → the value is rounded to the SECOND(p) precision, without an error (15.75 s → 16 s).",
+      "try_sql": "-- duration is INTERVAL DAY(2) TO SECOND(0): 15.75 s rounds to 16 s, 120 days is an error\nUPDATE events e SET e.duration = INTERVAL '0 00:00:15.75' DAY TO SECOND WHERE e.event_id = 4;\nSELECT e.duration FROM events e WHERE e.event_id = 4;\nUPDATE events e SET e.duration = INTERVAL '120' DAY(3) WHERE e.event_id = 4;"
+    },
+    "c1736": {
+      "front": "duration > 1 on an INTERVAL column: does it work?",
+      "back": "No, error ORA-00932: Oracle does not convert a NUMBER to an INTERVAL by itself. Write duration > INTERVAL '1' DAY.",
+      "try_sql": "-- Comparing with an INTERVAL literal works, with the number 1 it does not\nSELECT e.event_id, e.duration FROM events e WHERE e.duration > INTERVAL '1' HOUR;\nSELECT e.event_id FROM events e WHERE e.duration > 1;"
+    }
+  }
+}

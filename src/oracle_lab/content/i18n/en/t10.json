@@ -1,0 +1,130 @@
+{
+  "flashcards": {
+    "c055": {
+      "front": "Which constraints does CTAS copy?",
+      "back": "Only explicitly defined NOT NULL. No PK, UNIQUE, FK, CHECK, indexes or DEFAULT values.",
+      "try_sql": "-- Copy employees with CTAS and compare the constraints of both tables\nCREATE TABLE lab_c055_emp AS SELECT * FROM employees;\nSELECT table_name, constraint_type, COUNT(*) AS ile\nFROM   user_constraints\nWHERE  table_name IN ('EMPLOYEES', 'LAB_C055_EMP')\nGROUP  BY table_name, constraint_type\nORDER  BY table_name, constraint_type;"
+    },
+    "c056": {
+      "front": "Where can NOT NULL be defined?",
+      "back": "Only at column level (inline). The other constraints can be at column or table level. A multi-column key must be at table level.",
+      "try_sql": "-- NOT NULL at table level is a syntax error\nCREATE TABLE lab_c056_t (a NUMBER, b NUMBER, CONSTRAINT lab_c056_nn NOT NULL (a));\n-- NOT NULL at column level, a two-column key at table level\nCREATE TABLE lab_c056_t (a NUMBER CONSTRAINT lab_c056_nn NOT NULL, b NUMBER,\n                         CONSTRAINT lab_c056_pk PRIMARY KEY (a, b));\nSELECT constraint_name, constraint_type, search_condition_vc\nFROM   user_constraints\nWHERE  table_name = 'LAB_C056_T';"
+    },
+    "c057": {
+      "front": "ON DELETE CASCADE or SET NULL?",
+      "back": "CASCADE deletes the children along with the parent. SET NULL writes NULL into the FK column of the children. By default, deleting a parent that has children is rejected (ORA-02292).",
+      "try_sql": "-- ORDER_ITEMS has an FK with ON DELETE CASCADE: the order lines disappear along with the order\nDELETE FROM orders WHERE order_id = 1001;\nSELECT COUNT(*) AS pozycje_1001 FROM order_items WHERE order_id = 1001;\n-- EMPLOYEES has a default FK (NO ACTION): deleting a department with employees is rejected\nDELETE FROM departments WHERE department_id = 30;"
+    },
+    "c058": {
+      "front": "What range does NUMBER(5,2) have?",
+      "back": "From -999.99 to 999.99. Extra digits after the decimal point are rounded, for example 12.345 → 12.35. Too many digits before the decimal point → ORA-01438.",
+      "try_sql": "-- 12.345 rounds to 12.35, and 1000 has too many digits before the decimal point\nSELECT CAST(12.345 AS NUMBER(5,2)) AS zaokraglone FROM dual;\nSELECT CAST(1000 AS NUMBER(5,2)) AS za_duzo FROM dual;"
+    },
+    "c059": {
+      "front": "VARCHAR2 or CHAR?",
+      "back": "VARCHAR2: variable length, max 4000 bytes (standard). CHAR: fixed length, padded with spaces, max 2000 bytes.",
+      "try_sql": "-- CHAR(5) pads with spaces to 5 characters, VARCHAR2(5) keeps only 2\nSELECT LENGTH(CAST('ab' AS CHAR(5)))     AS dlugosc_char,\n       LENGTH(CAST('ab' AS VARCHAR2(5))) AS dlugosc_varchar2\nFROM   dual;"
+    },
+    "c060": {
+      "front": "DROP TABLE and the recycle bin?",
+      "back": "DROP moves the table to the recycle bin. FLASHBACK TABLE t TO BEFORE DROP restores it. DROP ... PURGE skips the bin: the table can no longer be recovered."
+    },
+    "c061": {
+      "front": "What does SET UNUSED do?",
+      "back": "It drops a column logically: fast and forever (it cannot be undone). Later ALTER TABLE ... DROP UNUSED COLUMNS removes it physically.",
+      "try_sql": "-- SET UNUSED hides the column, DROP UNUSED COLUMNS removes it physically\nCREATE TABLE lab_c061_emp AS SELECT employee_id, last_name, email FROM employees;\nALTER TABLE lab_c061_emp SET UNUSED (email);\nSELECT * FROM user_unused_col_tabs WHERE table_name = 'LAB_C061_EMP';\nALTER TABLE lab_c061_emp DROP UNUSED COLUMNS;\nSELECT column_name FROM user_tab_cols WHERE table_name = 'LAB_C061_EMP';"
+    },
+    "c062": {
+      "front": "Read-only tables?",
+      "back": "ALTER TABLE t READ ONLY blocks DML. DROP TABLE still works. ALTER TABLE t READ WRITE allows writing again.",
+      "try_sql": "-- A READ ONLY table rejects DML (ORA-12081), READ WRITE allows writing again\nCREATE TABLE lab_c062_t AS SELECT department_id, department_name FROM departments;\nALTER TABLE lab_c062_t READ ONLY;\nSELECT table_name, read_only FROM user_tables WHERE table_name = 'LAB_C062_T';\nDELETE FROM lab_c062_t;\nALTER TABLE lab_c062_t READ WRITE;\nDELETE FROM lab_c062_t;"
+    },
+    "c510": {
+      "front": "ALTER TABLE ... MODIFY a column: what is allowed when there is data?",
+      "back": "Widening: always. Narrowing: only when every value fits (otherwise ORA-01441). Changing the data type: only when the column is empty (otherwise ORA-01439).",
+      "try_sql": "-- Widening works, narrowing below the data does not (ORA-01441), an empty column can change type\nCREATE TABLE lab_c510_t AS SELECT last_name, salary, CAST(NULL AS VARCHAR2(10)) AS note FROM employees;\nALTER TABLE lab_c510_t MODIFY (last_name VARCHAR2(50));\nALTER TABLE lab_c510_t MODIFY (last_name VARCHAR2(3));\nALTER TABLE lab_c510_t MODIFY (note DATE);\nSELECT column_name, data_type, data_length\nFROM   user_tab_columns\nWHERE  table_name = 'LAB_C510_T'\nORDER  BY column_id;"
+    },
+    "c511": {
+      "front": "DEFAULT or DEFAULT ON NULL?",
+      "back": "DEFAULT works only when you leave the column out (or write DEFAULT). An explicit NULL stays NULL. DEFAULT ON NULL (12c+) also replaces an explicit NULL with the default value.",
+      "try_sql": "-- Column a: DEFAULT, column b: DEFAULT ON NULL. Compare row 2 (explicit NULL)\nCREATE TABLE lab_c511_t (id NUMBER, a VARCHAR2(10) DEFAULT 'domyslna', b VARCHAR2(10) DEFAULT ON NULL 'domyslna');\nINSERT INTO lab_c511_t (id) VALUES (1);\nINSERT INTO lab_c511_t VALUES (2, NULL, NULL);\nSELECT * FROM lab_c511_t ORDER BY id;"
+    },
+    "c512": {
+      "front": "What restrictions does DROP COLUMN have?",
+      "back": "You cannot drop the last column (ORA-12983). A column of a key that an FK points to needs CASCADE CONSTRAINTS. Several columns at once: DROP (a, b). It is DDL, so no ROLLBACK.",
+      "try_sql": "-- Two columns at once can be dropped, the last one cannot (ORA-12983)\nCREATE TABLE lab_c512_t (a NUMBER, b NUMBER, c NUMBER);\nALTER TABLE lab_c512_t DROP (b, c);\nALTER TABLE lab_c512_t DROP COLUMN a;\nSELECT column_name FROM user_tab_columns WHERE table_name = 'LAB_C512_T';"
+    },
+    "c513": {
+      "front": "A private temporary table (18c+)?",
+      "back": "CREATE PRIVATE TEMPORARY TABLE ora$ptt_name ...: the definition and data exist only for your session, in memory. The default is ON COMMIT DROP DEFINITION (it disappears after the transaction). PRESERVE DEFINITION keeps it until the end of the session.",
+      "try_sql": "-- The default PTT (ON COMMIT DROP DEFINITION) disappears at the end of the transaction: CREATE TABLE commits\nCREATE PRIVATE TEMPORARY TABLE ora$ptt_lab_c513_tx (id NUMBER);\nCREATE PRIVATE TEMPORARY TABLE ora$ptt_lab_c513_sesja (id NUMBER) ON COMMIT PRESERVE DEFINITION;\nCREATE TABLE lab_c513_t (id NUMBER);\n-- Only the table with PRESERVE DEFINITION remains (DURATION = SESSION)\nSELECT table_name, duration FROM user_private_temp_tables;"
+    },
+    "c514": {
+      "front": "What can you not do with an external table?",
+      "back": "No INSERT/UPDATE/DELETE, no indexes and no enforced keys. The data stays in a file on the system and is read at every query. You load it with CTAS or INSERT ... SELECT."
+    },
+    "c515": {
+      "front": "ENABLE NOVALIDATE or ENABLE VALIDATE?",
+      "back": "NOVALIDATE: checks only future DML, old rows may break the rule. VALIDATE (the default with ENABLE): checks all rows. DISABLE ... CASCADE also disables the dependent foreign keys.",
+      "try_sql": "-- Without extra options, constraints are ENABLED and VALIDATED (all rows checked)\nSELECT constraint_name, constraint_type, status, validated\nFROM   user_constraints\nWHERE  table_name = 'EMPLOYEES'\nORDER  BY constraint_name;"
+    },
+    "c1550": {
+      "front": "What can a private temporary table not have?",
+      "back": "Constraints (not even NOT NULL), DEFAULT values and indexes: ORA-14451. CTAS works. The name must start with ORA$PTT_. Creating one does not commit.",
+      "try_sql": "-- A PTT with a constraint: ORA-14451. CTAS works and does not commit\nCREATE TABLE lab_c1550_t (id NUMBER);\nINSERT INTO lab_c1550_t VALUES (1);\nCREATE PRIVATE TEMPORARY TABLE ora$ptt_lab_c1550_pk (id NUMBER PRIMARY KEY);\nCREATE PRIVATE TEMPORARY TABLE ora$ptt_lab_c1550_emp AS SELECT employee_id, last_name FROM employees;\nROLLBACK;\n-- 0: the INSERT was not committed by creating the PTT\nSELECT COUNT(*) AS wiersze FROM lab_c1550_t;"
+    },
+    "c1551": {
+      "front": "Where in the data dictionary do you find private temporary tables?",
+      "back": "In USER_PRIVATE_TEMP_TABLES (DURATION TRANSACTION or SESSION). They are not in USER_TABLES. Global temporary tables are in USER_TABLES with TEMPORARY = 'Y'.",
+      "try_sql": "-- Global temporary tables have TEMPORARY = 'Y' in USER_TABLES\nSELECT table_name, temporary FROM user_tables ORDER BY table_name;\n-- Private temporary tables are only here (DURATION)\nSELECT table_name, duration FROM user_private_temp_tables;"
+    },
+    "c1552": {
+      "front": "ALTER or DROP a global temporary table while sessions have rows in it?",
+      "back": "It fails: ORA-14450 (ALTER) / ORA-14452 (DROP). Each session must first COMMIT (DELETE ROWS), or end / TRUNCATE (PRESERVE ROWS). TRUNCATE clears only your rows.",
+      "try_sql": "-- Your session has a row in the GTT (PRESERVE ROWS): ALTER raises ORA-14450, after TRUNCATE it works\nCREATE GLOBAL TEMPORARY TABLE lab_c1552_gtt (id NUMBER) ON COMMIT PRESERVE ROWS;\nINSERT INTO lab_c1552_gtt VALUES (1);\nALTER TABLE lab_c1552_gtt ADD (note VARCHAR2(10));\nTRUNCATE TABLE lab_c1552_gtt;\nALTER TABLE lab_c1552_gtt ADD (note VARCHAR2(10));\nSELECT column_name FROM user_tab_columns WHERE table_name = 'LAB_C1552_GTT';"
+    },
+    "c1553": {
+      "front": "Global temporary tables and foreign keys?",
+      "back": "Not allowed: ORA-14455. PRIMARY KEY, UNIQUE, CHECK and NOT NULL are allowed on a GTT.",
+      "try_sql": "-- An FK on a GTT: ORA-14455. PRIMARY KEY, CHECK and NOT NULL are allowed\nCREATE TABLE lab_c1553_parent (id NUMBER CONSTRAINT lab_c1553_parent_pk PRIMARY KEY);\nCREATE GLOBAL TEMPORARY TABLE lab_c1553_gtt (id NUMBER CONSTRAINT lab_c1553_pk PRIMARY KEY,\n  parent_id NUMBER CONSTRAINT lab_c1553_fk REFERENCES lab_c1553_parent);\nCREATE GLOBAL TEMPORARY TABLE lab_c1553_gtt (id NUMBER CONSTRAINT lab_c1553_pk PRIMARY KEY,\n  qty NUMBER NOT NULL CONSTRAINT lab_c1553_ck CHECK (qty > 0));\nSELECT constraint_name, constraint_type FROM user_constraints WHERE table_name = 'LAB_C1553_GTT';"
+    },
+    "c1554": {
+      "front": "External table: what is checked at CREATE, and what at query time?",
+      "back": "CREATE checks the syntax and the DIRECTORY object (missing: ORA-06564). The file itself is opened only when you query the table.",
+      "try_sql": "-- CREATE checks the DIRECTORY object: it is missing here, so ORA-06564 (nobody looks for the file yet)\nCREATE TABLE lab_c1554_ext (id NUMBER, name VARCHAR2(30))\nORGANIZATION EXTERNAL (\n  TYPE ORACLE_LOADER\n  DEFAULT DIRECTORY lab_c1554_dir\n  LOCATION ('dane.csv')\n);"
+    },
+    "c1555": {
+      "front": "ORACLE_LOADER or ORACLE_DATAPUMP?",
+      "back": "ORACLE_LOADER: reads text files, read-only. ORACLE_DATAPUMP: reads and writes binary dump files, so CREATE TABLE ... ORGANIZATION EXTERNAL ... AS SELECT can unload data to a file."
+    },
+    "c1556": {
+      "front": "REJECT LIMIT in an external table?",
+      "back": "How many bad records a query can survive. The default is 0: the first rejected record ends the query with an error. UNLIMITED: bad records are skipped (they land in the bad file)."
+    },
+    "c1557": {
+      "front": "Drop a column that is part of a multi-column constraint?",
+      "back": "ORA-12991 (the same for SET UNUSED). Add CASCADE CONSTRAINTS: the whole constraint is dropped, not reduced to the remaining columns.",
+      "try_sql": "-- Column a is in UNIQUE (a, b): DROP raises ORA-12991, CASCADE CONSTRAINTS drops the whole constraint\nCREATE TABLE lab_c1557_t (a NUMBER, b NUMBER, c NUMBER, CONSTRAINT lab_c1557_uk UNIQUE (a, b));\nALTER TABLE lab_c1557_t DROP COLUMN a;\nALTER TABLE lab_c1557_t DROP COLUMN a CASCADE CONSTRAINTS;\nSELECT constraint_name FROM user_constraints WHERE table_name = 'LAB_C1557_T';"
+    },
+    "c1558": {
+      "front": "After SET UNUSED (note): can you add a new column note? Can you DROP COLUMN note?",
+      "back": "Add: yes, the name is free at once (the old column gets a hidden name SYS_C...$). DROP COLUMN note: ORA-00904; use DROP UNUSED COLUMNS.",
+      "try_sql": "-- After SET UNUSED: DROP COLUMN note raises ORA-00904, but you can add a new column note\nCREATE TABLE lab_c1558_t (id NUMBER, note VARCHAR2(10));\nALTER TABLE lab_c1558_t SET UNUSED (note);\nALTER TABLE lab_c1558_t DROP COLUMN note;\nALTER TABLE lab_c1558_t ADD (note DATE);\n-- The old column is hidden under the name SYS_C...$\nSELECT column_name, data_type, hidden_column\nFROM   user_tab_cols\nWHERE  table_name = 'LAB_C1558_T'\nORDER  BY internal_column_id;"
+    },
+    "c1559": {
+      "front": "DEFERRABLE INITIALLY DEFERRED: when is the constraint checked?",
+      "back": "At COMMIT (or at SET CONSTRAINT ... IMMEDIATE). Breaking the rule at COMMIT raises ORA-02091 and rolls back the whole transaction. Deferrability cannot be added later.",
+      "try_sql": "-- A deferred key: the duplicate goes through until COMMIT\nCREATE TABLE lab_c1559_t (id NUMBER CONSTRAINT lab_c1559_pk PRIMARY KEY DEFERRABLE INITIALLY DEFERRED);\nINSERT INTO lab_c1559_t VALUES (1);\nINSERT INTO lab_c1559_t VALUES (1);\nSELECT COUNT(*) AS przed_commit FROM lab_c1559_t;\n-- DDL commits: ORA-02091 and the whole transaction is rolled back\nALTER TABLE lab_c1559_t ADD (note VARCHAR2(10));\nSELECT COUNT(*) AS po_commit FROM lab_c1559_t;"
+    },
+    "c1560": {
+      "front": "Identity column options?",
+      "back": "GENERATED ALWAYS: you cannot supply your own value (ORA-32795 on INSERT, ORA-32796 on UPDATE). BY DEFAULT: your own value is OK, an explicit NULL is not. BY DEFAULT ON NULL: NULL gets the next value. One identity column per table.",
+      "try_sql": "-- GENERATED ALWAYS: your own id value raises ORA-32795\nCREATE TABLE lab_c1560_t (id NUMBER GENERATED ALWAYS AS IDENTITY, name VARCHAR2(10));\nINSERT INTO lab_c1560_t (name) VALUES ('auto');\nINSERT INTO lab_c1560_t (id, name) VALUES (99, 'wlasne');\nSELECT * FROM lab_c1560_t;"
+    },
+    "c1561": {
+      "front": "CTAS with a column list: what can be in that list?",
+      "back": "New column names and constraints (for example id PRIMARY KEY), one name for each selected column (otherwise ORA-01730). No data types (ORA-01773). DEFAULT and identity are never copied.",
+      "try_sql": "-- A column list in CTAS: new names and a constraint work, a data type raises ORA-01773\nCREATE TABLE lab_c1561_dept (id PRIMARY KEY, nazwa) AS SELECT department_id, department_name FROM departments;\nSELECT constraint_type, COUNT(*) AS ile FROM user_constraints WHERE table_name = 'LAB_C1561_DEPT' GROUP BY constraint_type;\nCREATE TABLE lab_c1561_bad (id NUMBER, nazwa) AS SELECT department_id, department_name FROM departments;"
+    }
+  }
+}

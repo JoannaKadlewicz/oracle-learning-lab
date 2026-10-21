@@ -1,0 +1,125 @@
+{
+  "flashcards": {
+    "c048": {
+      "front": "What does DDL do with an open transaction?",
+      "back": "It commits it (COMMIT) by itself, before and after the DDL statement. Even DDL that fails during execution (for example ORA-00955, name already used) still commits. A syntax error does not commit. All savepoints disappear.",
+      "try_sql": "-- DDL (here COMMENT) commits the open transaction: the row survives ROLLBACK\nCREATE TABLE lab_c048_t (n NUMBER);\nINSERT INTO lab_c048_t VALUES (1);\nCOMMENT ON TABLE lab_c048_t IS 'DDL robi COMMIT';\nROLLBACK;\nSELECT n FROM lab_c048_t;"
+    },
+    "c049": {
+      "front": "TRUNCATE or DELETE: how do they differ?",
+      "back": "TRUNCATE is DDL: it cannot be undone with ROLLBACK, it does not fire DML triggers, and it resets the high-water mark. DELETE is DML: it writes undo, fires triggers, and can be undone with ROLLBACK.",
+      "try_sql": "-- DELETE is DML: ROLLBACK brings the rows back (TRUNCATE would not allow that)\nDELETE FROM order_items;\nSELECT COUNT(*) FROM order_items;\nROLLBACK;\nSELECT COUNT(*) FROM order_items;"
+    },
+    "c050": {
+      "front": "INSERT ALL or INSERT FIRST?",
+      "back": "ALL: inserts for every WHEN that is true. FIRST: only for the first true WHEN, and checks no further. INSERT ALL without WHEN inserts into every INTO.",
+      "try_sql": "-- Both WHENs are true: ALL inserts 2 rows, FIRST only 1\nINSERT ALL\n  WHEN x > 0 THEN INTO promotions VALUES (x, 'ALL-1', 5)\n  WHEN x > 0 THEN INTO promotions VALUES (x + 10, 'ALL-2', 5)\nSELECT 1 AS x FROM dual;\nINSERT FIRST\n  WHEN x > 0 THEN INTO promotions VALUES (x, 'FIRST-1', 5)\n  WHEN x > 0 THEN INTO promotions VALUES (x + 10, 'FIRST-2', 5)\nSELECT 2 AS x FROM dual;\nSELECT * FROM promotions ORDER BY promo_id;"
+    },
+    "c051": {
+      "front": "What restrictions does MERGE have?",
+      "back": "You cannot change the columns used in ON (ORA-38104). Every WHEN clause is optional. In WHEN MATCHED you can add DELETE WHERE.",
+      "try_sql": "-- A column from ON in UPDATE SET: error\nMERGE INTO departments d\nUSING (SELECT 10 AS id FROM dual) s\nON (d.department_id = s.id)\nWHEN MATCHED THEN UPDATE SET d.department_id = 11;"
+    },
+    "c052": {
+      "front": "What does ROLLBACK TO SAVEPOINT do?",
+      "back": "It undoes the changes made after the savepoint. Earlier changes stay, and the transaction goes on. Savepoints created later disappear.",
+      "try_sql": "-- The change before the savepoint stays, the change after it disappears\nUPDATE employees SET salary = 25000 WHERE employee_id = 100;\nSAVEPOINT s1;\nUPDATE employees SET salary = 1 WHERE employee_id = 100;\nROLLBACK TO s1;\nSELECT salary FROM employees WHERE employee_id = 100;"
+    },
+    "c053": {
+      "front": "Readers and writers: who blocks whom?",
+      "back": "Readers never block writers and see only committed data (read consistency). Writers block each other only on the same row."
+    },
+    "c054": {
+      "front": "What does SELECT ... FOR UPDATE do?",
+      "back": "It locks the selected rows until COMMIT/ROLLBACK. NOWAIT / WAIT n say how long to wait for a locked row. COMMIT releases the locks."
+    },
+    "c500": {
+      "front": "INSERT: what do the columns missing from the column list get?",
+      "back": "Their DEFAULT value, or NULL if there is none. A NOT NULL column without DEFAULT raises ORA-01400. Without a column list, VALUES must give a value for every column, in table order (otherwise ORA-00947).",
+      "try_sql": "-- location has no DEFAULT: it gets NULL. Missing department_name (NOT NULL): ORA-01400\nINSERT INTO departments (department_id, department_name) VALUES (50, 'Test');\nSELECT * FROM departments WHERE department_id = 50;\nINSERT INTO departments (department_id) VALUES (60);"
+    },
+    "c501": {
+      "front": "UPDATE ... SET col = (subquery): what if the subquery returns zero rows? And two?",
+      "back": "Zero rows: the column gets NULL. More than one row: ORA-01427. The subquery sees the data as it was at the start of the statement.",
+      "try_sql": "-- The subquery finds nothing: Kochhar's commission_pct becomes NULL\nUPDATE employees e\nSET e.commission_pct = (SELECT x.commission_pct FROM employees x WHERE x.employee_id = 999)\nWHERE e.employee_id = 101;\nSELECT last_name, commission_pct FROM employees WHERE employee_id = 101;"
+    },
+    "c502": {
+      "front": "One statement in a transaction fails. What is rolled back?",
+      "back": "Only that one statement (statement-level rollback). Earlier changes still wait for COMMIT, and the transaction goes on.",
+      "try_sql": "-- The INSERT fails (ORA-00001), but the earlier UPDATE stays: salary 24001\nUPDATE employees SET salary = salary + 1 WHERE employee_id = 100;\nINSERT INTO departments VALUES (10, 'Duplikat', NULL);\nSELECT salary FROM employees WHERE employee_id = 100;"
+    },
+    "c503": {
+      "front": "MERGE ... UPDATE SET ... DELETE WHERE cond: which rows can be deleted?",
+      "back": "Only target rows changed by this MERGE, tested with their new values. Rows without a match are never deleted. A row matched twice: ORA-30926.",
+      "try_sql": "-- Only order 1001 is matched. After /20 both its lines have a price < 100 and disappear;\n-- lines 1004/1 and 1006/2 (price < 100) stay, because they were not matched\nMERGE INTO order_items t\nUSING (SELECT 1001 AS oid FROM dual) s\nON (t.order_id = s.oid)\nWHEN MATCHED THEN UPDATE SET t.unit_price = t.unit_price / 20\n  DELETE WHERE t.unit_price < 100;\nSELECT order_id, line_no, unit_price FROM order_items WHERE unit_price < 100 OR order_id = 1001;"
+    },
+    "c504": {
+      "front": "TRUNCATE of a parent table that a foreign key points to?",
+      "back": "ORA-02266, as long as child rows point to it through an enabled FK (in 19c it went through when the child table was empty). TRUNCATE ... CASCADE (12c+) also clears the children, but only when the FKs are ON DELETE CASCADE (otherwise ORA-14705).",
+      "try_sql": "-- The child points to the parent: TRUNCATE raises ORA-02266, and CASCADE without ON DELETE CASCADE ORA-14705\nCREATE TABLE lab_c504_p (id NUMBER CONSTRAINT lab_c504_p_pk PRIMARY KEY);\nCREATE TABLE lab_c504_c (pid NUMBER CONSTRAINT lab_c504_c_fk REFERENCES lab_c504_p);\nINSERT INTO lab_c504_p VALUES (1);\nINSERT INTO lab_c504_c VALUES (1);\nTRUNCATE TABLE lab_c504_p;\nTRUNCATE TABLE lab_c504_p CASCADE;\nSELECT (SELECT COUNT(*) FROM lab_c504_p) AS rodzic, (SELECT COUNT(*) FROM lab_c504_c) AS dziecko FROM dual;"
+    },
+    "c505": {
+      "front": "What restrictions does a multitable INSERT have?",
+      "back": "The target cannot be a view or a remote table. You cannot use a sequence in the subquery. INSERT FIRST always needs WHEN. ELSE exists only in the conditional version (with WHEN).",
+      "try_sql": "-- INSERT FIRST without WHEN: syntax error\nINSERT FIRST\n  INTO promotions VALUES (1, 'A', 5)\nSELECT * FROM dual;"
+    },
+    "c1500": {
+      "front": "Multitable INSERT: which columns can WHEN and VALUES use?",
+      "back": "Only columns (or column aliases) from the subquery's SELECT list. A table column you did not select, or a table alias like e.salary, raises ORA-00904.",
+      "try_sql": "-- salary is not in the subquery's SELECT list: ORA-00904\nINSERT ALL\n  WHEN salary > 10000 THEN INTO promotions VALUES (employee_id, last_name, 10)\nSELECT employee_id, last_name FROM employees;"
+    },
+    "c1501": {
+      "front": "How do you insert several rows of literals with one statement?",
+      "back": "19c: INSERT ALL INTO t VALUES (...) INTO t VALUES (...) SELECT * FROM dual, or INSERT INTO t SELECT ... FROM dual UNION ALL SELECT ... FROM dual. 23ai also allows VALUES (...), (...) (on 19c that is ORA-00933).",
+      "try_sql": "-- Several rows of literals with one statement (works on 19c and 23ai)\nINSERT ALL\n  INTO promotions VALUES (1, 'Wiosna', 10)\n  INTO promotions VALUES (2, 'Lato', 15)\nSELECT * FROM dual;\nINSERT INTO promotions\nSELECT 3, 'Jesień', 20 FROM dual UNION ALL SELECT 4, 'Zima', 25 FROM dual;\nSELECT * FROM promotions ORDER BY promo_id;"
+    },
+    "c1502": {
+      "front": "One row of a multitable INSERT breaks a constraint. What remains?",
+      "back": "Nothing from that statement: it is one statement, so it rolls back as a whole (statement-level rollback). Earlier statements of the transaction still wait for COMMIT.",
+      "try_sql": "-- The second INTO breaks the primary key: not even the first row remains (COUNT = 0)\nINSERT ALL\n  INTO promotions VALUES (1, 'A', 5)\n  INTO promotions VALUES (1, 'B', 5)\nSELECT * FROM dual;\nSELECT COUNT(*) FROM promotions;"
+    },
+    "c1503": {
+      "front": "WHEN x < 100 ... WHEN x >= 100 ... ELSE ...: when does ELSE apply?",
+      "back": "When no WHEN is TRUE. That is also the case for x IS NULL, because both conditions give UNKNOWN. ELSE may be used in a conditional INSERT ALL and in INSERT FIRST.",
+      "try_sql": "-- x is NULL: both WHENs give UNKNOWN, the row goes to ELSE\nINSERT FIRST\n  WHEN x < 100 THEN INTO promotions VALUES (1, 'mniej', x)\n  WHEN x >= 100 THEN INTO promotions VALUES (2, 'wiecej', x)\n  ELSE INTO promotions VALUES (3, 'ELSE', x)\nSELECT CAST(NULL AS NUMBER) AS x FROM dual;\nSELECT * FROM promotions;"
+    },
+    "c1504": {
+      "front": "MERGE ... ON (1 = 0): what does it give?",
+      "back": "No row ever matches, so every source row goes to WHEN NOT MATCHED. The MERGE then works like INSERT ... SELECT.",
+      "try_sql": "-- ON (1 = 0): department 10 exists, but it still goes to INSERT (ORA-00001)\nMERGE INTO departments d\nUSING (SELECT 10 AS id, 'Admin 2' AS name FROM dual) s\nON (1 = 0)\nWHEN MATCHED THEN UPDATE SET d.department_name = s.name\nWHEN NOT MATCHED THEN INSERT (department_id, department_name) VALUES (s.id, s.name);"
+    },
+    "c1505": {
+      "front": "MERGE: the ON condition compares two NULLs. Matched or not?",
+      "back": "Not matched. NULL = NULL is UNKNOWN, not TRUE. The row goes to the INSERT branch and can raise ORA-00001 if that key already exists.",
+      "try_sql": "-- Hooli (5) has country_code NULL: NULL = NULL does not match, so INSERT and ORA-00001\nMERGE INTO customers c\nUSING (SELECT 5 AS id, 'Hooli' AS name, CAST(NULL AS CHAR(2)) AS cc FROM dual) s\nON (c.customer_id = s.id AND c.country_code = s.cc)\nWHEN MATCHED THEN UPDATE SET c.credit_limit = 0\nWHEN NOT MATCHED THEN INSERT (customer_id, customer_name) VALUES (s.id, s.name);"
+    },
+    "c1506": {
+      "front": "MERGE: UPDATE SET ... WHERE cond1 DELETE WHERE cond2. Which rows can be deleted?",
+      "back": "Only matched rows that passed cond1 and were updated. cond2 already sees the new values. A row skipped by the UPDATE's WHERE is never deleted.",
+      "try_sql": "-- Line 2 (price 25) matches DELETE WHERE, but the UPDATE's WHERE skipped it: it stays\nMERGE INTO order_items t\nUSING (SELECT 1001 AS oid FROM dual) s\nON (t.order_id = s.oid)\nWHEN MATCHED THEN UPDATE SET t.unit_price = t.unit_price WHERE t.line_no = 1\n  DELETE WHERE t.unit_price < 2000;\nSELECT order_id, line_no, unit_price FROM order_items WHERE order_id = 1001;"
+    },
+    "c1507": {
+      "front": "Can WHEN MATCHED THEN DELETE WHERE ... stand on its own?",
+      "back": "No. DELETE WHERE is part of the UPDATE branch: WHEN MATCHED THEN UPDATE SET ... DELETE WHERE ... (without UPDATE: ORA-00905 on 19c, ORA-02000 on 23ai).",
+      "try_sql": "-- WHEN MATCHED THEN DELETE without UPDATE: syntax error\nMERGE INTO order_items t\nUSING (SELECT 1001 AS oid FROM dual) s\nON (t.order_id = s.oid)\nWHEN MATCHED THEN DELETE WHERE t.unit_price < 100;"
+    },
+    "c1508": {
+      "front": "Can you ROLLBACK TO the same savepoint twice?",
+      "back": "Yes. ROLLBACK TO s keeps s (only later savepoints disappear), so a second ROLLBACK TO s works and undoes what you did since the first.",
+      "try_sql": "-- s stays after ROLLBACK TO, so a second ROLLBACK TO s works too: the salary goes back to 24000\nSAVEPOINT s;\nUPDATE employees SET salary = 1 WHERE employee_id = 100;\nROLLBACK TO s;\nUPDATE employees SET salary = 2 WHERE employee_id = 100;\nROLLBACK TO s;\nSELECT salary FROM employees WHERE employee_id = 100;"
+    },
+    "c1509": {
+      "front": "ROLLBACK TO SAVEPOINT and locks?",
+      "back": "It releases the locks taken after the savepoint (another session can then lock that row). Locks from before the savepoint stay until COMMIT or ROLLBACK."
+    },
+    "c1510": {
+      "front": "FOR UPDATE NOWAIT / WAIT n on a locked row?",
+      "back": "NOWAIT: ORA-00054 at once. WAIT n: waits n seconds, then ORA-30006 on 19c (ORA-00054 on 23ai). Without either, it waits forever."
+    },
+    "c1511": {
+      "front": "Does DDL that ended with an error still commit?",
+      "back": "Yes, if it failed during execution: TRUNCATE of a missing table (ORA-00942) or CREATE with a name already in use (ORA-00955) first commits the pending DML. A syntax error does not commit. In 23ai DDL with IF [NOT] EXISTS that does nothing also commits.",
+      "try_sql": "-- ORA-00955 (an execution error) commits row 1; a syntax error does not, so ROLLBACK undoes row 2\nCREATE TABLE lab_c1511_t (n NUMBER);\nINSERT INTO lab_c1511_t VALUES (1);\nCREATE TABLE lab_c1511_t (n NUMBER);\nINSERT INTO lab_c1511_t VALUES (2);\nCREATE TABLE lab_c1511_x (n NUMBER,);\nROLLBACK;\nSELECT n FROM lab_c1511_t;"
+    }
+  }
+}

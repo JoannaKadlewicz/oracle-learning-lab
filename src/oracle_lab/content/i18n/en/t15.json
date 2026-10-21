@@ -1,0 +1,151 @@
+{
+  "flashcards": {
+    "c1750": {
+      "front": "Do you still have to write FROM DUAL in Oracle 23ai?",
+      "back": "No. SELECT SYSDATE; works. A query without FROM behaves like a query from DUAL (one row). You can add WHERE: SELECT 1 WHERE 1 = 0 returns no rows. SELECT * without FROM raises ORA-54058. In 19c a missing FROM is error ORA-00923.",
+      "try_sql": "-- Without FROM: one row; with WHERE 1 = 0: zero rows; SELECT * without FROM: error\nSELECT SYSDATE;\nSELECT 1 WHERE 1 = 0;\nSELECT *;"
+    },
+    "c1751": {
+      "front": "Where can a SELECT-list column alias be used in 23ai?",
+      "back": "In GROUP BY and HAVING (new) and in ORDER BY (as always). Still not in WHERE (ORA-00904). Only the bare alias works: GROUP BY alias + 0 raises an error. If a table in FROM has a column with the same name, the column wins, not the alias.",
+      "try_sql": "-- An alias in GROUP BY and HAVING works, in WHERE it still does not\nSELECT e.department_id AS dept, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY dept\nHAVING cnt > 1\nORDER  BY dept;\nSELECT e.salary * 12 AS annual FROM employees e WHERE annual > 100000;"
+    },
+    "c1752": {
+      "front": "In 23ai, does GROUP BY 1 group by the first column?",
+      "back": "Only when group_by_position_enabled = TRUE (the default is FALSE). Otherwise 1 is an ordinary constant. Then a column outside the grouping raises ORA-03162, which hints at this parameter.",
+      "try_sql": "-- By default, 1 in GROUP BY is a constant: one group, and a column outside the grouping raises an error\nSELECT COUNT(*) AS cnt FROM employees e GROUP BY 1;\nSELECT e.department_id, COUNT(*) FROM employees e GROUP BY 1;"
+    },
+    "c1753": {
+      "front": "What does the VALUES table constructor look like in FROM?",
+      "back": "SELECT * FROM (VALUES (1, 'a'), (2, 'b')) t (id, txt); The alias with a column list is required (without it ORA-63814). Every row must have the same number of values (ORA-63801), and the types in a column must match (ORA-01790).",
+      "try_sql": "-- The VALUES constructor with an alias and a column list; then a row with a different number of values\nSELECT * FROM (VALUES (1, 'a'), (2, 'b')) t (id, txt);\nSELECT * FROM (VALUES (1, 'a'), (2)) t (id, txt);"
+    },
+    "c1754": {
+      "front": "Where else can the VALUES constructor be used?",
+      "back": "In a multi-row INSERT: INSERT ... VALUES (...), (...); in the WITH clause: WITH v (n) AS (VALUES (1), (2)); and as the source of a MERGE: MERGE INTO t USING (VALUES (...)) v (c1, c2) ON (...).",
+      "try_sql": "-- VALUES in WITH, in a multi-row INSERT and as the source of a MERGE\nWITH v (n) AS (VALUES (1), (2), (3))\nSELECT SUM(n) AS total FROM v;\nINSERT INTO promotions (promo_id, promo_name, discount_pct) VALUES (901, 'Spring', 5), (902, 'Summer', 10);\nMERGE INTO promotions p\nUSING (VALUES (902, 'Summer', 15), (903, 'Autumn', 20)) v (id, name, pct)\nON (p.promo_id = v.id)\nWHEN MATCHED THEN UPDATE SET p.discount_pct = v.pct\nWHEN NOT MATCHED THEN INSERT (promo_id, promo_name, discount_pct) VALUES (v.id, v.name, v.pct);\nSELECT * FROM promotions ORDER BY promo_id;"
+    },
+    "c1755": {
+      "front": "What values can a BOOLEAN column have, and what is BOOL?",
+      "back": "TRUE, FALSE and NULL (that is, \"unknown\"). BOOL is another name (a synonym) for BOOLEAN. In 19c BOOLEAN exists only in PL/SQL; a BOOLEAN column in a table raises ORA-00902.",
+      "try_sql": "-- Three BOOLEAN values; BOOL is the same type name\nSELECT TRUE AS t, FALSE AS f, CAST(NULL AS BOOLEAN) AS n, CAST(1 AS BOOL) AS b;"
+    },
+    "c1756": {
+      "front": "Which strings and numbers does TO_BOOLEAN understand?",
+      "back": "Strings: 'true'/'false', 'yes'/'no', 'on'/'off', 't'/'f', 'y'/'n', '1'/'0' (case does not matter, spaces are trimmed). Numbers: 0 is FALSE, any other number is TRUE. Anything else, for example 'maybe', raises ORA-61800 invalid boolean literal. NULL gives NULL.",
+      "try_sql": "-- Predict each column, and then 'maybe'\nSELECT TO_BOOLEAN('Yes') AS a, TO_BOOLEAN(' off ') AS b, TO_BOOLEAN(-3) AS c, TO_BOOLEAN(0) AS d,\n       TO_BOOLEAN(CAST(NULL AS VARCHAR2(5))) AS e;\nSELECT TO_BOOLEAN('maybe');"
+    },
+    "c1757": {
+      "front": "How do IS TRUE, IS FALSE and IS NOT TRUE treat NULL?",
+      "back": "They never return NULL. x IS NOT TRUE gives TRUE when x is FALSE or NULL. x IS TRUE gives FALSE for NULL. But NOT x, when x is NULL, still gives NULL. (IS UNKNOWN does not work: ORA-00908.)",
+      "try_sql": "-- IS TRUE / IS NOT TRUE never give NULL; NOT x for NULL gives NULL\nWITH v (x) AS (VALUES (TRUE), (FALSE), (CAST(NULL AS BOOLEAN)))\nSELECT x, x IS TRUE AS is_true, x IS NOT TRUE AS is_not_true, NOT x AS not_x\nFROM   v;"
+    },
+    "c1758": {
+      "front": "How do BOOLEAN values sort?",
+      "back": "FALSE is less than TRUE. Ascending: FALSE, TRUE, and NULL last. With DESC, NULL comes first. TO_CHAR(TRUE) = 'TRUE', and TO_NUMBER(TRUE) = 1.",
+      "try_sql": "-- Ascending order: FALSE, TRUE, NULL; and conversions of TRUE\nWITH v (x) AS (VALUES (TRUE), (CAST(NULL AS BOOLEAN)), (FALSE))\nSELECT x FROM v ORDER BY x;\nSELECT TO_CHAR(TRUE) AS c, TO_NUMBER(TRUE) AS n;"
+    },
+    "c1759": {
+      "front": "In 23ai, can a condition be a column in SELECT?",
+      "back": "Yes. SELECT e.salary > 10000 AS high_earner FROM employees e returns TRUE, FALSE or NULL. A BOOLEAN column on its own is already a condition: WHERE active or WHERE NOT active.",
+      "try_sql": "-- A condition as a BOOLEAN column, and a BOOLEAN column as a condition\nSELECT e.last_name, e.salary, e.salary > 10000 AS high_earner\nFROM   employees e\nORDER  BY e.employee_id;\nWITH v (name, active) AS (VALUES ('a', TRUE), ('b', FALSE))\nSELECT name FROM v WHERE NOT active;"
+    },
+    "c1760": {
+      "front": "Which DDL statements take IF EXISTS, and which IF NOT EXISTS?",
+      "back": "CREATE ... IF NOT EXISTS; ALTER ... IF EXISTS; DROP ... IF EXISTS. DROP ... IF NOT EXISTS raises ORA-11544. The clause comes right after the object type: DROP TABLE IF EXISTS t PURGE.",
+      "try_sql": "-- CREATE ... IF NOT EXISTS, ALTER/DROP ... IF EXISTS; DROP ... IF NOT EXISTS is error ORA-11544\nCREATE TABLE IF NOT EXISTS lab_c1760_t (n NUMBER);\nALTER TABLE IF EXISTS lab_c1760_t ADD (m NUMBER);\nDROP TABLE IF EXISTS lab_c1760_t PURGE;\nDROP TABLE IF EXISTS lab_c1760_t PURGE;\nDROP TABLE IF NOT EXISTS lab_c1760_t PURGE;"
+    },
+    "c1761": {
+      "front": "CREATE TABLE IF NOT EXISTS t (...), and table t already exists with other columns. What happens?",
+      "back": "The statement completes without an error and changes nothing. Oracle checks only the name, not the table's structure. The old table stays as it was.",
+      "try_sql": "-- The table already exists: the second CREATE changes nothing, only column A remains\nCREATE TABLE lab_c1761_t (a NUMBER);\nCREATE TABLE IF NOT EXISTS lab_c1761_t (x VARCHAR2(10), y DATE);\nSELECT column_name, data_type FROM user_tab_columns WHERE table_name = 'LAB_C1761_T';"
+    },
+    "c1762": {
+      "front": "What does CREATE OR REPLACE VIEW IF NOT EXISTS v ... give?",
+      "back": "Error ORA-11541: REPLACE and IF NOT EXISTS cannot coexist in the same DDL statement. OR REPLACE means \"overwrite\" and IF NOT EXISTS \"leave it alone\": they exclude each other. Choose one.",
+      "try_sql": "-- OR REPLACE and IF NOT EXISTS together: ORA-11541, the view is not created\nCREATE OR REPLACE VIEW IF NOT EXISTS lab_c1762_v AS SELECT * FROM dual;\nSELECT COUNT(*) AS ile FROM user_views WHERE view_name = 'LAB_C1762_V';"
+    },
+    "c1763": {
+      "front": "What do statements with IF [NOT] EXISTS give in 19c?",
+      "back": "Syntax errors: DROP TABLE IF EXISTS t → ORA-00933; CREATE TABLE IF NOT EXISTS t (...) → ORA-00922. The feature is new only in 23ai."
+    },
+    "c1764": {
+      "front": "How do you write UPDATE and DELETE with a join in 23ai?",
+      "back": "UPDATE emp e SET e.sal = e.sal + 100 FROM dept d WHERE d.deptno = e.deptno AND d.loc = 'X';  DELETE FROM items i FROM orders o WHERE o.id = i.order_id AND o.status = 'NEW';  You write the join condition in WHERE.",
+      "try_sql": "-- UPDATE ... FROM and DELETE ... FROM: the join condition in WHERE\nUPDATE employees e SET e.salary = e.salary + 100\nFROM   departments d\nWHERE  d.department_id = e.department_id AND d.location = 'Warsaw';\nDELETE FROM order_items i\nFROM   orders o\nWHERE  o.order_id = i.order_id AND o.status = 'CANCELLED';"
+    },
+    "c1765": {
+      "front": "UPDATE ... FROM: what if one target row matches several source rows?",
+      "back": "Error ORA-30926 (the same row would be updated twice), just as in MERGE. In DELETE ... FROM it is not a problem: the row is simply deleted once.",
+      "try_sql": "-- Department 30 has several employees: UPDATE ... FROM raises an error, DELETE ... FROM does not\nUPDATE departments d SET d.location = e.last_name\nFROM   employees e\nWHERE  e.department_id = d.department_id AND d.department_id = 30;\nDELETE FROM order_items i\nFROM   order_items i2\nWHERE  i2.order_id = i.order_id AND i2.line_no <> i.line_no;"
+    },
+    "c1766": {
+      "front": "What does RETURNING OLD / NEW (23ai) do?",
+      "back": "UPDATE ... RETURNING OLD sal, NEW sal INTO :o, :n returns the value before and after the change. A plain RETURNING in UPDATE returns the new values. In INSERT the OLD values are NULL, and in DELETE the NEW values are NULL."
+    },
+    "c1767": {
+      "front": "What does DEFAULT ON NULL FOR INSERT AND UPDATE do?",
+      "back": "New in 23ai: an explicit NULL in an INSERT or an UPDATE is replaced with the default value. Plain DEFAULT ON NULL means FOR INSERT ONLY (as in 12c), so UPDATE SET c = NULL raises ORA-01407. Both versions make the column NOT NULL. USER_TAB_COLUMNS shows it in DEFAULT_ON_NULL and DEFAULT_ON_NULL_UPD.",
+      "try_sql": "-- ST: NULL becomes 'NEW' in UPDATE too; ST2 (plain DEFAULT ON NULL): an UPDATE to NULL raises ORA-01407\nCREATE TABLE lab_c1767_t (id NUMBER, st VARCHAR2(10) DEFAULT ON NULL FOR INSERT AND UPDATE 'NEW', st2 VARCHAR2(10) DEFAULT ON NULL 'X');\nINSERT INTO lab_c1767_t (id, st, st2) VALUES (1, NULL, NULL);\nUPDATE lab_c1767_t SET st = NULL;\nUPDATE lab_c1767_t SET st2 = NULL;\nSELECT id, st, st2 FROM lab_c1767_t;\nSELECT column_name, nullable, default_on_null, default_on_null_upd FROM user_tab_columns WHERE table_name = 'LAB_C1767_T' ORDER BY column_id;"
+    },
+    "c1768": {
+      "front": "INSERT ... VALUES with several rows: what if one row breaks a constraint?",
+      "back": "INSERT INTO t (a, b) VALUES (1, 'x'), (2, 'y'); is one statement. If even one row fails (for example ORA-00001), no row from that statement is inserted.",
+      "try_sql": "-- The second row breaks the primary key: no row is inserted\nINSERT INTO promotions (promo_id, promo_name, discount_pct) VALUES (901, 'Spring', 5), (901, 'Summer', 10);\nSELECT COUNT(*) AS cnt FROM promotions WHERE promo_id = 901;"
+    },
+    "c1769": {
+      "front": "How do you grant a schema privilege?",
+      "back": "GRANT SELECT ANY TABLE ON SCHEMA hr TO u;  REVOKE ... ON SCHEMA hr FROM u;  It works only with ANY privileges (SELECT ON SCHEMA → ORA-00990). It also covers objects created later. It does not work for SYS (ORA-41905)."
+    },
+    "c1770": {
+      "front": "Who can grant schema privileges, and where are they visible?",
+      "back": "The schema owner (on their own schema), or someone with the GRANT ANY SCHEMA PRIVILEGE privilege. They are visible in DBA_SCHEMA_PRIVS and USER_SCHEMA_PRIVS.",
+      "try_sql": "-- Schema privileges granted to you (empty if nobody granted any)\nSELECT * FROM user_schema_privs;"
+    },
+    "c1771": {
+      "front": "What is DB_DEVELOPER_ROLE?",
+      "back": "A role from 23ai. It gives a developer what they need in their own schema: CREATE TABLE, VIEW, SEQUENCE, PROCEDURE, TRIGGER, TYPE, SYNONYM, CREATE DOMAIN, CREATE MLE, CREATE JOB, DEBUG CONNECT SESSION... It has no ANY privileges and no UNLIMITED TABLESPACE. Your practice schema does not have this role, only a few CREATE privileges granted directly.",
+      "try_sql": "-- Your privileges in the session (the DB_DEVELOPER_ROLE itself is described on the card; there is no ANY or UNLIMITED TABLESPACE here)\nSELECT privilege FROM session_privs ORDER BY privilege;"
+    },
+    "c1772": {
+      "front": "What is a SQL domain?",
+      "back": "A ready-made column description you can use many times: CREATE DOMAIN d AS VARCHAR2(100) CONSTRAINT d_ck CHECK (REGEXP_LIKE(d, '@')) DISPLAY LOWER(d) ORDER UPPER(d) ANNOTATIONS (...); A column uses it like this: col d or col DOMAIN d. The domain's constraints really are enforced (ORA-11534).",
+      "try_sql": "-- A domain with CHECK and DISPLAY: a bad email raises ORA-11534, DOMAIN_DISPLAY shows lowercase\nCREATE DOMAIN lab_c1772_email AS VARCHAR2(100)\n  CONSTRAINT lab_c1772_email_ck CHECK (REGEXP_LIKE(lab_c1772_email, '@'))\n  DISPLAY LOWER(lab_c1772_email);\nCREATE TABLE lab_c1772_t (id NUMBER, email lab_c1772_email);\nINSERT INTO lab_c1772_t VALUES (1, 'Ann@Example.COM');\nINSERT INTO lab_c1772_t VALUES (2, 'no-at-sign');\nSELECT id, email, DOMAIN_DISPLAY(email) AS disp, DOMAIN_NAME(email) AS dn FROM lab_c1772_t;"
+    },
+    "c1773": {
+      "front": "What do DOMAIN_DISPLAY, DOMAIN_ORDER and DOMAIN_NAME do?",
+      "back": "DOMAIN_DISPLAY(col) shows the value using the domain's DISPLAY expression, DOMAIN_ORDER(col) using its ORDER expression, and DOMAIN_NAME(col) returns 'OWNER.DOMAIN'. For a column without a domain they all return NULL. The stored value does not change.",
+      "try_sql": "-- employees.email has no domain: all three functions give NULL\nSELECT e.email, DOMAIN_NAME(e.email) AS dn, DOMAIN_DISPLAY(e.email) AS disp, DOMAIN_ORDER(e.email) AS ord\nFROM   employees e\nFETCH  FIRST 3 ROWS ONLY;"
+    },
+    "c1774": {
+      "front": "How do you drop a domain that columns use?",
+      "back": "DROP DOMAIN d → error ORA-11502 (there are dependent objects). DROP DOMAIN d FORCE detaches the domain from the columns; the columns keep their type and data. Dictionary: USER_DOMAINS, USER_DOMAIN_CONSTRAINTS, USER_TAB_COLUMNS.DOMAIN_NAME.",
+      "try_sql": "-- DROP DOMAIN with a dependent column: ORA-11502; FORCE detaches the domain, the type and data stay\nCREATE DOMAIN lab_c1774_d AS NUMBER(3) CONSTRAINT lab_c1774_d_ck CHECK (lab_c1774_d > 0);\nCREATE TABLE lab_c1774_t (n lab_c1774_d);\nINSERT INTO lab_c1774_t VALUES (5);\nDROP DOMAIN lab_c1774_d;\nDROP DOMAIN lab_c1774_d FORCE;\nSELECT c.column_name, c.data_type, c.data_precision, c.domain_name, (SELECT MAX(n) FROM lab_c1774_t) AS dane\nFROM   user_tab_columns c WHERE c.table_name = 'LAB_C1774_T';"
+    },
+    "c1775": {
+      "front": "Annotations: how are they written, and where are they visible?",
+      "back": "CREATE TABLE t (c NUMBER ANNOTATIONS (Hidden)) ANNOTATIONS (Owner 'HR'); ALTER TABLE t ANNOTATIONS (ADD Version '2', DROP Owner); They are visible in USER_ANNOTATIONS_USAGE (names in uppercase, the value can be NULL). They are only a description: Oracle checks nothing.",
+      "try_sql": "-- Table and column annotations; ALTER adds Version and drops Owner\nCREATE TABLE lab_c1775_t (c NUMBER ANNOTATIONS (Hidden)) ANNOTATIONS (Owner 'HR');\nALTER TABLE lab_c1775_t ANNOTATIONS (ADD Version '2', DROP Owner);\nSELECT object_name, column_name, annotation_name, annotation_value FROM user_annotations_usage WHERE object_name = 'LAB_C1775_T';"
+    },
+    "c1776": {
+      "front": "How do you declare a VECTOR column?",
+      "back": "VECTOR(number_of_dimensions, format), where the format is INT8, FLOAT32, FLOAT64 (or BINARY). * means \"any\": VECTOR, VECTOR(*, *), VECTOR(3, *). A fixed number of dimensions is enforced (ORA-51803). You write a value as '[1, 2, 3]', VECTOR('[...]') or TO_VECTOR('[...]', 3, FLOAT32).",
+      "try_sql": "-- Three ways to write a vector; then 2 values where 3 dimensions are required\nSELECT VECTOR('[1, 2, 3]') AS a, TO_VECTOR('[1, 2, 3]', 3, FLOAT32) AS b,\n       VECTOR_DIMENSION_COUNT(VECTOR('[1, 2, 3]')) AS dims;\nSELECT TO_VECTOR('[1, 2]', 3, FLOAT32);"
+    },
+    "c1777": {
+      "front": "Which metrics does VECTOR_DISTANCE have?",
+      "back": "COSINE (the default; 1 - cosine similarity), EUCLIDEAN, EUCLIDEAN_SQUARED, DOT (the negated dot product), MANHATTAN, HAMMING. A smaller distance = more similar. Shortcuts: COSINE_DISTANCE, L2_DISTANCE, L1_DISTANCE, INNER_PRODUCT.",
+      "try_sql": "-- The same two vectors, different metrics (a smaller distance = more similar)\nSELECT VECTOR_DISTANCE(VECTOR('[1, 2]'), VECTOR('[2, 1]'), COSINE) AS cosine,\n       VECTOR_DISTANCE(VECTOR('[1, 2]'), VECTOR('[2, 1]'), EUCLIDEAN) AS euclidean,\n       VECTOR_DISTANCE(VECTOR('[1, 2]'), VECTOR('[2, 1]'), DOT) AS dot,\n       L1_DISTANCE(VECTOR('[1, 2]'), VECTOR('[2, 1]')) AS manhattan;"
+    },
+    "c1778": {
+      "front": "How do you write a search for the k most similar (top-k)?",
+      "back": "SELECT ... ORDER BY VECTOR_DISTANCE(v, :q, COSINE) FETCH FIRST 5 ROWS ONLY (an exact result). FETCH APPROX FIRST 5 ROWS ONLY lets a vector index (in-memory HNSW, IVF with neighbor partitions) give an approximate but faster result. Vectors themselves cannot be compared or sorted (ORA-22848).",
+      "try_sql": "-- The top-2 nearest vectors; then an attempt to sort by the vector itself\nWITH v (id, emb) AS (VALUES (1, VECTOR('[1, 0]')), (2, VECTOR('[0, 1]')), (3, VECTOR('[0.8, 0.2]')))\nSELECT id FROM v ORDER BY VECTOR_DISTANCE(emb, VECTOR('[1, 0.1]'), COSINE) FETCH FIRST 2 ROWS ONLY;\nWITH v (id, emb) AS (VALUES (1, VECTOR('[1, 0]')), (2, VECTOR('[0, 1]')))\nSELECT id FROM v ORDER BY emb;"
+    },
+    "c1779": {
+      "front": "Which 23ai changes to functions are on the 1Z0-171 exam?",
+      "back": "CONCAT with more than two arguments; SUM and AVG for INTERVAL; CEIL/FLOOR for DATE and TIMESTAMP (with a format, for example 'MM'); CEIL/FLOOR/ROUND/TRUNC for INTERVAL; BOOLEAN_AND_AGG / BOOLEAN_OR_AGG; TO_BOOLEAN. Newer 23ai versions also have TIME_BUCKET (added in a release update).",
+      "try_sql": "-- A few 23ai features from the 1Z0-171 exam\nSELECT CONCAT('a', 'b', 'c') AS concat3, CEIL(DATE '2024-03-15', 'MM') AS ceil_mm,\n       ROUND(INTERVAL '1 13:00:00' DAY TO SECOND) AS round_ds, TO_BOOLEAN('yes') AS b;\nSELECT SUM(e.duration) AS total, AVG(e.duration) AS avg_d,\n       BOOLEAN_AND_AGG(e.duration > INTERVAL '1' HOUR) AS all_long, BOOLEAN_OR_AGG(e.duration > INTERVAL '1' HOUR) AS any_long\nFROM   events e;"
+    }
+  }
+}

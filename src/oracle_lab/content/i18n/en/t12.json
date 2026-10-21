@@ -1,0 +1,109 @@
+{
+  "flashcards": {
+    "c071": {
+      "front": "How do the USER_, ALL_ and DBA_ views differ?",
+      "back": "USER_: objects you own. ALL_: objects you can access (yours and those shared with you). DBA_: everything in the database, but you need special privileges. V$ views are dynamic and show the current state of the instance.",
+      "try_sql": "-- ALL_ shows more than USER_: also objects others shared with you\nSELECT 'USER_TABLES' AS widok, COUNT(*) AS tabele FROM user_tables\nUNION ALL\nSELECT 'ALL_TABLES', COUNT(*) FROM all_tables;"
+    },
+    "c072": {
+      "front": "How are object names stored in the data dictionary?",
+      "back": "In uppercase (when the name was not given in double quotes). That is why you write WHERE table_name = 'EMPLOYEES'. With 'employees' you find nothing.",
+      "try_sql": "-- Lowercase finds nothing, uppercase does\nSELECT COUNT(*) AS male_litery FROM user_tables WHERE table_name = 'employees';\nSELECT COUNT(*) AS wielkie_litery FROM user_tables WHERE table_name = 'EMPLOYEES';"
+    },
+    "c073": {
+      "front": "What do the CONSTRAINT_TYPE codes mean?",
+      "back": "P: primary key, U: unique, R: foreign key (referential), C: CHECK and NOT NULL (yes, NOT NULL is C too).",
+      "try_sql": "-- Note: NOT NULL and CHECK have the same type C\nSELECT constraint_name, constraint_type, search_condition_vc\nFROM   user_constraints\nWHERE  table_name = 'EMPLOYEES'\nORDER  BY constraint_type, constraint_name;"
+    },
+    "c074": {
+      "front": "Where are the comments on tables and columns?",
+      "back": "You add them with COMMENT ON TABLE/COLUMN ... IS '...'. You read them from USER_TAB_COMMENTS (tables and views) and USER_COL_COMMENTS (columns).",
+      "try_sql": "-- Table and column comments (COMMENTS is NULL when nobody added one)\nSELECT table_name, table_type, comments FROM user_tab_comments WHERE table_name = 'EMPLOYEES';\nSELECT column_name, comments FROM user_col_comments WHERE table_name = 'EMPLOYEES';"
+    },
+    "c075": {
+      "front": "How do you find the list of all data dictionary views?",
+      "back": "SELECT table_name, comments FROM dictionary (short name: DICT). For example add WHERE table_name LIKE '%CONSTRAINTS' to find the views about constraints.",
+      "try_sql": "-- Dictionary views about constraints\nSELECT table_name, comments\nFROM   dictionary\nWHERE  table_name LIKE '%CONSTRAINTS'\nORDER  BY table_name;"
+    },
+    "c606": {
+      "front": "How do you check which table a foreign key refers to?",
+      "back": "In USER_CONSTRAINTS the column R_CONSTRAINT_NAME holds the name of the PK/UK the FK points to, not a table name. Join USER_CONSTRAINTS r ON r.constraint_name = c.r_constraint_name and read r.table_name.",
+      "try_sql": "-- R_CONSTRAINT_NAME is the PK's name; only a join gives the parent table\nSELECT c.constraint_name, c.r_constraint_name, r.table_name AS tabela_rodzica\nFROM   user_constraints c\nJOIN   user_constraints r ON r.constraint_name = c.r_constraint_name\nWHERE  c.constraint_type = 'R'\nORDER  BY c.constraint_name;"
+    },
+    "c607": {
+      "front": "Where do you check which columns a constraint or an index consists of?",
+      "back": "A constraint: USER_CONS_COLUMNS (constraint_name, column_name, position). An index: USER_IND_COLUMNS (index_name, column_name, column_position). Each column is a separate row.",
+      "try_sql": "-- A two-column key: two rows, the order in POSITION / COLUMN_POSITION\nSELECT constraint_name, column_name, position FROM user_cons_columns WHERE constraint_name = 'ORDER_ITEMS_PK' ORDER BY position;\nSELECT index_name, column_name, column_position FROM user_ind_columns WHERE index_name = 'ORDER_ITEMS_PK' ORDER BY column_position;"
+    },
+    "c608": {
+      "front": "What is DATA_LENGTH for DATE and for NUMBER(8,2)?",
+      "back": "DATE: 7, NUMBER: 22. These are bytes, not digits. The 8 and 2 of NUMBER(8,2) are in DATA_PRECISION and DATA_SCALE.",
+      "try_sql": "-- DATE has DATA_LENGTH 7, NUMBER 22; the 8 and 2 are in DATA_PRECISION and DATA_SCALE\nSELECT column_name, data_type, data_length, data_precision, data_scale\nFROM   user_tab_columns\nWHERE  table_name = 'EMPLOYEES'\nAND    column_name IN ('HIRE_DATE', 'SALARY');"
+    },
+    "c609": {
+      "front": "Are constraints in USER_OBJECTS?",
+      "back": "No. USER_OBJECTS shows schema objects (tables, views, indexes, sequences, synonyms…) with their STATUS. You find constraints in USER_CONSTRAINTS.",
+      "try_sql": "-- USER_OBJECTS has no CONSTRAINT type; constraints are in USER_CONSTRAINTS\nSELECT object_type, COUNT(*) AS obiekty FROM user_objects GROUP BY object_type ORDER BY object_type;\nSELECT COUNT(*) AS wiezy FROM user_constraints;"
+    },
+    "c1650": {
+      "front": "What does SELECT owner FROM user_tables give?",
+      "back": "Error ORA-00904. USER_TABLES has no OWNER column: the owner is always you. ALL_TABLES and DBA_TABLES have the OWNER column.",
+      "try_sql": "-- USER_TABLES has no OWNER column\nSELECT owner FROM user_tables;"
+    },
+    "c1651": {
+      "front": "What happens when you query DBA_TABLES without privileges?",
+      "back": "You get ORA-00942, as if the view did not exist. DBA_ views need SELECT ANY DICTIONARY or SELECT_CATALOG_ROLE. To see what you can access, use the ALL_ views.",
+      "try_sql": "-- Without privileges the DBA_ view \"does not exist\"; ALL_ works\nSELECT COUNT(*) AS wszystkie FROM all_tables;\nSELECT COUNT(*) AS w_bazie FROM dba_tables;"
+    },
+    "c1652": {
+      "front": "Which dictionary columns are LONG, and what are their VARCHAR2 counterparts?",
+      "back": "USER_VIEWS.TEXT -> TEXT_VC, USER_CONSTRAINTS.SEARCH_CONDITION -> SEARCH_CONDITION_VC. A LONG column cannot be used in LIKE or in functions (ORA-00932). The _VC version can.",
+      "try_sql": "-- The _VC version works in LIKE, the LONG column does not\nSELECT constraint_name FROM user_constraints WHERE search_condition_vc LIKE '%salary%';\nSELECT constraint_name FROM user_constraints WHERE search_condition LIKE '%salary%';"
+    },
+    "c1653": {
+      "front": "USER_CATALOG (CAT) vs USER_OBJECTS: what do they show?",
+      "back": "USER_CATALOG: only tables, views, synonyms and sequences (columns TABLE_NAME, TABLE_TYPE). USER_OBJECTS: every object type, including indexes, with STATUS and dates.",
+      "try_sql": "-- USER_CATALOG does not show indexes, USER_OBJECTS does\nSELECT table_name, table_type FROM user_catalog ORDER BY table_name;\nSELECT object_name, object_type, status FROM user_objects WHERE object_type = 'INDEX' ORDER BY object_name;"
+    },
+    "c1654": {
+      "front": "What are the short public synonyms of the dictionary views?",
+      "back": "DICT = DICTIONARY, CAT = USER_CATALOG, TABS = USER_TABLES, COLS = USER_TAB_COLUMNS, IND = USER_INDEXES, OBJ = USER_OBJECTS, SEQ = USER_SEQUENCES, SYN = USER_SYNONYMS. For example SELECT * FROM tabs works the same as SELECT * FROM user_tables.",
+      "try_sql": "-- TABS and USER_TABLES are the same view\nSELECT COUNT(*) AS tabs FROM tabs;\nSELECT COUNT(*) AS user_tables FROM user_tables;"
+    },
+    "c1655": {
+      "front": "What NULLABLE does a primary key column have if NOT NULL was not written?",
+      "back": "N. A primary key implies NOT NULL, although USER_CONSTRAINTS has no separate NOT NULL constraint.",
+      "try_sql": "-- DEPARTMENT_ID has NULLABLE = 'N', although its only constraint is the PK (P)\nSELECT column_name, nullable FROM user_tab_columns WHERE table_name = 'DEPARTMENTS' ORDER BY column_id;\nSELECT constraint_name, constraint_type, search_condition_vc FROM user_constraints WHERE table_name = 'DEPARTMENTS';"
+    },
+    "c1656": {
+      "front": "What does STATUS mean in USER_CONSTRAINTS, and what in USER_OBJECTS?",
+      "back": "Constraints: ENABLED/DISABLED (whether the old rows were checked is in a separate column, VALIDATED: VALIDATED/NOT VALIDATED). Objects: VALID/INVALID.",
+      "try_sql": "-- Constraints: ENABLED/DISABLED and VALIDATED; objects: VALID/INVALID\nSELECT constraint_name, status, validated FROM user_constraints WHERE table_name = 'ORDERS' ORDER BY constraint_name;\nSELECT object_name, object_type, status FROM user_objects WHERE object_name LIKE 'ORDERS%' ORDER BY object_name;"
+    },
+    "c1657": {
+      "front": "How do you change or remove a comment?",
+      "back": "COMMENT ON TABLE/COLUMN ... IS 'new text' overwrites the old comment, and IS '' removes it. COMMENT is DDL, so it commits at once. You cannot add a comment to an index (ORA-32594).",
+      "try_sql": "-- The second COMMENT overwrites the first, and IS '' removes the comment\nCREATE TABLE lab_c1657_t (id NUMBER);\nCOMMENT ON TABLE lab_c1657_t IS 'stary opis';\nCOMMENT ON TABLE lab_c1657_t IS 'nowy opis';\nSELECT comments FROM user_tab_comments WHERE table_name = 'LAB_C1657_T';\nCOMMENT ON TABLE lab_c1657_t IS '';\nSELECT NVL(comments, '(brak)') AS comments FROM user_tab_comments WHERE table_name = 'LAB_C1657_T';"
+    },
+    "c1658": {
+      "front": "How many rows does USER_COL_COMMENTS have?",
+      "back": "One for each column of your tables and views, also without a comment (then COMMENTS is NULL). WHERE comments IS NOT NULL shows only the real comments.",
+      "try_sql": "-- There are as many rows as columns, although there may be no real comments at all\nSELECT COUNT(*) AS wiersze, COUNT(comments) AS z_komentarzem FROM user_col_comments;\nSELECT COUNT(*) AS kolumny FROM user_tab_columns;"
+    },
+    "c1659": {
+      "front": "Where do you check which columns of a view can be changed?",
+      "back": "In USER_UPDATABLE_COLUMNS: UPDATABLE, INSERTABLE, DELETABLE (YES/NO) for each column. Whether the view has WITH READ ONLY is shown by USER_VIEWS.READ_ONLY.",
+      "try_sql": "-- For each column: whether it can be updated, inserted and deleted\nSELECT column_name, updatable, insertable, deletable\nFROM   user_updatable_columns\nWHERE  table_name = 'EMPLOYEES'\nORDER  BY column_name;"
+    },
+    "c1660": {
+      "front": "What does a function-based index look like in the data dictionary?",
+      "back": "USER_INDEXES.INDEX_TYPE = 'FUNCTION-BASED NORMAL'. USER_IND_COLUMNS shows a hidden column named SYS_NC...$, and the expression itself is in USER_IND_EXPRESSIONS.",
+      "try_sql": "-- A function-based index in three dictionary views\nCREATE TABLE lab_c1660_emp AS SELECT employee_id, salary FROM employees;\nCREATE INDEX lab_c1660_ix ON lab_c1660_emp (salary * 12);\nSELECT index_name, index_type FROM user_indexes WHERE index_name = 'LAB_C1660_IX';\nSELECT column_name FROM user_ind_columns WHERE index_name = 'LAB_C1660_IX';\nSELECT column_expression FROM user_ind_expressions WHERE index_name = 'LAB_C1660_IX';"
+    },
+    "c1661": {
+      "front": "What do IDENTITY columns look like in the data dictionary?",
+      "back": "USER_TAB_COLUMNS.IDENTITY_COLUMN = 'YES'. USER_TAB_IDENTITY_COLS shows GENERATION_TYPE (ALWAYS / BY DEFAULT) and the name of the ISEQ$$_ sequence.",
+      "try_sql": "-- IDENTITY_COLUMN in USER_TAB_COLUMNS (NO everywhere here) and the details in USER_TAB_IDENTITY_COLS\nSELECT column_name, identity_column FROM user_tab_columns WHERE table_name = 'EMPLOYEES' ORDER BY column_id;\nSELECT table_name, column_name, generation_type, sequence_name FROM user_tab_identity_cols;"
+    }
+  }
+}

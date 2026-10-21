@@ -1,0 +1,132 @@
+{
+  "flashcards": {
+    "c063": {
+      "front": "When can you not change data through a view?",
+      "back": "When the view has group functions (for example SUM), GROUP BY, DISTINCT, ROWNUM or set operators (UNION…). Then one view row does not correspond to one table row. INSERT also fails when the view leaves out a NOT NULL column without a DEFAULT value.",
+      "try_sql": "-- A view with GROUP BY and MAX: one view row is many table rows\nUPDATE (SELECT department_id, MAX(salary) AS max_sal\n        FROM   employees\n        GROUP  BY department_id)\nSET    department_id = 50;"
+    },
+    "c064": {
+      "front": "How does WITH CHECK OPTION differ from WITH READ ONLY?",
+      "back": "WITH CHECK OPTION: you can change data through the view, but a new or changed row must still satisfy the view's WHERE. WITH READ ONLY: you can change nothing through the view; no INSERT, UPDATE or DELETE gets through.",
+      "try_sql": "-- After the change the row would fall out of the view's WHERE, so CHECK OPTION rejects it\nUPDATE (SELECT employee_id, department_id\n        FROM   employees\n        WHERE  department_id = 30\n        WITH CHECK OPTION)\nSET    department_id = 20\nWHERE  employee_id = 103;"
+    },
+    "c065": {
+      "front": "What happens when you use CURRVAL before NEXTVAL?",
+      "back": "Error ORA-08002. CURRVAL shows the last NEXTVAL value of your session. If there has been no NEXTVAL in this session yet, there is nothing to show.",
+      "try_sql": "-- A new sequence: CURRVAL before the first NEXTVAL in this session raises ORA-08002\nCREATE SEQUENCE lab_c065_seq;\nSELECT lab_c065_seq.CURRVAL FROM dual;\n-- After NEXTVAL, CURRVAL works\nSELECT lab_c065_seq.NEXTVAL AS nextval FROM dual;\nSELECT lab_c065_seq.CURRVAL AS currval FROM dual;"
+    },
+    "c066": {
+      "front": "After ROLLBACK, does a sequence number go back to the pool?",
+      "back": "No. A sequence does not roll back with the transaction. A number that was taken is lost, so gaps in the numbering are normal (for example after ROLLBACK or after cached values are lost).",
+      "try_sql": "-- The number taken before ROLLBACK is lost: only the second row remains, with a gap in the numbering\nCREATE SEQUENCE lab_c066_seq;\nCREATE TABLE lab_c066_t (id NUMBER, opis VARCHAR2(20));\nINSERT INTO lab_c066_t VALUES (lab_c066_seq.NEXTVAL, 'wycofany');\nROLLBACK;\nINSERT INTO lab_c066_t VALUES (lab_c066_seq.NEXTVAL, 'zapisany');\nSELECT id, opis FROM lab_c066_t;"
+    },
+    "c067": {
+      "front": "When does Oracle create an index by itself?",
+      "back": "For PRIMARY KEY and UNIQUE, unless a matching index already exists, in which case it uses that one. For FOREIGN KEY Oracle creates no index; you must create it yourself.",
+      "try_sql": "-- PK and UNIQUE have an index (INDEX_NAME), foreign keys (R) have none\nSELECT constraint_name, constraint_type, index_name\nFROM   user_constraints\nWHERE  table_name = 'EMPLOYEES'\nAND    constraint_type IN ('P', 'U', 'R')\nORDER  BY constraint_type, constraint_name;"
+    },
+    "c068": {
+      "front": "What is an invisible index (INVISIBLE)?",
+      "back": "An index that is still maintained on every INSERT/UPDATE/DELETE, but the optimizer ignores it by default. You switch it with ALTER INDEX and VISIBLE / INVISIBLE.",
+      "try_sql": "-- An index created as INVISIBLE, then switched to VISIBLE\nCREATE TABLE lab_c068_emp AS SELECT employee_id, last_name FROM employees;\nCREATE INDEX lab_c068_ix ON lab_c068_emp (last_name) INVISIBLE;\nSELECT index_name, visibility, status FROM user_indexes WHERE index_name = 'LAB_C068_IX';\nALTER INDEX lab_c068_ix VISIBLE;\nSELECT index_name, visibility, status FROM user_indexes WHERE index_name = 'LAB_C068_IX';"
+    },
+    "c069": {
+      "front": "Who sees the data in a global temporary table?",
+      "back": "Only your session: each session sees only its own rows. ON COMMIT DELETE ROWS: the rows disappear at COMMIT (they live until the end of the transaction). ON COMMIT PRESERVE ROWS: they stay until the end of the session.",
+      "try_sql": "-- ON COMMIT DELETE ROWS: the row lives until the end of the transaction\nCREATE GLOBAL TEMPORARY TABLE lab_c069_gtt (id NUMBER) ON COMMIT DELETE ROWS;\nINSERT INTO lab_c069_gtt VALUES (1);\nSELECT COUNT(*) AS przed_commit FROM lab_c069_gtt;\n-- COMMENT is DDL, so it commits, and the temporary table's rows disappear\nCOMMENT ON TABLE lab_c069_gtt IS 'tabela tymczasowa';\nSELECT COUNT(*) AS po_commit FROM lab_c069_gtt;"
+    },
+    "c070": {
+      "front": "What is an external table?",
+      "back": "A read-only table whose data lies in files on the server, not in the database. Oracle reads them through a DIRECTORY object and an access driver (ORACLE_LOADER or ORACLE_DATAPUMP)."
+    },
+    "c600": {
+      "front": "Private vs public synonym: how do they differ?",
+      "back": "A private synonym lives in your schema and needs the CREATE SYNONYM privilege. A public one belongs to PUBLIC, everyone sees it, and it needs CREATE PUBLIC SYNONYM. No synonym gives privileges on the object it points to.",
+      "try_sql": "-- A private synonym: it lives in your schema and points to EMPLOYEES\nCREATE SYNONYM lab_c600_emp FOR employees;\nSELECT COUNT(*) AS pracownicy FROM lab_c600_emp;\nSELECT synonym_name, table_owner, table_name FROM user_synonyms WHERE synonym_name = 'LAB_C600_EMP';\n-- Public synonyms (for example DUAL) are owned by PUBLIC\nSELECT owner, synonym_name, table_owner, table_name FROM all_synonyms WHERE synonym_name = 'DUAL';"
+    },
+    "c601": {
+      "front": "Where does Oracle look for a name given without a schema (for example SELECT * FROM emp)?",
+      "back": "First in your schema (tables, views, sequences, private synonyms), and only then among the public synonyms. Two objects with the same name in your schema are not allowed: ORA-00955.",
+      "try_sql": "-- DUAL is not in your schema: the name resolves to the public synonym, and that to SYS.DUAL\nSELECT owner, object_name, object_type\nFROM   all_objects\nWHERE  object_name = 'DUAL'\nORDER  BY owner;"
+    },
+    "c602": {
+      "front": "What if a synonym points to an object that does not exist?",
+      "back": "CREATE SYNONYM succeeds: Oracle does not check the target. The error appears only when it is used: ORA-00980: synonym translation is no longer valid.",
+      "try_sql": "-- CREATE SYNONYM succeeds, although the table LAB_C602_BRAK does not exist\nCREATE SYNONYM lab_c602_syn FOR lab_c602_brak;\nSELECT synonym_name, table_name FROM user_synonyms WHERE synonym_name = 'LAB_C602_SYN';\n-- The error appears only when it is used\nSELECT * FROM lab_c602_syn;"
+    },
+    "c603": {
+      "front": "What are the defaults of CREATE SEQUENCE? What can ALTER SEQUENCE not change?",
+      "back": "Defaults: START WITH 1, INCREMENT BY 1, NOCYCLE, CACHE 20. ALTER cannot change START WITH (ORA-02283) and cannot set MAXVALUE below the current value (ORA-04009). With CYCLE the sequence starts again from MINVALUE, not from START WITH.",
+      "try_sql": "-- The sequence defaults\nCREATE SEQUENCE lab_c603_seq;\nSELECT min_value, increment_by, cycle_flag, cache_size, last_number\nFROM   user_sequences WHERE sequence_name = 'LAB_C603_SEQ';\n-- You cannot change START WITH with ALTER SEQUENCE\nALTER SEQUENCE lab_c603_seq START WITH 100;"
+    },
+    "c604": {
+      "front": "CREATE OR REPLACE VIEW, ALTER VIEW and FORCE: what does each do?",
+      "back": "OR REPLACE changes the view's query and keeps the granted privileges. ALTER VIEW only recompiles the view (COMPILE) or manages its constraints; it does not change the query. FORCE creates the view even when the base tables are missing; the view is then INVALID.",
+      "try_sql": "-- OR REPLACE changes the view's query (the SALARY column was added)\nCREATE TABLE lab_c604_emp AS SELECT employee_id, last_name, salary FROM employees;\nCREATE VIEW lab_c604_v AS SELECT employee_id, last_name FROM lab_c604_emp;\nCREATE OR REPLACE VIEW lab_c604_v AS SELECT employee_id, last_name, salary FROM lab_c604_emp;\n-- FORCE creates a view on a missing table, but the view is INVALID\nCREATE FORCE VIEW lab_c604_force AS SELECT * FROM lab_c604_brak;\nSELECT object_name, status FROM user_objects\nWHERE  object_name IN ('LAB_C604_V', 'LAB_C604_FORCE') ORDER BY object_name;\nSELECT text FROM user_views WHERE view_name = 'LAB_C604_V';"
+    },
+    "c605": {
+      "front": "What is a function-based index?",
+      "back": "An index on the result of an expression, for example CREATE INDEX i ON t (UPPER(col)). It helps conditions with the same expression, for example WHERE UPPER(col) = 'KING'. In USER_INDEXES it has INDEX_TYPE 'FUNCTION-BASED NORMAL', and the expression is in USER_IND_EXPRESSIONS.",
+      "try_sql": "-- An index on UPPER(last_name) and its description in the dictionary\nCREATE TABLE lab_c605_emp AS SELECT employee_id, last_name FROM employees;\nCREATE INDEX lab_c605_ix ON lab_c605_emp (UPPER(last_name));\nSELECT index_name, index_type FROM user_indexes WHERE index_name = 'LAB_C605_IX';\nSELECT column_expression FROM user_ind_expressions WHERE index_name = 'LAB_C605_IX';\nSELECT employee_id, last_name FROM lab_c605_emp WHERE UPPER(last_name) = 'KING';"
+    },
+    "c1600": {
+      "front": "Who owns a public synonym?",
+      "back": "The PUBLIC group (ALL_SYNONYMS.OWNER = 'PUBLIC'), not the user who created it. USER_SYNONYMS shows only your private synonyms.",
+      "try_sql": "-- A public synonym is owned by PUBLIC; USER_SYNONYMS shows only private ones\nSELECT owner, synonym_name, table_owner, table_name FROM all_synonyms WHERE synonym_name = 'DUAL';\nSELECT synonym_name FROM user_synonyms;"
+    },
+    "c1601": {
+      "front": "How do you make an existing synonym point to another object?",
+      "back": "CREATE OR REPLACE [PUBLIC] SYNONYM s FOR new_target. ALTER SYNONYM cannot change the target (ORA-00922), and a plain CREATE raises ORA-00955, because the name is already taken.",
+      "try_sql": "-- OR REPLACE moves the synonym from EMPLOYEES to DEPARTMENTS\nCREATE SYNONYM lab_c1601_s FOR employees;\nCREATE OR REPLACE SYNONYM lab_c1601_s FOR departments;\nSELECT synonym_name, table_name FROM user_synonyms WHERE synonym_name = 'LAB_C1601_S';\n-- A plain CREATE on a name already in use: ORA-00955\nCREATE SYNONYM lab_c1601_s FOR employees;"
+    },
+    "c1602": {
+      "front": "DROP SYNONYM name, when only a public synonym with that name exists: what happens?",
+      "back": "Error ORA-01434: private synonym to be dropped does not exist. Without the word PUBLIC, Oracle looks only for a private synonym. You drop a public one with DROP PUBLIC SYNONYM (you also need that privilege)."
+    },
+    "c1603": {
+      "front": "What happens to a synonym when its table is dropped and then created again?",
+      "back": "While the table is missing, the synonym has STATUS INVALID and using it raises ORA-00980. When an object with that name exists again, the synonym simply works and becomes VALID. There is no need to create it again.",
+      "try_sql": "-- Drop the table behind the synonym: using the synonym raises ORA-00980\nCREATE TABLE lab_c1603_t AS SELECT * FROM departments;\nCREATE SYNONYM lab_c1603_s FOR lab_c1603_t;\nDROP TABLE lab_c1603_t PURGE;\nSELECT COUNT(*) FROM lab_c1603_s;\n-- The table exists again: the same synonym works without being created again\nCREATE TABLE lab_c1603_t AS SELECT * FROM departments;\nSELECT COUNT(*) AS dzialy FROM lab_c1603_s;"
+    },
+    "c1604": {
+      "front": "Can you run INSERT, UPDATE and DELETE through a synonym?",
+      "back": "Yes. Oracle replaces the synonym with the real object, so INSERT/UPDATE/DELETE/MERGE change the base table. Privileges on that table are still needed.",
+      "try_sql": "-- INSERT and UPDATE through the synonym change the base table\nCREATE TABLE lab_c1604_t AS SELECT department_id, department_name FROM departments;\nCREATE SYNONYM lab_c1604_s FOR lab_c1604_t;\nINSERT INTO lab_c1604_s VALUES (999, 'Lab');\nUPDATE lab_c1604_s SET department_name = 'Lab przez synonim' WHERE department_id = 999;\nSELECT department_id, department_name FROM lab_c1604_t WHERE department_id = 999;"
+    },
+    "c1605": {
+      "front": "IDENTITY column: ALWAYS vs BY DEFAULT vs BY DEFAULT ON NULL: what is the difference?",
+      "back": "ALWAYS: you may not supply your own value (ORA-32795) or change it with UPDATE (ORA-32796). BY DEFAULT: a sequence number only when you leave the column out; an explicit NULL raises ORA-01400. BY DEFAULT ON NULL: NULL is replaced with the next number.",
+      "try_sql": "-- BY DEFAULT ON NULL: an explicit NULL gets a sequence number, your own value goes through too\nCREATE TABLE lab_c1605_on_null (id NUMBER GENERATED BY DEFAULT ON NULL AS IDENTITY, opis VARCHAR2(20));\nINSERT INTO lab_c1605_on_null VALUES (NULL, 'NULL -> numer');\nINSERT INTO lab_c1605_on_null VALUES (100, 'własna wartość');\nSELECT id, opis FROM lab_c1605_on_null ORDER BY id;\n-- ALWAYS: you may not supply your own value\nCREATE TABLE lab_c1605_always (id NUMBER GENERATED ALWAYS AS IDENTITY, opis VARCHAR2(20));\nINSERT INTO lab_c1605_always VALUES (100, 'własna wartość');"
+    },
+    "c1606": {
+      "front": "What does Oracle create for an IDENTITY column?",
+      "back": "A system sequence named ISEQ$$_nnnnn (visible in USER_SEQUENCES and USER_TAB_IDENTITY_COLS). It disappears with the table. The column is NOT NULL at once. A table can have only one IDENTITY column (ORA-30669).",
+      "try_sql": "-- IDENTITY gets a system sequence ISEQ$$_... and NOT NULL at once\nCREATE TABLE lab_c1606_t (id NUMBER GENERATED ALWAYS AS IDENTITY, opis VARCHAR2(20));\nSELECT column_name, generation_type, sequence_name FROM user_tab_identity_cols WHERE table_name = 'LAB_C1606_T';\nSELECT column_name, nullable FROM user_tab_columns WHERE table_name = 'LAB_C1606_T' ORDER BY column_id;\n-- A second IDENTITY column in the same table: ORA-30669\nALTER TABLE lab_c1606_t ADD (id2 NUMBER GENERATED ALWAYS AS IDENTITY);"
+    },
+    "c1607": {
+      "front": "A column has DEFAULT seq.NEXTVAL, and someone dropped the sequence. What then?",
+      "back": "Every INSERT that leaves out this column fails with ORA-02289: sequence does not exist. DATA_DEFAULT in USER_TAB_COLUMNS still shows the sequence's name.",
+      "try_sql": "-- A DEFAULT with NEXTVAL, and then the sequence disappears\nCREATE SEQUENCE lab_c1607_seq;\nCREATE TABLE lab_c1607_t (id NUMBER DEFAULT lab_c1607_seq.NEXTVAL, opis VARCHAR2(20));\nDROP SEQUENCE lab_c1607_seq;\nSELECT column_name, data_default FROM user_tab_columns WHERE table_name = 'LAB_C1607_T' AND column_name = 'ID';\n-- An INSERT without the ID column: ORA-02289\nINSERT INTO lab_c1607_t (opis) VALUES ('test');"
+    },
+    "c1608": {
+      "front": "You add a UNIQUE/PK constraint, and an index on those columns already exists. What does Oracle do?",
+      "back": "It uses the existing index (even a non-unique one) and creates no new one. USER_CONSTRAINTS.INDEX_NAME shows that index. From then on, DROP INDEX on it raises ORA-02429.",
+      "try_sql": "-- INDEX_NAME in USER_CONSTRAINTS shows the index the PK/UNIQUE constraint uses\nSELECT c.constraint_name, c.constraint_type, c.index_name, i.uniqueness\nFROM   user_constraints c\nJOIN   user_indexes i ON i.index_name = c.index_name\nWHERE  c.constraint_type IN ('P', 'U')\nORDER  BY c.constraint_name;"
+    },
+    "c1609": {
+      "front": "Can you have two indexes on the same columns?",
+      "back": "Only when they differ in something (for example one is UNIQUE and the other is not) and at most one of them is visible (VISIBLE). Otherwise you get ORA-01408: such column list already indexed.",
+      "try_sql": "-- Two indexes on EMPLOYEE_ID: a normal one and a UNIQUE one, the second INVISIBLE\nCREATE TABLE lab_c1609_emp AS SELECT employee_id, last_name FROM employees;\nCREATE INDEX lab_c1609_ix1 ON lab_c1609_emp (employee_id);\nCREATE UNIQUE INDEX lab_c1609_ix2 ON lab_c1609_emp (employee_id) INVISIBLE;\nSELECT index_name, uniqueness, visibility FROM user_indexes WHERE table_name = 'LAB_C1609_EMP' ORDER BY index_name;\n-- A third one that differs in nothing: ORA-01408\nCREATE INDEX lab_c1609_ix3 ON lab_c1609_emp (employee_id);"
+    },
+    "c1610": {
+      "front": "How do you drop a primary key but keep its index?",
+      "back": "ALTER TABLE t DROP PRIMARY KEY KEEP INDEX. Without KEEP INDEX, Oracle also drops the index it created for the key.",
+      "try_sql": "-- KEEP INDEX: the primary key disappears, its index stays\nCREATE TABLE lab_c1610_t (id NUMBER CONSTRAINT lab_c1610_pk PRIMARY KEY, opis VARCHAR2(20));\nALTER TABLE lab_c1610_t DROP PRIMARY KEY KEEP INDEX;\nSELECT COUNT(*) AS klucze FROM user_constraints WHERE table_name = 'LAB_C1610_T' AND constraint_type = 'P';\nSELECT index_name, uniqueness FROM user_indexes WHERE table_name = 'LAB_C1610_T';"
+    },
+    "c1611": {
+      "front": "How do you do a Top-N (for example the 3 lowest salaries) with ROWNUM?",
+      "back": "Sort first in a subquery (inline view), then filter outside: SELECT * FROM (SELECT ... ORDER BY sal) WHERE ROWNUM <= 3. When ROWNUM and ORDER BY are in the same query, ROWNUM is assigned before the sort and you get 3 arbitrary rows.",
+      "try_sql": "-- Sort first in an inline view, then ROWNUM: the 3 lowest salaries\nSELECT *\nFROM   (SELECT last_name, salary FROM employees ORDER BY salary)\nWHERE  ROWNUM <= 3;\n-- ROWNUM in the same query: 3 arbitrary rows, sorted only afterwards\nSELECT last_name, salary FROM employees WHERE ROWNUM <= 3 ORDER BY salary;"
+    }
+  }
+}

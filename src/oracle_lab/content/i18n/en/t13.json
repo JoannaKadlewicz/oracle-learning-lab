@@ -1,0 +1,114 @@
+{
+  "flashcards": {
+    "c076": {
+      "front": "How does a system privilege differ from an object privilege?",
+      "back": "A system privilege lets you perform a kind of action, for example CREATE TABLE or CREATE SESSION. An object privilege applies to one specific object, for example SELECT ON t. An easy test: an object privilege always has ON.",
+      "try_sql": "-- System: just the action's name; object: always a specific object (TABLE_NAME)\nSELECT privilege FROM user_sys_privs ORDER BY privilege;\nSELECT owner, table_name, privilege FROM user_tab_privs;"
+    },
+    "c077": {
+      "front": "WITH GRANT OPTION vs WITH ADMIN OPTION: how do they differ?",
+      "back": "WITH GRANT OPTION is for object privileges. When you revoke it, it also disappears from people someone passed it on to (cascade). WITH ADMIN OPTION is for system privileges and roles. Here a revoke does not cascade: the others keep it.",
+      "try_sql": "-- System privileges have an ADMIN_OPTION column, object privileges a GRANTABLE column (GRANT OPTION)\nSELECT privilege, admin_option FROM user_sys_privs ORDER BY privilege;\nSELECT table_name, privilege, grantable FROM user_tab_privs;"
+    },
+    "c078": {
+      "front": "Can an object privilege be granted on selected columns only?",
+      "back": "Yes, but only INSERT, UPDATE and REFERENCES, for example GRANT UPDATE (salary) ON emp TO u. SELECT on columns is not possible. Create a view with the chosen columns and grant SELECT on the view.",
+      "try_sql": "-- UPDATE can be granted on a column, SELECT on a column cannot (ORA-00969)\nCREATE TABLE lab_c078_emp AS SELECT employee_id, last_name, salary FROM employees;\nGRANT UPDATE (salary) ON lab_c078_emp TO PUBLIC;\nGRANT SELECT (salary) ON lab_c078_emp TO PUBLIC;\nSELECT grantee, table_name, column_name, privilege FROM user_col_privs_made WHERE table_name = 'LAB_C078_EMP';"
+    },
+    "c079": {
+      "front": "Which privilege lets a user log in?",
+      "back": "CREATE SESSION. Without it the login fails (ORA-01045).",
+      "try_sql": "-- Without CREATE SESSION you could not log in and run this query\nSELECT privilege FROM session_privs WHERE privilege = 'CREATE SESSION';"
+    },
+    "c080": {
+      "front": "Is a role a schema object?",
+      "back": "No. A role belongs to no schema. A role can be granted to another role, and it can be granted to PUBLIC.",
+      "try_sql": "-- The EMPLOYEES table is a schema object, the CONNECT and RESOURCE roles are not: they are not in ALL_OBJECTS\nSELECT owner, object_name, object_type FROM all_objects WHERE object_name IN ('EMPLOYEES', 'CONNECT', 'RESOURCE');"
+    },
+    "c700": {
+      "front": "Can you revoke UPDATE from just one column?",
+      "back": "No, you get ORA-01750. UPDATE/REFERENCES can be granted on columns, but must be revoked from the whole table: REVOKE UPDATE ON t FROM u.",
+      "try_sql": "-- UPDATE granted on two columns: you cannot revoke it from one (ORA-01750), only from the whole table\nCREATE TABLE lab_c700_t (a NUMBER, b NUMBER);\nGRANT UPDATE (a, b) ON lab_c700_t TO PUBLIC;\nREVOKE UPDATE (a) ON lab_c700_t FROM PUBLIC;\nSELECT column_name, privilege FROM user_col_privs_made WHERE table_name = 'LAB_C700_T';\nREVOKE UPDATE ON lab_c700_t FROM PUBLIC;\nSELECT COUNT(*) AS ile FROM user_col_privs_made WHERE table_name = 'LAB_C700_T';"
+    },
+    "c701": {
+      "front": "Which object privileges can be granted on a sequence, and which on a view?",
+      "back": "A sequence: only SELECT and ALTER (others raise ORA-02205). A view: SELECT and the DML privileges (INSERT, UPDATE, DELETE…), but not ALTER, INDEX or EXECUTE (ORA-02204).",
+      "try_sql": "-- A sequence: only SELECT and ALTER (ORA-02205); a view: SELECT and DML, but not ALTER (ORA-02204)\nCREATE SEQUENCE lab_c701_s;\nGRANT SELECT, ALTER ON lab_c701_s TO PUBLIC;\nGRANT INSERT ON lab_c701_s TO PUBLIC;\nCREATE VIEW lab_c701_v AS SELECT employee_id, last_name FROM employees;\nGRANT SELECT, INSERT, UPDATE, DELETE ON lab_c701_v TO PUBLIC;\nGRANT ALTER ON lab_c701_v TO PUBLIC;\nSELECT table_name, privilege FROM user_tab_privs_made WHERE table_name IN ('LAB_C701_S', 'LAB_C701_V') ORDER BY 1, 2;"
+    },
+    "c702": {
+      "front": "How does SESSION_PRIVS differ from USER_SYS_PRIVS?",
+      "back": "SESSION_PRIVS shows the system privileges you can use now, in this session, including those from enabled roles. USER_SYS_PRIVS shows only the system privileges granted to you directly, with the ADMIN_OPTION column.",
+      "try_sql": "-- Compare: SESSION_PRIVS (also from roles) and USER_SYS_PRIVS (only direct grants, with ADMIN_OPTION)\nSELECT privilege FROM session_privs ORDER BY privilege;\nSELECT privilege, admin_option FROM user_sys_privs ORDER BY privilege;\nSELECT role FROM session_roles;"
+    },
+    "c703": {
+      "front": "When does a grant take effect for a user who is already logged in?",
+      "back": "System and object privileges take effect at once. A new role works only after SET ROLE or in a new session (after logging in again)."
+    },
+    "c704": {
+      "front": "Can WITH GRANT OPTION be given to a role? And to PUBLIC?",
+      "back": "Not to a role: you get ORA-01926. To a user or to PUBLIC: yes.",
+      "try_sql": "-- WITH GRANT OPTION for PUBLIC works, for a role it does not (ORA-01926)\nCREATE TABLE lab_c704_t (n NUMBER);\nGRANT SELECT ON lab_c704_t TO PUBLIC WITH GRANT OPTION;\nGRANT SELECT ON lab_c704_t TO resource WITH GRANT OPTION;\nSELECT grantee, privilege, grantable FROM user_tab_privs_made WHERE table_name = 'LAB_C704_T';"
+    },
+    "c705": {
+      "front": "What happens to the granted privileges when you drop the table?",
+      "back": "They disappear with the table. If you then create a new table with the same name, it has no grants at all.",
+      "try_sql": "-- The grant disappears with the table; a new table with the same name has no grants\nCREATE TABLE lab_c705_t (n NUMBER);\nGRANT SELECT ON lab_c705_t TO PUBLIC;\nSELECT grantee, privilege FROM user_tab_privs_made WHERE table_name = 'LAB_C705_T';\nDROP TABLE lab_c705_t PURGE;\nCREATE TABLE lab_c705_t (n NUMBER);\nSELECT COUNT(*) AS nadania FROM user_tab_privs_made WHERE table_name = 'LAB_C705_T';"
+    },
+    "c1700": {
+      "front": "GRANT SELECT on a synonym: what is recorded?",
+      "back": "A grant on the object the synonym points to. In USER_TAB_PRIVS_MADE you see the table, not the synonym. A synonym is only a second name.",
+      "try_sql": "-- A GRANT on a synonym is recorded on the table it points to\nCREATE TABLE lab_c1700_t (n NUMBER);\nCREATE SYNONYM lab_c1700_s FOR lab_c1700_t;\nGRANT SELECT ON lab_c1700_s TO PUBLIC;\nSELECT grantee, table_name, privilege FROM user_tab_privs_made WHERE table_name IN ('LAB_C1700_T', 'LAB_C1700_S');"
+    },
+    "c1701": {
+      "front": "GRANT ... TO a user that does not exist: what happens?",
+      "back": "Error ORA-01917: user or role does not exist. Oracle does not remember grants \"for the future\". Only a grant to PUBLIC also covers users created later.",
+      "try_sql": "-- A user that does not exist: ORA-01917, nothing is recorded; PUBLIC works\nCREATE TABLE lab_c1701_t (n NUMBER);\nGRANT SELECT ON lab_c1701_t TO lab_c1701_nobody;\nGRANT SELECT ON lab_c1701_t TO PUBLIC;\nSELECT grantee, privilege FROM user_tab_privs_made WHERE table_name = 'LAB_C1701_T';"
+    },
+    "c1702": {
+      "front": "REVOKE ALL when you granted only some privileges?",
+      "back": "It works and takes away what you really granted. But if you name a privilege you never granted (for example REVOKE SELECT, INSERT ...), you get ORA-01927 and nothing is revoked.",
+      "try_sql": "-- Only SELECT was granted: REVOKE SELECT, INSERT raises ORA-01927 and revokes nothing; REVOKE ALL works\nCREATE TABLE lab_c1702_t (n NUMBER);\nGRANT SELECT ON lab_c1702_t TO PUBLIC;\nREVOKE SELECT, INSERT ON lab_c1702_t FROM PUBLIC;\nSELECT privilege FROM user_tab_privs_made WHERE table_name = 'LAB_C1702_T';\nREVOKE ALL ON lab_c1702_t FROM PUBLIC;\nSELECT COUNT(*) AS nadania FROM user_tab_privs_made WHERE table_name = 'LAB_C1702_T';"
+    },
+    "c1703": {
+      "front": "ORA-00942 or ORA-01031 on another user's table: when is which?",
+      "back": "ORA-00942: you have no privilege at all, so the table looks as if it did not exist. ORA-01031: you can see the table (for example you have SELECT), but you lack this particular privilege, for example UPDATE. 23ai gives the more precise ORA-41900 (missing UPDATE privilege) instead.",
+      "try_sql": "-- No privilege at all: the table \"does not exist\" (ORA-00942)\nSELECT COUNT(*) FROM sys.obj$;\n-- You have SELECT on SYS.DUAL, but not UPDATE: ORA-01031 (ORA-41900 in 23ai)\nUPDATE sys.dual SET dummy = 'Y';"
+    },
+    "c1704": {
+      "front": "You want to grant SELECT on your view that reads another user's table. What do you need?",
+      "back": "You must have SELECT on that other table WITH GRANT OPTION. Without it, the GRANT fails with ORA-01720.",
+      "try_sql": "-- PUBLIC has READ on SYS.SYSTEM_PRIVILEGE_MAP without GRANT OPTION: the view works, but it cannot be granted further (ORA-01720)\nSELECT privilege, grantable FROM all_tab_privs WHERE table_schema = 'SYS' AND table_name = 'SYSTEM_PRIVILEGE_MAP' AND grantee = 'PUBLIC';\nCREATE VIEW lab_c1704_v AS SELECT name FROM sys.system_privilege_map;\nSELECT COUNT(*) AS ile FROM lab_c1704_v;\nGRANT SELECT ON lab_c1704_v TO PUBLIC;"
+    },
+    "c1705": {
+      "front": "You create a view on A.T, but you have SELECT on A.T only through a role. What happens?",
+      "back": "Error ORA-01031. Objects stored in the database (views, procedures) do not use privileges from roles. A direct grant is needed."
+    },
+    "c1706": {
+      "front": "Cascade on REVOKE: A→B (with grant option)→C, and also A→C directly. A revokes the privilege from B. What next?",
+      "back": "B loses the privilege, and the grants made by B disappear. But C keeps access, because C also got it directly from A."
+    },
+    "c1707": {
+      "front": "REVOKE REFERENCES when someone has a foreign key based on that privilege?",
+      "back": "Error ORA-01981, unless you add CASCADE CONSTRAINTS. Then the dependent foreign keys are dropped."
+    },
+    "c1708": {
+      "front": "What do the CONNECT and RESOURCE roles give?",
+      "back": "CONNECT gives CREATE SESSION, that is, logging in. RESOURCE gives CREATE TABLE, SEQUENCE, PROCEDURE, TRIGGER, TYPE…, but not CREATE SESSION. So RESOURCE alone is not enough to log in.",
+      "try_sql": "-- Which system privileges the CONNECT and RESOURCE roles give (only roles you hold are visible)\nSELECT role, privilege FROM role_sys_privs WHERE role IN ('CONNECT', 'RESOURCE') ORDER BY role, privilege;\nSELECT role FROM session_roles;"
+    },
+    "c1709": {
+      "front": "You have a role without ADMIN OPTION. Can you grant it to someone else?",
+      "back": "No: error ORA-01932. You need that role WITH ADMIN OPTION, or the GRANT ANY ROLE privilege."
+    },
+    "c1710": {
+      "front": "Schema privileges in 23ai: what are they?",
+      "back": "For example GRANT SELECT ANY TABLE ON SCHEMA hr TO u. It is an ANY privilege, but for one schema only. It also covers tables created later. You see them in USER_SCHEMA_PRIVS. 19c does not have this syntax.",
+      "try_sql": "-- Schema privileges granted to you (23ai); 19c does not have this view\nSELECT * FROM user_schema_privs;"
+    },
+    "c1711": {
+      "front": "What is DB_DEVELOPER_ROLE (23ai)?",
+      "back": "A ready-made role for a developer. It contains, among others, CREATE SESSION, CREATE DOMAIN, CREATE JOB… and the RESOURCE role. It contains no ANY privileges. Your practice schema does not have this role: it gets selected CREATE privileges directly.",
+      "try_sql": "-- Your privileges in the session (you do not have DB_DEVELOPER_ROLE, only a few CREATE privileges granted directly)\nSELECT privilege FROM session_privs ORDER BY privilege;"
+    }
+  }
+}
