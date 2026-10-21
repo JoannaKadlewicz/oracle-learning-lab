@@ -813,7 +813,7 @@ function renderResults() {
   const wrong = items.filter(id => !isCorrect(Q[id], quiz.answers[id]));
   // Started from Today: the next step of today's session comes first, completed steps skipped.
   const next = quiz.fromToday ? todayLeft() : { cards: [], lab: null };
-  const cont = next.cards.length ? `Continue: ${next.cards.length} flashcards` : next.lab ? "Continue: today's exercise" : "";
+  const cont = next.cards.length ? `Continue: ${plural(next.cards.length, "flashcard")}` : next.lab ? "Continue: today's exercise" : "";
   main.innerHTML = `
     ${pageHead("Practice results")}
     <div class="score"><b>${pct}%</b><div><strong>${right} of ${items.length} correct</strong><span>in about ${plural(minutes, "minute")}. Answers you missed or guessed are on your mistakes list.</span></div></div>

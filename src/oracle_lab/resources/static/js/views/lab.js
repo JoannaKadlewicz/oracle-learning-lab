@@ -89,6 +89,7 @@ async function render() {
   };
   $("#run").addEventListener("click", run);
   $("#visualize").addEventListener("click", async () => {
+    if (off) return;
     results.innerHTML = loading("Tracing rows");
     try {
       results.innerHTML = vizHtml(await api("/api/visualize", { sql: editor.selection() || editor.get() }));
@@ -111,6 +112,7 @@ async function render() {
     } catch { toastError("Could not save the note."); }
   });
   $("#reset-data").addEventListener("click", async () => {
+    if (off) return;
     if (!await confirmDialog({
       title: "Restore the sample data?",
       body: "The sample tables are dropped and created again with their original rows. Other objects you created are kept.",
