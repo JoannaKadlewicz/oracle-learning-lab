@@ -1,5 +1,6 @@
 /* Per-browser conveniences (drafts, filters, theme) in localStorage, kept apart per account:
-   `study:<userId>:<key>`. The theme is the browser's, not the account's: `study:theme`. Never
+   `study:<userId>:<key>`. The theme is the browser's, not the account's: `study:theme`; so is the
+   language remembered before sign-in (`study:lang`, `study:lang-explicit`, see i18n.js). Never
    required: every access falls back to a default when storage is blocked or empty. */
 
 let namespace = "anon";
@@ -31,7 +32,7 @@ export function useUser(userId) {
     const legacy = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k.startsWith("study:") && !["study:theme", "study:migrated"].includes(k) && !NAMESPACED.test(k)) legacy.push(k);
+      if (k.startsWith("study:") && !["study:theme", "study:migrated", "study:lang", "study:lang-explicit"].includes(k) && !NAMESPACED.test(k)) legacy.push(k);
     }
     for (const k of legacy) {
       localStorage.setItem(`study:${userId}:${k.slice("study:".length)}`, localStorage.getItem(k));

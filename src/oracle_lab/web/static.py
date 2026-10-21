@@ -10,7 +10,8 @@ from pathlib import Path
 from oracle_lab.web.http import HttpError, Request, Response, is_clean_path
 from oracle_lab.web.middleware import PUBLIC_PREFIXES
 
-CONTENT_TYPES = {".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml"}
+CONTENT_TYPES = {".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml",
+                 ".json": "application/json"}
 
 INLINE_SCRIPT = re.compile(r"<script(?![^>]*\bsrc\b)[^>]*>(.*?)</script>", re.DOTALL | re.IGNORECASE)
 

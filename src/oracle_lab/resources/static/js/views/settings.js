@@ -2,6 +2,7 @@
 
 import { $, $$, esc } from "../core/dom.js";
 import { api } from "../core/api.js";
+import { lang } from "../core/i18n.js";
 import { store } from "../core/store.js";
 import { C, P, apply } from "../core/state.js";
 import { main } from "../core/router.js";
@@ -137,7 +138,7 @@ async function renderAccount() {
   let sessions = [];
   try {
     [config, sessions] = await Promise.all([
-      fetch("/api/auth/config").then(r => r.json()).catch(() => ({ google: false })),
+      fetch("/api/auth/config", { headers: { "X-Language": lang() } }).then(r => r.json()).catch(() => ({ google: false })),
       api("/api/account/sessions").then(r => r.sessions),
     ]);
   } catch (err) { toastError(`Could not load your sessions. ${err.message}`); }

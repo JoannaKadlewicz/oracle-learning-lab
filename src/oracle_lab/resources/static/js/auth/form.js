@@ -1,6 +1,7 @@
 /* Shared by the sign-in pages: JSON posts that never throw, password toggles and error display. */
 
 import { $, $$ } from "/js/core/dom.js";
+import { lang } from "/js/core/i18n.js";
 
 const OFFLINE = "The study server is not responding.";
 
@@ -9,7 +10,7 @@ export async function postForm(path, data) {
     const res = await fetch(path, {
       method: "POST",
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: { "Content-Type": "application/json", Accept: "application/json", "X-Language": lang() },
       body: JSON.stringify(data),
     });
     const body = await res.json().catch(() => ({}));
@@ -29,7 +30,7 @@ export async function postForm(path, data) {
 
 export async function getConfig() {
   try {
-    const res = await fetch("/api/auth/config", { credentials: "same-origin" });
+    const res = await fetch("/api/auth/config", { credentials: "same-origin", headers: { "X-Language": lang() } });
     if (res.ok) return await res.json();
   } catch { /* fall through to the safe defaults */ }
   return { google: false, registration_open: true };

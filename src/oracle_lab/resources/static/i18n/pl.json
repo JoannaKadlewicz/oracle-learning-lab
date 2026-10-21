@@ -1,0 +1,25 @@
+{
+  "The study server is not responding": "Serwer nauki nie odpowiada",
+  "The app could not load. Reload, or try again in a minute.": "Nie udało się wczytać aplikacji. Odśwież stronę albo spróbuj ponownie za minutę.",
+  "Reload": "Odśwież",
+
+  "{n} questions": ["{n} pytanie", "{n} pytania", "{n} pytań"],
+  "{n} answers": ["{n} odpowiedź", "{n} odpowiedzi", "{n} odpowiedzi"],
+  "{n} attempts": ["{n} próba", "{n} próby", "{n} prób"],
+  "{n} flashcards": ["{n} fiszka", "{n} fiszki", "{n} fiszek"],
+  "{n} cards": ["{n} fiszka", "{n} fiszki", "{n} fiszek"],
+  "{n} exercises": ["{n} ćwiczenie", "{n} ćwiczenia", "{n} ćwiczeń"],
+  "{n} open mistakes": ["{n} otwarty błąd", "{n} otwarte błędy", "{n} otwartych błędów"],
+  "{n} errors": ["{n} błąd", "{n} błędy", "{n} błędów"],
+  "{n} minutes": ["{n} minuta", "{n} minuty", "{n} minut"],
+  "{n} days": ["{n} dzień", "{n} dni", "{n} dni"],
+  "{n} study days": ["{n} dzień nauki", "{n} dni nauki", "{n} dni nauki"],
+  "{n} study actions": ["{n} czynność nauki", "{n} czynności nauki", "{n} czynności nauki"],
+  "{n} objectives": ["{n} cel", "{n} cele", "{n} celów"],
+  "{n} rows": ["{n} wiersz", "{n} wiersze", "{n} wierszy"],
+  "{n} joined rows": ["{n} złączony wiersz", "{n} złączone wiersze", "{n} złączonych wierszy"],
+  "{n} row changes": ["{n} zmiana wiersza", "{n} zmiany wierszy", "{n} zmian wierszy"],
+  "{n} uncommitted row changes": ["{n} niezatwierdzona zmiana wiersza", "{n} niezatwierdzone zmiany wierszy", "{n} niezatwierdzonych zmian wierszy"],
+  "{n} accounts": ["{n} konto", "{n} konta", "{n} kont"],
+  "{n} learner accounts": ["{n} konto ucznia", "{n} konta uczniów", "{n} kont uczniów"]
+}

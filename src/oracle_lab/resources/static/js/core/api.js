@@ -1,11 +1,12 @@
 /* JSON calls to the study server. GET without a body, POST with one (and the CSRF token). */
 
 import { csrfToken } from "./session.js";
+import { lang } from "./i18n.js";
 
 export class ApiError extends Error {}
 
 async function sessionEnded() {
-  try { return (await fetch("/api/auth/me", { credentials: "same-origin" })).status === 401; }
+  try { return (await fetch("/api/auth/me", { credentials: "same-origin", headers: { "X-Language": lang() } })).status === 401; }
   catch { return false; }
 }
 
@@ -17,7 +18,7 @@ export async function api(path, body) {
   };
   let res;
   try {
-    res = await fetch(path, opts);
+    res = await fetch(path, { ...opts, headers: { ...opts.headers, "X-Language": lang() } });
   } catch {
     throw new ApiError("The study server is not responding.");
   }

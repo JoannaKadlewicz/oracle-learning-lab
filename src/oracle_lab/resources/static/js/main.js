@@ -1,9 +1,11 @@
 /* Entry point: load progress and content, wire the shell and the views, start routing. */
 
 import { esc } from "./core/dom.js";
+import { initI18n, preferredLanguage, rememberedLanguage, t } from "./core/i18n.js";
+import { api } from "./core/api.js";
 import { loadSession, currentUser } from "./core/session.js";
 import { useUser } from "./core/store.js";
-import { loadProgress, loadContent } from "./core/state.js";
+import { S, apply, loadProgress, loadContent } from "./core/state.js";
 import { main, registerViews, startRouting, dispatchKey } from "./core/router.js";
 import { initShell, checkDatabase } from "./shell.js";
 import { homeView } from "./views/home.js";
@@ -33,11 +35,11 @@ registerViews({
 
 // Single-key shortcuts (quiz options, flashcard ratings) never fire while typing.
 document.addEventListener("keydown", e => {
-  const t = e.target;
+  const el = e.target;
   // The exam picker reads Enter, Space and letters itself (typeahead).
-  const typing = t.isContentEditable || t.closest?.(".CodeMirror, dialog, .exam-picker")
-    || ["TEXTAREA", "SELECT"].includes(t.tagName)
-    || (t.tagName === "INPUT" && !["radio", "checkbox"].includes(t.type));
+  const typing = el.isContentEditable || el.closest?.(".CodeMirror, dialog, .exam-picker")
+    || ["TEXTAREA", "SELECT"].includes(el.tagName)
+    || (el.tagName === "INPUT" && !["radio", "checkbox"].includes(el.type));
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   dispatchKey(e);
 });
@@ -50,17 +52,30 @@ document.addEventListener("click", e => {
   openNote(link.dataset.noteLink);
 });
 
+/** An account without a language takes the one this browser remembers (picked or used before sign-in). */
+async function adoptRememberedLanguage() {
+  const remembered = rememberedLanguage();
+  if (S?.settings?.language || !remembered) return;
+  try { apply(await api("/api/settings", { language: remembered })); }
+  catch (err) { console.error(err); }  // the page still shows in the remembered language
+}
+
 async function boot() {
+  let languageReady = false;
   try {
     await loadSession();
     useUser(currentUser().id);
     await loadProgress();
+    await initI18n(preferredLanguage(S?.settings?.language));
+    languageReady = true;
+    await adoptRememberedLanguage();
     await loadContent();
   } catch (err) {
     console.error(err);
-    main.innerHTML = `<div class="empty"><strong>The study server is not responding</strong>
-      <p>The app could not load. Reload, or try again in a minute.</p>
-      <button class="btn" id="reload-app">Reload</button></div>`;
+    if (!languageReady) await initI18n(preferredLanguage());
+    main.innerHTML = `<div class="empty"><strong>${esc(t("The study server is not responding"))}</strong>
+      <p>${esc(t("The app could not load. Reload, or try again in a minute."))}</p>
+      <button class="btn" id="reload-app">${esc(t("Reload"))}</button></div>`;
     document.getElementById("reload-app").addEventListener("click", () => location.reload());
     return;
   }

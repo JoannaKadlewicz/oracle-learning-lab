@@ -68,9 +68,9 @@ def access_log(request: Request, call_next: Handler) -> Response:
 PUBLIC_PATHS = frozenset({
     "/login", "/register", "/reset", "/healthz",
     "/api/auth/login", "/api/auth/register", "/api/auth/reset", "/api/auth/config",
-    "/auth/google/start", "/auth/google/callback", "/js/core/dom.js",
+    "/auth/google/start", "/auth/google/callback", "/js/core/dom.js", "/js/core/i18n.js",
 })
-PUBLIC_PREFIXES = ("/css/", "/js/auth/")  # directories only; with PUBLIC_PATHS, all that the auth pages load
+PUBLIC_PREFIXES = ("/css/", "/js/auth/", "/i18n/")  # directories only; with PUBLIC_PATHS, all that the auth pages load
 _LOGGED_OUT_ONLY = ("/login", "/register")
 
 

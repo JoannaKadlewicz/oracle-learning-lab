@@ -1,5 +1,7 @@
 /* DOM and text helpers shared by every view. */
 
+import { tn } from "./i18n.js";
+
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -16,9 +18,9 @@ export function inlineCode(text) {
   return esc(raw).replace(/`([^`]+)`/g, "<code>$1</code>");
 }
 
-/** "1 question", "3 questions" */
+/** "1 question", "3 questions", translated through the catalog entry "{n} questions". */
 export function plural(n, word, many = word + "s") {
-  return `${n} ${n === 1 ? word : many}`;
+  return tn(n, "{n} " + word, "{n} " + many);
 }
 
 export function shuffle(list) {
