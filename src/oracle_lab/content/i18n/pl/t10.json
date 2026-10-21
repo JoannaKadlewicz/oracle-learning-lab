@@ -1,0 +1,552 @@
+{
+  "questions": {
+    "q10-constraints": {
+      "prompt": "Które dwa stwierdzenia o ograniczeniach (constraints) są prawdziwe?",
+      "options": [
+        "Jednokolumnowe ograniczenie UNIQUE dopuszcza wiele wierszy z NULL w tej kolumnie.",
+        "Ograniczenie NOT NULL można zdefiniować na poziomie kolumny albo na poziomie tabeli.",
+        "Utworzenie ograniczenia PRIMARY KEY tworzy indeks unikalny, jeśli nie istnieje odpowiedni indeks.",
+        "FOREIGN KEY może wskazywać tylko na ograniczenie PRIMARY KEY.",
+        "Ograniczenie CHECK może odwoływać się do SYSDATE."
+      ],
+      "explanation": "W UNIQUE wartości NULL nie są porównywane, więc wiele NULL-i jest dozwolonych (employees.email ma jeden). NOT NULL można zdefiniować tylko inline (na poziomie kolumny). FOREIGN KEY może wskazywać na ograniczenie PRIMARY KEY albo UNIQUE. CHECK nie może używać SYSDATE, USER ani innych funkcji niedeterministycznych."
+    },
+    "q10-number-scale": {
+      "prompt": "Kolumna ma typ NUMBER(5,2). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Wstawienie 12.345 zapisze 12.35.",
+        "Wstawienie 1000 się nie powiedzie.",
+        "Wstawienie 12.345 się nie powiedzie z powodu dodatkowej cyfry.",
+        "Największa wartość to 99999.99."
+      ],
+      "explanation": "NUMBER(p,s): p to łączna liczba cyfr znaczących, s to liczba cyfr po przecinku. Nadmiarowe cyfry po przecinku są zaokrąglane; za dużo cyfr części całkowitej daje ORA-01438. NUMBER(5,2) mieści wartości do 999.99."
+    },
+    "q10-ctas": {
+      "prompt": "Uruchamiasz CREATE TABLE dept_copy AS SELECT * FROM departments. Jakie ograniczenia (constraints) dostaje dept_copy?",
+      "options": [
+        "Wszystkie ograniczenia, łącznie z kluczem głównym",
+        "Tylko jawnie zdefiniowane ograniczenia NOT NULL",
+        "Żadnych ograniczeń",
+        "Klucz główny i NOT NULL, ale nie klucze obce"
+      ],
+      "explanation": "CTAS kopiuje definicje kolumn i dane. Z ograniczeń kopiowane są tylko jawnie zdefiniowane ograniczenia NOT NULL (departments_name_nn staje się ograniczeniem NOT NULL z nazwą nadaną przez system). Ograniczenia PRIMARY KEY, UNIQUE, FOREIGN KEY i CHECK oraz indeksy nie są kopiowane."
+    },
+    "q10-flashback": {
+      "prompt": "Które stwierdzenie o usuniętych tabelach jest prawdziwe?",
+      "options": [
+        "DROP TABLE t PURGE przenosi tabelę do kosza (recycle bin).",
+        "Po DROP TABLE t (bez PURGE) FLASHBACK TABLE t TO BEFORE DROP może ją przywrócić, jeśli nadal jest w koszu.",
+        "FLASHBACK TABLE TO BEFORE DROP działa też po TRUNCATE.",
+        "Dane usuniętej tabeli można odzyskać przez ROLLBACK."
+      ],
+      "explanation": "DROP bez PURGE zmienia nazwę tabeli i przenosi ją do kosza (gdy kosz jest włączony). PURGE go omija. DROP i TRUNCATE to DDL, więc ROLLBACK ich nie cofnie."
+    },
+    "q10-unused": {
+      "prompt": "Które stwierdzenie o ALTER TABLE ... SET UNUSED (col) jest prawdziwe?",
+      "options": [
+        "Kolumnę można przywrócić przez ALTER TABLE ... SET USED.",
+        "Kolumna nie jest już dostępna, jej nazwy można użyć ponownie, a DROP UNUSED COLUMNS później usuwa ją fizycznie.",
+        "Dane kolumny są od razu usuwane z dysku.",
+        "Nieużywane kolumny nadal pojawiają się w SELECT *."
+      ],
+      "explanation": "SET UNUSED to szybkie, logiczne usunięcie kolumny. Kolumny nie da się odzyskać. ALTER TABLE ... DROP UNUSED COLUMNS później odzyskuje miejsce."
+    },
+    "q10-char": {
+      "prompt": "customers.country_code ma typ CHAR(2). Które stwierdzenie o CHAR jest prawdziwe?",
+      "options": [
+        "Wartości CHAR są dopełniane spacjami do zdefiniowanej długości.",
+        "CHAR przechowuje napisy o zmiennej długości, tak jak VARCHAR2.",
+        "CHAR może domyślnie mieścić do 32767 bajtów w kolumnie tabeli.",
+        "Wstawienie pustego napisu do CHAR zapisuje dwie spacje."
+      ],
+      "explanation": "CHAR ma stałą długość i jest dopełniany spacjami. VARCHAR2 przechowuje tylko to, co mu podasz. W Oracle '' to NULL dla obu typów. Kolumna CHAR mieści najwyżej 2000 bajtów."
+    },
+    "q10-identifier-rules": {
+      "prompt": "Które dwie nazwy tabel są poprawne, gdy zapiszesz je bez cudzysłowów?",
+      "options": [
+        "emp_2024",
+        "emp$hist",
+        "2024_emp",
+        "order",
+        "emp-hist"
+      ],
+      "explanation": "Identyfikator bez cudzysłowów zaczyna się od litery i może zawierać litery, cyfry, _, $ i #, do 128 bajtów w 19c (30 przed 12.2). 2024_emp zaczyna się od cyfry, ORDER to słowo zastrzeżone (ORA-00903 invalid table name), a myślnik przedwcześnie kończy nazwę (ORA-00922). Wszystkie te nazwy zadziałałyby jako identyfikatory w cudzysłowach, w których wielkość liter ma wtedy znaczenie."
+    },
+    "q10-quoted-name": {
+      "prompt": "Uruchamiasz CREATE TABLE \"Staff\" (id NUMBER). Które zapytanie się wtedy powiedzie?",
+      "explanation": "Nazwy bez cudzysłowów są zamieniane na wielkie litery, więc staff, STAFF i \"STAFF\" szukają STAFF i dają ORA-00942 (table or view does not exist). Nazwa w cudzysłowach zachowuje dokładną wielkość liter i za każdym razem trzeba ją zapisać w cudzysłowach tak samo."
+    },
+    "q10-read-only": {
+      "prompt": "Tabelę t ustawiono przez ALTER TABLE t READ ONLY. Które dwa polecenia się powiodą?",
+      "explanation": "Tabelę tylko do odczytu można odpytywać i można ją usunąć, bo DROP zmienia tylko słownik danych. INSERT, UPDATE, DELETE i TRUNCATE zmieniają dane i dają ORA-12081 (update operation not allowed on table). ALTER TABLE t READ WRITE z powrotem pozwala na zapis."
+    },
+    "q10-varchar-too-long": {
+      "prompt": "customers.country_code ma typ CHAR(2). Co się stanie?",
+      "options": [
+        "Wartość zostanie obcięta do 'US'.",
+        "Polecenie kończy się błędem ORA-12899: value too large for column.",
+        "Polecenie kończy się błędem ORA-01438.",
+        "Kolumna automatycznie urośnie do CHAR(3)."
+      ],
+      "explanation": "Oracle nigdy po cichu nie obcina danych znakowych: wartość dłuższa niż kolumna daje ORA-12899, a komunikat pokazuje faktyczną i maksymalną długość. ORA-01438 to odpowiednik dla NUMBER, gdy jest za dużo cyfr części całkowitej."
+    },
+    "q10-number-precision-error": {
+      "prompt": "employees.commission_pct ma typ NUMBER(3,2). Co się stanie?",
+      "options": [
+        "commission_pct przyjmie wartość 10.",
+        "commission_pct przyjmie wartość 9.99.",
+        "Polecenie kończy się błędem ORA-01438: value larger than specified precision allowed for this column.",
+        "Polecenie kończy się błędem ORA-12899: value too large for column."
+      ],
+      "explanation": "NUMBER(3,2) zostawia 3 - 2 = 1 cyfrę przed przecinkiem, więc największa wartość to 9.99. Oracle nigdy nie przycina wartości do maksimum; zgłasza ORA-01438. ORA-12899 dotyczy kolumn znakowych."
+    },
+    "q10-negative-scale": {
+      "prompt": "Co zostanie zwrócone?",
+      "options": [
+        "1300",
+        "1200",
+        "1250.5",
+        "1250"
+      ],
+      "explanation": "Ujemna skala zaokrągla na lewo od przecinka: skala -2 zaokrągla do setek, a 1250.5 zaokrągla się w górę do 1300 (kolumna NUMBER(5,-2) zapisze to samo). To zaokrąglenie, a nie obcięcie, więc 1200 jest błędne."
+    },
+    "q10-datatype-facts": {
+      "prompt": "Które trzy stwierdzenia o typach danych Oracle są prawdziwe?",
+      "options": [
+        "Kolumna VARCHAR2 musi mieć podaną maksymalną długość.",
+        "Kolumna CHAR zdefiniowana bez długości mieści jeden znak.",
+        "Tabela może mieć najwyżej jedną kolumnę LONG.",
+        "Kolumna DATE przechowuje ułamki sekund.",
+        "NUMBER bez precyzji i skali przechowuje tylko liczby całkowite.",
+        "Kolumny CLOB można użyć w ORDER BY."
+      ],
+      "explanation": "VARCHAR2 bez rozmiaru daje ORA-00906, CHAR domyślnie oznacza CHAR(1), a druga kolumna LONG daje ORA-01754. DATE przechowuje datę i czas z dokładnością do pełnej sekundy; TIMESTAMP dodaje ułamki sekund. Zwykły NUMBER przechowuje dowolną wartość, także ułamkową. Obiektów LOB nie można bezpośrednio sortować ani porównywać (ORA-00932)."
+    },
+    "q10-modify-column": {
+      "prompt": "Tabela t ma kolumnę name VARCHAR2(30), w której jest wartość o długości 25 znaków. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "ALTER TABLE t MODIFY (name VARCHAR2(40)) się powiedzie.",
+        "ALTER TABLE t MODIFY (name VARCHAR2(20)) się nie powiedzie, bo jedna wartość jest za długa.",
+        "ALTER TABLE t MODIFY (name VARCHAR2(20)) się powiedzie i obetnie długą wartość.",
+        "ALTER TABLE t MODIFY (name NUMBER) się powiedzie, jeśli każda wartość jest liczbą.",
+        "Kolumny nigdy nie można skrócić, gdy zawiera już dane."
+      ],
+      "explanation": "Kolumnę zawsze można poszerzyć. Zwęzić ją można tylko wtedy, gdy wszystkie istniejące wartości się zmieszczą (inaczej ORA-01441), więc skrócenie jest możliwe także przy danych. Zmiana typu danych, np. na NUMBER, wymaga pustej kolumny (ORA-01439), niezależnie od wartości."
+    },
+    "q10-ctas-alias": {
+      "prompt": "Co się stanie po wykonaniu tego polecenia?",
+      "options": [
+        "Tabela zostanie utworzona z kolumnami EMPLOYEE_ID i \"E.SALARY*12\".",
+        "Polecenie kończy się błędem ORA-00998: must name this expression with a column alias.",
+        "Tabela zostanie utworzona z kolumnami EMPLOYEE_ID i COL2.",
+        "Tabela zostanie utworzona, ale będzie pusta."
+      ],
+      "explanation": "Każda kolumna nowej tabeli potrzebuje poprawnej nazwy. Zwykłe odwołanie do kolumny wnosi własną nazwę, ale wyrażenie wymaga aliasu w SELECT (salary * 12 AS annual_pay) albo listy kolumn po nazwie tabeli: CREATE TABLE emp_pay (id, annual_pay) AS SELECT ..."
+    },
+    "q10-ctas-empty": {
+      "prompt": "Tabela employees jest zdefiniowana tak, jak pokazano. Które dwa stwierdzenia są prawdziwe po wykonaniu CREATE TABLE ... AS SELECT?",
+      "code": "-- CREATE TABLE employees (\n--   employee_id    NUMBER(6)    CONSTRAINT employees_pk PRIMARY KEY,\n--   first_name     VARCHAR2(20),\n--   last_name      VARCHAR2(25) CONSTRAINT employees_last_name_nn NOT NULL,\n--   email          VARCHAR2(50) CONSTRAINT employees_email_uk UNIQUE,\n--   hire_date      DATE         CONSTRAINT employees_hire_date_nn NOT NULL,\n--   salary         NUMBER(8,2)  CONSTRAINT employees_salary_ck CHECK (salary > 0),\n--   department_id  NUMBER(4)    REFERENCES departments (department_id));\nCREATE TABLE emp_shell AS SELECT * FROM employees WHERE 1 = 2;",
+      "options": [
+        "emp_shell ma te same kolumny co employees, ale nie ma wierszy.",
+        "last_name i hire_date są NOT NULL w emp_shell.",
+        "email ma w emp_shell ograniczenie (constraint) UNIQUE.",
+        "Ograniczenie CHECK na salary zostaje skopiowane.",
+        "Polecenie kończy się błędem, bo zapytanie nie zwraca żadnych wierszy."
+      ],
+      "explanation": "WHERE 1 = 2 to klasyczny sposób na skopiowanie struktury tabeli bez danych. CTAS kopiuje tylko jawnie zadeklarowane ograniczenia NOT NULL; klucze główne, UNIQUE, CHECK i klucze obce nie są kopiowane. Pusty wynik nie jest błędem."
+    },
+    "q10-default-values": {
+      "prompt": "Tabela t ma kolumnę status VARCHAR2(10) DEFAULT 'NEW'. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "INSERT bez status na liście kolumn zapisze 'NEW'.",
+        "INSERT z jawnym NULL dla status zapisze NULL.",
+        "Wyrażenie DEFAULT może odwoływać się do innej kolumny t.",
+        "Zmiana wartości domyślnej przez ALTER TABLE t MODIFY (status DEFAULT 'OPEN') aktualizuje też istniejące wiersze.",
+        "Jawny NULL zostanie zastąpiony przez 'NEW'."
+      ],
+      "explanation": "Wartość domyślna jest używana tylko wtedy, gdy pominiesz kolumnę (albo podasz słowo kluczowe DEFAULT). Jawny NULL jest zapisywany jako NULL, chyba że kolumnę zadeklarowano jako DEFAULT ON NULL (12c+). Wartość domyślna nie może odwoływać się do innych kolumn (ORA-00904 invalid identifier), a jej zmiana wpływa tylko na przyszłe wstawienia."
+    },
+    "q10-composite-pk": {
+      "prompt": "Które polecenie CREATE TABLE definiuje klucz główny na (order_id, line_no)?",
+      "explanation": "Ograniczenie (constraint) na więcej niż jednej kolumnie trzeba zapisać osobno (out of line), jako ograniczenie na poziomie tabeli wewnątrz nawiasów. Dwie klauzule PRIMARY KEY przy kolumnach dają ORA-02260 (table can have only one primary key), a klauzula nie może stać za nawiasem zamykającym."
+    },
+    "q10-drop-column-rules": {
+      "prompt": "Które dwa stwierdzenia o ALTER TABLE ... DROP COLUMN są prawdziwe?",
+      "options": [
+        "Nie możesz usunąć jedynej kolumny tabeli.",
+        "Usunięcie kolumny klucza głównego, na który wskazuje inna tabela, wymaga CASCADE CONSTRAINTS.",
+        "Usuniętą kolumnę można przywrócić przez ROLLBACK.",
+        "Usunięta kolumna trafia do kosza (recycle bin).",
+        "ALTER TABLE t DROP COLUMN a, b usuwa dwie kolumny."
+      ],
+      "explanation": "Tabela musi zachować co najmniej jedną kolumnę (ORA-12983). Klucza, na który wskazuje klucz obcy, nie da się usunąć bez CASCADE CONSTRAINTS (ORA-12992), które usuwa też zależne ograniczenia (constraints). DROP COLUMN to DDL, więc ROLLBACK go nie cofnie, a kosz przechowuje tylko całe tabele. Kilka kolumn usuwasz przez DROP (a, b)."
+    },
+    "q10-unused-dictionary": {
+      "prompt": "Po ALTER TABLE t SET UNUSED (notes): który widok słownika danych pokazuje, że t ma nieużywane kolumny?",
+      "options": [
+        "USER_UNUSED_COL_TABS",
+        "USER_TAB_COLUMNS",
+        "USER_RECYCLEBIN",
+        "USER_CONSTRAINTS"
+      ],
+      "explanation": "USER_UNUSED_COL_TABS wymienia każdą tabelę z nieużywanymi kolumnami i ich liczbę. Nieużywana kolumna znika z USER_TAB_COLUMNS i DESCRIBE. Nic nie trafia do kosza (recycle bin), który przechowuje usunięte tabele."
+    },
+    "q10-drop-two-columns": {
+      "prompt": "Które polecenie usuwa kolumny notes i fax z tabeli t?",
+      "explanation": "DROP COLUMN przyjmuje dokładnie jedną kolumnę; żeby usunąć kilka, wymień je w nawiasach po DROP. Nie ma słowa kluczowego DROP COLUMNS, a SET UNUSED też wymaga nawiasów dla listy: SET UNUSED (notes, fax)."
+    },
+    "q10-gtt-facts": {
+      "prompt": "Które dwa stwierdzenia o globalnych tabelach tymczasowych są prawdziwe?",
+      "options": [
+        "Bez klauzuli ON COMMIT wiersze są usuwane na końcu każdej transakcji.",
+        "Każda sesja widzi tylko wiersze, które sama wstawiła.",
+        "Definicja tabeli jest usuwana, gdy sesja się kończy.",
+        "Przy ON COMMIT PRESERVE ROWS wiersze po COMMIT są widoczne dla innych sesji.",
+        "Na globalnej tabeli tymczasowej nie można tworzyć indeksów."
+      ],
+      "explanation": "ON COMMIT DELETE ROWS to ustawienie domyślne (USER_TABLES.DURATION = SYS$TRANSACTION). Definicja jest trwała i wspólna, dane są prywatne dla każdej sesji, a PRESERVE ROWS trzyma wiersze do końca sesji, nadal tylko dla tej sesji. Indeksy na tabelach tymczasowych są dozwolone i też są tymczasowe."
+    },
+    "q10-gtt-commit": {
+      "prompt": "gtt_a utworzono z ON COMMIT DELETE ROWS, a gtt_b z ON COMMIT PRESERVE ROWS. Sesja wstawia po 3 wiersze do każdej z nich i robi COMMIT. Ile wierszy ta sesja widzi potem w każdej z tabel?",
+      "options": [
+        "gtt_a: 0, gtt_b: 3",
+        "gtt_a: 3, gtt_b: 3",
+        "gtt_a: 0, gtt_b: 0",
+        "gtt_a: 3, gtt_b: 0"
+      ],
+      "explanation": "DELETE ROWS czyści wiersze sesji przy COMMIT (albo ROLLBACK), więc żyją przez jedną transakcję. PRESERVE ROWS trzyma je do końca sesji. W obu przypadkach inne sesje nigdy ich nie widzą."
+    },
+    "q10-private-temp": {
+      "prompt": "Które stwierdzenie o prywatnych tabelach tymczasowych (18c i nowsze) jest prawdziwe?",
+      "options": [
+        "Ich nazwa musi zaczynać się od prefiksu ustawionego w PRIVATE_TEMP_TABLE_PREFIX, domyślnie ORA$PTT_.",
+        "Ich definicja jest wspólna dla wszystkich sesji, jak w globalnej tabeli tymczasowej.",
+        "Są zapisane w USER_TABLES jak zwykłe tabele.",
+        "Domyślnie istnieją do końca sesji, a ich definicja przetrwa COMMIT."
+      ],
+      "explanation": "CREATE PRIVATE TEMPORARY TABLE ora$ptt_x ... tworzy tabelę, której definicja i dane istnieją tylko w pamięci, dla sesji, która ją utworzyła. Domyślne ON COMMIT DROP DEFINITION usuwa ją na końcu transakcji; ON COMMIT PRESERVE DEFINITION trzyma ją przez całą sesję. Takie tabele są widoczne w USER_PRIVATE_TEMP_TABLES, a nie w USER_TABLES."
+    },
+    "q10-external-facts": {
+      "prompt": "Które dwa stwierdzenia o tabelach zewnętrznych są prawdziwe?",
+      "options": [
+        "Na tabeli zewnętrznej nie można używać INSERT, UPDATE ani DELETE.",
+        "Położenie plików z danymi podaje się przez obiekt DIRECTORY.",
+        "CREATE TABLE ... ORGANIZATION EXTERNAL kopiuje wiersze z pliku do bazy danych.",
+        "Na tabeli zewnętrznej możesz utworzyć zwykły indeks B-tree.",
+        "Tabela zewnętrzna może mieć ograniczenie (constraint) PRIMARY KEY wymuszane na pliku."
+      ],
+      "explanation": "Tabela zewnętrzna to metadane tylko do odczytu, które opisują plik poza bazą danych; dane są czytane z pliku przy każdym zapytaniu. Pliki są wskazywane przez obiekt DIRECTORY (DEFAULT DIRECTORY i LOCATION). DML nie jest obsługiwany, nie można jej zaindeksować ani wymusić na niej ograniczeń kluczy. Żeby załadować dane na stałe, użyj CREATE TABLE ... AS SELECT albo INSERT ... SELECT z tej tabeli."
+    },
+    "q10-external-driver": {
+      "prompt": "Która klauzula w CREATE TABLE ... ORGANIZATION EXTERNAL (...) wskazuje sterownik dostępu, na przykład ORACLE_LOADER?",
+      "options": [
+        "TYPE",
+        "DEFAULT DIRECTORY",
+        "ACCESS PARAMETERS",
+        "LOCATION"
+      ],
+      "explanation": "TYPE ORACLE_LOADER (pliki tekstowe, składnia podobna do SQL*Loadera) albo TYPE ORACLE_DATAPUMP (binarne pliki dump) wybiera sterownik. DEFAULT DIRECTORY wskazuje obiekt katalogu (directory object), ACCESS PARAMETERS opisują format rekordów, a LOCATION wymienia nazwy plików."
+    },
+    "q10-fk-orphan": {
+      "prompt": "Tabela orders jest zdefiniowana tak, jak pokazano, a klient 99 nie istnieje. Co się stanie?",
+      "code": "-- CREATE TABLE orders (\n--   order_id      NUMBER(8)    PRIMARY KEY,\n--   customer_id   NUMBER(6)    REFERENCES customers (customer_id),\n--   sales_rep_id  NUMBER(6)    REFERENCES employees (employee_id),\n--   order_date    DATE         NOT NULL,\n--   status        VARCHAR2(10) CHECK (status IN ('NEW', 'SHIPPED', 'CANCELLED')));\n-- (zamówienie 2001 nie istnieje)\nINSERT INTO orders (order_id, customer_id, order_date, status)\nVALUES (2001, 99, DATE '2024-05-01', 'NEW');",
+      "options": [
+        "Wiersz zostanie wstawiony z customer_id 99.",
+        "Polecenie kończy się błędem ORA-02291: integrity constraint violated - parent key not found.",
+        "Polecenie kończy się błędem ORA-02292: integrity constraint violated - child record found.",
+        "Wiersz zostanie wstawiony z customer_id NULL."
+      ],
+      "explanation": "Wartość klucza obcego musi istnieć w kluczu tabeli nadrzędnej (ORA-02291 po stronie tabeli podrzędnej). ORA-02292 to sytuacja odwrotna: usuwanie lub zmiana wiersza nadrzędnego, który wciąż ma wiersze podrzędne. Oracle nigdy nie zastępuje wartości przez NULL."
+    },
+    "q10-fk-null": {
+      "prompt": "orders.customer_id to klucz obcy bez NOT NULL. Co się stanie?",
+      "options": [
+        "Wiersz zostanie wstawiony.",
+        "Polecenie kończy się błędem ORA-02291, bo NULL nie jest klientem.",
+        "Polecenie kończy się błędem ORA-01400.",
+        "Polecenie kończy się błędem ORA-02290."
+      ],
+      "explanation": "Klucz obcy sprawdza tylko wartości różne od NULL, więc NULL w kluczu obcym jest dozwolony, chyba że kolumna ma też NOT NULL. Tak modeluje się relacje opcjonalne (zamówienia bez klienta, pracownicy bez działu)."
+    },
+    "q10-check-null": {
+      "prompt": "employees.salary ma CHECK (salary > 0) i nie ma ograniczenia (constraint) NOT NULL. Pracownik 108 istnieje i ma pensję. Które polecenie się powiedzie?",
+      "explanation": "Ograniczenie CHECK odrzuca wiersz tylko wtedy, gdy jego warunek ma wartość FALSE. NULL > 0 daje UNKNOWN, więc NULL przechodzi; żeby go zabronić, dodaj NOT NULL. 0, -1 i salary - salary = 0 dają warunek FALSE (ORA-02290)."
+    },
+    "q10-add-not-null": {
+      "prompt": "Tabela t ma kolumnę code bez wartości NULL. Które dwa polecenia dodają do code ograniczenie (constraint) NOT NULL?",
+      "explanation": "NOT NULL to ograniczenie na poziomie kolumny, więc dodaje się je przez MODIFY, z nazwą ograniczenia albo bez niej. ADD CONSTRAINT ... NOT NULL (code) to błąd składni (ORA-00904), ADD (code NOT NULL) jest czytane jako nowa kolumna bez typu danych (ORA-02263), a ALTER COLUMN ... SET NOT NULL to składnia PostgreSQL (w Oracle ORA-01735)."
+    },
+    "q10-constraint-states": {
+      "prompt": "Które trzy stwierdzenia o stanach ograniczeń (constraints) i ich utrzymaniu są prawdziwe?",
+      "options": [
+        "ENABLE NOVALIDATE sprawdza nowe i zmienione wiersze, ale nie wiersze, które już są w tabeli.",
+        "Wyłączenie klucza głównego, na który wskazuje klucz obcy, wymaga DISABLE ... CASCADE.",
+        "Dodanie PRIMARY KEY do kolumny, która już zawiera powtórzone wartości, się nie powiedzie.",
+        "Wyłączone ograniczenie jest automatycznie usuwane przy następnym COMMIT.",
+        "ENABLE VALIDATE pomija wiersze, które już istnieją."
+      ],
+      "explanation": "NOVALIDATE ufa istniejącym danym i sprawdza tylko przyszły DML; VALIDATE (domyślne przy ENABLE) sprawdza każdy wiersz. Klucza głównego, od którego zależą włączone klucze obce, nie da się wyłączyć (ORA-02297), chyba że CASCADE wyłączy także je. Duplikaty sprawiają, że ADD PRIMARY KEY kończy się błędem ORA-02437. Wyłączone ograniczenia zostają w słowniku danych, dopóki ich nie usuniesz."
+    },
+    "q10-drop-parent-table": {
+      "prompt": "Tabela members ma klucz obcy, który wskazuje na teams. Co się stanie, gdy uruchomisz DROP TABLE teams?",
+      "options": [
+        "Polecenie kończy się błędem ORA-02449: unique/primary keys in table referenced by foreign keys.",
+        "Zostaną usunięte obie tabele, teams i members.",
+        "teams zostanie usunięta, a klucz obcy w members wyłączony.",
+        "teams zostanie usunięta, a members.team_id ustawione na NULL."
+      ],
+      "explanation": "Tabeli, na której klucz wskazuje klucz obcy innej tabeli, nie można usunąć (ORA-02449). DROP TABLE teams CASCADE CONSTRAINTS usuwa wskazujące na nią ograniczenia (constraints) kluczy obcych (nie tabelę podrzędną ani jej wiersze), a potem samą tabelę."
+    },
+    "q10-ptt-create": {
+      "prompt": "PRIVATE_TEMP_TABLE_PREFIX ma wartość domyślną. Które polecenie się powiedzie?",
+      "explanation": "Nazwa prywatnej tabeli tymczasowej musi zaczynać się od prefiksu, domyślnie ORA$PTT_; bez niego dostaniesz ORA-00903 (invalid table name). Prefiks jest zarezerwowany, więc żaden inny obiekt, nawet globalna tabela tymczasowa, nie może go użyć (ORA-32463). Prywatne tabele tymczasowe przyjmują ON COMMIT DROP DEFINITION albo PRESERVE DEFINITION; DELETE ROWS należy do globalnych tabel tymczasowych (tutaj ORA-00901). Sprawdzone na 19c i 23ai."
+    },
+    "q10-ptt-transaction": {
+      "prompt": "Sesja wykonuje te polecenia. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Ostatni SELECT kończy się błędem ORA-00942, bo COMMIT usunął definicję tabeli.",
+        "Pierwszy SELECT pokazuje ORA$PTT_TMP; tabela nigdy nie pojawia się w USER_TABLES.",
+        "Ostatni SELECT zwraca 0: COMMIT usunął wiersze, ale zostawił tabelę.",
+        "Ostatni SELECT zwraca 1, bo prywatna tabela tymczasowa trzyma swoje wiersze przez całą sesję.",
+        "Inna sesja mogła odpytać ora$ptt_tmp przed COMMIT."
+      ],
+      "explanation": "Domyślnie obowiązuje ON COMMIT DROP DEFINITION: koniec transakcji usuwa samą tabelę, więc ona już nie istnieje (ORA-00942). Prywatne tabele tymczasowe żyją w pamięci i są widoczne w USER_PRIVATE_TEMP_TABLES (DURATION TRANSACTION), a nie w USER_TABLES. „Wiersze usunięte, tabela zostaje” opisuje globalną tabelę tymczasową z ON COMMIT DELETE ROWS, a inne sesje w ogóle nie widzą prywatnej tabeli tymczasowej."
+    },
+    "q10-ptt-features": {
+      "prompt": "Które stwierdzenie o prywatnych tabelach tymczasowych jest prawdziwe?",
+      "options": [
+        "CREATE PRIVATE TEMPORARY TABLE ora$ptt_x AS SELECT ... działa i kopiuje wiersze zapytania.",
+        "Kolumnę można zadeklarować jako NOT NULL albo PRIMARY KEY.",
+        "Na prywatnej tabeli tymczasowej z ON COMMIT PRESERVE DEFINITION można utworzyć indeks.",
+        "Utworzenie prywatnej tabeli tymczasowej zatwierdza otwartą transakcję, jak każde inne polecenie DDL."
+      ],
+      "explanation": "CTAS działa: nasza kopia employees w tabeli ora$ptt_ miała 9 wierszy. Ograniczenia (constraints), nawet NOT NULL, wartości DEFAULT i indeksy nie są obsługiwane: każde z nich dawało ORA-14451 (unsupported feature with temporary table) na 19c i 23ai. W przeciwieństwie do innych poleceń DDL utworzenie prywatnej tabeli tymczasowej nie zrobiło COMMIT: oczekujący INSERT do tabeli LAB_ został cofnięty przez następny ROLLBACK (który usunął też tabelę prywatną)."
+    },
+    "q10-gtt-in-use": {
+      "prompt": "Globalną tabelę tymczasową cart utworzono z ON COMMIT PRESERVE ROWS. Sesje A i B wstawiły do niej wiersze. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "ALTER TABLE cart ADD (note VARCHAR2(20)) się nie powiedzie, dopóki sesje mają w niej wiersze.",
+        "TRUNCATE TABLE cart w sesji A usuwa tylko wiersze A; B nadal widzi swoje wiersze.",
+        "DROP TABLE cart się powiedzie i odrzuci wiersze obu sesji.",
+        "Po COMMIT w sesji A sesja B widzi wiersze A.",
+        "Można dodać klucz obcy z cart do departments, żeby dane były spójne."
+      ],
+      "explanation": "Definicja jest wspólna, więc nie można jej zmienić ani usunąć, dopóki jakakolwiek sesja ma w tabeli wiersze: w naszych testach ADD dało ORA-14450, a DROP ORA-14452. TRUNCATE działa tylko na prywatnych wierszach sesji. Dane w tabeli tymczasowej nigdy nie są widoczne dla innych sesji, nawet po COMMIT, a tabele tymczasowe nie mogą mieć kluczy obcych (ORA-14455)."
+    },
+    "q10-external-create": {
+      "prompt": "Tworzysz tabelę zewnętrzną ORACLE_LOADER z DEFAULT DIRECTORY data_dir i LOCATION ('sales.csv'). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Jeśli obiekt katalogu data_dir nie istnieje, CREATE TABLE się nie powiedzie.",
+        "Jeśli sales.csv jeszcze nie istnieje, CREATE TABLE i tak się powiedzie; błąd pojawi się przy odpytaniu tabeli.",
+        "CREATE TABLE ładuje wiersze z sales.csv do bazy danych.",
+        "PRIMARY KEY na liście kolumn zostanie przyjęty, ale nie będzie wymuszany.",
+        "sales.csv musi leżeć na komputerze klienta, który uruchamia CREATE TABLE."
+      ],
+      "explanation": "Obiekt katalogu jest sprawdzany przy tworzeniu: w naszym teście brakujący katalog dał ORA-06564. Sam plik jest otwierany dopiero przy odczycie tabeli, więc brak pliku powoduje błąd w czasie zapytania (zgodnie z dokumentacją). Zapisywane są tylko metadane; plik jest czytany przy każdym zapytaniu. Ograniczenia (constraints) kluczy są od razu odrzucane (ORA-30657, operation not supported on external organized table), a katalog wskazuje ścieżkę na serwerze bazy danych."
+    },
+    "q10-external-copy": {
+      "prompt": "ext_sales to tabela zewnętrzna. Potrzebujesz trwałej kopii jej danych, którą można indeksować i zmieniać. Co robisz?",
+      "options": [
+        "CREATE TABLE sales AS SELECT * FROM ext_sales;",
+        "ALTER TABLE ext_sales ORGANIZATION HEAP;",
+        "CREATE INDEX ext_sales_ix ON ext_sales (sale_id);",
+        "UPDATE ext_sales SET amount = amount; żeby załadować wiersze do bazy danych"
+      ],
+      "explanation": "Tabela zewnętrzna jest tylko do odczytu i opisuje plik, więc zwykle ładuje się ją przez CTAS (albo INSERT ... SELECT do istniejącej tabeli); nową tabelę typu heap można potem indeksować i zmieniać. Nie ma klauzuli, która zamienia tabelę zewnętrzną w tabelę heap, tabel zewnętrznych nie można indeksować, a DML na nich nie jest obsługiwany."
+    },
+    "q10-external-drivers": {
+      "prompt": "Które dwa stwierdzenia o sterownikach dostępu i opcjach tabel zewnętrznych są prawdziwe?",
+      "options": [
+        "ORACLE_LOADER czyta pliki tekstowe opisane przez ACCESS PARAMETERS o składni podobnej do SQL*Loadera.",
+        "ORACLE_DATAPUMP potrafi wyładować dane: CREATE TABLE ... ORGANIZATION EXTERNAL (TYPE ORACLE_DATAPUMP ...) AS SELECT zapisuje plik dump.",
+        "ORACLE_LOADER potrafi wyładować wyniki zapytania do pliku CSV przez CREATE TABLE ... AS SELECT.",
+        "Bez klauzuli REJECT LIMIT źle sformatowane rekordy są po cichu pomijane.",
+        "Sterownik dostępu wybiera się klauzulą DEFAULT DIRECTORY."
+      ],
+      "explanation": "ORACLE_LOADER działa tylko do odczytu i parsuje pliki tekstowe; ORACLE_DATAPUMP czyta i zapisuje binarne pliki dump i właśnie tak wyładowuje się dane przez tabelę zewnętrzną. Domyślny REJECT LIMIT to 0, więc pierwszy rekord, którego nie da się załadować, kończy zapytanie błędem; REJECT LIMIT UNLIMITED pomija złe rekordy (zapisywane do pliku bad). TYPE wybiera sterownik; DEFAULT DIRECTORY wskazuje obiekt katalogu. (Zachowanie opisane w dokumentacji: użytkownik do nauki nie może tworzyć katalogów.)"
+    },
+    "q10-drop-col-composite": {
+      "prompt": "Tabela t ma CONSTRAINT t_pk PRIMARY KEY (id, code) i żaden klucz obcy na nią nie wskazuje. Co się stanie?",
+      "options": [
+        "Polecenie kończy się błędem ORA-12991: column is referenced in a multi-column constraint.",
+        "code zostanie usunięta, a klucz główny zmieni się na (id).",
+        "code zostanie usunięta, a t_pk wyłączone.",
+        "code zostanie usunięta razem z t_pk, bez żadnego komunikatu."
+      ],
+      "explanation": "Kolumny, która należy do wielokolumnowego ograniczenia (constraint), czyli klucza głównego, klucza unikalnego albo CHECK na kilku kolumnach, nie można samodzielnie usunąć ani oznaczyć jako nieużywanej: ORA-12991. Z CASCADE CONSTRAINTS usuwana jest kolumna i całe ograniczenie; Oracle nigdy nie zawęża klucza do pozostałych kolumn ani nie zostawia go wyłączonego. Sprawdzone na 19c i 23ai."
+    },
+    "q10-unused-name-reuse": {
+      "prompt": "Tabela t ma kolumny id, note i code. Uruchamiasz ALTER TABLE t SET UNUSED (note). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "ALTER TABLE t ADD (note DATE) się powiedzie.",
+        "USER_TAB_COLUMNS już nie pokazuje note, ale USER_TAB_COLS nadal pokazuje ukrytą kolumnę z nazwą nadaną przez system.",
+        "ALTER TABLE t DROP COLUMN note fizycznie usuwa nieużywaną kolumnę.",
+        "SELECT note FROM t nadal działa, dopóki nie zostanie wykonane DROP UNUSED COLUMNS.",
+        "ALTER TABLE t SET USED (note) przywraca kolumnę."
+      ],
+      "explanation": "Nieużywana kolumna traci nazwę (zmieniono ją na SYS_C00002_...$ i ukryto), więc nazwy można od razu użyć ponownie. Ponieważ nazwy już nie ma, DROP COLUMN note i SELECT note dają ORA-00904; żeby usunąć kolumnę, użyj ALTER TABLE t DROP UNUSED COLUMNS. Nie ma SET USED: kolumny nie da się odzyskać."
+    },
+    "q10-drop-column-effects": {
+      "prompt": "Które trzy stwierdzenia o usuwaniu kolumn i SET UNUSED są prawdziwe?",
+      "options": [
+        "Usunięcie kolumny usuwa też indeks zbudowany tylko na tej kolumnie.",
+        "SET UNUSED na kolumnie klucza głównego, na który wskazuje klucz obcy, się nie powiedzie bez dodania CASCADE CONSTRAINTS.",
+        "SET UNUSED (id, code, note) na tabeli, która ma dokładnie te trzy kolumny, się nie powiedzie.",
+        "DROP COLUMN działa na tabeli READ ONLY, bo zmienia się tylko słownik danych.",
+        "Usunięcie kolumny użytej w dwukolumnowym ograniczeniu (constraint) CHECK zostawia ograniczenie na pozostałej kolumnie."
+      ],
+      "explanation": "Nasze testy: indeks na usuniętej kolumnie zniknął; SET UNUSED na kolumnie klucza tabeli nadrzędnej dawało ORA-12992, dopóki nie dodano CASCADE CONSTRAINTS (co usunęło też klucz obcy w tabeli podrzędnej); a tabela musi zachować jakąś kolumnę (ORA-12983). Tabela READ ONLY odrzuca DROP COLUMN i SET UNUSED (ORA-12081), a kolumna w wielokolumnowym CHECK daje ORA-12991 zamiast przepisania warunku."
+    },
+    "q10-deferred-pk-commit": {
+      "prompt": "Co się stanie po wykonaniu tych poleceń?",
+      "options": [
+        "COMMIT kończy się błędem ORA-02091 (transaction rolled back), a t jest pusta.",
+        "Drugi INSERT kończy się błędem ORA-00001.",
+        "COMMIT się powiedzie, a t zawiera dwa wiersze z id 1.",
+        "COMMIT się powiedzie i zostawi tylko pierwszy wiersz."
+      ],
+      "explanation": "Odroczone ograniczenie (constraint) jest sprawdzane przy COMMIT, a nie po każdym poleceniu, więc oba INSERT-y się udają. Przy COMMIT duplikat zostaje wykryty i Oracle wycofuje całą transakcję: ORA-02091 z ORA-00001 jako przyczyną, a t zostaje pusta. Przy kluczu nieodraczalnym (albo INITIALLY IMMEDIATE) drugi INSERT od razu by się nie powiódł. Sprawdzone na 19c i 23ai."
+    },
+    "q10-deferrable-rules": {
+      "prompt": "Które trzy stwierdzenia o odraczalnych ograniczeniach (constraints) są prawdziwe?",
+      "options": [
+        "SET CONSTRAINT na ograniczeniu NOT DEFERRABLE z ustawieniem DEFERRED daje ORA-02447.",
+        "Ograniczenie DEFERRABLE INITIALLY DEFERRED można przełączyć na INITIALLY IMMEDIATE przez ALTER TABLE ... MODIFY CONSTRAINT.",
+        "Klucz główny DEFERRABLE jest wymuszany przez indeks nieunikalny.",
+        "ALTER TABLE ... MODIFY CONSTRAINT ... DEFERRABLE sprawia, że istniejące ograniczenie NOT DEFERRABLE staje się odraczalne.",
+        "SET CONSTRAINT ... IMMEDIATE przy oczekujących wierszach łamiących regułę wycofuje całą transakcję."
+      ],
+      "explanation": "Odraczalność ustala się przy tworzeniu ograniczenia: można zmienić tylko stan początkowy (INITIALLY IMMEDIATE / DEFERRED), a późniejsze ustawienie DEFERRABLE to błąd składni, więc trzeba ograniczenie usunąć i utworzyć od nowa. Ponieważ duplikaty mogą istnieć aż do COMMIT, indeks pod kluczem odraczalnym był NONUNIQUE. SET CONSTRAINT ... IMMEDIATE z oczekującym duplikatem dało ORA-00001, ale transakcja i jej wiersze zostały; całą transakcję wycofuje tylko nieudany COMMIT."
+    },
+    "q10-set-null-not-null": {
+      "prompt": "Kolumna podrzędna pid jest zadeklarowana jako NOT NULL REFERENCES parent (id) ON DELETE SET NULL. Usuwasz wiersz nadrzędny, który ma wiersze podrzędne. Co się stanie?",
+      "options": [
+        "DELETE kończy się błędem ORA-01407: cannot update pid to NULL.",
+        "Wiersz nadrzędny i jego wiersze podrzędne zostaną usunięte.",
+        "Wiersz nadrzędny zostanie usunięty, a wiersze podrzędne zachowają stare pid.",
+        "Już CREATE TABLE się nie powiodło, bo ON DELETE SET NULL nie można użyć na kolumnie NOT NULL."
+      ],
+      "explanation": "Oracle przyjmuje taką definicję, ale reguła usuwania musi ustawić pid na NULL, czego zabrania NOT NULL: ORA-01407, a DELETE zostaje wycofany. ON DELETE SET NULL nigdy nie usuwa wierszy podrzędnych (to robi CASCADE), a Oracle nigdy nie zostawia osieroconych wierszy. Sprawdzone na 19c i 23ai."
+    },
+    "q10-ctas-column-list": {
+      "prompt": "departments ma department_id NUMBER(4) jako klucz główny i department_name VARCHAR2(30) NOT NULL. Tabela d2 nie istnieje. Które dwa polecenia się powiodą?",
+      "explanation": "W CTAS lista kolumn zmienia nazwy kolumn i może dodać ograniczenia (constraints), tutaj klucz główny tworzony razem z tabelą, ale nie może podawać typów danych: te pochodzą z zapytania (ORA-01773). Lista musi mieć dokładnie jedną nazwę na każdą wybraną kolumnę (ORA-01730)."
+    },
+    "q10-identity-always": {
+      "prompt": "Tabela tickets ma ticket_id NUMBER GENERATED ALWAYS AS IDENTITY i title VARCHAR2(40). Co się stanie?",
+      "options": [
+        "Polecenie kończy się błędem ORA-32795: cannot insert into a generated always identity column.",
+        "Wiersz zostanie wstawiony z ticket_id 5.",
+        "Wiersz zostanie wstawiony; 5 zostanie zignorowane i użyta będzie następna wygenerowana wartość.",
+        "Polecenie kończy się błędem ORA-00001."
+      ],
+      "explanation": "GENERATED ALWAYS zabrania jawnych wartości: ORA-32795 przy INSERT i ORA-32796 przy UPDATE. GENERATED BY DEFAULT przyjmuje jawną wartość (ale jawny NULL daje ORA-01400), a BY DEFAULT ON NULL dodatkowo zamienia NULL na następną wartość. Tabela może mieć tylko jedną kolumnę identity (ORA-30669)."
+    },
+    "q10-ctas-defaults": {
+      "prompt": "Tabela t ma status VARCHAR2(10) DEFAULT 'NEW' i prio NUMBER DEFAULT ON NULL 3. Uruchamiasz CREATE TABLE t_copy AS SELECT * FROM t. Co jest prawdą o t_copy?",
+      "options": [
+        "Żadna kolumna nie ma wartości domyślnej, ale prio jest NOT NULL.",
+        "Obie kolumny zachowują wartości domyślne.",
+        "Obie kolumny zachowują wartości domyślne, ale prio dopuszcza NULL.",
+        "Żadna kolumna nie ma wartości domyślnej i obie dopuszczają NULL."
+      ],
+      "explanation": "CTAS kopiuje nazwy kolumn, typy i dane oraz ograniczenia (constraints) NOT NULL, ale nie wartości domyślne (USER_TAB_COLUMNS.DATA_DEFAULT było NULL dla obu). DEFAULT ON NULL oznacza NOT NULL na kolumnie źródłowej i to NOT NULL zostało skopiowane. Tak samo było z kolumną identity: kopia była zwykłą kolumną NUMBER z NOT NULL."
+    },
+    "q10-describe-facts": {
+      "prompt": "Które dwa stwierdzenia o opisywaniu tabeli są prawdziwe?",
+      "options": [
+        "DESCRIBE t pokazuje nazwy kolumn, typy danych i to, czy kolumna jest NOT NULL.",
+        "USER_TAB_COLUMNS.NULLABLE ma wartość 'N' dla kolumny klucza głównego, nawet bez jawnego NOT NULL.",
+        "DESCRIBE t wymienia nazwy ograniczeń (constraints) tabeli.",
+        "USER_TAB_COLUMNS wymienia kolumny ustawione jako UNUSED.",
+        "DESCRIBE t pokazuje wartość DEFAULT każdej kolumny."
+      ],
+      "explanation": "DESCRIBE (polecenie SQL*Plus / SQL Developer, a nie SQL) pokazuje tylko Name, Null? i Type; ograniczenia są w USER_CONSTRAINTS, a wartości domyślne w USER_TAB_COLUMNS.DATA_DEFAULT. Klucz główny sprawia, że jego kolumny są NOT NULL, co USER_TAB_COLUMNS pokazuje jako NULLABLE = 'N'. Nieużywane kolumny są ukryte w USER_TAB_COLUMNS i DESCRIBE."
+    },
+    "q10-lob-keys": {
+      "prompt": "Które dwie definicje kolumn w CREATE TABLE dają ORA-02329?",
+      "options": [
+        "id CLOB PRIMARY KEY",
+        "doc CLOB UNIQUE",
+        "doc CLOB NOT NULL",
+        "id RAW(16) PRIMARY KEY",
+        "ts TIMESTAMP UNIQUE"
+      ],
+      "explanation": "Kolumny LOB nie mogą być częścią klucza głównego ani ograniczenia (constraint) UNIQUE (ORA-02329: column of datatype LOB cannot be unique or a primary key), bo nie można ich porównywać ani indeksować zwykłym indeksem B-tree. NOT NULL na kolumnie LOB jest w porządku, a kolumny RAW i TIMESTAMP mogą być kluczami. Sprawdzone na 19c i 23ai."
+    }
+  },
+  "labs": {
+    "lab-create-projects": {
+      "title": "Utwórz tabelę projektów",
+      "task": "Utwórz tabelę lab_projects z kolumnami: project_id NUMBER(6) jako klucz główny, project_name VARCHAR2(40) NOT NULL, budget NUMBER(10,2) oraz department_id NUMBER(4) jako klucz obcy do departments.",
+      "hint": "Ograniczenia (constraints) na poziomie kolumny: CONSTRAINT name PRIMARY KEY, NOT NULL i REFERENCES table (column) dla klucza obcego.",
+      "hint2": "Kolumna klucza głównego jest automatycznie NOT NULL. Sprawdzarka porównuje typy kolumn, dopuszczalność NULL oraz ograniczenia P i R, a nie nazwy ograniczeń."
+    },
+    "lab-create-assignments": {
+      "title": "Klucz złożony i ograniczenie (constraint) CHECK",
+      "task": "Utwórz tabelę lab_t10_assignments z kolumnami: employee_id NUMBER(6) (klucz obcy do employees), project_code VARCHAR2(10), hours NUMBER(5,1) z CHECK, że hours jest większe od 0, oraz role VARCHAR2(20) NOT NULL. Kluczem głównym jest para (employee_id, project_code).",
+      "hint": "Dwukolumnowy klucz główny musi być ograniczeniem na poziomie tabeli (out of line): CONSTRAINT name PRIMARY KEY (col1, col2).",
+      "hint2": "CHECK i klucz obcy mogą zostać przy kolumnach (inline): hours NUMBER(5,1) CHECK (hours > 0), employee_id NUMBER(6) REFERENCES employees (employee_id). Kolumny klucza głównego automatycznie stają się NOT NULL."
+    },
+    "lab-alter-contacts": {
+      "title": "Zmień kolumny przez ALTER TABLE",
+      "task": "Utwórz tabelę lab_t10_contacts (contact_id NUMBER(6) PRIMARY KEY, full_name VARCHAR2(20)). Następnie poleceniami ALTER TABLE dodaj kolumnę phone VARCHAR2(20), poszerz full_name do VARCHAR2(60) i ustaw full_name jako NOT NULL.",
+      "hint": "ALTER TABLE t ADD (col type) dodaje kolumnę; ALTER TABLE t MODIFY (col ...) zmienia istniejącą.",
+      "hint2": "NOT NULL dodajesz przez MODIFY, a nie ADD CONSTRAINT. Rozmiar i NOT NULL mogą być w jednej klauzuli: MODIFY (full_name VARCHAR2(60) NOT NULL)."
+    },
+    "lab-archive-unused": {
+      "title": "SET UNUSED i DROP COLUMN",
+      "task": "Utwórz lab_t10_emp_archive jako kopię (CREATE TABLE ... AS SELECT) kolumn employee_id, last_name, salary, commission_pct i job_title z employees. Następnie oznacz commission_pct jako nieużywaną i usuń kolumnę job_title.",
+      "hint": "ALTER TABLE t SET UNUSED (col) ukrywa kolumnę; ALTER TABLE t DROP COLUMN col usuwa ją fizycznie.",
+      "hint2": "Sprawdzarka czyta USER_TAB_COLUMNS (nieużywane kolumny z niego znikają) i USER_UNUSED_COL_TABS (oczekiwana jest jedna nieużywana kolumna)."
+    },
+    "lab-dept-summary-ctas": {
+      "title": "Tabela podsumowania przez CTAS",
+      "task": "Utwórz tabelę lab_t10_dept_summary przez CREATE TABLE ... AS SELECT. Ma mieć jeden wiersz na każdy dział, który ma pracowników (pomiń pracowników bez działu), z kolumnami department_id, headcount (liczba pracowników) i total_salary (suma pensji).",
+      "hint": "Wyrażenia takie jak COUNT(*) wymagają w CTAS aliasu kolumny, inaczej dostaniesz ORA-00998.",
+      "hint2": "CREATE TABLE lab_t10_dept_summary AS SELECT e.department_id, COUNT(*) AS headcount, SUM(e.salary) AS total_salary FROM employees e WHERE ... GROUP BY e.department_id;"
+    },
+    "lab-emp-copy-constraints": {
+      "title": "Dodaj ograniczenia (constraints) do skopiowanej tabeli",
+      "task": "Utwórz lab_t10_emp_copy przez CREATE TABLE ... AS SELECT employee_id, last_name, email, salary, department_id FROM employees. CTAS nie kopiuje żadnych kluczy, więc dodaj je przez ALTER TABLE: klucz główny na employee_id, ograniczenie UNIQUE na email, CHECK, że salary jest większe od 0, oraz klucz obcy z department_id do departments.",
+      "hint": "ALTER TABLE t ADD CONSTRAINT name PRIMARY KEY (col); ten sam wzorzec działa dla UNIQUE (col), CHECK (condition) i FOREIGN KEY (col) REFERENCES parent (col).",
+      "hint2": "Istniejące wiersze są sprawdzane przy dodawaniu każdego ograniczenia, a przykładowe dane spełniają wszystkie cztery. NOT NULL na last_name kopiuje CTAS, więc już tam jest."
+    },
+    "lab-gtt-cart": {
+      "title": "Tabela tymczasowa na czas sesji",
+      "task": "Utwórz globalną tabelę tymczasową lab_t10_cart z kolumnami product_id NUMBER(6) i quantity NUMBER(5), której wiersze zostają przez całą sesję i przetrwają COMMIT.",
+      "hint": "CREATE GLOBAL TEMPORARY TABLE name (...) ON COMMIT ... ;",
+      "hint2": "Domyślne ON COMMIT DELETE ROWS trzyma wiersze przez jedną transakcję (DURATION SYS$TRANSACTION). Na całą sesję użyj ON COMMIT PRESERVE ROWS (SYS$SESSION)."
+    },
+    "lab-teams-set-null": {
+      "title": "Tabela nadrzędna i podrzędna z ON DELETE SET NULL",
+      "task": "Utwórz lab_t10_teams (team_id NUMBER(4) jako klucz główny, team_name VARCHAR2(30) NOT NULL i unikalne) oraz lab_t10_members (member_id NUMBER(6) jako klucz główny, member_name VARCHAR2(40) NOT NULL, team_id NUMBER(4) jako klucz obcy do lab_t10_teams). Usunięcie zespołu musi ustawić team_id jego członków na NULL.",
+      "hint": "Najpierw utwórz tabelę nadrzędną; klucz obcy wymaga, żeby jej klucz główny już istniał.",
+      "hint2": "Dodaj ON DELETE SET NULL po REFERENCES lab_t10_teams (team_id). Sprawdzarka pokazuje regułę usuwania obok ograniczenia (constraint) R."
+    },
+    "lab-read-only-grades": {
+      "title": "Zamroź tabelę referencyjną",
+      "task": "Utwórz lab_t10_grades jako kopię wszystkich wierszy i kolumn salary_grades (CREATE TABLE ... AS SELECT), a potem ustaw ją jako tylko do odczytu, żeby żaden DML nie mógł jej zmienić.",
+      "hint": "ALTER TABLE t READ ONLY; cofasz to przez ALTER TABLE t READ WRITE.",
+      "hint2": "USER_TABLES.READ_ONLY pokazuje YES dla tabeli tylko do odczytu. Taką tabelę nadal można usunąć i właśnie tak sprawdzarka po sobie sprząta."
+    },
+    "lab-n10-deferred-shipments": {
+      "title": "Klucz odraczalny i kaskadowy klucz obcy",
+      "task": "Utwórz lab_n10_shipments z kolumnami: ship_id NUMBER(6) jako klucz główny DEFERRABLE INITIALLY DEFERRED, order_id NUMBER(8) NOT NULL jako klucz obcy do orders, którego wiersze podrzędne są usuwane razem z zamówieniem, oraz weight NUMBER(7,2) z CHECK, że weight jest większe od 0.",
+      "hint": "Odraczalność zapisuje się po ograniczeniu (constraint): CONSTRAINT name PRIMARY KEY DEFERRABLE INITIALLY DEFERRED. Nie da się jej dodać później przez ALTER TABLE.",
+      "hint2": "Klucz obcy potrzebuje ON DELETE CASCADE po REFERENCES orders (order_id). Sprawdzarka pokazuje DEFERRABLE/DEFERRED i regułę usuwania każdego ograniczenia."
+    },
+    "lab-n10-identity-tickets": {
+      "title": "Kolumna identity i wartości domyślne",
+      "task": "Utwórz lab_n10_tickets z kolumnami: ticket_id NUMBER jako kolumna identity, która nigdy nie przyjmuje jawnych wartości (GENERATED ALWAYS) i jest kluczem głównym, title VARCHAR2(80) NOT NULL, status VARCHAR2(10), który przyjmuje 'OPEN', gdy zostanie pominięty albo podany jako NULL, oraz opened DATE z wartością domyślną SYSDATE.",
+      "hint": "ticket_id NUMBER GENERATED ALWAYS AS IDENTITY ...; zwykłe DEFAULT nie zastępuje jawnego NULL, ale DEFAULT ON NULL tak.",
+      "hint2": "status VARCHAR2(10) DEFAULT ON NULL 'OPEN' (to ustawia też NOT NULL), opened DATE DEFAULT SYSDATE. Sprawdzarka czyta IDENTITY_COLUMN, DEFAULT_ON_NULL i NULLABLE z USER_TAB_COLUMNS."
+    },
+    "lab-n10-unused-reuse": {
+      "title": "Wycofaj kolumnę i użyj ponownie jej nazwy",
+      "task": "Utwórz lab_n10_staff jako kopię (CREATE TABLE ... AS SELECT) kolumn employee_id, last_name, job_title i commission_pct z employees. Oznacz commission_pct jako nieużywaną, potem dodaj nową kolumnę commission_pct NUMBER(4,2), a na koniec fizycznie usuń kolumnę job_title.",
+      "hint": "SET UNUSED ukrywa kolumnę i zwalnia jej nazwę, więc ADD może utworzyć nową kolumnę o tej samej nazwie.",
+      "hint2": "ALTER TABLE lab_n10_staff SET UNUSED (commission_pct); ALTER TABLE lab_n10_staff ADD (commission_pct NUMBER(4,2)); ALTER TABLE lab_n10_staff DROP COLUMN job_title; Nowa kolumna jest pusta. DROP COLUMN usuwa też wszystkie nieużywane kolumny tabeli, więc potem USER_UNUSED_COL_TABS już nie pokazuje lab_n10_staff."
+    }
+  }
+}

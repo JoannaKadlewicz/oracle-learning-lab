@@ -1,0 +1,527 @@
+{
+  "questions": {
+    "q11-check-option": {
+      "prompt": "Które stwierdzenie o widokach jest prawdziwe?",
+      "options": [
+        "Przez widok, który zawiera DISTINCT, zawsze można wstawiać wiersze.",
+        "WITH CHECK OPTION odrzuca INSERT i UPDATE, które dałyby wiersze, jakich widok nie może wybrać.",
+        "Usunięcie widoku usuwa też jego tabele bazowe, jeśli żaden inny widok się do nich nie odwołuje.",
+        "Definicja widoku nie może zawierać ORDER BY."
+      ],
+      "explanation": "WITH CHECK OPTION wymusza klauzulę WHERE widoku dla DML wykonywanego przez widok. Widoki z DISTINCT, GROUP BY, funkcjami grupowymi albo ROWNUM nie są modyfikowalne. Usunięcie widoku nigdy nie rusza tabel bazowych. ORDER BY jest dozwolone w definicji widoku."
+    },
+    "q11-currval": {
+      "prompt": "W nowej sesji uruchamiasz SELECT order_seq.CURRVAL FROM dual przed jakimkolwiek NEXTVAL. Co się stanie?",
+      "options": [
+        "Zwróci wartość START WITH sekwencji",
+        "Zwróci NULL",
+        "Zgłosi ORA-08002: sequence CURRVAL is not yet defined in this session",
+        "Zwróci ostatnią wartość użytą przez dowolną sesję"
+      ],
+      "explanation": "CURRVAL zależy od sesji: zwraca wartość ostatniego NEXTVAL w twojej sesji, więc najpierw trzeba odwołać się do NEXTVAL."
+    },
+    "q11-seq-gaps": {
+      "prompt": "Transakcja wywołuje order_seq.NEXTVAL (zwraca 10), a potem zostaje wycofana. Co zwróci następne NEXTVAL?",
+      "options": [
+        "10",
+        "11 (zakładając INCREMENT BY 1 i brak wpływu cache innych sesji)",
+        "9",
+        "Błąd"
+      ],
+      "explanation": "Sekwencje nie podlegają transakcjom: wygenerowana wartość przepada, nawet jeśli transakcja zostanie wycofana. Luki są normalne; nigdy nie zakładaj, że sekwencja nie ma luk."
+    },
+    "q11-invisible-index": {
+      "prompt": "Które stwierdzenie o niewidocznym indeksie jest prawdziwe?",
+      "options": [
+        "Nie jest aktualizowany przez DML.",
+        "Jest aktualizowany przez DML, ale optymalizator go pomija, chyba że OPTIMIZER_USE_INVISIBLE_INDEXES ma wartość TRUE.",
+        "Nie można go z powrotem uczynić widocznym.",
+        "Jest automatycznie usuwany przy następnym COMMIT."
+      ],
+      "explanation": "Niewidoczne indeksy są nadal aktualizowane przez DML, więc możesz sprawdzić skutek usunięcia indeksu bez jego usuwania. ALTER INDEX ... VISIBLE go przywraca."
+    },
+    "q11-gtt": {
+      "prompt": "Globalną tabelę tymczasową utworzono z ON COMMIT DELETE ROWS. Co jest prawdą?",
+      "options": [
+        "Jej wiersze są widoczne dla wszystkich sesji aż do COMMIT.",
+        "Każda sesja widzi tylko swoje wiersze, a znikają one, gdy ta sesja zrobi COMMIT.",
+        "Definicja tabeli jest usuwana przy COMMIT.",
+        "Jej wiersze przetrwają do restartu bazy danych."
+      ],
+      "explanation": "Definicja jest trwała i wspólna; dane są prywatne dla każdej sesji. ON COMMIT DELETE ROWS trzyma wiersze przez transakcję; ON COMMIT PRESERVE ROWS trzyma je przez sesję."
+    },
+    "q11-synonym": {
+      "prompt": "Które stwierdzenie o synonimach jest prawdziwe?",
+      "options": [
+        "Utworzenie synonimu nadaje dostęp do obiektu, na który wskazuje.",
+        "Dla właściciela synonim prywatny ma pierwszeństwo przed synonimem publicznym o tej samej nazwie.",
+        "Synonimy można tworzyć tylko dla tabel.",
+        "Usunięcie tabeli automatycznie usuwa wszystkie synonimy, które na nią wskazują."
+      ],
+      "explanation": "Rozwiązywanie nazw sprawdza obiekty twojego schematu (w tym synonimy prywatne) przed synonimami publicznymi. Synonim to tylko alias: uprawnienia są nadal potrzebne. Synonimy mogą wskazywać na widoki, sekwencje, procedury i inne obiekty, a po usunięciu celu zostają (jako nieprawidłowe)."
+    },
+    "q11-inline-check-option": {
+      "prompt": "Co się stanie po wykonaniu tego polecenia?",
+      "options": [
+        "Wiersz zostanie wstawiony do employees z department_id 20.",
+        "ORA-01402: view WITH CHECK OPTION where-clause violation",
+        "ORA-01732: data manipulation operation not legal on this view",
+        "Wiersz zostanie wstawiony, ale nie będzie widoczny przez podzapytanie."
+      ],
+      "explanation": "WITH CHECK OPTION działa tak samo dla widoku i dla podzapytania użytego jako cel DML: nowego wiersza z department_id 20 nie wybierze WHERE department_id = 30, więc Oracle zgłasza ORA-01402. Bez tej opcji wiersz zostałby wstawiony i po prostu byłby niewidoczny przez widok. ORA-01732 dotyczy widoków, które w ogóle nie są modyfikowalne (DISTINCT, GROUP BY ...)."
+    },
+    "q11-not-updatable": {
+      "prompt": "Widok jest oparty tylko na tabeli employees. Które trzy elementy jego zapytania definiującego sprawiają, że UPDATE kolumny salary przez widok się nie powiedzie?",
+      "options": [
+        "SELECT DISTINCT",
+        "GROUP BY department_id",
+        "Pseudokolumna ROWNUM na liście SELECT",
+        "Klauzula WHERE na department_id",
+        "Alias kolumny dla salary",
+        "ORDER BY last_name"
+      ],
+      "explanation": "DISTINCT, GROUP BY (i funkcje grupowe) oraz ROWNUM sprawiają, że wiersz widoku nie odpowiada już dokładnie jednemu wierszowi tabeli, więc DML daje ORA-01732. Klauzula WHERE, aliasy kolumn i ORDER BY zachowują odwzorowanie jeden wiersz na jeden wiersz, więc widok pozostaje modyfikowalny."
+    },
+    "q11-key-preserved": {
+      "prompt": "Co się stanie po wykonaniu tego polecenia?",
+      "options": [
+        "Każdy dział, który ma co najmniej jednego pracownika, dostanie nazwę Ops.",
+        "Każdy wiersz departments dostanie nazwę Ops, także działy bez pracowników.",
+        "ORA-01779: cannot modify a column which maps to a non key-preserved table",
+        "ORA-01732: data manipulation operation not legal on this view"
+      ],
+      "explanation": "W widoku ze złączeniem (JOIN) można zmieniać tylko tabele z zachowanym kluczem (key-preserved): employees ma zachowany klucz (każdy pracownik występuje najwyżej raz), departments nie (dział powtarza się raz na każdego pracownika). Zmiana department_name daje ORA-01779. Zmiana e.salary przez ten sam JOIN działa. (Oracle 21c i nowsze pozwalają na taki UPDATE, gdy każdy wiersz docelowy jest zmieniany tylko raz, a w przeciwnym razie zgłaszają ORA-30926; egzamin dotyczy 19c.)"
+    },
+    "q11-view-alias-required": {
+      "prompt": "Co się stanie, gdy uruchomisz to polecenie?",
+      "options": [
+        "Widok zostanie utworzony z kolumną o nazwie SALARY*12.",
+        "Widok zostanie utworzony z kolumną o nazwie SALARY.",
+        "ORA-00998: must name this expression with a column alias",
+        "Widok zostanie utworzony, ale będzie INVALID, dopóki kolumna nie dostanie nazwy."
+      ],
+      "explanation": "Zwykłe zapytanie może zwrócić wyrażenie bez nazwy, ale każda kolumna widoku potrzebuje poprawnej nazwy. Nadaj wyrażeniu alias (salary * 12 AS annual_salary) albo wymień nazwy po nazwie widoku: CREATE VIEW emp_annual (employee_id, annual_salary) AS ..."
+    },
+    "q11-replace-vs-alter": {
+      "prompt": "Które dwa stwierdzenia o zmianie widoku są prawdziwe?",
+      "options": [
+        "CREATE OR REPLACE VIEW zmienia definicję i zachowuje uprawnienia obiektowe nadane na widok.",
+        "ALTER VIEW v AS SELECT ... zastępuje zapytanie definiujące.",
+        "ALTER VIEW v COMPILE ponownie kompiluje nieprawidłowy widok.",
+        "CREATE OR REPLACE VIEW kończy się błędem, jeśli widok już istnieje; najpierw trzeba go usunąć.",
+        "CREATE OR REPLACE VIEW może też zastąpić tabelę o tej samej nazwie."
+      ],
+      "explanation": "Żeby zmienić zapytanie widoku, tworzysz go ponownie przez CREATE OR REPLACE, co zachowuje nadane uprawnienia (DROP i CREATE by je utraciły). ALTER VIEW nie zmieni zapytania (ALTER VIEW ... AS daje ORA-00922); służy tylko do ponownej kompilacji albo zarządzania ograniczeniami (constraints) widoku. OR REPLACE zastępuje tylko widok: dla nazwy tabeli daje ORA-00955."
+    },
+    "q11-force-view": {
+      "prompt": "Tabela lab_audit nie istnieje. Uruchamiasz CREATE FORCE VIEW audit_v AS SELECT * FROM lab_audit. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Widok zostanie utworzony, a USER_OBJECTS pokaże go ze STATUS 'INVALID'.",
+        "Polecenie kończy się błędem ORA-00942, bo tabela nie istnieje.",
+        "Oracle tworzy pustą tabelę lab_audit.",
+        "Po utworzeniu lab_audit następne zapytanie do audit_v automatycznie skompiluje widok ponownie.",
+        "FORCE pozwala, żeby DML przez widok ignorował WITH CHECK OPTION."
+      ],
+      "explanation": "FORCE tworzy widok nawet wtedy, gdy brakuje tabel bazowych albo uprawnień; widok jest zapisywany z błędami kompilacji i STATUS INVALID. Bez FORCE (domyślnie NOFORCE) polecenie kończy się błędem ORA-00942. Gdy tabela już istnieje, następne odwołanie ponownie kompiluje widok i staje się on VALID. FORCE nie ma nic wspólnego z CHECK OPTION."
+    },
+    "q11-drop-view": {
+      "prompt": "Widok v1 pobiera dane z employees, a widok v2 z v1. Uruchamiasz DROP VIEW v1. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Tabela employees i jej wiersze pozostają bez zmian.",
+        "v2 nadal istnieje, ale staje się INVALID; zapytanie do niego daje błąd.",
+        "v2 też zostaje usunięty.",
+        "DROP VIEW v1 kończy się błędem, bo v2 od niego zależy; potrzebujesz CASCADE.",
+        "Wiersze, które pokazywał v1, zostają usunięte z employees."
+      ],
+      "explanation": "Widok przechowuje tylko zapytanie, więc jego usunięcie nigdy nie rusza danych. Widoki zależne nie są usuwane: zostają w słowniku danych jako INVALID, a zapytania do nich dają ORA-04063, dopóki v1 znów nie istnieje. DROP VIEW v1 CASCADE to błąd składni (ORA-00905); jedyna taka opcja, CASCADE CONSTRAINTS, dotyczy ograniczeń (constraints) referencyjnych, a nie widoków zależnych."
+    },
+    "q11-read-only-view": {
+      "prompt": "Widok emp_ro utworzono z WITH READ ONLY. Co robi DELETE FROM emp_ro WHERE employee_id = 108 w Oracle 19c?",
+      "options": [
+        "Usuwa pracownika 108 z employees",
+        "Zgłasza ORA-42399: cannot perform a DML operation on a read-only view",
+        "Zgłasza ORA-01402: view WITH CHECK OPTION where-clause violation",
+        "Nic nie usuwa i zgłasza 0 usuniętych wierszy"
+      ],
+      "explanation": "WITH READ ONLY blokuje INSERT, UPDATE, DELETE i MERGE przez widok; 19c zgłasza ORA-42399 (starsze wersje zgłaszały w tym przypadku ORA-01733). ORA-01402 należy do WITH CHECK OPTION. Tabelę bazową nadal można zmieniać bezpośrednio. Podzapytanie użyte jako cel DML przyjmuje tę samą klauzulę, co pokazuje przykład."
+    },
+    "q11-seq-defaults": {
+      "prompt": "Uruchamiasz CREATE SEQUENCE ticket_seq; bez żadnych opcji. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Pierwsze NEXTVAL zwraca 1.",
+        "Sekwencja trzyma w pamięci (cache) 20 wartości.",
+        "Pierwsze NEXTVAL zwraca 0.",
+        "Po 999999 sekwencja wraca do 1.",
+        "Sekwencja jest tworzona z NOCACHE."
+      ],
+      "explanation": "Wartości domyślne: START WITH 1 (MINVALUE 1), INCREMENT BY 1, MAXVALUE 9999999999999999999999999999 (28 dziewiątek), NOCYCLE, CACHE 20, NOORDER. USER_SEQUENCES pokazuje CACHE_SIZE 20 i CYCLE_FLAG N."
+    },
+    "q11-cycle-minvalue": {
+      "prompt": "W nowej sesji wywołujesz step_seq.NEXTVAL cztery razy. Co zwróci czwarte wywołanie?",
+      "options": [
+        "1",
+        "5",
+        "20",
+        "ORA-08004: sequence exceeds MAXVALUE"
+      ],
+      "explanation": "Wartości to 5, 10, 15, a potem sekwencja zaczyna nowy cykl. Sekwencja rosnąca wraca do MINVALUE (1), a nie do START WITH (5). NOCYCLE zamiast tego dałoby ORA-08004. Przy CACHE cache musi mieścić mniej wartości niż jeden cykl, inaczej CREATE kończy się błędem ORA-04013."
+    },
+    "q11-nextval-allowed": {
+      "prompt": "W których trzech miejscach można odwołać się do order_seq.NEXTVAL?",
+      "options": [
+        "W klauzuli VALUES polecenia INSERT",
+        "Na liście SELECT zapytania najwyższego poziomu",
+        "W klauzuli SET polecenia UPDATE",
+        "W klauzuli WHERE zapytania SELECT",
+        "Na liście SELECT zapytania SELECT DISTINCT",
+        "W zapytaniu definiującym widok"
+      ],
+      "explanation": "NEXTVAL i CURRVAL są dozwolone na liście SELECT zapytania najwyższego poziomu, w VALUES polecenia INSERT albo na liście SELECT podzapytania w INSERT, oraz w SET polecenia UPDATE. Nie są dozwolone w WHERE, w zapytaniu z DISTINCT, GROUP BY, ORDER BY albo operatorem zbiorowym, w podzapytaniu ani w definicji widoku (ORA-02287: sequence number not allowed here)."
+    },
+    "q11-nextval-same-row": {
+      "prompt": "Sekwencję seq_a właśnie utworzono z opcjami domyślnymi i nigdy jej nie użyto. Co zwraca to zapytanie w nowej sesji?",
+      "options": [
+        "1, 1, 1",
+        "1, 1, 2",
+        "1, 2, 3",
+        "ORA-08002: sequence SEQ_A.CURRVAL is not yet defined in this session"
+      ],
+      "explanation": "W obrębie jednego wiersza każde odwołanie do NEXTVAL zwraca tę samą nową wartość, a CURRVAL w tym samym poleceniu też zwraca tę wartość, chociaż wcześniej w sesji nie było żadnego NEXTVAL. Sekwencja przesuwa się raz na wiersz, a nie raz na odwołanie."
+    },
+    "q11-alter-sequence": {
+      "prompt": "Sekwencję inv_seq utworzono z START WITH 1 INCREMENT BY 1 i wydała już wartość 50. Które dwa polecenia się nie powiodą?",
+      "explanation": "START WITH nie da się zmienić (ORA-02283); żeby zacząć od nowa, usuń sekwencję i utwórz ją ponownie (18c i nowsze przyjmują też klauzulę RESTART). MAXVALUE nie można ustawić poniżej bieżącej wartości (ORA-04009). INCREMENT BY, CYCLE i CACHE można zmienić i wpływa to tylko na przyszłe wartości."
+    },
+    "q11-auto-indexes": {
+      "prompt": "Które dwa ograniczenia (constraints) sprawiają, że Oracle automatycznie tworzy indeks, gdy nie istnieje odpowiedni indeks?",
+      "options": [
+        "PRIMARY KEY",
+        "UNIQUE",
+        "FOREIGN KEY",
+        "NOT NULL",
+        "CHECK"
+      ],
+      "explanation": "Ograniczenia PRIMARY KEY i UNIQUE są wymuszane przez indeks, który dostaje nazwę ograniczenia. Klucze obce nie są indeksowane automatycznie (zaindeksuj je sam, żeby uniknąć problemów z blokadami i wolnego usuwania wierszy z tabeli nadrzędnej). NOT NULL i CHECK nie potrzebują indeksu. W przykładowym schemacie employees ma dokładnie dwa indeksy: EMPLOYEES_PK i EMPLOYEES_EMAIL_UK."
+    },
+    "q11-drop-pk-index": {
+      "prompt": "Tabela lab_dept ma ograniczenie (constraint) klucza głównego lab_dept_pk, wymuszane przez automatycznie utworzony indeks LAB_DEPT_PK. Co robi DROP INDEX lab_dept_pk?",
+      "options": [
+        "Usuwa indeks i ograniczenie klucza głównego",
+        "Usuwa indeks; ograniczenie zostaje i jest sprawdzane pełnymi skanami",
+        "Zgłasza ORA-02429: cannot drop index used for enforcement of unique/primary key",
+        "Usuwa indeks i wyłącza ograniczenie"
+      ],
+      "explanation": "Indeksu, który wymusza ograniczenie PRIMARY KEY albo UNIQUE, nie można usunąć bezpośrednio. Zamiast tego usuń albo wyłącz ograniczenie (ALTER TABLE lab_dept DROP PRIMARY KEY), co usuwa indeks utworzony dla niego przez Oracle."
+    },
+    "q11-function-based": {
+      "prompt": "Zapytania filtrują przez WHERE UPPER(last_name) = 'KING'. Którego indeksu optymalizator może użyć dla tego predykatu?",
+      "explanation": "Indeks funkcyjny przechowuje wynik wyrażenia, więc pasuje do predykatów, które używają tego samego wyrażenia. Zwykły indeks na last_name nie jest używany, gdy kolumna jest opakowana funkcją. Pozostałe dwie opcje to niepoprawna składnia. USER_INDEXES pokazuje INDEX_TYPE 'FUNCTION-BASED NORMAL', a USER_IND_EXPRESSIONS przechowuje wyrażenie."
+    },
+    "q11-composite-index": {
+      "prompt": "Wykonujesz CREATE INDEX lab_emp_dept_sal_ix ON lab_emp (department_id, salary). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "USER_IND_COLUMNS pokazuje dla indeksu dwa wiersze, z COLUMN_POSITION 1 i 2.",
+        "Indeksu można użyć dla WHERE department_id = 30.",
+        "Indeks nie dopuszcza dwóch wierszy z tym samym department_id i salary.",
+        "Drugi indeks na (salary, department_id) kończy się błędem ORA-01408.",
+        "Indeks tworzy też ograniczenie (constraint) NOT NULL na obu kolumnach."
+      ],
+      "explanation": "Indeks złożony ma w USER_IND_COLUMNS jeden wiersz na kolumnę, a jego wiodącej kolumny można używać samodzielnie. Jest nieunikalny, chyba że utworzysz go przez CREATE UNIQUE INDEX, i nie dodaje żadnego ograniczenia. ORA-01408 (such column list already indexed) dotyczy tylko tych samych kolumn w tej samej kolejności; inna kolejność to inny indeks. Przykład pokazuje indeks złożonego klucza głównego order_items."
+    },
+    "q11-unique-index-nulls": {
+      "prompt": "Unikalność employees.email wymusza unikalny indeks EMPLOYEES_EMAIL_UK, a jeden istniejący wiersz ma już email równy NULL. Co się stanie, gdy wstawisz kolejnego pracownika z email równym NULL (wszystkie inne wartości są poprawne)?",
+      "options": [
+        "Wiersz zostanie wstawiony: jednokolumnowy indeks unikalny ignoruje wartości NULL.",
+        "ORA-00001: unique constraint (ORASTUDY.EMPLOYEES_EMAIL_UK) violated",
+        "ORA-01400: cannot insert NULL",
+        "Wiersz zostanie wstawiony, a indeks oznaczony jako UNUSABLE."
+      ],
+      "explanation": "Klucze złożone w całości z NULL nie są zapisywane w indeksie B-tree, więc dowolnie wiele wierszy może mieć email równy NULL. Dwa równe emaile różne od NULL dają ORA-00001. UNIQUE nie oznacza NOT NULL; oznacza to tylko klucz główny."
+    },
+    "q11-drop-table-deps": {
+      "prompt": "Na tabeli lab_parts zbudowano indeks, widok i synonim prywatny. Uruchamiasz DROP TABLE lab_parts PURGE. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Indeks na lab_parts zostaje usunięty.",
+        "Widok zostaje, ale staje się INVALID.",
+        "Synonim zostaje usunięty.",
+        "Widok zostaje usunięty.",
+        "Polecenie się nie powiedzie, dopóki widok i synonim nie zostaną usunięte."
+      ],
+      "explanation": "Indeksy, ograniczenia (constraints) i wyzwalacze należą do tabeli i znikają razem z nią. Widoki i synonimy to osobne obiekty, które zostają: widok staje się INVALID, a synonim wskazuje w próżnię (jego użycie daje błąd), dopóki ponownie nie powstanie tabela o tej nazwie."
+    },
+    "q11-synonym-no-target": {
+      "prompt": "Nie istnieje żaden obiekt o nazwie lab_ghost. Co się stanie, gdy uruchomisz CREATE SYNONYM lab_g FOR lab_ghost;, a potem SELECT * FROM lab_g;?",
+      "options": [
+        "CREATE SYNONYM kończy się błędem ORA-00942.",
+        "Oba polecenia się powiodą; zapytanie nie zwróci żadnych wierszy.",
+        "CREATE SYNONYM się powiedzie; zapytanie kończy się błędem ORA-00980: synonym translation is no longer valid.",
+        "CREATE SYNONYM kończy się błędem ORA-00980."
+      ],
+      "explanation": "Oracle przy tworzeniu synonimu nie sprawdza, czy jego cel istnieje, więc synonim można utworzyć przed obiektem. Jest rozwiązywany dopiero przy użyciu; jeśli celu brak, dostajesz ORA-00980."
+    },
+    "q11-public-synonym-priv": {
+      "prompt": "Twój użytkownik ma uprawnienie CREATE SYNONYM, ale nie CREATE PUBLIC SYNONYM. Co zrobi CREATE PUBLIC SYNONYM lab_staff FOR employees?",
+      "options": [
+        "Utworzy synonim publiczny, bo CREATE SYNONYM obejmuje oba rodzaje",
+        "Zamiast tego utworzy synonim prywatny i zwróci ostrzeżenie",
+        "Zgłosi ORA-01031: insufficient privileges",
+        "Zgłosi ORA-00955: name is already used by an existing object"
+      ],
+      "explanation": "Synonimy prywatne i publiczne wymagają różnych uprawnień systemowych: CREATE SYNONYM dla własnego schematu, CREATE PUBLIC SYNONYM (i DROP PUBLIC SYNONYM) dla właściciela PUBLIC. Oracle nigdy po cichu nie zamienia polecenia na słabszą wersję."
+    },
+    "q11-name-resolution": {
+      "prompt": "Które dwa stwierdzenia o rozwiązywaniu nazw synonimów są prawdziwe?",
+      "options": [
+        "Nazwa bez schematu jest najpierw szukana w twoim schemacie, a dopiero potem jako synonim publiczny.",
+        "Synonim prywatny nie może mieć tej samej nazwy co tabela w tym samym schemacie.",
+        "Synonim publiczny ma pierwszeństwo przed tabelą o tej samej nazwie w twoim schemacie.",
+        "Właścicielem synonimu publicznego jest użytkownik, który go utworzył.",
+        "Nazwa synonimu prywatnego musi się różnić od nazw wszystkich synonimów publicznych."
+      ],
+      "explanation": "Tabele, widoki, sekwencje i synonimy prywatne dzielą w schemacie jedną przestrzeń nazw, więc powtórzona nazwa daje ORA-00955, a twoje własne obiekty wygrywają z synonimami publicznymi. Synonimy publiczne należą do specjalnego właściciela PUBLIC, a synonim prywatny może użyć nazwy synonimu publicznego (wtedy zasłania go dla ciebie)."
+    },
+    "q11-synonym-targets": {
+      "prompt": "Na które dwa obiekty może wskazywać synonim prywatny?",
+      "options": [
+        "Sekwencja",
+        "Widok",
+        "Indeks",
+        "Ograniczenie (constraint)",
+        "Pojedyncza kolumna tabeli"
+      ],
+      "explanation": "Synonimy mogą zastępować tabele, widoki, sekwencje, procedury, funkcje, pakiety, widoki zmaterializowane, inne synonimy i jeszcze więcej, więc SELECT my_syn.NEXTVAL FROM dual działa dla synonimu sekwencji. Do indeksów, ograniczeń i kolumn nie odwołujesz się w DML przez nazwę obiektu, więc nie mogą mieć synonimów."
+    },
+    "q11-public-synonym-owner": {
+      "prompt": "DICT to synonim publiczny widoku DICTIONARY. Co zwraca to zapytanie?",
+      "options": [
+        "PUBLIC",
+        "SYS",
+        "SYSTEM",
+        "HR"
+      ],
+      "explanation": "Synonimy publiczne należą do specjalnej grupy użytkowników PUBLIC, niezależnie od tego, kto je utworzył, więc ALL_SYNONYMS pokazuje OWNER 'PUBLIC'. SYS jest właścicielem widoku DICTIONARY, na który wskazuje synonim (TABLE_OWNER), a nie samego synonimu. Twój użytkownik nie ma tu żadnych synonimów: USER_SYNONYMS pokazuje tylko synonimy prywatne w twoim schemacie i nie zwraca wiersza dla DICT."
+    },
+    "q11-drop-synonym-rules": {
+      "prompt": "Które trzy stwierdzenia o usuwaniu synonimów są prawdziwe?",
+      "options": [
+        "DROP SYNONYM dict kończy się błędem ORA-01434, gdy DICT istnieje tylko jako synonim publiczny.",
+        "Usunięcie synonimu nigdy nie zmienia ani nie usuwa obiektu, na który on wskazuje.",
+        "DROP PUBLIC SYNONYM wymaga uprawnienia systemowego DROP PUBLIC SYNONYM.",
+        "DROP SYNONYM s CASCADE usuwa też tabelę, na którą wskazuje synonim.",
+        "DROP TABLE t automatycznie usuwa każdy synonim prywatny, który wskazuje na t."
+      ],
+      "explanation": "Bez PUBLIC polecenie DROP SYNONYM szuka tylko synonimu prywatnego w twoim schemacie, więc nazwa istniejąca tylko jako synonim publiczny daje ORA-01434: private synonym to be dropped does not exist (a DROP PUBLIC SYNONYM bez uprawnienia daje ORA-01031). Synonim to tylko alias, więc jego usunięcie nie rusza celu, i nie ma opcji CASCADE. Z kolei DROP TABLE zostawia synonimy tabeli ze STATUS INVALID."
+    },
+    "q11-retarget-synonym": {
+      "prompt": "Synonim prywatny lab_staff wskazuje na employees. Aplikacje mają teraz widzieć departments przez lab_staff, a zmiana musi się odbyć jednym poleceniem. Którego polecenia użyjesz?",
+      "explanation": "OR REPLACE przedefiniowuje istniejący synonim w miejscu; USER_SYNONYMS pokazuje potem TABLE_NAME DEPARTMENTS. ALTER SYNONYM nie zmieni celu (obsługuje tylko COMPILE i ustawienie EDITIONABLE), więc klauzula FOR daje ORA-00922. Zwykłe CREATE SYNONYM kończy się błędem ORA-00955, bo nazwa jest zajęta. RENAME zmieniłby nazwę samego synonimu, a nie to, na co wskazuje."
+    },
+    "q11-synonym-after-recreate": {
+      "prompt": "Synonim prywatny lab_s wskazuje na tabelę lab_t. Uruchamiasz DROP TABLE lab_t PURGE, a później CREATE TABLE lab_t (id NUMBER). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Gdy lab_t nie istnieje, USER_OBJECTS pokazuje synonim ze STATUS 'INVALID', a SELECT * FROM lab_s daje ORA-00980.",
+        "Po ponownym utworzeniu lab_t SELECT * FROM lab_s działa bez ponownego tworzenia synonimu.",
+        "DROP TABLE usuwa też lab_s, więc trzeba go utworzyć ponownie.",
+        "Synonim nadal zwraca stare wiersze z kosza (recycle bin).",
+        "Ponowne utworzenie lab_t kończy się błędem ORA-00955, bo lab_s nadal używa tej nazwy."
+      ],
+      "explanation": "Synonim przechowuje tylko nazwę, więc przetrwa DROP TABLE jako obiekt INVALID, a jego użycie daje ORA-00980: synonym translation is no longer valid. Gdy obiekt o tej nazwie znów istnieje, synonim się na niego rozwiązuje i przy następnym użyciu staje się VALID. Synonim ma własną nazwę (lab_s), więc ponowne utworzenie lab_t nie powoduje konfliktu nazw, a PURGE nic nie zostawia w koszu."
+    },
+    "q11-synonym-for-column": {
+      "prompt": "Co się stanie, gdy uruchomisz te dwa polecenia?",
+      "options": [
+        "Oba się powiodą; zapytanie zwróci nazwiska wszystkich pracowników.",
+        "CREATE SYNONYM kończy się błędem ORA-00904: invalid identifier.",
+        "CREATE SYNONYM się powiedzie; zapytanie kończy się błędem ORA-00980: synonym translation is no longer valid.",
+        "CREATE SYNONYM kończy się błędem ORA-01031: insufficient privileges."
+      ],
+      "explanation": "Synonimy nie mogą wskazywać na kolumny. Oracle czyta employees.last_name jako schemat EMPLOYEES i obiekt LAST_NAME i nie sprawdza celu przy tworzeniu, więc CREATE się udaje. Przy użyciu synonimu taki obiekt nie istnieje i dostajesz ORA-00980. Do szukania kolumny nigdy nie dochodzi, więc ORA-00904 się nie pojawia, a synonimy prywatne wymagają tylko CREATE SYNONYM."
+    },
+    "q11-synonym-dml": {
+      "prompt": "Synonim prywatny lab_emp utworzono przez CREATE SYNONYM lab_emp FOR employees. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "INSERT INTO lab_emp ... wstawia wiersz do employees.",
+        "USER_SYNONYMS pokazuje dla LAB_EMP TABLE_OWNER równe nazwie twojego schematu i TABLE_NAME 'EMPLOYEES'.",
+        "Synonim przechowuje kopię wierszy employees z chwili utworzenia.",
+        "Synonimu można używać tylko w poleceniach SELECT, a nie w DML.",
+        "USER_SYNONYMS ma kolumnę SYNONYM_TARGET z nazwą tabeli poprzedzoną właścicielem, na przykład 'HR.EMPLOYEES'."
+      ],
+      "explanation": "Synonim jest zastępowany swoim celem podczas parsowania, więc SELECT, INSERT, UPDATE, DELETE i MERGE przez niego działają na samej tabeli employees (sprawdzone na tabeli LAB_). USER_SYNONYMS opisuje cel w kolumnach TABLE_OWNER i TABLE_NAME (oraz DB_LINK); nie ma kolumny SYNONYM_TARGET. Synonimy w ogóle nie przechowują danych."
+    },
+    "q11-identity-always-dml": {
+      "prompt": "Tabelę lab_tickets utworzono z id NUMBER GENERATED ALWAYS AS IDENTITY i note VARCHAR2(20). Które dwa polecenia się nie powiodą?",
+      "explanation": "GENERATED ALWAYS oznacza, że wartość podaje tylko Oracle: jawne id daje ORA-32795 (nawet jawny NULL), a jego zmiana daje ORA-32796. Pominięcie id na liście kolumn pozwala sekwencji identity je wypełnić. Odczyt i usuwanie wierszy nie są ograniczone. Użyj GENERATED BY DEFAULT, jeśli użytkownicy muszą móc podawać własne wartości."
+    },
+    "q11-identity-by-default-null": {
+      "prompt": "Tabela lab_codes ma id NUMBER GENERATED BY DEFAULT AS IDENTITY. Co zrobi INSERT INTO lab_codes (id, note) VALUES (NULL, 'x')?",
+      "options": [
+        "Wstawi wiersz z następną wartością identity, bo podana wartość to NULL",
+        "Zgłosi ORA-32795: cannot insert into a generated always identity column",
+        "Zgłosi ORA-01400: cannot insert NULL into (\"ORASTUDY\".\"LAB_CODES\".\"ID\")",
+        "Wstawi wiersz z id równym NULL"
+      ],
+      "explanation": "BY DEFAULT używa sekwencji tylko wtedy, gdy kolumna jest pominięta; jawny NULL jest brany dosłownie, a kolumny identity są zawsze NOT NULL, więc pojawia się ORA-01400. GENERATED BY DEFAULT ON NULL to wariant, który zastępuje jawny NULL następną wartością. ORA-32795 należy do GENERATED ALWAYS."
+    },
+    "q11-identity-dictionary": {
+      "prompt": "Uruchamiasz CREATE TABLE lab_jobs (id NUMBER GENERATED ALWAYS AS IDENTITY, name VARCHAR2(20)). Które trzy stwierdzenia są prawdziwe?",
+      "options": [
+        "USER_TAB_COLUMNS pokazuje dla ID IDENTITY_COLUMN 'YES' i NULLABLE 'N'.",
+        "USER_SEQUENCES pokazuje nową sekwencję systemową o nazwie w rodzaju ISEQ$$_nnnnn.",
+        "DROP TABLE lab_jobs PURGE usuwa też tę sekwencję systemową.",
+        "Do tej samej tabeli można by dodać drugą kolumnę GENERATED ALWAYS AS IDENTITY.",
+        "ID dopuszcza NULL, dopóki nie dodasz ograniczenia (constraint) NOT NULL."
+      ],
+      "explanation": "Kolumna identity jest zrealizowana przez sekwencję, którą Oracle tworzy i nazywa (USER_TAB_IDENTITY_COLS pokazuje którą), i automatycznie jest NOT NULL. Sekwencja należy do tabeli i znika razem z nią. Tabela może mieć tylko jedną kolumnę identity; druga daje ORA-30669."
+    },
+    "q11-default-seq-dropped": {
+      "prompt": "Kolumnę lab_inv.id utworzono z DEFAULT lab_inv_seq.NEXTVAL. Ktoś usuwa lab_inv_seq. Co zrobi INSERT INTO lab_inv (note) VALUES ('x')?",
+      "options": [
+        "Wstawi wiersz z id równym NULL",
+        "Zgłosi ORA-02289: sequence does not exist",
+        "Zgłosi ORA-01400: cannot insert NULL",
+        "Wstawi wiersz z ostatnią wartością wydaną przez sekwencję"
+      ],
+      "explanation": "Wartość domyślna kolumny jest obliczana przy każdym INSERT, który pomija tę kolumnę. USER_TAB_COLUMNS.DATA_DEFAULT nadal zawiera \"<twój schemat>\".\"LAB_INV_SEQ\".\"NEXTVAL\" (zobaczysz tam nazwę swojego schematu), ale tej sekwencji już nie ma, więc INSERT kończy się błędem ORA-02289. Wartość domyślna nie zamienia się po cichu na NULL i żadna wartość nie jest zapamiętywana. Kolumny identity nie mają tego problemu, bo ich sekwencja jest związana z tabelą."
+    },
+    "q11-sequence-gaps": {
+      "prompt": "Które dwa zdarzenia mogą zostawić luki w numerach, które sekwencja z CACHE 20 dostarcza do tabeli?",
+      "options": [
+        "Transakcja, która wywołała NEXTVAL, zostaje wycofana.",
+        "Instancja zostaje awaryjnie zamknięta, gdy wartości z cache są jeszcze niewykorzystane.",
+        "Sesja kilka razy odpytuje CURRVAL.",
+        "Transakcja, która wywołała NEXTVAL, zostaje zatwierdzona.",
+        "Inna sesja odpytuje USER_SEQUENCES."
+      ],
+      "explanation": "Wartości są zużywane w chwili wywołania NEXTVAL, niezależnie od tego, czy transakcja zostanie zatwierdzona, więc wycofanie zostawia lukę. Wartości z cache są w pamięci, a awaryjne zamknięcie gubi te niewykorzystane. CURRVAL nigdy nie przesuwa sekwencji, a odczyt USER_SEQUENCES niczego nie zmienia. NOCACHE ogranicza luki, ale ich nie usuwa, bo wycofane transakcje nadal zużywają wartości."
+    },
+    "q11-uk-reuses-index": {
+      "prompt": "Tabela lab_staff ma nieunikalny indeks lab_staff_email_ix na email. Uruchamiasz ALTER TABLE lab_staff ADD CONSTRAINT lab_staff_email_uk UNIQUE (email). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "USER_CONSTRAINTS pokazuje dla nowego ograniczenia (constraint) INDEX_NAME 'LAB_STAFF_EMAIL_IX'.",
+        "DROP INDEX lab_staff_email_ix kończy się teraz błędem ORA-02429.",
+        "Oracle tworzy drugi indeks o nazwie LAB_STAFF_EMAIL_UK.",
+        "ALTER kończy się błędem, bo ograniczenie unikalności wymaga indeksu unikalnego.",
+        "lab_staff_email_ix zostaje zamieniony na UNIQUENESS 'UNIQUE'."
+      ],
+      "explanation": "Gdy indeks na kolumnach klucza już istnieje, Oracle używa go do wymuszania ograniczenia, nawet jeśli jest nieunikalny, i nie tworzy nowego indeksu; USER_INDEXES nadal pokazuje go jako NONUNIQUE. Ponieważ indeks wymusza teraz klucz, jego usunięcie daje ORA-02429; po ALTER TABLE ... DROP CONSTRAINT indeks zostaje, bo nie utworzył go Oracle."
+    },
+    "q11-same-columns-index": {
+      "prompt": "Tabela lab_staff ma już indeks lab_staff_email_ix ON lab_staff (email). Które dwa polecenia się powiodą?",
+      "explanation": "Od 12c możesz utworzyć kilka indeksów na tej samej liście kolumn, jeśli czymś się różnią (na przykład unikalny i nieunikalny) i najwyżej jeden z nich jest widoczny, więc niewidoczny (INVISIBLE) indeks unikalny działa. Indeks złożony (email, last_name) ma inną listę kolumn. Drugi widoczny indeks na (email) daje ORA-01408: such column list already indexed, niezależnie od tego, czy jest unikalny."
+    },
+    "q11-drop-pk-keep-index": {
+      "prompt": "Tabela lab_dept ma klucz główny lab_dept_pk, wymuszany przez indeks LAB_DEPT_PK, który Oracle dla niego utworzył. Musisz usunąć ograniczenie (constraint), ale zachować indeks dla zapytań. Którego polecenia użyjesz?",
+      "explanation": "Usunięcie ograniczenia klucza usuwa też indeks, który Oracle dla niego utworzył, chyba że dodasz KEEP INDEX; USER_INDEXES nadal pokazuje potem LAB_DEPT_PK. Zwykłe DROP PRIMARY KEY usuwa też indeks. DROP INDEX na indeksie, który wymusza klucz, daje ORA-02429, a INVISIBLE tylko ukrywa indeks przed optymalizatorem, podczas gdy ograniczenie zostaje."
+    },
+    "q11-check-option-missing-column": {
+      "prompt": "Ten INSERT kończy się błędem ORA-01402. Która zmiana sprawi, że się powiedzie, przy zachowaniu WITH CHECK OPTION?",
+      "options": [
+        "Dodaj department_id do listy SELECT i wstaw dla tej kolumny wartość 30.",
+        "Zastąp WITH CHECK OPTION przez WITH READ ONLY.",
+        "Użyj employee_id 109 zamiast 900.",
+        "Zapisz datę jako TO_DATE('2024-01-01', 'YYYY-MM-DD')."
+      ],
+      "explanation": "department_id nie ma w widoku, więc nowy wiersz dostaje tam NULL i WHERE department_id = 30 nie może go wybrać: ORA-01402. Udostępnienie department_id i wstawienie 30 spełnia warunek. WITH READ ONLY blokuje każdy INSERT (ORA-42399). Wartość klucza i literał daty nie mają nic wspólnego z warunkiem widoku."
+    },
+    "q11-view-missing-not-null": {
+      "prompt": "Tabela employees ma pokazane kolumny i ograniczenia (constraints). Żadna kolumna nie ma DEFAULT, a pracownik 900 nie istnieje. Co się stanie po wykonaniu tego polecenia?",
+      "code": "-- EMPLOYEES (istotne kolumny)\n-- employee_id  NUMBER(6)     CONSTRAINT employees_pk PRIMARY KEY\n-- last_name    VARCHAR2(25)  CONSTRAINT employees_last_name_nn NOT NULL\n-- hire_date    DATE          CONSTRAINT employees_hire_date_nn NOT NULL\n-- (wszystkie pozostałe kolumny dopuszczają NULL)\nINSERT INTO (SELECT employee_id, last_name FROM employees)\nVALUES (900, 'Test');",
+      "options": [
+        "Wiersz zostanie wstawiony z hire_date równym NULL.",
+        "Wiersz zostanie wstawiony z hire_date równym SYSDATE.",
+        "ORA-01400: cannot insert NULL into (\"ORASTUDY\".\"EMPLOYEES\".\"HIRE_DATE\")",
+        "ORA-01732: data manipulation operation not legal on this view"
+      ],
+      "explanation": "Widok jest prosty i modyfikowalny, więc INSERT trafia do employees, ale każda kolumna, której widok nie pokazuje, dostaje wartość domyślną (tutaj NULL), a hire_date jest NOT NULL: ORA-01400. Oracle nigdy nie wymyśla wartości takich jak SYSDATE. ORA-01732 dotyczy widoków, które w ogóle nie przyjmują DML (DISTINCT, GROUP BY, operatory zbiorowe)."
+    },
+    "q11-join-view-delete": {
+      "prompt": "Pracownik 107 pracuje w dziale 30. department_id jest kluczem głównym departments, a employees.department_id jest kluczem obcym do tej kolumny. Które dwa stwierdzenia o tym DELETE są prawdziwe?",
+      "options": [
+        "Usuwa pracownika 107 z employees.",
+        "Tabela departments zachowuje wszystkie swoje wiersze.",
+        "Usuwa dział 30, a także pracownika 107.",
+        "Kończy się błędem ORA-01779, bo widok złącza dwie tabele.",
+        "Kończy się błędem ORA-01732, bo widoki ze złączeniem nigdy nie pozwalają na DELETE."
+      ],
+      "explanation": "DELETE przez widok ze złączeniem (JOIN) usuwa wiersze z jedynej tabeli z zachowanym kluczem (key-preserved), tutaj employees (każdy pracownik występuje w JOIN najwyżej raz). departments nie ma zachowanego klucza i nie jest ruszana, co pokazuje liczba 4 działów w przykładzie. ORA-01779 dotyczy zmiany kolumny tabeli bez zachowanego klucza, a widoki ze złączeniem pozwalają na DML na tabeli z zachowanym kluczem."
+    },
+    "q11-inline-view-top-n": {
+      "prompt": "Które dwa zapytania zwracają trzech najniżej opłacanych pracowników (przy równej pensji decyduje last_name)?",
+      "explanation": "ROWNUM jest nadawany w trakcie pobierania wierszy, przed ORDER BY, więc sortowanie musi się odbyć w widoku inline, a ROWNUM trzeba zastosować poza nim. FETCH FIRST (12c) z definicji najpierw sortuje. Pozostałe dwa zapytania biorą trzy wiersze, które zostaną pobrane jako pierwsze, i dopiero potem je sortują, więc ich wynik zależy od fizycznej kolejności wierszy, a nie od pensji."
+    }
+  },
+  "labs": {
+    "lab-t11-view-check-option": {
+      "title": "Widok, który chroni swój filtr",
+      "task": "Utwórz widok lab_t11_it_staff, który pokazuje employee_id, last_name i salary pracowników z działu 30. DML przez widok nie może tworzyć ani zmieniać wierszy tak, żeby wypadły poza dział 30.",
+      "hint": "CREATE VIEW name AS SELECT ... WHERE ..., a na końcu klauzula, która wymusza ten WHERE dla DML.",
+      "hint2": "Zakończ zapytanie przez WITH CHECK OPTION. Oracle zapisuje to jako ograniczenie (constraint) typu V na widoku."
+    },
+    "lab-t11-view-read-only": {
+      "title": "Widok podsumowania tylko do odczytu",
+      "task": "Utwórz widok lab_t11_dept_headcount z kolumnami department_name i headcount: liczbą pracowników w każdym dziale, łącznie z działami bez pracowników (headcount 0). Przez widok nie może być możliwy żaden DML, nawet taki, na który Oracle w innym przypadku by pozwolił.",
+      "hint": "LEFT JOIN z departments z COUNT(e.employee_id) zachowuje puste działy. Nadaj funkcji agregującej alias.",
+      "hint2": "Zakończ przez WITH READ ONLY; Oracle zapisuje to jako ograniczenie (constraint) typu O na widoku."
+    },
+    "lab-t11-invoice-seq": {
+      "title": "Sekwencja numerów faktur",
+      "task": "Utwórz sekwencję lab_t11_invoice_seq, która zaczyna od 1000, rośnie o 10, ma wartość minimalną 1000 i maksymalną 9990, zgłasza błąd po przekroczeniu maksimum (bez zawijania) i nie trzyma wartości w cache.",
+      "hint": "CREATE SEQUENCE name START WITH ... INCREMENT BY ... MINVALUE ... MAXVALUE ...",
+      "hint2": "Dodaj NOCYCLE i NOCACHE. Sprawdzarka czyta USER_SEQUENCES (MIN_VALUE, MAX_VALUE, INCREMENT_BY, CYCLE_FLAG, CACHE_SIZE)."
+    },
+    "lab-t11-alter-seq": {
+      "title": "Zmień sekwencję po utworzeniu",
+      "task": "Utwórz sekwencję lab_t11_ticket_seq z opcjami domyślnymi. Następnie przez ALTER SEQUENCE ustaw jej wartość maksymalną 500, spraw, żeby po osiągnięciu tego maksimum zaczynała od nowa, i ustaw cache na 5 wartości.",
+      "hint": "ALTER SEQUENCE przyjmuje kilka opcji w jednym poleceniu.",
+      "hint2": "ALTER SEQUENCE lab_t11_ticket_seq MAXVALUE ... CYCLE CACHE ...; (START WITH to jedyna opcja, której nie możesz zmienić)."
+    },
+    "lab-t11-composite-index": {
+      "title": "Indeks złożony na kopii tabeli",
+      "task": "Utwórz tabelę lab_t11_emp jako kopię wszystkich wierszy i kolumn employees. Następnie utwórz na lab_t11_emp nieunikalny indeks lab_t11_emp_dept_sal_ix z department_id jako kolumną wiodącą i salary jako drugą kolumną.",
+      "hint": "CREATE TABLE ... AS SELECT * FROM employees kopiuje wiersze i ograniczenia (constraints) NOT NULL, ale nie indeksy.",
+      "hint2": "Kolejność kolumn w CREATE INDEX t (a, b) to COLUMN_POSITION w USER_IND_COLUMNS."
+    },
+    "lab-t11-unique-fbi": {
+      "title": "Unikalne nazwy bez względu na wielkość liter",
+      "task": "Utwórz tabelę lab_t11_cust jako kopię customers. Następnie utwórz unikalny indeks lab_t11_cust_name_uix, który nie pozwoli na dwóch klientów, których nazwy różnią się tylko wielkością liter (zaindeksuj nazwę klienta zapisaną wielkimi literami).",
+      "hint": "Indeks funkcyjny ma w nawiasach wyrażenie zamiast kolumny.",
+      "hint2": "CREATE UNIQUE INDEX name ON lab_t11_cust (UPPER(customer_name)); USER_INDEXES pokazuje wtedy INDEX_TYPE 'FUNCTION-BASED NORMAL'."
+    },
+    "lab-t11-invisible-index": {
+      "title": "Ukryj indeks przed optymalizatorem",
+      "task": "Utwórz tabelę lab_t11_ord jako kopię orders oraz indeks lab_t11_ord_status_ix na jej kolumnie status. Następnie spraw, żeby indeks był niewidoczny dla optymalizatora, ale go nie usuwaj.",
+      "hint": "Najpierw utwórz indeks, potem zmień go przez ALTER INDEX.",
+      "hint2": "ALTER INDEX lab_t11_ord_status_ix INVISIBLE; (albo dodaj INVISIBLE do CREATE INDEX). Pokazuje to USER_INDEXES.VISIBILITY."
+    },
+    "lab-t11-synonyms": {
+      "title": "Krótkie nazwy dzięki synonimom",
+      "task": "Utwórz dwa synonimy prywatne: lab_t11_staff dla tabeli employees i lab_t11_depts dla tabeli departments.",
+      "hint": "CREATE SYNONYM name FOR object; bez PUBLIC tworzy synonim prywatny w twoim schemacie.",
+      "hint2": "Jedno CREATE SYNONYM na każdy synonim. USER_SYNONYMS pokazuje SYNONYM_NAME, TABLE_OWNER i TABLE_NAME."
+    },
+    "lab-n11-item-indexes": {
+      "title": "Unikalny indeks złożony i indeks ukryty",
+      "task": "Utwórz tabelę lab_n11_items jako kopię wszystkich wierszy i kolumn order_items (CREATE TABLE ... AS SELECT nie kopiuje indeksów). Następnie utwórz unikalny indeks lab_n11_items_uix na (order_id, line_no) w tej kolejności kolumn oraz nieunikalny indeks lab_n11_items_prod_ix na product_id, który od początku jest niewidoczny dla optymalizatora.",
+      "hint": "CREATE UNIQUE INDEX name ON table (col1, col2); kolejność kolumn w nawiasach staje się COLUMN_POSITION.",
+      "hint2": "Dodaj słowo kluczowe INVISIBLE na końcu drugiego CREATE INDEX; USER_INDEXES.VISIBILITY pokaże wtedy INVISIBLE."
+    },
+    "lab-n11-named-check-option": {
+      "title": "Widok z nazwanym CHECK OPTION",
+      "task": "Utwórz widok lab_n11_sales_staff z kolumnami emp_id, name i monthly_pay, który pokazuje employee_id, last_name i salary pracowników z działu 20. DML przez widok nie może tworzyć ani zmieniać wierszy poza działem 20, a ograniczenie (constraint), które to wymusza, musi mieć nazwę lab_n11_sales_ck.",
+      "hint": "Nazwy kolumn widoku podaj w nawiasach po nazwie widoku: CREATE VIEW v (a, b, c) AS SELECT ...",
+      "hint2": "Zakończ przez WITH CHECK OPTION CONSTRAINT lab_n11_sales_ck; USER_CONSTRAINTS pokazuje je z typem V."
+    },
+    "lab-n11-seq-synonym": {
+      "title": "Sekwencja pod krótką nazwą",
+      "task": "Utwórz sekwencję lab_n11_order_seq, która zaczyna od 5000, rośnie o 5, nie ma innego maksimum niż domyślne, nie zaczyna od nowa po jego osiągnięciu i trzyma w cache 10 wartości. Następnie utwórz synonim prywatny lab_n11_next_order dla tej sekwencji, tak żeby działało SELECT lab_n11_next_order.NEXTVAL FROM dual.",
+      "hint": "Najpierw utwórz sekwencję z START WITH, INCREMENT BY, NOCYCLE i CACHE, potem CREATE SYNONYM ... FOR dla tej sekwencji.",
+      "hint2": "Bez MINVALUE sekwencja rosnąca ma MIN_VALUE 1, nawet gdy zaczyna od 5000. USER_SYNONYMS.TABLE_NAME pokazuje nazwę sekwencji."
+    },
+    "lab-n11-fix-top-n": {
+      "title": "Popraw: trzy najniższe pensje",
+      "task": "Zwróć trzech najniżej opłacanych pracowników: last_name i salary, posortowanych po salary, a potem po last_name. Zapytanie startowe zwraca trzech pracowników, ale nie tych, co trzeba. Popraw je za pomocą widoku inline (nie używaj FETCH FIRST).",
+      "hint": "ROWNUM jest nadawany wierszom w trakcie pobierania, zanim ORDER BY je posortuje.",
+      "hint2": "Przenieś ORDER BY do widoku inline i zastosuj WHERE ROWNUM <= 3 w zapytaniu zewnętrznym."
+    }
+  }
+}
