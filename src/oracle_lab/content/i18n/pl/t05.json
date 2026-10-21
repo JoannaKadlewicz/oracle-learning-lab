@@ -1,0 +1,596 @@
+{
+  "questions": {
+    "q05-avg-null": {
+      "prompt": "Przeanalizuj to zapytanie. Co zwraca?",
+      "options": [
+        "6 i 3",
+        "3 i 6",
+        "6 i 6",
+        "NULL i 3"
+      ],
+      "explanation": "Funkcje grupowe ignorują NULL-e: AVG(x) = (4 + 8) / 2 = 6. Z NVL NULL-e stają się zerami i wchodzą do liczby wartości: 12 / 4 = 3. Wartość NULL na wejściu nigdy nie sprawia, że AVG zwraca NULL, o ile co najmniej jedna wartość nie jest NULL."
+    },
+    "q05-not-group-by": {
+      "prompt": "Co się stanie?",
+      "options": [
+        "Jeden wiersz na dział; job_title pokazuje dowolną wartość z grupy.",
+        "Jeden wiersz na dział; job_title to NULL.",
+        "Jeden wiersz na każdą kombinację działu i stanowiska.",
+        "Zgłaszany jest błąd."
+      ],
+      "explanation": "Każde niezagregowane wyrażenie z listy SELECT musi występować w GROUP BY. Oracle zgłasza ORA-00979: not a GROUP BY expression. (MySQL w niektórych trybach zwróciłby dowolną wartość; Oracle nigdy tego nie robi.)"
+    },
+    "q05-having-no-group": {
+      "prompt": "Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Kończy się błędem, bo HAVING wymaga GROUP BY.",
+        "Zwraca jeden wiersz, jeśli tabela ma więcej niż 5 wierszy, a w przeciwnym razie żadnego.",
+        "Zwraca po jednym wierszu dla każdego pracownika, gdy tabela ma więcej niż 5 wierszy.",
+        "Zawsze zwraca dokładnie jeden wiersz, z wartością 0, gdy warunek jest fałszywy."
+      ],
+      "explanation": "Bez GROUP BY cała tabela jest jedną grupą, a HAVING filtruje tę jedną grupę, więc wynik ma co najwyżej jeden wiersz. HAVING bez GROUP BY jest dozwolone. Agregat nigdy nie zwraca jednego wiersza na pracownika, a grupa, która nie spełnia HAVING, jest usuwana, a nie pokazywana z 0."
+    },
+    "q05-nested": {
+      "prompt": "Co się stanie?",
+      "options": [
+        "Zwraca jeden wiersz na dział",
+        "Zwraca jeden wiersz z najwyższą średnią działu",
+        "Zgłasza błąd",
+        "Zwraca najwyższą pensję w całej tabeli"
+      ],
+      "explanation": "Zagnieżdżone funkcje grupowe (maksymalnie dwa poziomy) zwijają zgrupowane wiersze do jednego wiersza, więc na liście SELECT nie może się pojawić żadna pojedyncza kolumna. ORA-00937: not a single-group group function. Samo SELECT MAX(AVG(e.salary)) ... GROUP BY e.department_id jest poprawne."
+    },
+    "q05-where-having": {
+      "prompt": "Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "WHERE filtruje wiersze przed grupowaniem; HAVING filtruje grupy po grupowaniu.",
+        "Funkcji grupowej można użyć w klauzuli WHERE, jeśli jest w nawiasach.",
+        "HAVING może się odwoływać do funkcji grupowej, której nie ma na liście SELECT.",
+        "GROUP BY może się odwoływać do aliasu kolumny zdefiniowanego na liście SELECT."
+      ],
+      "explanation": "Funkcje grupowe nie są dozwolone w WHERE (ORA-00934). HAVING może używać dowolnej funkcji grupowej, niezależnie od tego, czy jest na liście SELECT. W 19c GROUP BY nie może używać aliasu z listy SELECT (23ai to dodało)."
+    },
+    "q05-empty-table": {
+      "prompt": "Tabela promotions nie ma wierszy. Co zwraca to zapytanie?",
+      "options": [
+        "Jeden wiersz: 0 i NULL",
+        "Jeden wiersz: 0 i 0",
+        "Jeden wiersz: NULL i NULL",
+        "Brak wierszy"
+      ],
+      "explanation": "Zapytanie z agregatem bez GROUP BY zawsze zwraca dokładnie jeden wiersz, nawet dla pustej tabeli. COUNT nigdy nie zwraca NULL, więc daje 0; SUM, AVG, MIN i MAX nie mają na czym pracować i zwracają NULL. Jeśli potrzebujesz 0, opakuj wynik w NVL(SUM(...), 0)."
+    },
+    "q05-empty-nulls": {
+      "prompt": "Które trzy wyrażenia zwracają NULL, gdy wybierzesz je (bez GROUP BY) z pustej tabeli promotions?",
+      "options": [
+        "COUNT(*)",
+        "COUNT(p.promo_id)",
+        "SUM(p.discount_pct)",
+        "MAX(p.promo_name)",
+        "AVG(p.discount_pct)",
+        "NVL(SUM(p.discount_pct), 0)"
+      ],
+      "explanation": "Dla zera wierszy SUM, MAX i AVG nie mają danych wejściowych i zwracają NULL. Obie formy COUNT zwracają 0, nigdy NULL. NVL zamienia sumę równą NULL na 0."
+    },
+    "q05-group-fn-truths": {
+      "prompt": "Które trzy stwierdzenia o funkcjach grupowych są prawdziwe?",
+      "options": [
+        "COUNT(*) liczy także wiersze, w których każda kolumna to NULL.",
+        "SUM i AVG przyjmują kolumny VARCHAR2 i sumują kody znaków.",
+        "MIN i MAX działają na kolumnach NUMBER, VARCHAR2 i DATE.",
+        "SUM po tabeli bez wierszy zwraca 0.",
+        "Wszystkie funkcje grupowe oprócz COUNT(*) ignorują wartości NULL.",
+        "COUNT(DISTINCT col) liczy NULL jako jeszcze jedną odrębną wartość."
+      ],
+      "explanation": "COUNT(*) liczy wiersze, a nie wartości. MIN/MAX porównują dowolny typ, który da się uporządkować (teksty alfabetycznie, daty chronologicznie). Każda funkcja grupowa oprócz COUNT(*) pomija NULL-e, w tym COUNT(DISTINCT col). SUM/AVG potrzebują liczb: SUM(last_name) zgłasza ORA-01722, a SUM po zerze wierszy to NULL, nie 0."
+    },
+    "q05-min-max": {
+      "prompt": "last_name ma typ VARCHAR2, hire_date typ DATE, a commission_pct typ NUMBER i zawiera kilka NULL-i. Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "MIN(e.last_name) zwraca nazwisko, które sortuje się jako pierwsze.",
+        "MAX(e.hire_date) zwraca najpóźniejszą datę zatrudnienia.",
+        "Zapytanie kończy się błędem, bo MIN i MAX przyjmują tylko kolumny liczbowe.",
+        "MAX(e.commission_pct) zwraca NULL, bo część wartości prowizji to NULL."
+      ],
+      "explanation": "MIN i MAX działają na danych znakowych (porównywanych według porządku sortowania znaków) i na datach (późniejsza jest większa). Jak inne funkcje grupowe ignorują NULL-e, więc MAX(e.commission_pct) zwraca najwyższą istniejącą prowizję, a nie NULL. Liczb potrzebują tylko SUM i AVG."
+    },
+    "q05-nested-valid": {
+      "prompt": "Które dwa zapytania wykonują się bez błędu?",
+      "explanation": "Zagnieżdżona funkcja grupowa wymaga GROUP BY (bez niego ORA-00978), można ją zagnieździć tylko na dwóch poziomach (trzy poziomy dają ORA-00935), a jej wynik to jeden wiersz, więc obok niej nie można wybrać zwykłej kolumny (ORA-00937). Działania arytmetyczne między funkcjami grupowymi są w porządku."
+    },
+    "q05-sum-varchar": {
+      "prompt": "Co się stanie, gdy uruchomisz SELECT SUM(e.last_name) FROM employees e?",
+      "options": [
+        "ORA-01722: invalid number",
+        "ORA-00932: inconsistent datatypes",
+        "Zwraca NULL",
+        "Zwraca wszystkie nazwiska połączone w jeden tekst"
+      ],
+      "explanation": "SUM i AVG potrzebują danych liczbowych, więc Oracle niejawnie konwertuje każde last_name na liczbę, a 'King' nie da się przekonwertować: ORA-01722. Łączenie tekstów to zadanie LISTAGG; MIN i MAX to funkcje grupowe, które przyjmują dane znakowe."
+    },
+    "q05-count-nine": {
+      "prompt": "W employees employee_id jest kluczem głównym, a email, commission_pct i salary mogą zawierać NULL-e i duplikaty. Które trzy wyrażenia zawsze zwracają tę samą wartość co COUNT(*), niezależnie od danych?",
+      "options": [
+        "COUNT(1)",
+        "COUNT(e.employee_id)",
+        "COUNT(e.email)",
+        "COUNT(e.commission_pct)",
+        "COUNT(NVL(e.commission_pct, 0))",
+        "COUNT(DISTINCT e.salary)"
+      ],
+      "explanation": "COUNT(expr) liczy wiersze, w których expr nie jest NULL. Literał 1 nigdy nie jest NULL, kolumna klucza głównego nigdy nie jest NULL, a NVL zastępuje każdy NULL, więc te trzy wyrażenia liczą każdy wiersz. COUNT(e.email) i COUNT(e.commission_pct) pomijają NULL-e, a COUNT(DISTINCT e.salary) dodatkowo liczy powtarzające się pensje tylko raz."
+    },
+    "q05-empty-group-by": {
+      "prompt": "promotions nie ma wierszy. Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "0",
+        "1",
+        "Błąd, bo nie ma czego grupować"
+      ],
+      "explanation": "Z GROUP BY zwracany jest jeden wiersz na grupę, a pusta tabela nie ma grup, więc nie wraca żaden wiersz. Bez GROUP BY ten sam agregat zwróciłby jeden wiersz z COUNT(*) = 0."
+    },
+    "q05-groupby-alias": {
+      "prompt": "Co się stanie w Oracle 19c?",
+      "options": [
+        "ORA-00904: \"DEPT\": invalid identifier",
+        "ORA-00979: not a GROUP BY expression",
+        "Cztery wiersze, po jednym na dział",
+        "Jeden wiersz, bo dept jest traktowane jak stała"
+      ],
+      "explanation": "GROUP BY jest obliczane przed listą SELECT, więc alias jeszcze nie istnieje: ORA-00904. Napisz GROUP BY e.department_id. ORDER BY, obliczane na końcu, może używać aliasu. Oracle 23ai dopuszcza aliasy w GROUP BY."
+    },
+    "q05-groupby-truths": {
+      "prompt": "Które dwa stwierdzenia o GROUP BY w Oracle 19c są prawdziwe?",
+      "options": [
+        "Kolumnę można umieścić w GROUP BY, nawet jeśli nie ma jej na liście SELECT.",
+        "GROUP BY 1 grupuje po pierwszym wyrażeniu z listy SELECT.",
+        "Wiersze na pewno wracają posortowane po kolumnach z GROUP BY.",
+        "ORDER BY może używać funkcji grupowej, której nie ma na liście SELECT.",
+        "WHERE może filtrować po wyniku COUNT(*)."
+      ],
+      "explanation": "Kolumn z GROUP BY nie trzeba wybierać, a ORDER BY AVG(e.salary) działa, nawet jeśli AVG nie ma na liście SELECT. GROUP BY 1 nie jest pozycyjne: grupuje po stałej 1. Grupowanie może używać haszowania, więc kolejność gwarantuje tylko ORDER BY. Funkcje grupowe nie są dozwolone w WHERE (ORA-00934)."
+    },
+    "q05-orderby-nongroup": {
+      "prompt": "Co się stanie?",
+      "options": [
+        "ORA-00979: not a GROUP BY expression",
+        "Grupy są sortowane po najniższej pensji w każdej grupie",
+        "Grupy są sortowane po dowolnej pensji z każdej grupy",
+        "ORA-00904: \"E\".\"SALARY\": invalid identifier"
+      ],
+      "explanation": "Po grupowaniu istnieją tylko wyrażenia z GROUP BY, funkcje grupowe i stałe, a ORDER BY widzi zgrupowane wiersze. e.salary ma w każdej grupie wiele wartości: ORA-00979. ORDER BY MIN(e.salary) sortowałoby po najniższej pensji."
+    },
+    "q05-null-group-count": {
+      "prompt": "Niektórzy klienci mają country_code równe NULL. Ile wynosi cnt w wyniku tego zapytania dla grupy, w której country_code to NULL?",
+      "options": [
+        "0",
+        "1",
+        "NULL",
+        "Grupa NULL nie jest zwracana"
+      ],
+      "explanation": "GROUP BY nadal tworzy grupę NULL (jeden wiersz, Hooli), ale COUNT(c.country_code) ignoruje wartość NULL w tej grupie, więc cnt to 0. COUNT(*) zwróciłoby 1. COUNT nigdy nie zwraca NULL."
+    },
+    "q05-equiv-distinct": {
+      "prompt": "employees.department_id dopuszcza NULL. Które dwa zapytania zwracają te same wiersze co to, niezależnie od danych?",
+      "explanation": "GROUP BY bez funkcji grupowych usuwa duplikaty tak jak DISTINCT, łącznie z jednym wierszem NULL; UNIQUE to w Oracle synonim DISTINCT. Grupowanie po dziale i stanowisku powtarza dział raz dla każdego stanowiska w nim, tabela departments zawiera działy bez pracowników, ale nigdy wartości NULL, a filtr IS NOT NULL gubi wiersz NULL."
+    },
+    "q05-ora979": {
+      "prompt": "Które dwa zapytania kończą się błędem ORA-00979: not a GROUP BY expression?",
+      "explanation": "last_name nie jest grupowane. Grupowanie po UPPER(job_title) nie czyni samego job_title wyrażeniem z GROUP BY. Stałe są dozwolone, funkcja kolumny z GROUP BY jest dozwolona, a GROUP BY może zawierać więcej kolumn, niż jest wybranych."
+    },
+    "q05-orderby-valid": {
+      "prompt": "Które dwie klauzule ORDER BY mogą dokończyć to zapytanie bez błędu?",
+      "code": "SELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id\n-- tu wstaw ORDER BY ...",
+      "options": [
+        "ORDER BY cnt DESC",
+        "ORDER BY MAX(e.hire_date)",
+        "ORDER BY e.last_name",
+        "ORDER BY 3"
+      ],
+      "explanation": "ORDER BY jest obliczane na końcu, więc może używać aliasów z listy SELECT i dowolnej funkcji grupowej, niezależnie od tego, czy jest wybrana. e.last_name nie jest wyrażeniem z GROUP BY (ORA-00979), a pozycja 3 nie istnieje na dwukolumnowej liście SELECT (ORA-01785)."
+    },
+    "q05-equiv-having": {
+      "prompt": "Które dwa zapytania zwracają te same wiersze co to, niezależnie od danych?",
+      "explanation": "HAVING może filtrować po kolumnie z GROUP BY; daje ten sam wynik co WHERE, tylko później (WHERE jest zwykle wydajniejsze). IN (20, 30) to skrót od = 20 OR = 30, a dział NULL nie spełnia żadnego z tych warunków. HAVING COUNT(*) >= 1 zachowuje każdą grupę, HAVING COUNT(*) > 3 filtruje po rozmiarze zamiast po dziale, a dodatkowe OR ... IS NULL dodaje grupę NULL."
+    },
+    "q05-where-group-fn": {
+      "prompt": "Jaki błąd zgłasza to zapytanie?",
+      "options": [
+        "ORA-00934: group function is not allowed here",
+        "ORA-00979: not a GROUP BY expression",
+        "ORA-00937: not a single-group group function",
+        "Brak błędu; zwraca działy 20 i 30"
+      ],
+      "explanation": "WHERE jest stosowane do pojedynczych wierszy, zanim powstaną grupy, więc nie mogą się w nim pojawić funkcje grupowe: ORA-00934. Przenieś warunek do HAVING COUNT(*) > 2."
+    },
+    "q05-having-nongroup": {
+      "prompt": "Co się stanie?",
+      "options": [
+        "ORA-00979: not a GROUP BY expression",
+        "Liczy tylko pracowników zarabiających więcej niż 5000",
+        "Zachowuje grupy, w których każda pensja przekracza 5000",
+        "ORA-00934: group function is not allowed here"
+      ],
+      "explanation": "HAVING działa na grupach, więc może używać tylko wyrażeń z GROUP BY, funkcji grupowych i stałych; e.salary ma w każdej grupie wiele wartości, co daje ORA-00979. Aby liczyć tylko pensje powyżej 5000, użyj WHERE e.salary > 5000; aby sprawdzić każdą pensję, użyj HAVING MIN(e.salary) > 5000."
+    },
+    "q05-empty-having": {
+      "prompt": "promotions nie ma wierszy. Co zwraca to zapytanie?",
+      "options": [
+        "Jeden wiersz: 0",
+        "Brak wierszy",
+        "Jeden wiersz: NULL",
+        "Błąd: HAVING wymaga GROUP BY"
+      ],
+      "explanation": "Bez GROUP BY cała (pusta) tabela jest jedną grupą, więc agregat daje jeden wiersz z COUNT(*) = 0. HAVING COUNT(*) = 0 jest prawdą, więc ten wiersz zostaje. HAVING bez GROUP BY jest dozwolone."
+    },
+    "q05-clauses": {
+      "prompt": "Które trzy klauzule zapytania z GROUP BY e.department_id mogą zawierać funkcję grupową, taką jak AVG(e.salary)?",
+      "options": [
+        "SELECT",
+        "WHERE",
+        "GROUP BY",
+        "HAVING",
+        "ORDER BY"
+      ],
+      "explanation": "Funkcje grupowe są obliczane po grupowaniu, więc można ich używać w SELECT, HAVING i ORDER BY. WHERE działa przed grupowaniem, a GROUP BY definiuje grupy; funkcja grupowa w którejkolwiek z tych klauzul zgłasza ORA-00934."
+    },
+    "q05-eval-order": {
+      "prompt": "W jakiej logicznej kolejności Oracle przetwarza klauzule zapytania z grupowaniem?",
+      "options": [
+        "FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY",
+        "SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY",
+        "FROM, WHERE, HAVING, GROUP BY, SELECT, ORDER BY",
+        "FROM, GROUP BY, WHERE, HAVING, ORDER BY, SELECT"
+      ],
+      "explanation": "Wiersze są odczytywane (FROM), filtrowane (WHERE) i grupowane (GROUP BY), grupy są filtrowane (HAVING), wyrażenia i aliasy są obliczane (SELECT), a wynik jest sortowany (ORDER BY). To wyjaśnia, dlaczego WHERE nie może używać funkcji grupowych i dlaczego tylko ORDER BY może używać aliasów z listy SELECT."
+    },
+    "q05-having-valid": {
+      "prompt": "Które dwie klauzule HAVING mogą dokończyć to zapytanie bez błędu?",
+      "code": "SELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id\n-- tu wstaw HAVING ...",
+      "options": [
+        "HAVING AVG(e.salary) > 5000",
+        "HAVING e.department_id > 10",
+        "HAVING e.salary > 5000",
+        "HAVING cnt > 1"
+      ],
+      "explanation": "HAVING przyjmuje funkcje grupowe (wybrane lub nie) i kolumny z GROUP BY. e.salary nie jest wyrażeniem z GROUP BY (ORA-00979), a alias cnt z listy SELECT jeszcze nie istnieje, gdy obliczane jest HAVING (ORA-00904)."
+    },
+    "q05-avg-equiv": {
+      "prompt": "commission_pct dopuszcza NULL. Które dwa zapytania zwracają ten sam wynik co to, niezależnie od danych?",
+      "explanation": "AVG ignoruje NULL-e, więc jest sumą wartości różnych od NULL podzieloną przez ich liczbę, czyli dokładnie SUM(col) / COUNT(col). Odfiltrowanie NULL-i w WHERE niczego nie zmienia dla AVG. Dzielenie przez COUNT(*) albo zamiana NULL-i na 0 przez NVL dzieli przez wszystkie wiersze, a AVG(DISTINCT ...) liczy powtarzającą się wartość tylko raz."
+    },
+    "q05-nested-count": {
+      "prompt": "employees.department_id dopuszcza NULL. Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "COUNT(COUNT(*)) zwraca liczbę grup, łącznie z grupą dla department_id równego NULL, jeśli taka istnieje.",
+        "MAX(COUNT(*)) zwraca liczbę pracowników w największej grupie.",
+        "COUNT(COUNT(*)) zwraca liczbę wierszy w employees.",
+        "Zapytanie kończy się błędem, bo COUNT nie można zagnieżdżać.",
+        "Zapytanie zwraca jeden wiersz na dział."
+      ],
+      "explanation": "Wewnętrzne COUNT(*) jest obliczane raz dla każdej grupy; zewnętrzne funkcje działają potem na tych wartościach i zwracają jeden wiersz. COUNT(COUNT(*)) liczy więc grupy (wartości NULL w department_id też tworzą jedną grupę), a MAX(COUNT(*)) to rozmiar największej grupy. Z GROUP BY każdą funkcję grupową można zagnieździć na dwóch poziomach."
+    },
+    "q05-count-distinct-two": {
+      "prompt": "Programista chce poznać liczbę różnych kombinacji (dział, stanowisko). Co się stanie?",
+      "options": [
+        "ORA-00909: invalid number of arguments",
+        "Zwraca 6",
+        "Zwraca 9",
+        "ORA-00937: not a single-group group function"
+      ],
+      "explanation": "W Oracle COUNT przyjmuje dokładnie jeden argument, także z DISTINCT, więc dwie kolumny zgłaszają ORA-00909 (niektóre inne bazy danych na to pozwalają). Zamiast tego policz wiersze SELECT DISTINCT e.department_id, e.job_title w podzapytaniu, co daje 6. ORA-00937 dotyczy mieszania zwykłych kolumn z funkcjami grupowymi, a tu nie o to chodzi."
+    },
+    "q05-count-forms": {
+      "prompt": "employees ma 9 wierszy. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "COUNT(1) zwraca tę samą wartość co COUNT(*).",
+        "COUNT(NULL) zwraca 0.",
+        "COUNT(NULL) zwraca 9, bo NULL jest stałą tak jak 1.",
+        "COUNT(1) liczy wiersze, w których pierwsza kolumna tabeli nie jest NULL.",
+        "COUNT('x') zgłasza błąd, bo tekst nie jest kolumną."
+      ],
+      "explanation": "COUNT(expr) liczy wiersze, w których expr nie jest NULL. Stała różna od NULL, taka jak 1 lub 'x', nigdy nie jest NULL, więc COUNT(1) i COUNT('x') liczą każdy wiersz (9), dokładnie jak COUNT(*). NULL nigdy nie jest liczony, więc COUNT(NULL) to 0. 1 w COUNT(1) to literał, a nie numer kolumny."
+    },
+    "q05-no-group-mixed": {
+      "prompt": "Jaki błąd zgłasza to zapytanie?",
+      "options": [
+        "ORA-00937: not a single-group group function",
+        "ORA-00979: not a GROUP BY expression",
+        "ORA-00934: group function is not allowed here",
+        "Brak błędu; zwraca 9 wierszy"
+      ],
+      "explanation": "Bez GROUP BY COUNT(*) zwija tabelę do jednej grupy, a department_id ma w niej wiele wartości: ORA-00937. ORA-00979 to błąd, gdy klauzula GROUP BY istnieje, ale nie zawiera tej kolumny, a ORA-00934 dotyczy funkcji grupowych w WHERE lub GROUP BY. Oracle nigdy nie zwraca obok agregatu jednego wiersza na każdy wiersz wejściowy."
+    },
+    "q05-fix-979": {
+      "prompt": "To polecenie SQL kończy się błędem ORA-00979. Które trzy zmiany, każda wprowadzona osobno, sprawią, że zadziała?",
+      "options": [
+        "Dodaj e.job_title do klauzuli GROUP BY.",
+        "Usuń e.job_title z listy SELECT.",
+        "Zastąp e.job_title przez MAX(e.job_title).",
+        "Dodaj DISTINCT po SELECT.",
+        "Dodaj HAVING e.job_title IS NOT NULL.",
+        "Zastąp SUM(e.salary) przez e.salary."
+      ],
+      "explanation": "Każde wybrane wyrażenie musi być wyrażeniem z GROUP BY albo znajdować się w funkcji grupowej: grupowanie także po stanowisku, usunięcie kolumny lub zagregowanie jej przez MAX spełniają tę regułę (z różnymi wynikami). DISTINCT jest stosowane po grupowaniu i nie naprawia niezgrupowanej kolumny; HAVING także nie może się do niej odwoływać, a zastąpienie SUM przez e.salary dodaje drugą niezgrupowaną kolumnę. Oracle 23ai zachowuje ORA-00979, ale podaje w komunikacie nazwę kolumny."
+    },
+    "q05-groupby-position": {
+      "prompt": "Jaki błąd zgłasza to zapytanie w Oracle 19c?",
+      "options": [
+        "ORA-00979: not a GROUP BY expression",
+        "ORA-00904: \"1\": invalid identifier",
+        "ORA-00934: group function is not allowed here",
+        "Brak błędu; grupuje po department_id, czyli pierwszej kolumnie"
+      ],
+      "explanation": "W 19c GROUP BY nigdy nie jest pozycyjne: 1 to stała, więc wszystkie wiersze tworzą jedną grupę, a zwykła kolumna department_id nie jest wyrażeniem z GROUP BY (ORA-00979). Pozycje rozumie tylko ORDER BY. Oracle 23ai obsługuje pozycyjne GROUP BY tylko wtedy, gdy group_by_position_enabled ma wartość TRUE; przy domyślnym FALSE zgłasza zamiast tego ORA-03162."
+    },
+    "q05-groupby-alias-23ai": {
+      "prompt": "Które dwa stwierdzenia o tym zapytaniu są prawdziwe w Oracle 23ai?",
+      "options": [
+        "Działa i zwraca jeden wiersz dla każdego działu, który ma więcej niż jednego pracownika.",
+        "GROUP BY i HAVING mogą się odwoływać do aliasów dept i cnt z listy SELECT.",
+        "Kończy się błędem ORA-00904, bo HAVING jest obliczane przed listą SELECT.",
+        "Zgodnie z tą samą regułą WHERE dept > 10 też zostałoby zaakceptowane."
+      ],
+      "explanation": "Oracle 23ai pozwala GROUP BY i HAVING używać aliasów kolumn z listy SELECT, więc zapytanie grupuje po dziale i zachowuje grupy z więcej niż jednym pracownikiem. W 19c oba aliasy zgłaszają ORA-00904. WHERE w 23ai nadal nie może używać aliasu z listy SELECT (ORA-00904), bo alias jest rozwiązywany na potrzeby grupowania, a nie filtrowania wierszy."
+    },
+    "q05-groupby-truths2": {
+      "prompt": "Które trzy stwierdzenia o GROUP BY są prawdziwe?",
+      "options": [
+        "Zapytanie może używać GROUP BY bez żadnej funkcji grupowej na liście SELECT.",
+        "GROUP BY e.job_title, e.department_id tworzy te same grupy co GROUP BY e.department_id, e.job_title.",
+        "GROUP BY może zawierać wyrażenie takie jak EXTRACT(YEAR FROM e.hire_date).",
+        "GROUP BY może zawierać podzapytanie skalarne takie jak (SELECT 1 FROM dual).",
+        "Wiersze usunięte przez WHERE są nadal liczone przez COUNT(*) w swojej grupie.",
+        "Niezgrupowaną kolumnę można wybrać, jeśli ma tę samą wartość w każdym wierszu swojej grupy."
+      ],
+      "explanation": "GROUP BY bez agregatów po prostu usuwa duplikaty, kolejność kolumn w GROUP BY nie zmienia tego, jakie grupy powstają (sortuje tylko ORDER BY), a grupować można po dowolnym wyrażeniu na poziomie wiersza. Podzapytania skalarne nie są dozwolone w GROUP BY (ORA-22818). WHERE działa przed grupowaniem, więc usunięte wiersze znikają. Oracle sprawdza składnię, a nie dane: niezgrupowana kolumna to ORA-00979, nawet jeśli jej wartości przypadkiem są równe."
+    },
+    "q05-having-null-avg": {
+      "prompt": "commission_pct dopuszcza NULL. Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "Dział, w którym każde commission_pct to NULL, nie jest zwracany.",
+        "Dział z prowizjami .3 i .2 oraz kilkoma prowizjami NULL jest zwracany.",
+        "Dział, w którym każde commission_pct to NULL, jest zwracany, bo AVG traktuje NULL jak 0, a test jest ignorowany.",
+        "Zwracany jest każdy dział, bo średnia równa NULL przechodzi test HAVING.",
+        "Zapytanie kończy się błędem, bo HAVING nie może używać AVG na kolumnie z NULL-ami."
+      ],
+      "explanation": "AVG ignoruje NULL-e, więc .3 i .2 dają średnią .25 niezależnie od NULL-i obok nich, a grupa przechodzi test. Gdy każda wartość w grupie to NULL, AVG zwraca NULL, NULL > .1 daje UNKNOWN, a HAVING, podobnie jak WHERE, zachowuje tylko wynik TRUE. AVG nigdy nie zamienia NULL-i na 0, a HAVING może używać dowolnej funkcji grupowej."
+    },
+    "q05-no-commission-depts": {
+      "prompt": "Raport ma wymienić działy (department_id), w których nikt nie ma prowizji. Które dwa zapytania to robią?",
+      "explanation": "COUNT(col) ignoruje NULL-e, więc wynosi 0 tylko wtedy, gdy każda prowizja w grupie to NULL; MAX z samych NULL-i to NULL. Oba zapytania zachowują działy 10 i 30. SUM z samych NULL-i to NULL, a nie 0, więc ten test nigdy nie jest prawdziwy; COUNT(*) wynosi co najmniej 1 w każdej istniejącej grupie, a zwykła kolumna w HAVING zgłasza ORA-00979."
+    },
+    "q05-count-literals": {
+      "prompt": "Przeanalizuj to zapytanie. Co zwraca?",
+      "options": [
+        "5, 3, 2",
+        "5, 5, 3",
+        "5, 3, 3",
+        "3, 3, 2"
+      ],
+      "explanation": "COUNT(*) liczy wszystkie 5 wierszy, łącznie z NULL-ami. COUNT(x) pomija dwa NULL-e (3), a COUNT(DISTINCT x) liczy różne wartości inne niż NULL, czyli 1 i 2 (2). NULL nigdy nie jest liczony jako dodatkowa odrębna wartość."
+    },
+    "q05-distinct-literals": {
+      "prompt": "Przeanalizuj to zapytanie. Co zwraca?",
+      "options": [
+        "30 i 15",
+        "40 i 13.33",
+        "40 i 10",
+        "Błąd: DISTINCT jest dozwolone tylko z COUNT"
+      ],
+      "explanation": "DISTINCT działa w każdej funkcji grupowej: najpierw usuwana jest powtórzona wartość 10, a NULL jest ignorowany, więc SUM dodaje 10 + 20 = 30, a AVG dzieli przez 2 różne wartości = 15. 40 i 13.33 to SUM(x) i AVG(x) bez DISTINCT; 10 wynikałoby z błędnego dzielenia przez wszystkie cztery wiersze."
+    },
+    "q05-date-group-fns": {
+      "prompt": "hire_date to kolumna typu DATE. Które trzy funkcje grupowe można do niej zastosować bez błędu?",
+      "options": [
+        "MIN(e.hire_date)",
+        "MAX(e.hire_date)",
+        "COUNT(e.hire_date)",
+        "SUM(e.hire_date)",
+        "AVG(e.hire_date)"
+      ],
+      "explanation": "MIN i MAX przyjmują dowolny typ, który da się uporządkować, więc zwracają najwcześniejszą i najpóźniejszą datę, a COUNT przyjmuje dowolny typ. SUM i AVG potrzebują liczb: dla DATE zgłaszają ORA-00932: inconsistent datatypes. Aby uśrednić daty, uśrednij wyprowadzoną z nich liczbę, np. różnicę między dwiema datami."
+    },
+    "q05-distinct-all-truths": {
+      "prompt": "Które dwa stwierdzenia o DISTINCT i ALL w funkcjach grupowych są prawdziwe?",
+      "options": [
+        "ALL jest domyślne, więc SUM(ALL e.salary) to to samo co SUM(e.salary).",
+        "DISTINCT można używać z SUM, AVG i COUNT.",
+        "COUNT(DISTINCT *) liczy różne wiersze tabeli.",
+        "MAX(DISTINCT e.salary) może zwrócić inną wartość niż MAX(e.salary).",
+        "DISTINCT w funkcji grupowej usuwa także NULL-e, które ALL by zachowało."
+      ],
+      "explanation": "Funkcje grupowe przyjmują przed argumentem opcjonalne ALL (domyślne) albo DISTINCT, a DISTINCT akceptują SUM, AVG, COUNT i pozostałe. COUNT(DISTINCT *) to błąd składni (ORA-00936). Usunięcie duplikatów nigdy nie zmienia MIN ani MAX, a NULL-e są ignorowane przez każdą funkcję grupową oprócz COUNT(*), z DISTINCT lub bez."
+    },
+    "q05-listagg-truths": {
+      "prompt": "Które dwa stwierdzenia o LISTAGG są prawdziwe?",
+      "options": [
+        "Wartości NULL są pomijane i nie dodają dodatkowego separatora.",
+        "WITHIN GROUP (ORDER BY ...) decyduje o kolejności wartości w tekście.",
+        "LISTAGG zwraca jeden wiersz dla każdego wiersza wejściowego.",
+        "Jeśli którakolwiek wartość w grupie to NULL, cały wynik to NULL.",
+        "Bez argumentu separatora wartości są rozdzielane przecinkiem."
+      ],
+      "explanation": "LISTAGG to agregat: zwraca jeden tekst na grupę, ignoruje NULL-e jak inne funkcje grupowe i porządkuje wartości według klauzuli WITHIN GROUP. Separator jest opcjonalny i domyślnie go nie ma, więc LISTAGG(x) WITHIN GROUP (ORDER BY x) dla 'a' i 'b' daje 'ab'. Wartość NULL w grupie jest po prostu pomijana; nigdy nie zamienia całego wyniku w NULL."
+    },
+    "q05-listagg-literals": {
+      "prompt": "Przeanalizuj to zapytanie. Co zwraca?",
+      "options": [
+        "a-b",
+        "a-b-b",
+        "b-a",
+        "a-b-"
+      ],
+      "explanation": "LISTAGG(DISTINCT ...), dostępne od 19c, usuwa powtórzone 'b', NULL jest pomijany bez dodatkowego separatora, a WITHIN GROUP (ORDER BY x) sortuje wartości: 'a-b'. Bez DISTINCT wynik byłby 'a-b-b'; 'b-a' to kolejność wejściowa, której LISTAGG nie zachowuje."
+    },
+    "q05-sum-pay-nvl": {
+      "prompt": "commission_pct to NULL dla pracowników bez prowizji. Które dwa wyrażenia zawsze zwracają sumę pensji i prowizji (salary * commission_pct), licząc brakującą prowizję jako 0?",
+      "options": [
+        "SUM(e.salary + e.salary * NVL(e.commission_pct, 0))",
+        "SUM(e.salary) + NVL(SUM(e.salary * e.commission_pct), 0)",
+        "SUM(e.salary + e.salary * e.commission_pct)",
+        "SUM(e.salary) + SUM(e.salary * e.commission_pct)",
+        "NVL(SUM(e.salary + e.salary * e.commission_pct), 0)"
+      ],
+      "explanation": "Wyrażenie wewnątrz SUM jest obliczane dla każdego wiersza, a salary * NULL to NULL, więc bez NVL całe wyrażenie w tym wierszu to NULL i SUM pomija także pensję tego pracownika. Zastąp NULL w każdym wierszu albo dodaj osobną sumę prowizji zabezpieczoną przez NVL. SUM(salary) + SUM(salary * commission_pct) to NULL, gdy nikt nie ma prowizji, a NVL wokół całego SUM nie przywraca pominiętych pensji."
+    },
+    "q05-min-max-case": {
+      "prompt": "Sesja używa domyślnego sortowania binarnego. Co zwraca to zapytanie?",
+      "options": [
+        "Banana i cherry",
+        "apple i cherry",
+        "apple i Banana",
+        "Błąd: MIN i MAX wymagają danych liczbowych"
+      ],
+      "explanation": "MIN i MAX porównują teksty według kodów znaków, a przy sortowaniu binarnym każda wielka litera jest przed każdą małą, więc 'Banana' jest najmniejsze, a 'cherry' największe. 'apple i cherry' dałoby porównanie bez rozróżniania wielkości liter. MIN i MAX przyjmują dane znakowe."
+    },
+    "q05-groupby-null-literals": {
+      "prompt": "Przeanalizuj to zapytanie. Ile wierszy zwraca?",
+      "options": [
+        "2",
+        "3",
+        "1",
+        "4"
+      ],
+      "explanation": "GROUP BY umieszcza wszystkie NULL-e w jednej grupie, mimo że w klauzuli WHERE NULL = NULL nie jest prawdą. Powstaje więc jedna grupa dla 'A' i jedna dla NULL, każda z COUNT(*) = 2. 3 oznaczałoby, że każdy NULL tworzy osobną grupę, a 1, że wiersze NULL zostały pominięte."
+    },
+    "q05-hires-per-year-sql": {
+      "prompt": "Które dwa zapytania zwracają liczbę pracowników zatrudnionych w każdym roku kalendarzowym, po jednym wierszu na rok?",
+      "explanation": "GROUP BY może używać dowolnego wyrażenia na poziomie wiersza, a lista SELECT musi powtarzać to samo wyrażenie. Grupowanie po hire_date działa, ale tworzy jedną grupę na datę, więc rok z kilkoma zatrudnieniami pojawia się kilka razy. Grupowanie po TRUNC(...) nie czyni EXTRACT(...) wyrażeniem z GROUP BY (ORA-00979), a bez GROUP BY zwykłe wyrażenie obok COUNT zgłasza ORA-00937."
+    },
+    "q05-groupby-null-truths": {
+      "prompt": "Które dwa stwierdzenia o GROUP BY i wartościach NULL są prawdziwe?",
+      "options": [
+        "Wszystkie wiersze z NULL w kolumnie grupującej tworzą jedną grupę.",
+        "W grupie NULL danej kolumny COUNT tej kolumny zwraca 0.",
+        "Wiersze z wartością grupującą NULL są odrzucane przed grupowaniem.",
+        "Każdy NULL tworzy osobną grupę, bo NULL nie jest równy NULL.",
+        "Grupa NULL jest zawsze zwracana jako pierwsza."
+      ],
+      "explanation": "Przy grupowaniu (tak jak przy DISTINCT) Oracle traktuje NULL-e jak jedną wartość, więc trafiają do jednej grupy; COUNT(col) tej grupy to 0, bo każda wartość w niej to NULL, a COUNT(*) to liczba wierszy. Wiersze z NULL nie są odrzucane. Bez ORDER BY nie ma gwarantowanej kolejności, a z ORDER BY NULL-e przy sortowaniu rosnącym domyślnie trafiają na koniec."
+    },
+    "q05-having-clause-order": {
+      "prompt": "Które dwa polecenia SQL wykonują się poprawnie?",
+      "explanation": "Oracle akceptuje HAVING zarówno po GROUP BY, jak i przed nim; znaczenie jest takie samo. WHERE musi stać przed GROUP BY, a ORDER BY musi być ostatnią klauzulą, więc obie te kolejności to błędy składni (ORA-00933 w 19c, ORA-03048 w 23ai). Funkcja grupowa w WHERE zgłasza ORA-00934."
+    },
+    "q05-where-having-effect": {
+      "prompt": "Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "COUNT(*) liczy tylko tych pracowników działu, którzy zarabiają więcej niż 5000.",
+        "Dział z trzema pracownikami, z których tylko jeden zarabia więcej niż 5000, nie jest zwracany.",
+        "HAVING jest obliczane przed WHERE, więc COUNT(*) obejmuje każdego pracownika.",
+        "Przeniesienie e.salary > 5000 do klauzuli HAVING daje ten sam wynik.",
+        "Pracownicy z department_id równym NULL są zawsze wykluczani."
+      ],
+      "explanation": "WHERE usuwa wiersze, zanim powstaną grupy, więc liczniki obejmują tylko wiersze, które przeszły ten filtr, a HAVING odrzuca potem grupy z mniej niż dwoma takimi wierszami. W HAVING e.salary nie jest wyrażeniem z GROUP BY (ORA-00979). Wiersze z department_id równym NULL tworzą własną grupę i są zwracane, jeśli co najmniej dwóch z tych pracowników zarabia więcej niż 5000."
+    },
+    "q05-having-subquery-rule": {
+      "prompt": "Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Zwraca działy, których średnia pensja jest wyższa niż średnia pensja wszystkich pracowników.",
+        "Kończy się błędem, bo HAVING nie może zawierać podzapytania.",
+        "Podzapytanie jest obliczane osobno dla każdej grupy, więc porównuje każdy dział z nim samym i nie zwraca żadnych wierszy.",
+        "Kończy się błędem, bo podzapytanie trzeba przenieść do klauzuli WHERE."
+      ],
+      "explanation": "HAVING może porównywać funkcję grupową z podzapytaniem jednowierszowym. Podzapytanie nie jest skorelowane, więc jest obliczane raz dla całej tabeli, a średnia każdej grupy jest porównywana ze średnią całej firmy. WHERE nie mogłoby tego zrobić, bo nie może zawierać AVG(e.salary) dla grupy."
+    }
+  },
+  "labs": {
+    "lab-dept-stats": {
+      "title": "Statystyki działów",
+      "task": "Zwróć department_id, headcount i avg_salary (zaokrąglone do 2 miejsc po przecinku) dla działów z co najmniej 2 pracownikami. Posortuj po department_id.",
+      "hint": "Grupuj po department_id; warunek na COUNT(*) nie może trafić do WHERE.",
+      "hint2": "GROUP BY e.department_id HAVING COUNT(*) >= 2 oraz ROUND(AVG(e.salary), 2) na liście SELECT."
+    },
+    "lab-order-totals": {
+      "title": "Sumy wysłanych zamówień",
+      "task": "Dla zamówień SHIPPED zwróć order_id i total (suma quantity * unit_price). Posortuj malejąco po total.",
+      "hint": "Połącz orders z order_items złączeniem (JOIN), odfiltruj status w WHERE, a potem grupuj po zamówieniu.",
+      "hint2": "SUM(i.quantity * i.unit_price) ... WHERE o.status = 'SHIPPED' GROUP BY o.order_id ORDER BY total DESC."
+    },
+    "lab-company-summary": {
+      "title": "Wiersz podsumowania firmy",
+      "task": "Zwróć jeden wiersz z kolumnami: headcount (liczba pracowników), with_commission (liczba pracowników, którzy mają prowizję), avg_commission (średnia istniejących wartości prowizji, zaokrąglona do 2 miejsc po przecinku) i job_count (liczba różnych nazw stanowisk).",
+      "hint": "GROUP BY nie jest potrzebne: cała tabela to jedna grupa. Pamiętaj, która forma COUNT ignoruje NULL-e.",
+      "hint2": "COUNT(*), COUNT(e.commission_pct), ROUND(AVG(e.commission_pct), 2), COUNT(DISTINCT e.job_title)."
+    },
+    "lab-max-dept-avg": {
+      "title": "Najwyższa średnia działu",
+      "task": "Zwróć jeden wiersz z jedną kolumną max_avg_salary: najwyższą średnią pensję spośród wszystkich działów (pracownicy bez działu tworzą własną grupę). Użyj zagnieżdżonych funkcji grupowych, bez podzapytania.",
+      "hint": "Funkcje grupowe można zagnieżdżać na dwóch poziomach, ale tylko z GROUP BY.",
+      "hint2": "SELECT MAX(AVG(e.salary)) ... GROUP BY e.department_id, bez niczego innego na liście SELECT."
+    },
+    "lab-category-stats": {
+      "title": "Statystyki kategorii produktów",
+      "task": "Dla każdej kategorii produktów zwróć category, product_count (wszystkie produkty), priced_count (produkty z list_price) i avg_price (średnia list_price, zaokrąglona do 2 miejsc po przecinku). Posortuj po category.",
+      "hint": "Grupuj po category. COUNT(*) i COUNT(p.list_price) różnią się, gdy cena to NULL.",
+      "hint2": "Kategoria Services ma jeden produkt, z ceną NULL: jej priced_count to 0, a avg_price to NULL."
+    },
+    "lab-dept-job-counts": {
+      "title": "Liczba pracowników według działu i stanowiska",
+      "task": "Zwróć department_id, job_title i headcount dla każdej kombinacji działu i stanowiska, która występuje w employees (łącznie z pracownikiem bez działu). Posortuj po department_id, a potem po job_title (domyślne położenie NULL).",
+      "hint": "GROUP BY może zawierać więcej niż jedną kolumnę; grupą jest każda odrębna kombinacja.",
+      "hint2": "GROUP BY e.department_id, e.job_title ORDER BY e.department_id, e.job_title."
+    },
+    "lab-busy-sales-reps": {
+      "title": "Zapracowani handlowcy",
+      "task": "Pomijając zamówienia CANCELLED, zwróć sales_rep_id i order_count dla handlowców (sales_rep_id różne od NULL), którzy mają co najmniej 2 zamówienia. Posortuj po sales_rep_id.",
+      "hint": "Warunki na wiersze (status, handlowiec NULL) należą do WHERE; warunek na liczbę zamówień należy do HAVING.",
+      "hint2": "WHERE o.status <> 'CANCELLED' AND o.sales_rep_id IS NOT NULL GROUP BY o.sales_rep_id HAVING COUNT(*) >= 2."
+    },
+    "lab-high-avg-depts": {
+      "title": "Dobrze opłacane działy",
+      "task": "Zwróć department_id i avg_salary (zaokrąglone do 2 miejsc po przecinku) dla działów (department_id różne od NULL), w których średnia pensja przekracza 8000. Posortuj malejąco po avg_salary.",
+      "hint": "Dział NULL odfiltruj w WHERE, a średnią w HAVING.",
+      "hint2": "HAVING AVG(e.salary) > 8000; ORDER BY może używać aliasu avg_salary."
+    },
+    "lab-fix-monthly-revenue": {
+      "title": "Popraw: miesiące z wysokim przychodem",
+      "task": "Polecenie SQL w edytorze powinno zwracać order_month (order_date w formacie 'YYYY-MM') i revenue (suma quantity * unit_price ze wszystkich pozycji zamówień z danego miesiąca) dla miesięcy z przychodem powyżej 3000, ale kończy się błędem. Popraw je. Posortuj po order_month.",
+      "hint": "ORA-00934: funkcji grupowej nie można użyć w WHERE, które filtruje pojedyncze wiersze przed grupowaniem.",
+      "hint2": "Przenieś warunek za GROUP BY: HAVING SUM(i.quantity * i.unit_price) > 3000."
+    },
+    "lab-country-credit": {
+      "title": "Klienci według kraju",
+      "task": "Zwróć country_code, customer_count (liczba klientów) i total_credit (suma credit_limit, przy czym brakujące credit_limit liczy się jako 0) dla każdego country_code, łącznie z klientami bez kraju (jedna grupa NULL). Posortuj po country_code (domyślne położenie NULL).",
+      "hint": "GROUP BY c.country_code umieszcza klienta bez kraju we własnej grupie NULL. COUNT(c.country_code) wyniósłby dla tej grupy 0.",
+      "hint2": "COUNT(*) AS customer_count, SUM(NVL(c.credit_limit, 0)) AS total_credit ... GROUP BY c.country_code ORDER BY c.country_code."
+    },
+    "lab-dept-name-lists": {
+      "title": "Nazwiska pracowników według działu",
+      "task": "Dla każdego działu, który ma pracowników (pomiń pracownika bez działu), zwróć department_id, headcount i employee_list: nazwiska oddzielone ', ' (przecinkiem i spacją) w kolejności alfabetycznej. Posortuj po department_id.",
+      "hint": "LISTAGG to funkcja grupowa: buduje jeden tekst na grupę. Kolejność wewnątrz tekstu wyznacza WITHIN GROUP (ORDER BY ...).",
+      "hint2": "LISTAGG(e.last_name, ', ') WITHIN GROUP (ORDER BY e.last_name), WHERE e.department_id IS NOT NULL, GROUP BY e.department_id."
+    },
+    "lab-distinct-salary-stats": {
+      "title": "Statystyki płac z DISTINCT",
+      "task": "Zwróć jeden wiersz z kolumnami: total_salary (suma wszystkich pensji), distinct_total (suma różnych wartości pensji), distinct_salaries (liczba różnych wartości pensji), avg_distinct (średnia różnych wartości pensji, zaokrąglona do 2 miejsc po przecinku) i dept_count (liczba różnych wartości department_id, bez NULL).",
+      "hint": "DISTINCT można napisać w każdej funkcji grupowej, nie tylko w COUNT. COUNT(DISTINCT ...) ignoruje NULL-e.",
+      "hint2": "SUM(DISTINCT e.salary), COUNT(DISTINCT e.salary), ROUND(AVG(DISTINCT e.salary), 2), COUNT(DISTINCT e.department_id), bez GROUP BY."
+    },
+    "lab-customer-country-lists": {
+      "title": "Listy kodów krajów",
+      "task": "Zwróć jeden wiersz z kolumnami: customer_count (liczba klientów), country_list (kody krajów wszystkich klientów w kolejności alfabetycznej, oddzielone ',' bez spacji, z duplikatami) i distinct_countries (ta sama lista bez duplikatów).",
+      "hint": "LISTAGG buduje jeden tekst na grupę i pomija NULL-e; LISTAGG(DISTINCT ...) usuwa powtarzające się wartości.",
+      "hint2": "LISTAGG(c.country_code, ',') WITHIN GROUP (ORDER BY c.country_code) i to samo z DISTINCT przed c.country_code."
+    },
+    "lab-fix-total-pay": {
+      "title": "Popraw: łączne wynagrodzenie w działach",
+      "task": "Polecenie SQL w edytorze powinno zwracać department_id i total_pay (sumę salary + salary * commission_pct po pracownikach działu, przy czym brakująca prowizja liczy się jako 0) dla każdego działu, który ma pracowników (pomiń pracownika bez działu), ale część sum jest błędna. Popraw je. Posortuj po department_id.",
+      "hint": "salary * NULL to NULL, więc całe wyrażenie w tym wierszu to NULL i SUM pomija także pensję tego pracownika.",
+      "hint2": "Zastąp prowizję NULL w każdym wierszu: SUM(e.salary + e.salary * NVL(e.commission_pct, 0))."
+    },
+    "lab-hires-per-year": {
+      "title": "Zatrudnienia w poszczególnych latach",
+      "task": "Zwróć hire_year (rok z hire_date jako liczba) i hires (liczba pracowników zatrudnionych w tym roku), po jednym wierszu na każdy rok, w którym ktoś został zatrudniony. Posortuj po hire_year.",
+      "hint": "GROUP BY może używać wyrażenia. Grupuj po roku, a nie po pełnej dacie.",
+      "hint2": "SELECT EXTRACT(YEAR FROM e.hire_date) AS hire_year, COUNT(*) ... GROUP BY EXTRACT(YEAR FROM e.hire_date)."
+    },
+    "lab-depts-above-company-avg": {
+      "title": "Działy powyżej średniej firmy",
+      "task": "Zwróć department_id i avg_salary (zaokrąglone do 2 miejsc po przecinku) dla grup department_id (pracownicy bez działu tworzą własną grupę), których średnia pensja jest wyższa niż średnia pensja wszystkich pracowników. Posortuj malejąco po avg_salary.",
+      "hint": "Porównaj średnią każdej grupy z podzapytaniem jednowierszowym w HAVING.",
+      "hint2": "HAVING AVG(e.salary) > (SELECT AVG(e2.salary) FROM employees e2)."
+    }
+  }
+}

@@ -1,0 +1,603 @@
+{
+  "questions": {
+    "q04-nvl2": {
+      "prompt": "Co zwraca NVL2(NULL, 'a', 'b')?",
+      "options": [
+        "a",
+        "b",
+        "NULL",
+        "Błąd"
+      ],
+      "explanation": "NVL2(expr, if_not_null, if_null). Pierwszy argument to NULL, więc zwracany jest trzeci argument. Kto czyta NVL2 jak NVL (drugi argument, gdy NULL), wybierze błędną odpowiedź a."
+    },
+    "q04-fm": {
+      "prompt": "Co zwraca TO_CHAR(DATE '2024-03-05', 'fmDD Month') (sesja z językiem angielskim)?",
+      "options": [
+        "05 March",
+        "5 March",
+        "5 March     ",
+        "05 MARCH"
+      ],
+      "explanation": "fm (fill mode) usuwa zera wiodące i spacje, którymi Month dopełnia nazwę do długości najdłuższej nazwy miesiąca (September, 9 znaków). Month zapisane mieszaną wielkością liter daje wynik w mieszanej wielkości liter."
+    },
+    "q04-nvl-type": {
+      "prompt": "commission_pct ma typ NUMBER. Co się stanie?",
+      "options": [
+        "Zwraca none",
+        "Zwraca NULL",
+        "Zgłasza ORA-01722: invalid number",
+        "Zwraca 0"
+      ],
+      "explanation": "NVL konwertuje drugi argument na typ danych pierwszego. 'none' nie da się przekonwertować na NUMBER. Użyj NVL(TO_CHAR(commission_pct), 'none')."
+    },
+    "q04-case-null": {
+      "prompt": "DEPARTMENT_ID ma typ NUMBER. Co zwraca to zapytanie dla wiersza, w którym department_id to NULL?",
+      "options": [
+        "none",
+        "some",
+        "NULL",
+        "Błąd"
+      ],
+      "explanation": "Proste CASE porównuje za pomocą =, a NULL = NULL daje UNKNOWN, więc gałąź WHEN nigdy nie pasuje. Użyj CASE z warunkami (searched CASE): CASE WHEN e.department_id IS NULL THEN ... DECODE natomiast traktuje dwa NULL-e jako równe."
+    },
+    "q04-implicit": {
+      "prompt": "employee_id ma typ NUMBER. Które stwierdzenie o WHERE e.employee_id = '101' jest prawdziwe?",
+      "options": [
+        "Kończy się błędem, bo tekstu nie można porównać z liczbą.",
+        "Działa: Oracle niejawnie konwertuje '101' na liczbę.",
+        "Działa, ale porównuje wartości jako teksty.",
+        "Nie zwraca żadnych wierszy z powodu niezgodności typów."
+      ],
+      "explanation": "Przy porównaniu wartości znakowej z NUMBER Oracle konwertuje wartość znakową na NUMBER. To działa, ale opiera się na niejawnej konwersji; jeśli tekst nie jest liczbą, kończy się błędem ORA-01722."
+    },
+    "q04-coalesce-type": {
+      "prompt": "Co zwraca SELECT COALESCE(NULL, 1, 'two') FROM dual?",
+      "options": [
+        "1",
+        "two",
+        "NULL",
+        "ORA-00932: inconsistent datatypes"
+      ],
+      "explanation": "W przeciwieństwie do NVL, COALESCE nie konwertuje niejawnie między rodzinami typów danych: wszystkie argumenty muszą należeć do tej samej rodziny typów. Połączenie NUMBER i CHAR zgłasza ORA-00932, mimo że pierwszą wartością różną od NULL jest liczba 1."
+    },
+    "q04-nullif-literal": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zwraca NULL.",
+        "Zwraca 0.",
+        "Zgłasza ORA-00932: inconsistent datatypes.",
+        "Zgłasza ORA-00936: missing expression."
+      ],
+      "explanation": "Pierwszym argumentem NULLIF nie może być literał NULL, bo Oracle nie potrafi wyznaczyć z niego typu wyniku; polecenie SQL kończy się błędem ORA-00932. Kolumna lub wyrażenie, które daje NULL, jest w porządku i zwraca NULL."
+    },
+    "q04-equivalent-nullif": {
+      "prompt": "Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "NULLIF(a, b) to skrót od CASE WHEN a = b THEN NULL ELSE a END, a DECODE z wynikiem NULL robi to samo. NVL zastępuje NULL-e zamiast je tworzyć, CASE z THEN 0 zwraca 0 zamiast NULL, a NVL2 dla każdej pensji różnej od NULL zwraca swój drugi argument, czyli NULL."
+    },
+    "q04-equivalent-coalesce": {
+      "prompt": "Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "NVL, NVL2 z samą wartością w gałęzi dla wartości różnej od NULL oraz CASE z warunkiem IS NULL zastępują NULL wartością 0. DECODE bez wartości domyślnej zwraca NULL dla każdej prowizji różnej od NULL, proste CASE nigdy nie dopasowuje WHEN NULL (więc NULL-e zostają NULL-ami), a NULLIF tworzy NULL-e zamiast je usuwać."
+    },
+    "q04-case-first-match": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "MID",
+        "HIGH",
+        "LOW",
+        "Błąd, bo więcej niż jeden warunek WHEN jest prawdziwy"
+      ],
+      "explanation": "CASE sprawdza warunki WHEN po kolei i zwraca wynik pierwszego prawdziwego; dalsze gałęzie nie są brane pod uwagę. 24000 > 5000 jest już prawdą, więc wynik to MID. Najbardziej selektywny warunek umieść na początku."
+    },
+    "q04-case-type": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zgłasza ORA-00932: inconsistent datatypes.",
+        "Zwraca none albo prowizję jako tekst.",
+        "Zgłasza ORA-01722 tylko dla wierszy z prowizją.",
+        "Zwraca NULL dla wierszy bez prowizji."
+      ],
+      "explanation": "Wszystkie wyniki THEN i ELSE w wyrażeniu CASE muszą należeć do tej samej rodziny typów danych; CASE nie zamieni za ciebie NUMBER na tekst. Połączenie CHAR i NUMBER zgłasza ORA-00932 już podczas parsowania polecenia SQL. Opakuj liczbę w TO_CHAR."
+    },
+    "q04-null-function-facts": {
+      "prompt": "Które trzy stwierdzenia są prawdziwe?",
+      "options": [
+        "NVL2(a, b, c) zwraca b, gdy a nie jest NULL.",
+        "DECODE zwraca NULL, gdy żadna szukana wartość nie pasuje i nie podano wartości domyślnej.",
+        "COALESCE przyjmuje więcej niż dwa argumenty.",
+        "NVL przyjmuje dowolną liczbę argumentów.",
+        "NULLIF(a, b) zwraca b, gdy a i b się różnią.",
+        "Proste wyrażenie CASE z WHEN NULL dopasowuje wartości NULL."
+      ],
+      "explanation": "NVL2 zwraca drugi argument, gdy pierwszy nie jest NULL, DECODE domyślnie zwraca NULL, a COALESCE przyjmuje listę i zwraca pierwszą wartość różną od NULL. NVL przyjmuje dokładnie dwa argumenty, NULLIF zwraca a (nie b), gdy argumenty się różnią, a proste CASE porównuje za pomocą =, co nigdy nie dopasowuje NULL."
+    },
+    "q04-nvl-errors": {
+      "prompt": "email ma typ VARCHAR2, a commission_pct typ NUMBER; obie kolumny zawierają NULL-e. Które dwa zapytania zgłaszają błąd?",
+      "explanation": "NVL2 zwraca typ swojego drugiego argumentu (NUMBER), więc 'none' trzeba przekonwertować na liczbę: ORA-01722. COALESCE nie konwertuje między rodzinami typów: ORA-00932. NVL konwertuje drugi argument na typ pierwszego, więc 0 staje się '0', a '0' staje się 0; COALESCE dwóch tekstów działa bez problemu."
+    },
+    "q04-equivalent-none-108": {
+      "prompt": "DEPARTMENT_ID ma typ NUMBER. Które dwa wyrażenia zwracają none dla wiersza, w którym department_id to NULL?",
+      "options": [
+        "DECODE(e.department_id, NULL, 'none', 'some')",
+        "CASE WHEN e.department_id IS NULL THEN 'none' ELSE 'some' END",
+        "CASE e.department_id WHEN NULL THEN 'none' ELSE 'some' END",
+        "NVL2(e.department_id, 'none', 'some')",
+        "NVL(e.department_id, 'none')"
+      ],
+      "explanation": "DECODE traktuje szukaną wartość NULL jako pasującą do wyrażenia równego NULL, a CASE z warunkami może sprawdzić IS NULL. Proste CASE porównuje department_id = NULL, co nigdy nie jest prawdą, więc zwraca some. NVL2 dla NULL zwraca swój trzeci argument (some), a NVL nie przekonwertuje 'none' na NUMBER (ORA-01722)."
+    },
+    "q04-plus-concat": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "15 and 105",
+        "105 and 105",
+        "15 and 15",
+        "ORA-01722: invalid number"
+      ],
+      "explanation": "Operator + potrzebuje liczb, więc '10' jest niejawnie konwertowane na 10, a suma to 15. Operator || potrzebuje tekstów, więc 5 jest konwertowane na '5', a wynik to 105. Kierunek niejawnej konwersji wyznacza operator."
+    },
+    "q04-column-to-number": {
+      "prompt": "email ma typ VARCHAR2(50) i zawiera wartości takie jak SKING i NKOCHHAR. Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zgłasza ORA-01722: invalid number.",
+        "Nie zwraca żadnych wierszy, bo 100 jest konwertowane na '100'.",
+        "Zgłasza ORA-00932: inconsistent datatypes.",
+        "Zwraca każdy wiersz, w którym email to NULL."
+      ],
+      "explanation": "Gdy wartość znakowa jest porównywana z liczbą, Oracle konwertuje stronę znakową na NUMBER, tutaj kolumnę email w każdym wierszu. SKING nie da się przekonwertować, więc zgłaszany jest ORA-01722. Ujmij literał w apostrofy ('100'), aby porównywać teksty."
+    },
+    "q04-string-compare": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "yes",
+        "no",
+        "NULL",
+        "ORA-01722: invalid number"
+      ],
+      "explanation": "Oba operandy to literały znakowe, więc żadna konwersja nie zachodzi i są porównywane znak po znaku: '5' sortuje się po '1', więc '5' > '10' jest prawdą. Tak sortują się liczby zapisane jako tekst, dlatego liczby warto przechowywać w kolumnach NUMBER albo konwertować jawnie przez TO_NUMBER."
+    },
+    "q04-implicit-which": {
+      "prompt": "Które trzy wyrażenia opierają się na niejawnej konwersji typów danych?",
+      "options": [
+        "e.hire_date > '2020-01-01'",
+        "LENGTH(12345)",
+        "e.salary || ' USD'",
+        "e.hire_date > DATE '2020-01-01'",
+        "TO_NUMBER('42') + 1",
+        "e.salary + 100"
+      ],
+      "explanation": "Porównanie DATE z tekstem konwertuje tekst według NLS_DATE_FORMAT, więc działa tylko w sesjach, w których format pasuje. LENGTH oczekuje tekstu, więc 12345 staje się '12345', a || konwertuje pensję na tekst. Literał DATE, jawne TO_NUMBER oraz NUMBER + NUMBER nie wymagają niejawnej konwersji."
+    },
+    "q04-nls-mismatch": {
+      "prompt": "Sesja ma NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS'. Co się stanie?",
+      "options": [
+        "Zgłasza ORA-01861: literal does not match format string.",
+        "Zwraca zamówienia 1006 i 1007.",
+        "Nie zwraca żadnych wierszy.",
+        "Porównuje daty jako teksty i zwraca każde zamówienie."
+      ],
+      "explanation": "Tekst jest niejawnie konwertowany na DATE według sesyjnego NLS_DATE_FORMAT, który oczekuje najpierw roku, więc konwersja kończy się błędem ORA-01861. To samo zapytanie może działać w sesji z formatem DD/MM/YYYY; użyj TO_DATE('31/03/2024', 'DD/MM/YYYY') albo DATE '2024-03-31', aby nie zależeć od sesji."
+    },
+    "q04-implicit-facts": {
+      "prompt": "Które dwa stwierdzenia o niejawnej konwersji są prawdziwe?",
+      "options": [
+        "Porównanie kolumny VARCHAR2 z literałem liczbowym konwertuje wartości kolumny na NUMBER.",
+        "Konkatenacja DATE z tekstem konwertuje DATE według sesyjnego NLS_DATE_FORMAT.",
+        "Oracle nigdy nie konwertuje typów danych niejawnie w klauzuli WHERE.",
+        "'10' || 5 zwraca 15.",
+        "Niejawna konwersja tekstu na DATE zawsze używa formatu ISO YYYY-MM-DD."
+      ],
+      "explanation": "Przy porównaniu wartości znakowej z liczbą Oracle konwertuje stronę znakową na NUMBER, co może zgłosić ORA-01722 i uniemożliwia użycie zwykłego indeksu na kolumnie. Konwersje DATE na tekst i tekstu na DATE używają NLS_DATE_FORMAT, a nie stałego formatu ISO. Konwersja zachodzi w każdej klauzuli, a || zawsze daje tekst (105)."
+    },
+    "q04-number-mask-hash": {
+      "prompt": "Co zwraca TO_CHAR(1234.5, '999.99')?",
+      "options": [
+        "#######",
+        "1234.50",
+        "234.50",
+        "ORA-01722: invalid number"
+      ],
+      "explanation": "Wartość potrzebuje czterech cyfr przed separatorem dziesiętnym, a maska ma trzy. TO_CHAR nie zgłasza błędu ani nie obcina cyfr: zwraca ciąg znaków #, po jednym na każdą pozycję sformatowanej szerokości (sześć znaków maski plus pozycja znaku liczby)."
+    },
+    "q04-sign-space": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "[ 1,234.50]",
+        "[1,234.50]",
+        "[1,234.5]",
+        "[ 1234.50]"
+      ],
+      "explanation": "Format liczbowy rezerwuje na początku jedną pozycję na znak liczby, a dla liczb dodatnich jest to spacja, więc wynik zaczyna się od spacji. 99 po separatorze dziesiętnym zawsze drukuje dwa miejsca po przecinku, a element G lub przecinek wstawia separator grup. Dodaj fm, aby usunąć spację z początku."
+    },
+    "q04-fm-number": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "[1,234.5]",
+        "[1,234.50]",
+        "[ 1,234.5]",
+        "[1234.5]"
+      ],
+      "explanation": "fm usuwa spację zarezerwowaną na znak liczby, a w formatach liczbowych pomija też końcowe zera na pozycjach 9 po separatorze dziesiętnym, więc 1,234.50 staje się 1,234.5. Użyj 0 zamiast 9 po separatorze dziesiętnym (fm9,999.00), aby zachować stałą liczbę miejsc po przecinku."
+    },
+    "q04-spth": {
+      "prompt": "Co zwraca TO_CHAR(DATE '2024-03-05', 'Ddspth') w sesji z językiem angielskim?",
+      "options": [
+        "Fifth",
+        "FIFTH",
+        "Five",
+        "05th"
+      ],
+      "explanation": "sp zapisuje liczbę słownie, a th zamienia ją na liczebnik porządkowy, więc spth daje fifth. Wielkość liter elementu (Dd: pierwsza litera wielka) ustala wielkość liter wyniku: Fifth. DDSPTH dałoby FIFTH, Ddsp dałoby Five, a DDth daje 05TH."
+    },
+    "q04-rr-yy": {
+      "prompt": "Bieżący rok mieści się między 2000 a 2049. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "TO_DATE('15-03-75', 'DD-MM-RR') zwraca datę w roku 1975.",
+        "TO_DATE('15-03-75', 'DD-MM-YY') zwraca datę w roku 2075.",
+        "TO_DATE('15-03-24', 'DD-MM-RR') zwraca datę w roku 1924.",
+        "TO_DATE('15-03-75', 'DD-MM-YY') zwraca datę w roku 1975.",
+        "RR i YY zawsze zwracają to samo stulecie."
+      ],
+      "explanation": "YY zawsze bierze stulecie bieżącego roku, więc 75 staje się 2075. RR używa przesuwnego okna: w latach 2000-2049 dwucyfrowe lata 50-99 należą do poprzedniego stulecia (1975), a 00-49 do bieżącego (2024)."
+    },
+    "q04-mi-mm": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "23:03",
+        "23:30",
+        "11:30",
+        "ORA-01810: format code appears twice"
+      ],
+      "explanation": "MM to miesiąc (03); minuty to MI. TO_CHAR przyjmuje dowolne połączenie elementów, więc ta pomyłka daje 23:03 zamiast błędu. HH (lub HH12) dałoby wartość w zegarze 12-godzinnym, np. 11."
+    },
+    "q04-to-number-mask": {
+      "prompt": "Co zwraca TO_NUMBER('$1,234.50', '$9,999.99')?",
+      "options": [
+        "1234.5",
+        "1234",
+        "1",
+        "ORA-01722: invalid number"
+      ],
+      "explanation": "Model formatu mówi TO_NUMBER, jak odczytać symbol waluty i separator grup, więc tekst staje się liczbą 1234.5. Bez maski TO_NUMBER('$1,234.50') zgłasza ORA-01722."
+    },
+    "q04-to-date-errors": {
+      "prompt": "Które dwa wywołania zgłaszają błąd?",
+      "options": [
+        "TO_DATE('2024-02-30', 'YYYY-MM-DD')",
+        "TO_DATE('2024-3-5', 'fxYYYY-MM-DD')",
+        "TO_DATE('2024/03/05', 'YYYY-MM-DD')",
+        "TO_DATE('05-MAR-2024', 'DD-MON-YYYY')",
+        "TO_DATE('2024-3-5', 'YYYY-MM-DD')"
+      ],
+      "explanation": "30 lutego nie istnieje (ORA-01839). fx wymaga dokładnego dopasowania, więc jednocyfrowy miesiąc i dzień kończą się błędem (ORA-01862). Bez fx TO_DATE jest tolerancyjne: akceptuje inną interpunkcję i brak zer wiodących. MON dopasowuje angielski skrót miesiąca w sesji z językiem angielskim."
+    },
+    "q04-day-padding": {
+      "prompt": "5 marca 2024 to wtorek. Co to zwraca w sesji z językiem angielskim?",
+      "options": [
+        "[Tuesday  ]",
+        "[Tuesday]",
+        "[TUESDAY  ]",
+        "[Tue]"
+      ],
+      "explanation": "Day jest dopełniane spacjami do długości najdłuższej nazwy dnia, Wednesday (9 znaków), więc Tuesday dostaje na końcu dwie spacje. fmDay usuwa dopełnienie, DAY dałoby wielkie litery, a Dy daje skrót Tue."
+    },
+    "q04-equivalent-ordinal": {
+      "prompt": "Które dwa zapytania zwracają w sesji z językiem angielskim dokładnie March 5th, 2024?",
+      "explanation": "fm usuwa dopełnienie miesiąca i zero wiodące; ddth daje liczebnik porządkowy małymi literami 5th, a \"th\" w cudzysłowie jest kopiowane dosłownie. DDth zamienia przyrostek na wielkie litery (5TH), pominięcie fm zachowuje dopełnienie i zero (March     05th), a Mon to skrót Mar."
+    },
+    "q04-equivalent-half": {
+      "prompt": "Które dwa zapytania zwracają dokładnie 0.50 (bez spacji)?",
+      "explanation": "0 przed separatorem dziesiętnym wymusza zero wiodące, a zera po nim wymuszają oba miejsca po przecinku, nawet z fm. Bez fm wynik ma na początku spację na znak liczby ( 0.50), którą usuwa TRIM. 9 przed separatorem dziesiętnym nie drukuje zera dla wartości mniejszej niż 1, więc 9.99 daje '  .50', a fm9.00 daje .50."
+    },
+    "q04-equivalent-12-hour": {
+      "prompt": "Które dwa zapytania zwracają dokładnie 11:30 PM?",
+      "explanation": "HH i HH12 to zegar 12-godzinny, a wskaźnik pory dnia drukuje faktyczne AM lub PM, niezależnie od tego, które z nich wpiszesz w masce. HH24 daje 23 (23:30 PM), MM to miesiąc (11:03 PM), a bez AM/PM wskaźnika brakuje."
+    },
+    "q04-nest-order": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "****",
+        "KING",
+        "**KI",
+        "KING****"
+      ],
+      "explanation": "Funkcje zagnieżdżone są obliczane od najbardziej wewnętrznej na zewnątrz. LPAD daje ****King, SUBSTR bierze z tego pierwsze cztery znaki (****), a UPPER zostawia je bez zmian. Czytanie funkcji od zewnątrz prowadzi do KING."
+    },
+    "q04-equivalent-no-manager": {
+      "prompt": "Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "Wewnętrzne TO_CHAR zamienia oba argumenty na tekst, zanim zobaczy je NVL, NVL2 lub COALESCE. DECODE bierze typ wyniku z pierwszego wyniku ('No manager'), więc liczbowe identyfikatory są konwertowane na tekst. Bez wewnętrznej konwersji NVL próbuje zamienić 'No manager' na liczbę (ORA-01722), a COALESCE odrzuca mieszane typy (ORA-00932); TO_CHAR na zewnątrz NVL działa za późno."
+    },
+    "q04-nest-dates": {
+      "prompt": "Co to zwraca w sesji z językiem angielskim?",
+      "options": [
+        "Friday, December 18th, 2015",
+        "Friday, December 17th, 2015",
+        "Friday, January 15th, 2016",
+        "Thursday, December 17th, 2015"
+      ],
+      "explanation": "Od środka: ADD_MONTHS daje 2015-12-17, czwartek; NEXT_DAY przechodzi do pierwszego piątku po tej dacie, 2015-12-18; TO_CHAR formatuje ją bez dopełnienia. 17 grudnia byłoby samym wynikiem ADD_MONTHS."
+    },
+    "q04-nest-facts": {
+      "prompt": "Które dwa stwierdzenia o zagnieżdżaniu funkcji są prawdziwe?",
+      "options": [
+        "Zagnieżdżone funkcje jednowierszowe są obliczane od najbardziej wewnętrznej do najbardziej zewnętrznej.",
+        "Funkcje jednowierszowe można zagnieżdżać na dowolną głębokość.",
+        "Funkcje grupowe można zagnieżdżać na dowolną głębokość.",
+        "Wszystkie zagnieżdżone funkcje muszą zwracać ten sam typ danych.",
+        "Najbardziej zewnętrzna funkcja jest obliczana jako pierwsza."
+      ],
+      "explanation": "Każda funkcja dostaje wynik funkcji umieszczonej w niej, więc obliczanie idzie od środka na zewnątrz, a funkcje jednowierszowe nie mają praktycznego limitu zagnieżdżenia. Funkcje grupowe można zagnieżdżać tylko na dwóch poziomach (MAX(AVG(salary)) z GROUP BY). Każdy poziom może zwracać inny typ, na przykład TO_CHAR(ADD_MONTHS(...))."
+    },
+    "q04-nest-length-trim": {
+      "prompt": "Co zwraca LENGTH(TRIM(LPAD('ab', 5)))?",
+      "options": [
+        "2",
+        "5",
+        "3",
+        "NULL"
+      ],
+      "explanation": "LPAD bez znaku dopełnienia dopełnia spacjami: '   ab'. TRIM z powrotem usuwa spacje, więc LENGTH widzi 'ab' i zwraca 2. Bez TRIM długość wyniosłaby 5."
+    },
+    "q04-equivalent-king": {
+      "prompt": "Które dwa zapytania zwracają KING?",
+      "explanation": "Ostateczną postać wyznacza najbardziej zewnętrzna funkcja. UPPER(TRIM(...)) daje KING, a ostatnie cztery znaki STEVENKING to KING. SUBSTR(..., 1, 3) zostawia tylko KIN, a zewnętrzne INITCAP lub LOWER cofa działanie wewnętrznego UPPER (King, king)."
+    },
+    "q04-coalesce-short-circuit": {
+      "prompt": "Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "SELECT COALESCE(1, 1/0) FROM dual zwraca 1.",
+        "NVL oblicza oba swoje argumenty, więc SELECT NVL(1, 1/0) FROM dual zgłasza ORA-01476.",
+        "SELECT NVL(1, 1/0) FROM dual zwraca 1, bo drugi argument nie jest potrzebny.",
+        "SELECT COALESCE(1, 1/0) FROM dual zgłasza ORA-01476: divisor is equal to zero.",
+        "SELECT NVL2(NULL, 1, 'a') FROM dual zwraca a."
+      ],
+      "explanation": "COALESCE stosuje obliczanie skrócone (short-circuit): zatrzymuje się na pierwszym argumencie różnym od NULL, więc 1/0 nigdy nie jest obliczane. NVL zawsze oblicza oba argumenty, więc dzielenie przez zero zgłasza ORA-01476, mimo że pierwszy argument nie jest NULL. NVL2 konwertuje swój trzeci argument na typ drugiego (NUMBER), więc 'a' zgłasza ORA-01722."
+    },
+    "q04-decode-first-result-type": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zgłasza ORA-01722: invalid number.",
+        "Zwraca 100 dla działu 10 i n/a dla pozostałych wierszy.",
+        "Zgłasza ORA-00932: inconsistent datatypes.",
+        "Zwraca 100 dla działu 10 i NULL dla pozostałych wierszy."
+      ],
+      "explanation": "DECODE bierze typ wyniku z pierwszego wyniku, tutaj NUMBER 100, i konwertuje na niego pozostałe wyniki. Dla każdego wiersza spoza działu 10 wartość domyślna 'n/a' musi stać się liczbą, co zgłasza ORA-01722. CASE z tymi samymi wynikami zgłasza zamiast tego ORA-00932, a DECODE(..., 10, '100', 'n/a') by zadziałało."
+    },
+    "q04-implicit-arith-strings": {
+      "prompt": "Które dwa stwierdzenia są prawdziwe w sesji AMERICAN z NLS_DATE_FORMAT 'YYYY-MM-DD HH24:MI:SS'?",
+      "options": [
+        "DATE '2024-03-01' + '1' zwraca DATE 2024-03-02.",
+        "'1' + '2' zwraca liczbę 3.",
+        "'2024-03-01' + 1 zwraca DATE 2024-03-02.",
+        "'1' + '2' zwraca tekst 12.",
+        "'1,5' + 1 zwraca 2.5."
+      ],
+      "explanation": "Przy + operandy znakowe są konwertowane na NUMBER: '1' staje się 1 (dodaną do DATE jako dni), a '1' + '2' daje 3. Tekst nigdy nie jest konwertowany na DATE tylko dlatego, że użyto +, więc '2024-03-01' + 1 próbuje zamienić '2024-03-01' na liczbę i zgłasza ORA-01722. + nigdy nie konkatenuje, a przy znaku dziesiętnym '.' z ustawień AMERICAN tekst '1,5' także nie jest liczbą (ORA-01722)."
+    },
+    "q04-like-on-number": {
+      "prompt": "SALARY ma typ NUMBER(8,2). Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Działa: Oracle niejawnie konwertuje każdą pensję na tekst, więc zwraca pensje, których tekst zaczyna się od 6, np. 6000 i 650.",
+        "Zgłasza ORA-01722: invalid number, bo '6%' nie da się przekonwertować na liczbę.",
+        "Zgłasza ORA-00932: inconsistent datatypes, bo LIKE działa tylko na kolumnach znakowych.",
+        "Działa, ale Oracle konwertuje '6%' na liczbę, więc zwraca tylko pensje równe 6."
+      ],
+      "explanation": "LIKE to operator znakowy, więc Oracle niejawnie konwertuje kolumnę NUMBER na tekst i dopasowuje wzorzec: pasują 6000, 650 i 6.5. Konwersja idzie z NUMBER na tekst, więc ORA-01722 nie może wystąpić, a ORA-00932 nie jest zgłaszany, bo NUMBER konwertuje się niejawnie na VARCHAR2. Zapytanie działa, ale uniemożliwia użycie zwykłego indeksu na salary."
+    },
+    "q04-in-list-conversion": {
+      "prompt": "employee_id ma typ NUMBER. Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zgłasza ORA-01722: invalid number.",
+        "Zwraca King, pomijając wartość, która nie jest liczbą.",
+        "Nie zwraca żadnych wierszy, bo typy się różnią.",
+        "Zgłasza ORA-00932: inconsistent datatypes."
+      ],
+      "explanation": "Każdy tekst z listy jest porównywany z NUMBER, więc każdy jest niejawnie konwertowany na NUMBER. '100' daje się przekonwertować, ale 'abc' nie, i całe polecenie SQL kończy się błędem ORA-01722 (23ai dopisuje do komunikatu, którego znaku nie udało się przekonwertować). Oracle nie pomija błędnych wartości, a ORA-00932 jest zgłaszany tylko między niezgodnymi rodzinami typów, takimi jak DATE i NUMBER."
+    },
+    "q04-date-like-nls": {
+      "prompt": "Sesja ma NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS', a HIRE_DATE ma typ DATE. Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Zwraca pracowników zatrudnionych w styczniu; w sesji z innym NLS_DATE_FORMAT to samo zapytanie może zwrócić inne wiersze.",
+        "Zgłasza ORA-00932: inconsistent datatypes, bo LIKE nie można zastosować do DATE.",
+        "Oracle konwertuje '%-01-%' na DATE, więc zgłasza ORA-01861: literal does not match format string.",
+        "Zwraca pracowników zatrudnionych w styczniu w każdej sesji, bo wartości DATE są zawsze konwertowane według formatu ISO."
+      ],
+      "explanation": "LIKE potrzebuje operandów znakowych, więc Oracle niejawnie konwertuje hire_date na tekst według sesyjnego NLS_DATE_FORMAT, co daje teksty takie jak 2017-01-13 00:00:00; '-01-' dopasowuje wtedy miesiąc. Wzorzec nigdy nie jest konwertowany na DATE i ORA-00932 nie jest zgłaszany. Ponieważ konwersja zależy od NLS_DATE_FORMAT (DD-MON-RR dałoby 13-JAN-17), bezpieczną formą jest EXTRACT(MONTH FROM e.hire_date) = 1 albo jawne TO_CHAR."
+    },
+    "q04-explicit-conversion-facts": {
+      "prompt": "Które trzy stwierdzenia są prawdziwe?",
+      "options": [
+        "TO_CHAR, TO_NUMBER i TO_DATE wykonują jawną konwersję typów danych.",
+        "CAST('12.6' AS NUMBER(3,1)) to jawna konwersja.",
+        "W WHERE e.salary = '6000.00' Oracle niejawnie konwertuje '6000.00' na NUMBER i znajduje pensje 6000.",
+        "W DATE '2024-03-01' * 2 Oracle niejawnie konwertuje DATE na liczbę dni.",
+        "Niejawna konwersja nigdy nie zgłasza błędu; gdy wartości nie da się przekonwertować, zwraca NULL.",
+        "CAST(12.6 AS NUMBER(2)) zgłasza błąd, bo wartość ma część ułamkową."
+      ],
+      "explanation": "Funkcje TO_ i CAST to jawne konwersje. Porównanie kolumny NUMBER z tekstem konwertuje tekst, a '6000.00' równa się 6000. DATE nigdy nie jest konwertowane na NUMBER (ORA-00932), nieudane niejawne konwersje zgłaszają błędy, np. ORA-01722, a CAST na NUMBER(2) zaokrągla 12.6 do 13."
+    },
+    "q04-pr-negative": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "[<1,234.50>]",
+        "[-1,234.50]",
+        "[(1,234.50)]",
+        "[1,234.50-]"
+      ],
+      "explanation": "PR pokazuje wartość ujemną w nawiasach ostrych (wartość dodatnia dostaje zamiast tego spację z każdej strony). Nawiasów okrągłych Oracle przy PR nie używa, minus na początku to zachowanie domyślne bez PR, a minus na końcu to element MI."
+    },
+    "q04-g-and-comma": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zgłasza ORA-01481: invalid number format model.",
+        "Zwraca 1,234.50 ze spacją na początku.",
+        "Zwraca 1234.50, bo G jest ignorowane.",
+        "Zwraca ########."
+      ],
+      "explanation": "G i D to separator grup i separator dziesiętny z ustawień NLS; przecinek i kropka to stałe znaki. Jeden model formatu nie może łączyć obu stylów, więc G z kropką zgłasza ORA-01481. Użyj '9G999D99' albo '9,999.99'. Znaki # pojawiają się tylko wtedy, gdy wartość jest za duża dla poprawnej maski."
+    },
+    "q04-to-date-missing-parts": {
+      "prompt": "Co zwraca TO_DATE('2024', 'YYYY')?",
+      "options": [
+        "Pierwszy dzień bieżącego miesiąca w 2024 roku",
+        "1 stycznia 2024",
+        "Dzisiejszy dzień i miesiąc w 2024 roku",
+        "ORA-01840: input value not long enough for date format"
+      ],
+      "explanation": "Elementy brakujące w modelu formatu przyjmują wartości domyślne: rok i miesiąc to bieżące, dzień to 1, a czas to północ. Wynik to więc 1. dzień bieżącego miesiąca w 2024 roku, a nie 1 stycznia. TO_DATE('10:30', 'HH24:MI') podobnie wypada w pierwszym dniu bieżącego miesiąca."
+    },
+    "q04-rr-boundaries": {
+      "prompt": "Bieżący rok mieści się między 2000 a 2049. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "TO_DATE('01-01-49', 'DD-MM-RR') zwraca datę w roku 2049.",
+        "TO_DATE('01-01-50', 'DD-MM-RR') zwraca datę w roku 1950.",
+        "TO_DATE('01-01-1950', 'DD-MM-RR') zwraca datę w roku 2050.",
+        "TO_DATE('31-12-99', 'DD-MM-YY') zwraca datę w roku 1999.",
+        "TO_DATE('01-01-49', 'DD-MM-YY') zwraca datę w roku 1949."
+      ],
+      "explanation": "W pierwszej połowie stulecia RR przypisuje 00-49 do bieżącego stulecia, a 50-99 do poprzedniego, więc 49 to 2049, a 50 to 1950. RR przyjmuje rok czterocyfrowy bez zmian (1950). YY zawsze bierze bieżące stulecie, więc 99 to 2099, a 49 to 2049."
+    },
+    "q04-format-ends-early": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zgłasza ORA-01830: date format picture ends before converting entire input string.",
+        "Zwraca 2024-03-05 10:30:00.",
+        "Zwraca 2024-03-05 00:00:00, ignorując czas.",
+        "Zgłasza ORA-01861: literal does not match format string."
+      ],
+      "explanation": "TO_DATE musi przetworzyć cały tekst; model kończy się po DD, a zostaje ' 10:30', więc zgłaszany jest ORA-01830 (23ai używa tego samego kodu). Sytuacja odwrotna, model dłuższy niż tekst (TO_DATE('2024-03-05', 'YYYY-MM-DD HH24:MI')), jest akceptowana i daje północ. ORA-01861 jest zgłaszany, gdy literał lub element nie pasuje, a tu nie o to chodzi."
+    },
+    "q04-equivalent-currency": {
+      "prompt": "Sesja ma NLS_TERRITORY = AMERICA (NLS_CURRENCY $). Które dwa zapytania zwracają dokładnie $1,234.50 (bez spacji)?",
+      "explanation": "$ to stały znak dolara, a L drukuje lokalny symbol waluty z NLS_CURRENCY, tutaj $; fm usuwa dopełnienie, a 00 zachowuje oba miejsca po przecinku. Bez fm L dopełnia wynik z lewej do stałej szerokości, a $ zachowuje spację na znak liczby. Przy fm dziewiątki po separatorze dziesiętnym gubią końcowe zero ($1,234.5), a C drukuje kod ISO (USD1,234.50)."
+    },
+    "q04-nest-decode-sign": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "LOW",
+        "HIGH",
+        "EQUAL",
+        "NULL"
+      ],
+      "explanation": "Od środka: 9000 - 10000 = -1000, SIGN zwraca -1, a DECODE nie znajduje dopasowania dla -1, więc zwraca wartość domyślną LOW. HIGH wymaga dodatniej różnicy, a EQUAL dokładnie 10000; NULL pojawiłby się tylko wtedy, gdyby brakowało wartości domyślnej. Zagnieżdżanie SIGN w DECODE to klasyczny sposób sprawdzania zakresów z czasów przed CASE."
+    },
+    "q04-nest-length-month": {
+      "prompt": "Co to zwraca w sesji z językiem angielskim?",
+      "options": [
+        "9/3",
+        "3/3",
+        "5/3",
+        "9/9"
+      ],
+      "explanation": "Wewnętrzne TO_CHAR działa pierwsze. Month jest dopełniane spacjami do najdłuższej nazwy miesiąca (September, 9 znaków), więc 'May' ma 9 znaków; fm usuwa dopełnienie i zostają 3. LENGTH liczy końcowe spacje, dlatego dopełnione nazwy miesięcy psują porównania takie jak TO_CHAR(d, 'Month') = 'May'."
+    },
+    "q04-nest-concat-null": {
+      "prompt": "COMMISSION_PCT ma typ NUMBER. Co zwraca to zapytanie dla wiersza, w którym commission_pct to NULL?",
+      "options": [
+        "%",
+        "none",
+        "NULL",
+        "0%"
+      ],
+      "explanation": "Od środka: NULL * 100 to NULL, a TO_CHAR(NULL) to NULL, ale konkatenacja pomija operand NULL, więc argumentem NVL jest '%', który nie jest NULL. NVL zwraca więc %. Aby dostać none, sprawdź samą kolumnę: NVL2(e.commission_pct, ..., 'none'), albo zastosuj NVL przed dodaniem %."
+    },
+    "q04-equivalent-commission-label": {
+      "prompt": "Które trzy zapytania zwracają te same wiersze co to?",
+      "explanation": "CASE z warunkami i DECODE sprawdzają samą kolumnę, tak jak NVL2. NULLIF zamienia pozostały '%' (z prowizji NULL) z powrotem na NULL, więc zewnętrzne NVL może go zastąpić. NVL i COALESCE wokół konkatenacji nigdy nie widzą NULL, bo NULL || '%' to '%', a NVL przed konkatenacją daje none%."
+    },
+    "q04-nullif-facts": {
+      "prompt": "Które dwa stwierdzenia o NULLIF są prawdziwe?",
+      "options": [
+        "NULLIF(a, b) jest równoważne CASE WHEN a = b THEN NULL ELSE a END.",
+        "Pierwszym argumentem NULLIF nie może być literał NULL.",
+        "NULLIF(a, b) zwraca NULL, gdy którykolwiek argument jest NULL.",
+        "NULLIF(a, b) zwraca b, gdy argumenty się różnią.",
+        "NULLIF przyjmuje dowolną liczbę argumentów i zwraca pierwszy, który nie jest NULL."
+      ],
+      "explanation": "NULLIF zwraca NULL, gdy oba argumenty są równe, a w przeciwnym razie zwraca pierwszy argument, dokładnie jak pokazane CASE z warunkami. Literał NULL jako pierwszy argument zgłasza ORA-00932. NULLIF(5, NULL) zwraca 5, bo 5 = NULL nie jest prawdą; NULLIF nigdy nie zwraca b, a zwracanie pierwszego argumentu różnego od NULL to zadanie COALESCE."
+    },
+    "q04-nest-zero": {
+      "prompt": "Które trzy zapytania zwracają 0?",
+      "explanation": "Obliczaj od środka. Przycięcie samych spacji daje NULL, LENGTH(NULL) to NULL, a NVL zamienia go na 0; UPPER daje ORACLE, w którym nie ma małej litery o, więc INSTR zwraca 0; LENGTH daje 6, a MOD(6, 3) to 0. Bez NVL LENGTH(TRIM('   ')) i LENGTH(LPAD('x', 0)) dają NULL, a INSTR zwraca 0 (nie NULL), gdy nic nie znajdzie, więc NVL2 zwraca 1."
+    }
+  },
+  "labs": {
+    "lab-commission-display": {
+      "title": "Wyświetlanie odporne na NULL (temat 4, ćwiczenie 1)",
+      "task": "Dla każdego pracownika zwróć employee_id, commission_display (np. 30% albo No commission, gdy NULL) i has_manager (Y albo N). Posortuj po employee_id.",
+      "hint": "NVL2(x, value_if_not_null, value_if_null) obsłuży obie kolumny.",
+      "hint2": "TO_CHAR(e.commission_pct * 100) || '%' to gałąź prowizji dla wartości różnej od NULL; NVL2(e.manager_id, 'Y', 'N') obsłuży przełożonego."
+    },
+    "lab-salary-bands": {
+      "title": "Przedziały płac (temat 4, ćwiczenie 2)",
+      "task": "Dla działów 20 i 30 zwróć last_name, salary_fmt (np. $14,000.00, bez spacji na początku), band (HIGH >= 10000, MID >= 5000, w przeciwnym razie LOW) i hired (np. March 2019, bez dopełnienia). Posortuj malejąco po salary, a potem po last_name.",
+      "hint": "Użyj TO_CHAR z fm w obu formatach i CASE z warunkami, zaczynając od najwyższego przedziału.",
+      "hint2": "TO_CHAR(e.salary, 'fm$99,999.00') i TO_CHAR(e.hire_date, 'fmMonth YYYY'); po separatorze dziesiętnym użyj 00, aby fm zachowało zera."
+    },
+    "lab-order-status-labels": {
+      "title": "Etykiety statusów zamówień",
+      "task": "Dla każdego zamówienia zwróć order_id i status_label: Open dla NEW, Done dla SHIPPED i Void dla każdego innego statusu. Posortuj po order_id.",
+      "hint": "DECODE(expr, search1, result1, search2, result2, default) albo proste CASE.",
+      "hint2": "DECODE(o.status, 'NEW', 'Open', 'SHIPPED', 'Done', 'Void') AS status_label."
+    },
+    "lab-customer-defaults": {
+      "title": "Wartości domyślne klientów",
+      "task": "Dla każdego klienta zwróć customer_id, country (country_code albo ??, gdy NULL), credit (credit_limit albo 0, gdy NULL) i big_credit (NULL, gdy credit_limit równa się 5000, w przeciwnym razie credit_limit). Posortuj po customer_id.",
+      "hint": "NVL lub COALESCE zastępują NULL-e; NULLIF je tworzy.",
+      "hint2": "COALESCE(c.country_code, '??'), NVL(c.credit_limit, 0), NULLIF(c.credit_limit, 5000)."
+    },
+    "lab-hire-year-explicit": {
+      "title": "Lata zatrudnienia bez niejawnej konwersji",
+      "task": "Zwróć employee_id, last_name i hire_year (rok zatrudnienia jako NUMBER) dla pracowników zatrudnionych w 2019 lub 2020 roku. Konwertuj jawnie; nie porównuj hire_date z tekstem. Posortuj po hire_date, a potem po employee_id.",
+      "hint": "TO_CHAR(e.hire_date, 'YYYY') daje rok jako tekst; TO_NUMBER zamienia go na liczbę.",
+      "hint2": "Filtruj za pomocą TO_DATE('2019-01-01', 'YYYY-MM-DD') i TO_DATE('2021-01-01', 'YYYY-MM-DD') jako przedziału prawostronnie otwartego."
+    },
+    "lab-order-calendar": {
+      "title": "Kalendarz zamówień",
+      "task": "Dla każdego zamówienia zwróć order_id, order_day (np. Mon 15-Jan-2024: skrócona nazwa dnia, dzień, skrócony miesiąc i rok; sesja z językiem angielskim) i order_time (czas w formacie 24-godzinnym, np. 23:30). Posortuj po order_id.",
+      "hint": "Dy i Mon to skrócone nazwy; wielkość ich liter odpowiada wielkości liter elementu.",
+      "hint2": "TO_CHAR(o.order_date, 'Dy DD-Mon-YYYY') i TO_CHAR(o.order_date, 'HH24:MI') (MI to minuty, MM to miesiąc)."
+    },
+    "lab-price-labels": {
+      "title": "Etykiety cen",
+      "task": "Dla każdego produktu zwróć product_id i price_label: list_price w formacie $1,200.00 lub $25.00 (bez spacji na początku) albo On request, gdy list_price to NULL. Posortuj po product_id.",
+      "hint": "Najpierw sformatuj liczbę przez TO_CHAR, potem zastąp NULL przez NVL: oba argumenty są wtedy tekstem.",
+      "hint2": "NVL(TO_CHAR(p.list_price, 'fm$9,990.00'), 'On request')."
+    },
+    "lab-review-fridays": {
+      "title": "Piątki ocen okresowych",
+      "task": "Dla pracowników działu 20 zwróć employee_id, manager_label (manager_id jako tekst albo No manager, gdy NULL) i review_day: pierwszy piątek po dacie hire_date powiększonej o 6 miesięcy, w formacie Friday, December 18th, 2015 (bez dopełnienia, sesja z językiem angielskim). Posortuj po employee_id.",
+      "hint": "Pracuj od środka: ADD_MONTHS, potem NEXT_DAY, potem TO_CHAR.",
+      "hint2": "TO_CHAR(NEXT_DAY(ADD_MONTHS(e.hire_date, 6), 'FRIDAY'), 'fmDay, Month ddth, YYYY') oraz NVL(TO_CHAR(e.manager_id), 'No manager')."
+    },
+    "lab-fix-department-label": {
+      "title": "Popraw: etykiety działów",
+      "task": "Dla każdego pracownika zwróć employee_id i dept_label: department_id jako tekst albo No department, gdy department_id to NULL (pracownik 108). Posortuj po employee_id. Kod startowy zwraca dla pracownika 108 NULL zamiast No department: popraw go.",
+      "hint": "Proste CASE porównuje za pomocą =, a department_id = NULL nigdy nie jest prawdą.",
+      "hint2": "Użyj CASE z warunkami (CASE WHEN e.department_id IS NULL THEN ...) albo NVL(TO_CHAR(e.department_id), 'No department')."
+    },
+    "lab-signed-salary-diff": {
+      "title": "Różnice płac ze znakiem",
+      "task": "Dla pracowników działu 30 zwróć employee_id i diff_text: salary minus 6000, sformatowane z jawnym znakiem i separatorem grup, bez spacji, np. +6,000, +0 i -1,200. Posortuj po employee_id.",
+      "hint": "Element S drukuje + lub - przed liczbą; fm usuwa dopełnienie.",
+      "hint2": "TO_CHAR(e.salary - 6000, 'fmS99,990'); ostatnie 0 sprawia, że zerowa różnica drukuje się jako +0."
+    },
+    "lab-contact-emails": {
+      "title": "Adresy kontaktowe",
+      "task": "Dla każdego pracownika zwróć employee_id, initials (pierwsze litery first_name i last_name, wielkimi literami, np. SK) i contact: email małymi literami z dopiskiem @example.com (np. sking@example.com) albo no email, gdy email to NULL. Posortuj po employee_id.",
+      "hint": "NULL || '@example.com' to '@example.com', a nie NULL, więc NVL wokół konkatenacji nie pomoże.",
+      "hint2": "NVL2(e.email, LOWER(e.email) || '@example.com', 'no email') sprawdza samą kolumnę."
+    },
+    "lab-fix-job-family": {
+      "title": "Popraw: rodziny stanowisk",
+      "task": "Dla każdego pracownika zwróć employee_id, job_title i job_family: IT dla Programmer, Sales dla Sales Rep i Other dla każdego innego stanowiska. Posortuj po employee_id. Kod startowy zwraca dla części pracowników NULL zamiast Other: popraw go.",
+      "hint": "Co zwraca DECODE, gdy żadna szukana wartość nie pasuje i nie ma wartości domyślnej?",
+      "hint2": "Dodaj do DECODE ostatni, niesparowany argument 'Other': to wartość domyślna zwracana, gdy nic nie pasuje."
+    },
+    "lab-fix-emails-without-k": {
+      "title": "Popraw: adresy email bez K",
+      "task": "Zwróć employee_id i email pracowników, których email nie zawiera litery K, niezależnie od wielkości liter. Pracownik bez adresu email (NULL) liczy się jako niezawierający K i musi znaleźć się w wyniku. Posortuj po employee_id. Kod startowy pomija pracownika bez adresu email: popraw go.",
+      "hint": "Dla email równego NULL UPPER(e.email) to NULL, a NULL NOT LIKE '%K%' daje UNKNOWN, więc wiersz zostaje odfiltrowany.",
+      "hint2": "Zastąp NULL przed sprawdzeniem: WHERE UPPER(NVL(e.email, ' ')) NOT LIKE '%K%' (albo dodaj OR e.email IS NULL)."
+    }
+  }
+}
