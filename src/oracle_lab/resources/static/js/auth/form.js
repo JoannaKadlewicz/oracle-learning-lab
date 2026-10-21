@@ -3,7 +3,6 @@
 import { $, $$ } from "/js/core/dom.js";
 import {
   initI18n, preferredLanguage, translatePage, wireLanguageSwitch, lang, t, tn,
-  explicitLanguage, rememberedLanguage, clearExplicitLanguage,
 } from "/js/core/i18n.js";
 
 /** Loads the page's language (remembered, else the browser's), fills the static texts and shows the page. */
@@ -15,25 +14,6 @@ export async function initAuthPage() {
   } finally {
     document.documentElement.classList.remove("i18n-pending");
   }
-}
-
-/** After sign-in: a language the learner clicked on this page replaces the account's. A remembered or
-    detected one never does. Failures are ignored; the app then shows the account's language. */
-export async function carryLanguage() {
-  if (!explicitLanguage()) return;
-  const code = rememberedLanguage() || lang();
-  try {
-    const me = await fetch("/api/auth/me", { credentials: "same-origin", headers: { "X-Language": lang() } });
-    if (!me.ok) return;
-    const { csrf_token: csrf } = await me.json();
-    const res = await fetch("/api/settings", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf, "X-Language": lang() },
-      body: JSON.stringify({ language: code }),
-    });
-    if (res.ok) clearExplicitLanguage();
-  } catch { /* the account keeps its language */ }
 }
 
 export async function postForm(path, data) {

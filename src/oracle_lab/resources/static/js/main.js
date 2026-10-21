@@ -1,7 +1,7 @@
 /* Entry point: load progress and content, wire the shell and the views, start routing. */
 
 import { esc } from "./core/dom.js";
-import { initI18n, preferredLanguage, rememberedLanguage, setAccountSaver, t } from "./core/i18n.js";
+import { initI18n, preferredLanguage, rememberedLanguage, explicitLanguage, clearExplicitLanguage, setAccountSaver, t } from "./core/i18n.js";
 import { api } from "./core/api.js";
 import { loadSession, currentUser } from "./core/session.js";
 import { useUser } from "./core/store.js";
@@ -52,6 +52,16 @@ document.addEventListener("click", e => {
   openNote(link.dataset.noteLink);
 });
 
+/** A language the learner clicked before signing in (by any method) replaces the account's, once. */
+async function carryClickedLanguage() {
+  const clicked = rememberedLanguage();
+  if (!explicitLanguage() || !clicked) return;
+  try {
+    if (S?.settings?.language !== clicked) apply(await api("/api/settings", { language: clicked }));
+    clearExplicitLanguage();
+  } catch (err) { console.error(err); }  // the flag stays; the next start tries again
+}
+
 /** An account without a language takes the one this browser remembers (picked or used before sign-in). */
 async function adoptRememberedLanguage() {
   const remembered = rememberedLanguage();
@@ -67,6 +77,7 @@ async function boot() {
     await loadSession();
     useUser(currentUser().id);
     await loadProgress();
+    await carryClickedLanguage();
     await initI18n(preferredLanguage(S?.settings?.language));
     languageReady = true;
     await adoptRememberedLanguage();

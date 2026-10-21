@@ -1,6 +1,6 @@
 import { $ } from "/js/core/dom.js";
 import { t } from "/js/core/i18n.js";
-import { initAuthPage, carryLanguage, postForm, getConfig, fillAbout, waitText, showError, setBusy, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
+import { initAuthPage, postForm, getConfig, fillAbout, waitText, showError, setBusy, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
 
 await initAuthPage();
 
@@ -29,10 +29,7 @@ form.addEventListener("submit", async event => {
   if (focusFirstMissing(form)) return showError(t("Enter your email and password."), { focus: false });
   setBusy(form, true);
   const result = await postForm("/api/auth/login", { email: $("#email").value.trim(), password: $("#password").value, next });
-  if (result.ok) {
-    await carryLanguage();
-    return location.assign(result.next || "/");
-  }
+  if (result.ok) return location.assign(result.next || "/");
   setBusy(form, false);
   showError([result.error, result.status === 429 ? waitText(result.retryAfter) : ""].filter(Boolean).join(" "));
 });

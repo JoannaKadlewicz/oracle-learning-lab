@@ -49,7 +49,7 @@ def test_auth_pages_have_their_forms(serve):
         status, headers, body = http(path)
         assert status == 200 and headers["Content-Type"].startswith("text/html") and f'id="{form}"'.encode() in body
         page = body.decode()
-        assert "<main" in page and 'role="alert"' in page and "<title" in page
+        assert "<main" in page and 'role="alert"' in page and re.search(r"<title[^>]*>[^<]+</title>", page)
         srcs = re.findall(r'<script[^>]*\bsrc="([^"]+)"', page)
         assert srcs and all(s.startswith("/js/auth/") or s == "/js/core/dom.js" for s in srcs)
         hrefs = re.findall(r'<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"', page)

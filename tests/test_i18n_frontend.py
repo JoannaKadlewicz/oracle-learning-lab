@@ -14,7 +14,7 @@ STATIC = Path(__file__).resolve().parents[1] / "src" / "oracle_lab" / "resources
 CATALOG = STATIC / "i18n" / "pl.json"
 PLACEHOLDER = re.compile(r"\{(\w+)\}")
 CALL = re.compile(r"(?<![\w$.])(t|tn|plural)\(")
-DATA_I18N = re.compile(r"\bdata-i18n=\"([^\"]*)\"")
+DATA_I18N = re.compile(r"\bdata-i18n(?:-aria-label)?=\"([^\"]*)\"")
 # After these characters (or a keyword) a "/" starts a regular expression, not a division.
 REGEX_BEFORE = set("(,=:[!&|?{};+-*%<>~^")
 REGEX_KEYWORDS = ("return", "typeof", "case", "do", "else", "in", "of", "void", "yield", "await")

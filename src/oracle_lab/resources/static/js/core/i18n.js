@@ -80,7 +80,7 @@ export function preferredLanguage(account) {
   return DEFAULT_LANGUAGE;
 }
 
-/** True when the learner picked the language on a sign-in page during an earlier or this visit. */
+/** True when the learner clicked a language that the account has not taken yet (cleared once it is saved). */
 export const explicitLanguage = () => stored(EXPLICIT_KEY) === "true";
 
 /** Remembers `code` in this browser; `explicit` marks it as the learner's own click. */
