@@ -159,6 +159,8 @@ function render() {
     else if (kind === "more") startQuiz({ mode: "practice", count: 10 });
     // The next unfinished step: questions, then flashcards, then the exercise.
     else if (kind === "questions" || (kind === "next" && questionsLeft.length)) {
+      // Today's own session, still stored, picks up where it was; one from the Quiz page is replaced.
+      if (practiceSession()?.fromToday) return resumePractice();
       startQuiz({ mode: "practice", ids: questionsLeft.length ? questionsLeft : plan.questions, keepOrder: true, fromToday: true });
     } else if (kind === "cards" || cardsLeft.length) openDeck((cardsLeft.length ? cardsLeft : plan.cards).map(id => CARD[id]), true);
     else if (lab) go(`/exercises/${lab.id}`);

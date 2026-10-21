@@ -96,8 +96,13 @@ function loadSession() {
   let valid = false;
   try {
     const fits = (id, order) => Q[id] && Array.isArray(order) && order.length === Q[id].options.length;
-    valid = s.v === 1 && Date.now() - s.saved < SESSION_MAX_AGE && s.items.length > 0
-      && s.items.every(e => isSecond(e) ? fits(e.id, s.seconds[e.id].order) : fits(e, s.order[e]))
+    const ticks = chosen => chosen === undefined || chosen === null || (Array.isArray(chosen) && chosen.every(Number.isInteger));
+    const age = Date.now() - s.saved;
+    // A save more than 5 minutes "in the future" means a wrong clock or a forged entry.
+    valid = s.v === 1 && typeof s.saved === "number" && age < SESSION_MAX_AGE && age > -5 * 60000 && s.items.length > 0
+      && s.items.every(e => isSecond(e)
+        ? fits(e.id, s.seconds[e.id].order) && ticks(s.seconds[e.id].chosen) && typeof s.seconds[e.id].checked === "boolean"
+        : typeof e === "string" && fits(e, s.order[e]) && ticks(s.answers?.[e]))
       && Number.isInteger(s.idx) && s.idx >= 0 && s.idx < s.items.length;
   } catch { /* malformed: discarded below */ }
   if (!valid) { clearSession(); return null; }
@@ -112,12 +117,12 @@ function sessionQuiz(s) {
   };
 }
 
-/** Today's "Resume practice (k of N)": answered and total original questions, or null. */
+/** Today's "Resume practice (k of N)": answered and total original questions, whether Today started it, or null. */
 export function practiceSession() {
   const s = loadSession();
   if (!s) return null;
   const firsts = s.items.filter(e => !isSecond(e));
-  return { answered: firsts.filter(id => s.checked?.[id]).length, total: firsts.length };
+  return { answered: firsts.filter(id => s.checked?.[id]).length, total: firsts.length, fromToday: !!s.fromToday };
 }
 
 export function resumePractice() {
@@ -466,12 +471,12 @@ async function quit() {
 function verdictHtml(q, chosen, order, conf, second) {
   const ok = isCorrect(q, chosen);
   const letters = joinLetters(q.answer.map(a => LETTERS[order.indexOf(a)]).sort());
-  // A right second try cannot clear a mistake: the proof needs another day. Shown while the
-  // question is an open mistake; checkPractice updates it once the server has the answer.
-  const secondNote = second && ok
-    ? `<p class="small verdict-note" id="second-note" ${openMistake(q.id) ? "" : "hidden"}>Right this time. It stays in your mistakes until you get it right on another day.</p>` : "";
-  const note = secondNote ? ""
-    : ok && conf === "guess"
+  // A right second try cannot clear a mistake: the proof needs another day. That line replaces
+  // the usual note while the question is an open mistake; checkPractice swaps them once the
+  // server has the answer.
+  const secondTry = second && ok;
+  const open = secondTry && openMistake(q.id);
+  const note = ok && conf === "guess"
     ? `You guessed, so this stays on your mistakes list until you answer it confidently on ${P.proof_days} different days.`
     : !ok && conf === "sure" ? "You were sure: that makes this a misconception, the most valuable kind of mistake to fix." : "";
   const title = ok ? (conf === "guess" ? "Correct, but a guess" : "Correct")
@@ -479,7 +484,8 @@ function verdictHtml(q, chosen, order, conf, second) {
   return `<div class="verdict ${ok ? "good" : "bad"}" role="status">
     <strong>${title}</strong>
     <p>${inlineCode(q.explanation)}</p>
-    ${note ? `<p class="small verdict-note">${note}</p>` : ""}${secondNote}
+    ${note ? `<p class="small verdict-note" id="usual-note" ${open ? "hidden" : ""}>${note}</p>` : ""}
+    ${secondTry ? `<p class="small verdict-note" id="second-note" ${open ? "" : "hidden"}>Right this time. It stays in your mistakes until you get it right on another day.</p>` : ""}
   </div>`;
 }
 
@@ -502,7 +508,11 @@ async function checkPractice(i, confidence) {
   try { apply(await api("/api/attempt", { id, chosen, confidence, mode: "practice" })); refreshNav(); }
   catch { toastError("Could not save this answer. Check that the server is running."); return; }
   const note = $("#second-note");
-  if (note && quiz?.items[quiz.idx] === entry) note.hidden = !openMistake(id);
+  if (note && quiz?.items[quiz.idx] === entry) {
+    note.hidden = !openMistake(id);
+    const usual = $("#usual-note");
+    if (usual) usual.hidden = !note.hidden;
+  }
 }
 
 function showReviewScreen() {
