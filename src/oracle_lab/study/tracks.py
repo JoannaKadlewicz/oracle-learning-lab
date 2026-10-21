@@ -1,4 +1,4 @@
-"""The exam track (1Z0-071 or 1Z0-171) chosen in the settings, and what the engine sees of it."""
+"""The exam track chosen in the settings, and what the engine sees of it."""
 
 from __future__ import annotations
 

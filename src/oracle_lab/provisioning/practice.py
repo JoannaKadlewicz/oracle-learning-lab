@@ -1,8 +1,8 @@
 """The databases a user's SQL runs on: their own practice schemas, created on demand.
 
-Each user gets one schema per practice target ("default", and "23ai" for the 1Z0-171 track when
-configured). The default schema is started in the background at sign-up; the 23ai one is created on
-first use. Without any practice target (development), admins keep the shared learning schema.
+Each user gets one schema per practice target ("default", and one per further database key an
+exam is registered with, when configured). The default schema is started in the background at
+sign-up; the others are created on first use. Without any practice target (development), admins keep the shared learning schema.
 
 The locks below live in this process: like Registration's lock, they assume the app runs as ONE process.
 Several processes (or hosts) could provision the same user's schema twice.
@@ -38,7 +38,7 @@ _ERROR_LIMIT = 500
 
 _locks: dict[tuple[str, str], threading.Lock] = {}
 _locks_guard = threading.Lock()
-# Provisioning inside a request (a 23ai schema on first use, or a crashed one) at most this many at a time
+# Provisioning inside a request (an exam's own schema on first use, or a crashed one) at most this many at a time
 # app-wide; a request that finds no slot free gets PREPARING instead of waiting.
 _request_slots = threading.BoundedSemaphore(2)
 

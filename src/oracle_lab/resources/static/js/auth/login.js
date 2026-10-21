@@ -1,5 +1,5 @@
 import { $ } from "/js/core/dom.js";
-import { postForm, getConfig, waitText, showError, setBusy, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
+import { postForm, getConfig, fillAbout, waitText, showError, setBusy, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
 
 const params = new URLSearchParams(location.search);
 const next = params.get("next") || "";
@@ -16,7 +16,7 @@ const GOOGLE_ERRORS = {
 const GOOGLE_FAILED = "Sign-in with Google did not complete. Please try again.";
 if (params.has("error")) showError(GOOGLE_ERRORS[params.get("error")] || GOOGLE_FAILED, { focus: false });
 
-getConfig().then(config => { $("#google").hidden = !config.google; });
+getConfig().then(config => { $("#google").hidden = !config.google; fillAbout(config); });
 
 form.addEventListener("submit", async event => {
   event.preventDefault();

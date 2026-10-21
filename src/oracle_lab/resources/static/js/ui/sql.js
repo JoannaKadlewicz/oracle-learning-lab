@@ -74,7 +74,7 @@ function expectedError(error, caption, expectError) {
 /** Results of a run, one block per statement. With several statements each block is a numbered
     step headed by its comment; `expectError` (a card's try_error) marks that error as intended. */
 export function resultsHtml(res, { expectError } = {}) {
-  if (!res.ok) return errorBox(`Cannot connect to the database.\n${res.connect_error}\n\nCheck that the Oracle container is running.`);
+  if (!res.ok) return errorBox(`Cannot connect to the database.\n${res.connect_error}\n\nCheck that the database server is running.`);
   if (!res.results.length) return `<div class="empty"><strong>Nothing to run</strong><p>Type a statement ending with a semicolon.</p></div>`;
   const steps = res.results.length > 1;
   const out = res.results.map((r, n) => {

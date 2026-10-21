@@ -15,7 +15,7 @@ function render() {
   const settings = P.settings;
   const theme = store("theme") || "dark";  // the default before any choice, as in the pages' head script
   main.innerHTML = `
-    ${pageHead("Settings", `You are preparing for <b>${esc(C.exam.code)}</b>, ${esc(C.exam.name)}. Switch exams at the top of the menu; progress is kept for both.`)}
+    ${pageHead("Settings", `You are preparing for <b>${esc(C.exam.code)}</b>, ${esc(C.exam.name)}. Switch exams at the top of the menu; progress is kept for each exam.`)}
     <div class="settings">
       <div class="panel">
         <div class="setting">
@@ -40,11 +40,11 @@ function render() {
 
       <div class="panel" id="account"></div>
 
-      ${section("About the two exams", `<p class="prose">1Z0-071 tests Oracle Database 19c behavior. 1Z0-171 (Oracle AI Database SQL Associate) tests the same SQL on 23ai and adds topic 15, the SQL features new in 23ai. Questions whose answer changed in 23ai are shown on 1Z0-071 only.</p>`)}
+      ${section("About the exams", Object.values(C.exams).map(e => `<p class="prose"><b>${esc(e.code)}</b> (${esc(e.name)}): ${esc(e.about)}</p>`).join(""))}
 
       <div class="panel danger-zone">
         <div class="setting">
-          <div><h3>Reset progress</h3><p>Deletes every quiz answer, flashcard review, exercise result and mock exam of both exams. Your settings and SQL history are kept. Your progress is saved to your account.</p></div>
+          <div><h3>Reset progress</h3><p>Deletes every quiz answer, flashcard review, exercise result and mock exam of every exam. Your settings and SQL history are kept. Your progress is saved to your account.</p></div>
           <button class="btn danger" id="reset-progress">Reset progress</button>
         </div>
       </div>

@@ -1,7 +1,8 @@
-/* SQL editor: CodeMirror when the CDN loaded (Oracle SQL highlighting, bracket matching,
+/* SQL editor: CodeMirror when the CDN loaded (SQL highlighting for the current exam's database engine, bracket matching,
    autocomplete with Ctrl+Space or after a dot); otherwise the plain text area. */
 
 import { esc } from "../core/dom.js";
+import { C } from "../core/state.js";
 import { api } from "../core/api.js";
 
 let schemaCache = null;
@@ -64,7 +65,7 @@ export function makeEditor(textarea, { onRun, onChange }) {
   const { CodeMirror } = window;
   const hint = cm => cm.showHint({ hint: CodeMirror.hint.sql, tables: schemaTables(), completeSingle: false });
   const cm = CodeMirror.fromTextArea(textarea, {
-    mode: "text/x-plsql", lineNumbers: true, matchBrackets: true, autoCloseBrackets: true,
+    mode: C.engine?.editor_mode || "text/x-sql", lineNumbers: true, matchBrackets: true, autoCloseBrackets: true,
     indentUnit: 2, tabSize: 2, lineWrapping: true, viewportMargin: Infinity,
     // Escape leaves the editor, so keyboard users are never trapped by Tab indenting.
     extraKeys: {

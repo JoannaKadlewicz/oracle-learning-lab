@@ -74,8 +74,8 @@ export function checkDatabase() {
     setSchema(r);
     setDatabase(r.ok ? r.database : null);
     el.className = "db-status " + (r.ok ? "ok" : "down");
-    el.textContent = r.ok ? `Oracle ${r.database.version.split(".").slice(0, 2).join(".")} connected` : "Database offline";
-    el.title = r.ok ? `${r.database.dsn}, Oracle ${r.database.version}` : r.error;
+    el.textContent = r.ok ? `${r.database.product} ${r.database.version.split(".").slice(0, 2).join(".")} connected` : "Database offline";
+    el.title = r.ok ? `${r.database.dsn}, ${r.database.product} ${r.database.version}` : r.error;
     if (currentView() === "home") refresh();
   }).catch(() => {
     el.className = "db-status down";

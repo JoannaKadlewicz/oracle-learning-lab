@@ -35,6 +35,15 @@ export async function getConfig() {
   return { google: false, registration_open: true };
 }
 
+/** Fills the page's `.auth-about` line from the exams the server offers; the static text stays on failure. */
+export function fillAbout(config) {
+  const el = document.querySelector(".auth-about");
+  const exams = (config.exams || []).map(e => `${e.code} (${e.database})`);
+  if (!el || !exams.length) return;
+  const list = exams.length > 1 ? `${exams.slice(0, -1).join(", ")} and ${exams[exams.length - 1]}` : exams[0];
+  el.textContent = `Practice questions, flashcards and an SQL lab on your own database, for the ${list} exams.`;
+}
+
 /** "Try again in 3 minutes." from a Retry-After in seconds. */
 export function waitText(seconds) {
   if (!seconds) return "";

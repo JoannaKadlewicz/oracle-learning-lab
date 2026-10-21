@@ -43,7 +43,7 @@ export async function loadProgress() {
   apply(await api("/api/progress"));
 }
 
-/** The content of the chosen exam track (1Z0-071 or 1Z0-171); reloaded when the track changes. */
+/** The content of the chosen exam; reloaded when the track changes. */
 export async function loadContent() {
   C = await api("/api/content");
   C.questions.forEach(q => { Q[q.id] = q; });
@@ -55,8 +55,8 @@ export const topicName = id => C.topics[id] || id;
 export const topicNo = id => Number(id.slice(1));
 export const topicLabel = id => `${topicNo(id)}. ${topicName(id)}`;
 
-/** Items whose SQL only runs on Oracle 23ai, when the connected database is older. */
-export const blockedOn23ai = item => item.topic === "t15" && DB && DB.major < 23;
+/** Items whose SQL needs a newer database than the connected one (the server marks them with `needs`). */
+export const needsNewerDb = item => !!(item.needs && DB && DB.major < item.needs.major);
 
 export function lastAttempt(qid) {
   const list = S.attempts[qid];

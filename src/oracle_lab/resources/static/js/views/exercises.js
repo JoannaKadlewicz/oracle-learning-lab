@@ -4,7 +4,7 @@
 import { $, $$, esc, inlineCode, icon, plural } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
-import { C, S, P, L, DB, apply, loadProgress, topicLabel, blockedOn23ai, sqlOff, NO_SQL } from "../core/state.js";
+import { C, S, P, L, DB, apply, loadProgress, topicLabel, needsNewerDb, sqlOff, NO_SQL } from "../core/state.js";
 import { main, go, setTitle } from "../core/router.js";
 import { currentUser } from "../core/session.js";
 import { confirmDialog } from "../ui/feedback.js";
@@ -105,7 +105,7 @@ function render(arg) {
           ${st?.passed ? `<span class="level level-strong">Passed</span>` : ""}
         </p>
         ${lab.starter ? `<p class="small muted">The editor starts with a statement that has a mistake in it. Find it, fix it, and check.</p>` : ""}
-        ${blockedOn23ai(lab) ? `<p class="callout">This exercise uses Oracle 23ai syntax, and your database is Oracle ${esc(DB.version)}. ${currentUser().role === "admin" ? "Run the app with <code>STUDY_DSN_23AI</code> set (see the README) to check it." : "The 1Z0-171 SQL features need Oracle 23ai, which this server does not provide."}</p>` : ""}
+        ${needsNewerDb(lab) ? `<p class="callout">This exercise needs ${esc(lab.needs.label)}, and your database is ${esc(DB.product)} ${esc(DB.version)}. ${currentUser().role === "admin" ? `Set <code>${esc(C.exam.database_env)}</code> to give ${esc(C.exam.code)} its own database (see the README).` : `${esc(C.exam.code)}'s SQL features need ${esc(lab.needs.label)}, which this server does not provide.`}</p>` : ""}
         <p class="task">${inlineCode(lab.task)}</p>
         <p class="cols">${howGraded}</p>
         <div id="hint-box"></div>

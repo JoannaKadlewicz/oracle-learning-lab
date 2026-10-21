@@ -4,7 +4,7 @@
 import { $, $$, esc, inlineCode, plural, shuffle, icon, LETTERS } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store, forget } from "../core/store.js";
-import { C, S, P, Q, CARD, apply, topicLabel, blockedOn23ai, mistakes, sqlOff, NO_SQL, todayLeft } from "../core/state.js";
+import { C, S, P, Q, CARD, apply, topicLabel, needsNewerDb, mistakes, sqlOff, NO_SQL, todayLeft } from "../core/state.js";
 import { main, go, currentView, setLeaveGuard } from "../core/router.js";
 import { toast, clearToast, toastError, confirmDialog, closeDialogs } from "../ui/feedback.js";
 import { meter, pageHead, section } from "../ui/widgets.js";
@@ -351,7 +351,7 @@ function renderSetup() {
   const saved = store("quiz-setup") || { topics: Object.keys(C.topics), count: 10, mode: "practice" };
   const counts = [5, 10, 20, 30, C.exam.questions, 999];
   main.innerHTML = `
-    ${pageHead("Quiz", "Original practice questions written for these exams, not real exam items. Every answer was checked against Oracle.")}
+    ${pageHead("Quiz", `Original practice questions written for these exams, not real exam items. Every answer was checked against ${esc(C.engine.label)}.`)}
     <div class="panel">
       <div class="setup-grid">
         <div class="field"><span class="label">Mode</span>
@@ -567,8 +567,8 @@ function renderQuestion(i, reviewing) {
       <span class="spacer"></span>
       ${canTry ? (sqlOff()
         ? `<span class="small muted">${NO_SQL}</span><button class="btn ghost" disabled>Run it in the SQL lab</button>`
-        : blockedOn23ai(q)
-        ? `<span class="small muted" title="The 1Z0-171 SQL features need Oracle 23ai, which this server does not provide.">Runs on Oracle 23ai only</span>`
+        : needsNewerDb(q)
+        ? `<span class="small muted" title="${esc(C.exam.code)}'s SQL features need ${esc(q.needs.label)}, which this server does not provide.">Runs on ${esc(q.needs.label)} only</span>`
         : `<button class="btn ghost" id="try">Run it in the SQL lab</button>`) : ""}
     </div>
     ${exam ? navigatorHtml(i) : ""}

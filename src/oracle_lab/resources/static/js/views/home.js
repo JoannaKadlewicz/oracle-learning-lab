@@ -11,10 +11,13 @@ import { openDeck } from "./cards.js";
 import { openNote } from "./notes.js";
 
 function trackWarning() {
-  if (!DB || C.exam.code !== "1Z0-171" || DB.major >= 23) return "";
-  return `<div class="callout"><p>You are preparing for 1Z0-171, but the SQL lab is connected to Oracle ${esc(DB.version)}.
-    Quizzes and flashcards work as usual; the SQL of topic 15 (23ai features) only runs on Oracle 23ai.
-    ${currentUser().role === "admin" ? "Start Oracle 23ai Free and set <code>STUDY_DSN_23AI</code> to switch databases with the exam (see the README)." : "The 1Z0-171 SQL features need Oracle 23ai, which this server does not provide."}</p></div>`;
+  if (!DB || !(C.exam.versions[0] > DB.major)) return "";
+  const code = esc(C.exam.code);
+  const ending = currentUser().role === "admin"
+    ? `Set <code>${esc(C.exam.database_env)}</code> to give ${code} its own database (see the README).`
+    : `This server does not provide ${esc(C.exam.database)}.`;
+  return `<div class="callout"><p>You are preparing for ${code}, but the SQL lab is connected to ${esc(DB.product)} ${esc(DB.version)}.
+    Quizzes and flashcards work as usual; SQL that needs ${esc(C.exam.database)} won't run. ${ending}</p></div>`;
 }
 
 function countdownFact(plan, examDate) {
@@ -137,10 +140,8 @@ function render() {
           <span>${mock.answered} of ${mock.count} answered, ${plural(mockLeft, "minute")} left.</span></button>`
         : `<button data-start="mock">${icon("timer")}<strong>Take a mock exam</strong>
           <span>${C.exam.questions} questions in ${C.exam.minutes} minutes, questions you have not seen first.</span></button>`}
-      <button data-note="docs/exam-guide-2026.md">${icon("doc")}<strong>Exam guide 2026</strong>
-        <span>1Z0-071 and 1Z0-171 compared, with every 19c and 23ai difference.</span></button>
-      <button data-note="docs/cheat-sheet.md">${icon("notes")}<strong>Cheat sheet</strong>
-        <span>The rules and traps of every topic on one page.</span></button>
+      ${C.home_notes.map((n, i) => `<button data-note="${esc(n.path)}">${icon(i ? "notes" : "doc")}<strong>${esc(n.title)}</strong>
+        <span>${esc(n.blurb)}</span></button>`).join("\n      ")}
     </div>`)}
 
     ${section("Topics", `<div class="table-wrap"><table class="data">

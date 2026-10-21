@@ -1,5 +1,5 @@
 import { $ } from "/js/core/dom.js";
-import { postForm, getConfig, waitText, showError, showProblems, setBusy, disableForm, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
+import { postForm, getConfig, fillAbout, waitText, showError, showProblems, setBusy, disableForm, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
 
 const next = new URLSearchParams(location.search).get("next") || "";
 const form = $("#register-form");
@@ -8,6 +8,7 @@ wirePasswordToggles();
 carryNext(next);
 
 getConfig().then(config => {
+  fillAbout(config);
   $("#google").hidden = !(config.google && config.registration_open);
   if (!config.registration_open) {
     $("#closed").hidden = false;

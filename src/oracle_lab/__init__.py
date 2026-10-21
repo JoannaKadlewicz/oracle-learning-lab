@@ -1,4 +1,4 @@
-"""Oracle Learning Lab: a study app for the Oracle SQL exams 1Z0-071 and 1Z0-171.
+"""Oracle Learning Lab: a study app for the Oracle SQL certification exams.
 
 Package layout (dependencies point downwards only):
 
