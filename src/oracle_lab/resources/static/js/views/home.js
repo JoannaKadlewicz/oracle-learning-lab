@@ -53,6 +53,9 @@ function render() {
   const done = plan.done;
   const questionsLeft = plan.questions.filter(id => !done.questions.includes(id));
   const cardsLeft = plan.cards.filter(id => !done.cards.includes(id));
+  // The same two numbers as the Flashcards page: reviews of cards seen before, and new cards.
+  const cardsDue = cardsLeft.filter(id => P.cards[id]).length;
+  const cardsNew = cardsLeft.length - cardsDue;
   const cardMinutes = Math.max(1, Math.round(cardsLeft.length * 0.3));
   const questionMinutes = Math.max(1, Math.round(questionsLeft.length * 1.5));
   const total = plan.questions.length + plan.cards.length + (lab ? 1 : 0);
@@ -101,7 +104,7 @@ function render() {
             <small>${questionsDone ? "All answered" : done.questions.length ? `${done.questions.length} of ${plan.questions.length} answered` : "Open mistakes, due reviews and your weakest objectives"}</small>
             <span class="minutes">${questionsDone ? "" : `${questionMinutes} min`}</span></a></li>
           <li><a href="/cards" data-start="cards" class="${cardsDone ? "done" : ""}" ${plan.cards.length ? "" : `aria-disabled="true" tabindex="-1"`}>
-            <strong>${plan.cards.length ? `Review ${plural(plan.cards.length, "flashcard")}` : "No flashcards due today"}</strong>
+            <strong>${cardsLeft.length ? `Review ${cardsDue} due · ${cardsNew} new` : plan.cards.length ? `Review ${plural(plan.cards.length, "flashcard")}` : "No flashcards due today"}</strong>
             <small>${cardsDone ? "All reviewed" : done.cards.length ? `${done.cards.length} of ${plan.cards.length} reviewed`
               : plan.cards.length ? "Spaced by how well you know them" : "Come back tomorrow, or study a topic deck"}</small>
             <span class="minutes">${cardsLeft.length ? `${cardMinutes} min` : ""}</span></a></li>

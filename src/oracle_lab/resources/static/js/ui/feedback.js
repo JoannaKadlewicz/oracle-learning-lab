@@ -50,14 +50,15 @@ export function closeDialogs() {
   document.querySelectorAll("dialog.modal[open]").forEach(d => d.close("cancel"));
 }
 
-/** Resolves true when the person confirms. */
-export async function confirmDialog({ title, body = "", confirm = "Continue", cancel = "Cancel", danger = false }) {
+/** Resolves true when the person confirms. `focus: "cancel"` starts on the cancel button, so a
+    stray Enter keeps things as they are. */
+export async function confirmDialog({ title, body = "", confirm = "Continue", cancel = "Cancel", danger = false, focus = "confirm" }) {
   const value = await openDialog(`
     <h2>${esc(title)}</h2>
     ${body ? `<p>${esc(body)}</p>` : ""}
     <div class="row">
-      <button type="button" class="btn secondary" data-close>${esc(cancel)}</button>
-      <button class="btn ${danger ? "danger solid" : ""}" value="ok" autofocus>${esc(confirm)}</button>
+      <button type="button" class="btn secondary" data-close ${focus === "cancel" ? "autofocus" : ""}>${esc(cancel)}</button>
+      <button class="btn ${danger ? "danger solid" : ""}" value="ok" ${focus === "cancel" ? "" : "autofocus"}>${esc(confirm)}</button>
     </div>`);
   return value === "ok";
 }

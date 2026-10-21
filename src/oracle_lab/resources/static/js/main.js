@@ -56,13 +56,14 @@ async function boot() {
     await loadProgress();
     await loadContent();
   } catch (err) {
+    console.error(err);
     main.innerHTML = `<div class="empty"><strong>The study server is not responding</strong>
       <p>The app could not load. Reload, or try again in a minute.</p>
       <button class="btn" id="reload-app">Reload</button></div>`;
     document.getElementById("reload-app").addEventListener("click", () => location.reload());
     return;
   }
-  initShell({ onExamChange: () => { resetQuiz(); resetDeck(); resetExercise(); } });
+  initShell({ onExamChange: () => { resetQuiz({ forgetPractice: true }); resetDeck(); resetExercise(); } });
   await startRouting();
   checkDatabase();
 }

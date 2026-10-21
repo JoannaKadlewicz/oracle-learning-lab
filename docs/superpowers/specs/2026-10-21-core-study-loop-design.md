@@ -127,7 +127,7 @@ The owner chose to focus on the core study loop: practising questions, flashcard
    - **Hard (quality 3):** a new rating.
      - Stored as the string `"hard"`.
      - Interval: the previous interval × 1.2, at least previous + 1 day; its first review gives 1 day.
-     - Ease: drops by 0.15, not below 1.3.
+     - Ease: the standard SM-2 change for quality 3 (−0.14), not below 1.3.
      - This is a new rating with its own rule. Existing again/good/easy reviews replay exactly as before.
    - **Previews:** for Hard, Good and Easy, show the resulting interval rounded to days (or "1 d" at minimum), computed by the engine.
    - **Mastery and readiness:** count Hard as remembered, like Good.

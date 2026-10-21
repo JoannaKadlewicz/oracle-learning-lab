@@ -4,7 +4,8 @@
 
 import { $, $$, esc, inlineCode, plural, shuffle } from "../core/dom.js";
 import { api } from "../core/api.js";
-import { C, P, DB, apply, dueCards, cardLearned, topicLabel, blockedOn23ai, sqlOff, NO_SQL, todayLeft } from "../core/state.js";
+import { store } from "../core/store.js";
+import { C, P, CARD, DB, apply, dueCards, cardLearned, topicLabel, blockedOn23ai, sqlOff, NO_SQL, todayLeft } from "../core/state.js";
 import { main, go } from "../core/router.js";
 import { toast, toastError } from "../ui/feedback.js";
 import { meter, pageHead, section, loading } from "../ui/widgets.js";
@@ -20,6 +21,7 @@ narrow.addEventListener("change", () => { if (deck?.queue.length && $("#card-try
 
 const RATINGS = [["again", "Again", "secondary"], ["hard", "Hard", "secondary"], ["good", "Good", ""], ["easy", "Easy", "secondary"]];
 const AGAIN_LABEL = "Again in this session";
+const RATING_KEYS_SEEN = "seen-rating-keys";
 
 /** The leading `--` comment block of a sample (what it shows) and the SQL after it. */
 export function splitSample(sql) {
@@ -79,10 +81,14 @@ function renderSetup() {
   $("#study-weak").addEventListener("click", () => {
     const rank = t => ({ new: 1, weak: 0, learning: 2, strong: 3 }[P.topics[t]?.level] ?? 1) + (P.topics[t]?.estimate || 0);
     const weakest = Object.keys(C.topics).sort((a, b) => rank(a) - rank(b)).slice(0, 3);
-    const dueSet = new Set(dueCards());
-    const cards = C.flashcards.filter(c => weakest.includes(c.topic)).sort((a, b) => dueSet.has(b) - dueSet.has(a));
+    // Due reviews first, then new cards within what is left of today's allowance, then cards already seen.
+    const inWeak = c => weakest.includes(c.topic);
+    const dueNow = P.card_queue.due.map(id => CARD[id]).filter(c => c && inWeak(c));
+    const dueIds = new Set(dueNow.map(c => c.id));
+    const fresh = C.flashcards.filter(c => inWeak(c) && !P.cards[c.id]).slice(0, P.card_queue.new_left);
+    const seen = C.flashcards.filter(c => inWeak(c) && P.cards[c.id] && !dueIds.has(c.id));
     toast("Weakest topics: " + weakest.map(topicLabel).join(", "));
-    openDeck(cards.slice(0, 30), true);
+    openDeck([...dueNow, ...fresh, ...seen].slice(0, 30), true);
   });
   // A topic deck studies its due reviews, then its share of today's new cards; with nothing left, every card.
   $$("[data-deck]", main).forEach(b => b.addEventListener("click", () => {
@@ -242,6 +248,11 @@ function flipCard() {
   $$("[data-rating]", main).forEach(b => { b.disabled = !deck.flipped; });
   if (deck.flipped && !deck.revealed) {
     deck.revealed = true;
+    // Once per learner: the rating keys changed from three ratings to four.
+    if (!store(RATING_KEYS_SEEN)) {
+      store(RATING_KEYS_SEEN, true);
+      toast("Rating keys: 1 Again · 2 Hard · 3 Good · 4 Easy");
+    }
     updateTry(currentCard());
     loadPreviews(deck.queue[0]);
   }
@@ -266,8 +277,11 @@ async function rateCard(rating) {
 }
 
 function onKey(e) {
-  if (!deck || !deck.queue.length) return;
-  if (e.key === " " || (e.key === "Enter" && e.target.id !== "card")) { e.preventDefault(); flipCard(); }
+  if (e.repeat || !deck || !deck.queue.length) return;
+  // Space and Enter flip only from the card or the page itself; on Run, Try it or Stop studying they
+  // press that button. Enter on the card is its own click, so only Space is handled there.
+  const onPage = e.target === document.body || e.target === main;
+  if ((e.key === " " && (onPage || e.target.id === "card")) || (e.key === "Enter" && onPage)) { e.preventDefault(); flipCard(); }
   else if (e.key === "1") rateCard("again");
   else if (e.key === "2") rateCard("hard");
   else if (e.key === "3") rateCard("good");

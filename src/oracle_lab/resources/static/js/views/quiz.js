@@ -28,7 +28,14 @@ const QTYPES = {
   concept: ["Concepts (no code)", q => !q.code],
 };
 
-export function resetQuiz() { stopTimer(); quiz = null; clearSession(); setExamMode(false); }
+/** Drops the quiz in memory. The practice session stored in this browser goes with it only when
+    that quiz is a practice session, or when `forgetPractice` (the exam track changed). */
+export function resetQuiz({ forgetPractice = false } = {}) {
+  stopTimer();
+  if (forgetPractice || quiz?.mode === "practice") clearSession();
+  quiz = null;
+  setExamMode(false);
+}
 
 function stopTimer() { clearInterval(timerHandle); timerHandle = null; }
 
@@ -278,20 +285,22 @@ function setExamMode(on) {
 const LEAVE = {
   title: "Leave the exam? The timer keeps running.",
   body: "Your answers are saved. Resume it from Today.",
-  confirm: "Leave", cancel: "Stay in the exam",
+  confirm: "Leave", cancel: "Stay in the exam", focus: "cancel",
 };
 
 /** The router's leave guard: true lets the navigation go on (leave() then turns exam mode off). */
 async function guardLeave() {
-  if (!await confirmDialog(LEAVE)) return false;
+  if (quiz?.submitting) return false;  // the results are on their way
+  if (!await confirmDialog(LEAVE) || quiz?.submitting) return false;
   if (quiz?.mode === "exam" && !quiz.finished) { trackTime(null); await sendPosition(quiz, true); }
   return true;
 }
 
 /** The exam bar's Leave: the mock keeps running, and Today offers to resume it. */
 async function leaveExam() {
+  if (quiz?.submitting) return;
   if (!await confirmDialog(LEAVE)) return;
-  if (!quiz || quiz.finished) return;
+  if (!quiz || quiz.finished || quiz.submitting) return;
   stopTimer();
   trackTime(null);
   await sendPosition(quiz, true);
@@ -313,7 +322,8 @@ async function confirmSubmit() {
   const body = unanswered.length || incomplete.length
     ? `Unanswered: ${unanswered.length}. Incomplete (fewer options ticked than asked for): ${incomplete.length}. Both score zero, and answers cannot be changed after submitting.`
     : "Every question has a complete answer. Answers cannot be changed after submitting.";
-  if (!await confirmDialog({ title: "Submit the exam?", body, confirm: "Submit exam", cancel: "Keep working" })) return;
+  if (!await confirmDialog({ title: "Submit the exam?", body, confirm: "Submit exam", cancel: "Keep working", focus: "cancel" })) return;
+  if (currentView() !== "quiz") return;  // the learner left the exam while the question was open
   if (quiz?.mode === "exam" && !quiz.finished) finishQuiz();
 }
 
@@ -467,7 +477,7 @@ function examBar(i) {
     <span class="exam-where">${i === null ? "Review" : `Question ${i + 1} of ${quiz.items.length}`}</span>
     <span class="spacer"></span>
     <span class="exam-tools">
-      ${i === null ? "" : `<button class="btn ghost small" id="bar-flag" aria-pressed="${!!quiz.flags[id]}"><span aria-hidden="true">⚑</span> ${quiz.flags[id] ? "Flagged" : "Flag"}</button>
+      ${i === null ? "" : `<button class="btn ghost small" id="bar-flag" aria-pressed="${!!quiz.flags[id]}"><span aria-hidden="true">⚑</span> Flag</button>
       <button class="btn ghost small" id="bar-review">Review</button>`}
       <button class="btn ghost small" id="bar-leave">Leave</button>
       <button class="btn small" id="bar-submit">Submit</button>
@@ -481,6 +491,7 @@ function bindExamBar(i) {
     quiz.flags[id] = !quiz.flags[id];
     saveMockAnswer(id, { flagged: quiz.flags[id] });
     render();
+    $("#bar-flag")?.focus();
   });
   $("#bar-review")?.addEventListener("click", showReviewScreen);
   $("#bar-leave").addEventListener("click", leaveExam);
@@ -763,6 +774,8 @@ async function finishQuiz() {
   quiz.finished = true;
   quiz.reviewIdx = null;
   quiz.elapsed = Date.now() - quiz.started;
+  // Submitted while the learner was elsewhere: the results wait on /quiz, not over that page.
+  if (currentView() !== "quiz") { refreshNav(); return; }
   render();
   window.scrollTo(0, 0);
 }
@@ -900,6 +913,7 @@ function renderMockResults(r) {
    S and T never collide, as options stop at H. Enter checks a complete practice answer as
    "think" when no confidence was chosen. */
 function onKey(e) {
+  if (e.repeat) return;
   if (!quiz || quiz.finished || quiz.reviewScreen) return;
   const inputs = $$("input[name=opt]", main);
   const toggle = pos => {
@@ -935,6 +949,7 @@ export const quizView = {
   render,
   onKey,
   leave() {
+    closeDialogs();  // a Submit or Leave question left open no longer applies to this page
     stopTimer();
     if (quiz?.mode === "exam" && !quiz.finished) { trackTime(null); sendPosition(quiz); }
     setExamMode(false);
