@@ -38,7 +38,8 @@ export async function route() {
     if (id !== navigation) return;
     console.error(err);
     main.innerHTML = `<div class="empty"><strong>This page could not be loaded</strong>
-      <p>${esc(err.message)}</p><button class="btn secondary" onclick="location.reload()">Reload the app</button></div>`;
+      <p>${esc(err.message)}</p><button class="btn secondary" id="reload-app">Reload the app</button></div>`;
+    $("#reload-app").addEventListener("click", () => location.reload());
   }
   if (id !== navigation) return;
   listeners.forEach(fn => fn(next));

@@ -1,6 +1,8 @@
 /* Entry point: load progress and content, wire the shell and the views, start routing. */
 
 import { esc } from "./core/dom.js";
+import { loadSession, currentUser } from "./core/session.js";
+import { useUser } from "./core/store.js";
 import { loadProgress, loadContent } from "./core/state.js";
 import { main, registerViews, startRouting, dispatchKey } from "./core/router.js";
 import { initShell, checkDatabase } from "./shell.js";
@@ -13,6 +15,7 @@ import { reviewView } from "./views/review.js";
 import { progressView } from "./views/progress.js";
 import { notesView, openNote } from "./views/notes.js";
 import { settingsView } from "./views/settings.js";
+import { adminView } from "./views/admin.js";
 
 registerViews({
   home: homeView,
@@ -25,6 +28,7 @@ registerViews({
   progress: progressView,
   notes: notesView,
   settings: settingsView,
+  admin: adminView,
 });
 
 // Single-key shortcuts (quiz options, flashcard ratings) never fire while typing.
@@ -47,12 +51,15 @@ document.addEventListener("click", e => {
 
 async function boot() {
   try {
+    await loadSession();
+    useUser(currentUser().id);
     await loadProgress();
     await loadContent();
   } catch (err) {
     main.innerHTML = `<div class="empty"><strong>The study server is not responding</strong>
       <p>${esc(err.message)} Start it with <code>.venv/bin/python app/server.py</code>, then reload this page.</p>
-      <button class="btn" onclick="location.reload()">Reload</button></div>`;
+      <button class="btn" id="reload-app">Reload</button></div>`;
+    document.getElementById("reload-app").addEventListener("click", () => location.reload());
     return;
   }
   initShell({ onExamChange: () => { resetQuiz(); resetDeck(); resetExercise(); } });

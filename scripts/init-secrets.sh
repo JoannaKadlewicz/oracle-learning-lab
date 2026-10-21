@@ -4,7 +4,10 @@
 #
 #   secrets/oracle_pwd            SYS, SYSTEM and PDBADMIN
 #   secrets/study_db_password     the learning user ORASTUDY
-#   secrets/study_auth_password   web login for user "study" (make the file empty to turn login off)
+#   secrets/provisioner_password OLL_PROVISIONER, creates the learners' private practice schemas
+#   secrets/gateway_password      OLL_GATEWAY, the proxy user the app connects through
+#   secrets/google_client_secret  optional: the Google OAuth client secret; created empty (Google sign-in off)
+#   secrets/admin_password        optional: initial password of STUDY_ADMIN_EMAIL; created empty
 #
 # The folder is private to you (0700). The files are 0644 because Oracle reads them inside the
 # container as another user (uid 54321), and Compose cannot change the owner of file secrets.
@@ -18,7 +21,7 @@ chmod 0700 "$dir"
 # Oracle passwords: letters and digits only (no quoting problems in SQL), starting with a letter.
 generate() { printf 'S%s\n' "$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 23)"; }
 
-for name in oracle_pwd study_db_password study_auth_password; do
+for name in oracle_pwd study_db_password provisioner_password gateway_password; do
   file="$dir/$name"
   if [[ -e $file ]]; then
     echo "kept      $file"
@@ -26,5 +29,12 @@ for name in oracle_pwd study_db_password study_auth_password; do
     generate >"$file"
     echo "generated $file"
   fi
+  chmod 0644 "$file"
+done
+
+# Optional secrets: an empty file mounts fine and means "not configured". Never overwritten.
+for name in google_client_secret admin_password; do
+  file="$dir/$name"
+  if [[ -e $file ]]; then echo "kept      $file"; else : >"$file"; echo "created   $file (empty)"; fi
   chmod 0644 "$file"
 done

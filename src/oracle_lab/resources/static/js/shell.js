@@ -4,6 +4,7 @@
 import { $, $$, esc } from "./core/dom.js";
 import { api } from "./core/api.js";
 import { store } from "./core/store.js";
+import { currentUser, signOut } from "./core/session.js";
 import { C, P, mistakes, apply, loadContent, setDatabase, dbLabel } from "./core/state.js";
 import { route, currentView, refresh, onRoute } from "./core/router.js";
 import { toast, toastError, confirmDialog } from "./ui/feedback.js";
@@ -96,5 +97,11 @@ export function initShell({ onExamChange: handler }) {
     if (b) switchExam(b.dataset.exam);
   });
   initDrawer();
+  const user = currentUser();
+  $("#account-name").textContent = user.display_name;
+  $("#account-email").textContent = user.email;
+  $("#rail-account").title = user.email;
+  $("#nav-admin").hidden = user.role !== "admin";
+  $("#sign-out").addEventListener("click", signOut);
   onRoute(refreshNav);
 }

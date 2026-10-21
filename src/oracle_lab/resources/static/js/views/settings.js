@@ -1,13 +1,15 @@
-/* Settings: exam date, daily study time, theme, and resetting progress. */
+/* Settings: exam date, daily study time, theme, the account, and resetting progress. */
 
 import { $, $$, esc } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
 import { C, P, apply } from "../core/state.js";
 import { main } from "../core/router.js";
-import { toast, toastError, confirmDialog } from "../ui/feedback.js";
+import { toast, toastError, confirmDialog, passwordDialog } from "../ui/feedback.js";
 import { pageHead, section } from "../ui/widgets.js";
 import { applyTheme, refreshNav } from "../shell.js";
+import { clearUserStore } from "../core/store.js";
+import { loadSession, currentUser } from "../core/session.js";
 
 function render() {
   const settings = P.settings;
@@ -31,6 +33,8 @@ function render() {
           </div>
         </div>
       </div>
+
+      <div class="panel" id="account"></div>
 
       ${section("About the two exams", `<p class="prose">1Z0-071 tests Oracle Database 19c behavior. 1Z0-171 (Oracle AI Database SQL Associate) tests the same SQL on 23ai and adds topic 15, the SQL features new in 23ai. Questions whose answer changed in 23ai are shown on 1Z0-071 only.</p>`)}
 
@@ -62,6 +66,160 @@ function render() {
       apply(await api("/api/reset-progress", {}));
       refreshNav();
       toast("Progress reset.");
+    } catch (err) { toastError(err.message); }
+  });
+  renderAccount();
+  const googleError = new URLSearchParams(location.search).get("google_error");
+  if (googleError !== null) {
+    toastError(GOOGLE_ERRORS[googleError] || "Google sign-in did not complete. Please try again.");
+    history.replaceState(null, "", location.pathname + location.hash);
+  }
+}
+
+/* ---------------------------------------------------------------- account */
+
+// Why connecting or confirming with Google failed (google_error=<code>): fixed texts only.
+const GOOGLE_ERRORS = {
+  already_linked: "This account is already connected to a Google account.",
+  linked_elsewhere: "This Google account is already connected to another account.",
+  throttled: "Too many attempts. Try again in a few minutes.",
+};
+
+const METHOD_NAMES = { password: "Email and password", google: "Google" };
+
+/** "Chrome on Linux" from a user agent string; the rest of it is noise. */
+export function deviceName(ua) {
+  if (!ua) return "Unknown device";
+  const browser = /Edg\//.test(ua) ? "Edge" : /OPR\/|Opera/.test(ua) ? "Opera" : /Firefox\//.test(ua) ? "Firefox"
+    : /Chrome\/|CriOS/.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
+  const os = /Android/.test(ua) ? "Android" : /iPhone|iPad|iOS/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows"
+    : /Mac OS X|Macintosh/.test(ua) ? "macOS" : /CrOS/.test(ua) ? "ChromeOS" : /Linux/.test(ua) ? "Linux" : "";
+  return os ? `${browser} on ${os}` : browser;
+}
+
+function ago(epochSeconds) {
+  const s = Math.max(0, Date.now() / 1000 - epochSeconds);
+  if (s < 90) return "just now";
+  const unit = (n, word) => `${n} ${word}${n === 1 ? "" : "s"} ago`;
+  if (s < 3600) return unit(Math.max(2, Math.round(s / 60)), "minute");
+  if (s < 86400) return unit(Math.round(s / 3600), "hour");
+  return new Date(epochSeconds * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** Shows a message (and password problems) in a form's alert area, as text only. */
+function showFormError(box, err) {
+  box.replaceChildren(Object.assign(document.createElement("span"), { textContent: err.message }));
+  if (err.problems?.length) {
+    const ul = document.createElement("ul");
+    ul.append(...err.problems.map(p => Object.assign(document.createElement("li"), { textContent: p })));
+    box.append(ul);
+  }
+  box.hidden = false;
+}
+
+async function renderAccount() {
+  const panel = $("#account");
+  if (!panel) return;
+  let user = currentUser();
+  let config = { google: false };
+  let sessions = [];
+  try {
+    [config, sessions] = await Promise.all([
+      fetch("/api/auth/config").then(r => r.json()).catch(() => ({ google: false })),
+      api("/api/account/sessions").then(r => r.sessions),
+    ]);
+  } catch (err) { toastError(`Could not load your sessions. ${err.message}`); }
+  if (!$("#account")) return;  // the person left the page meanwhile
+
+  const hasPassword = user.methods.includes("password");
+  const hasGoogle = user.methods.includes("google");
+  const reauth = `/auth/google/start?intent=reauth&next=${encodeURIComponent("/settings")}`;
+  const link = `/auth/google/start?intent=link&next=${encodeURIComponent("/settings")}`;
+
+  panel.innerHTML = `
+    <div class="setting">
+      <div><h3>Account</h3><p>${esc(user.display_name)}, <span class="acct-email">${esc(user.email)}</span></p></div>
+      <span class="tag">${user.role === "admin" ? "Administrator" : "Learner"}</span>
+    </div>
+    <div class="setting">
+      <div><h3>Sign-in methods</h3><p>${user.methods.map(m => esc(METHOD_NAMES[m] || m)).join(", ") || "None"}</p></div>
+      ${config.google && !hasGoogle ? `<a class="btn secondary" href="${esc(link)}">Connect Google</a>` : ""}
+      ${hasGoogle && hasPassword ? `<button class="btn secondary" id="google-unlink" type="button">Disconnect Google</button>` : ""}
+    </div>
+    <div class="setting setting-form">
+      <div><h3>${hasPassword ? "Change password" : "Set a password"}</h3>
+        <p>${hasPassword ? "Changing it signs you out everywhere else." : "Your account signs in with Google only. A password lets you sign in with your email too. Confirm with Google first."}</p></div>
+      <form class="stack" id="password-form" autocomplete="off">
+        ${hasPassword ? `<label class="field"><span>Current password</span><input type="password" id="pw-current" autocomplete="current-password" required></label>` : ""}
+        <label class="field"><span>New password</span><input type="password" id="pw-new" autocomplete="new-password" required></label>
+        <div class="form-error" id="pw-error" role="alert" hidden></div>
+        <div class="form-actions">
+          <button class="btn" type="submit">${hasPassword ? "Change password" : "Set password"}</button>
+          ${!hasPassword && config.google ? `<a class="btn secondary" href="${esc(reauth)}">Confirm with Google</a>` : ""}
+        </div>
+      </form>
+    </div>
+    <div class="setting setting-form">
+      <div><h3>Active sessions</h3><p>Browsers and devices signed in to this account.</p></div>
+      <div class="sessions" id="sessions">
+        ${sessions.map(s => `
+          <div class="session">
+            <div><strong>${esc(deviceName(s.user_agent))}</strong>${s.current ? `<span class="tag tag-here">This device</span>` : ""}
+              <span class="session-meta">${esc(s.ip || "unknown address")}, active ${esc(ago(s.last_seen))}</span></div>
+            ${s.current ? "" : `<button class="btn secondary small" type="button" data-end="${esc(s.id)}">Sign out</button>`}
+          </div>`).join("")}
+        ${sessions.length > 1 ? `<button class="btn secondary small" type="button" id="end-others">Sign out everywhere else</button>` : ""}
+      </div>
+    </div>
+    <div class="setting danger-row">
+      <div><h3>Delete my account</h3><p>Deletes your account, progress, notes and practice schema for good.${hasPassword ? "" : " You will need to confirm with Google first."}</p></div>
+      <button class="btn danger" id="delete-account" type="button">Delete my account</button>
+    </div>`;
+
+  const refresh = async () => {
+    try { await loadSession(); } catch { toastError("Your session changed. Reload the page to continue."); }
+    await renderAccount();
+  };
+
+  $("#password-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const box = $("#pw-error");
+    box.hidden = true;
+    try {
+      if (hasPassword) await api("/api/account/password", { current: $("#pw-current").value, new: $("#pw-new").value });
+      else await api("/api/account/set-password", { new: $("#pw-new").value });
+      await refresh();  // the session rotated: the CSRF token is new
+      toast(hasPassword ? "Password changed. Other devices were signed out." : "Password set.");
+    } catch (err) { showFormError(box, err); }
+  });
+  $("#google-unlink")?.addEventListener("click", async () => {
+    if (!await confirmDialog({ title: "Disconnect Google?", body: "You will sign in with your email and password only.", confirm: "Disconnect" })) return;
+    try { await api("/api/account/google/unlink", {}); await refresh(); toast("Google disconnected."); }
+    catch (err) { toastError(err.message); }
+  });
+  $("#sessions").addEventListener("click", async e => {
+    const end = e.target.closest("[data-end]");
+    const others = e.target.closest("#end-others");
+    if (!end && !others) return;
+    try {
+      if (end) await api("/api/account/sessions/end", { id: end.dataset.end });
+      else await api("/api/account/sessions/end-others", {});
+      await renderAccount();
+      toast(end ? "Session ended." : "Signed out everywhere else.");
+    } catch (err) { toastError(err.message); }
+  });
+  $("#delete-account").addEventListener("click", async () => {
+    const opts = { title: "Delete your account?", confirm: "Delete my account", danger: true,
+      body: "Your progress, notes and practice schema are deleted. This cannot be undone." };
+    let password = "";
+    if (hasPassword) {
+      password = await passwordDialog({ ...opts, body: `${opts.body} Enter your password to confirm.` });
+      if (password === null) return;
+    } else if (!await confirmDialog(opts)) return;
+    try {
+      await api("/api/account/delete", { password });
+      clearUserStore();
+      location.assign("/login");
     } catch (err) { toastError(err.message); }
   });
 }

@@ -3,7 +3,7 @@
 # The app alone, for a database that runs elsewhere (Render, CI, an existing Oracle server).
 #     docker build -f docker/app.Dockerfile -t oracle-learning-lab-app .
 # Configure it with the STUDY_* variables (see src/oracle_lab/config.py); mount passwords as
-# files and point STUDY_PASSWORD_FILE / STUDY_AUTH_PASSWORD_FILE at them.
+# files and point STUDY_PASSWORD_FILE, STUDY_PROVISIONER_PASSWORD_FILE etc. at them.
 
 FROM python:3.14-slim
 

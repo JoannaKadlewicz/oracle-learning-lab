@@ -31,6 +31,9 @@
   --card-muted: #6A7487;
   --card-rule: #BED0E6;
   --card-margin: #D9505F;
+  --card-link: #1F4DB0;
+  --card-bad: #A3243A;
+  --card-good: #17694A;
 
   /* Chart palette (validated: categorical series, status, sequential) */
   --series-1: #2a78d6;

@@ -16,7 +16,8 @@ export function toast(message, { error = false } = {}) {
 
 export const toastError = message => toast(message, { error: true });
 
-function openDialog(inner, onOpen) {
+/** A modal with `inner` inside a method="dialog" form; resolves the returnValue of the button that closed it. */
+export function openDialog(inner, onOpen) {
   return new Promise(resolve => {
     const dialog = document.createElement("dialog");
     dialog.className = "modal";
@@ -56,5 +57,19 @@ export async function promptDialog({ title, body = "", label, value = "", confir
       <button type="button" class="btn secondary" data-close>Cancel</button>
       <button class="btn" value="ok">${esc(confirm)}</button>
     </div>`, dialog => { input = dialog.querySelector("input"); input.select(); });
+  return result === "ok" ? input.value : null;
+}
+
+/** Asks for a password before a dangerous step. Resolves the entered text, or null when cancelled. */
+export async function passwordDialog({ title, body = "", label = "Password", confirm = "Continue", danger = false, autocomplete = "current-password" }) {
+  let input;
+  const result = await openDialog(`
+    <h2>${esc(title)}</h2>
+    ${body ? `<p>${esc(body)}</p>` : ""}
+    <label class="field"><span>${esc(label)}</span><input type="password" name="value" autocomplete="${esc(autocomplete)}" required></label>
+    <div class="row">
+      <button type="button" class="btn secondary" data-close>Cancel</button>
+      <button class="btn ${danger ? "danger solid" : ""}" value="ok">${esc(confirm)}</button>
+    </div>`, dialog => { input = dialog.querySelector("input"); input.focus(); });
   return result === "ok" ? input.value : null;
 }

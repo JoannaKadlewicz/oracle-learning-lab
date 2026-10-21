@@ -7,7 +7,7 @@ Every result and error code below was executed on Oracle AI Database 23.26 (FREE
 contrasts ("fails on 19c with ORA-...") were executed on 19.3. DDL behavior (IF [NOT] EXISTS,
 BOOLEAN and VECTOR columns, domains, annotations, DEFAULT ON NULL FOR INSERT AND UPDATE) was
 verified with temporary LAB_N15_ objects that were dropped afterwards; schema privileges were
-checked for syntax and error codes only (ORASTUDY cannot create users).
+checked for syntax and error codes only (the practice account cannot create users).
 """
 
 QUESTIONS = [
@@ -475,7 +475,7 @@ QUESTIONS = [
             "A schema privilege covers only the objects that exist at the time of the grant.",
         ],
         "answer": [0, 1],
-        "explanation": "The owner may grant privileges on their own schema (ORASTUDY's grant on SCHEMA orastudy got past the privilege check and failed only because the grantee did not exist). Grants are listed in DBA_SCHEMA_PRIVS, USER_SCHEMA_PRIVS and related views. The SYS schema is excluded (ORA-41905); only ANY privileges qualify, so CREATE TABLE ON SCHEMA raises ORA-00990 (CREATE ANY TABLE ON SCHEMA hr is the right form); and future objects are covered.",
+        "explanation": "The owner may grant privileges on their own schema (a grant on the owner's own schema got past the privilege check and failed only because the grantee did not exist). Grants are listed in DBA_SCHEMA_PRIVS, USER_SCHEMA_PRIVS and related views. The SYS schema is excluded (ORA-41905); only ANY privileges qualify, so CREATE TABLE ON SCHEMA raises ORA-00990 (CREATE ANY TABLE ON SCHEMA hr is the right form); and future objects are covered.",
     },
     {
         "id": "q15-db-developer-role",
@@ -490,7 +490,7 @@ QUESTIONS = [
             "It is a role that every user receives automatically through PUBLIC.",
         ],
         "answer": [0, 1],
-        "explanation": "DB_DEVELOPER_ROLE (new in 23ai) bundles what a developer needs in their own schema, including CREATE DOMAIN, CREATE MLE, CREATE JOB and DEBUG CONNECT SESSION, as a least-privilege alternative to CONNECT + RESOURCE or DBA. It has no ANY privileges and no UNLIMITED TABLESPACE (quota is granted separately), and it must be granted explicitly. (Its privileges were listed from ROLE_SYS_PRIVS on 23ai.)",
+        "explanation": "DB_DEVELOPER_ROLE (new in 23ai) bundles what a developer needs in their own schema, including CREATE DOMAIN, CREATE MLE, CREATE JOB and DEBUG CONNECT SESSION, as a least-privilege alternative to CONNECT + RESOURCE or DBA. It has no ANY privileges and no UNLIMITED TABLESPACE (quota is granted separately), and it must be granted explicitly. (Its privileges were checked in ROLE_SYS_PRIVS on 23ai; your practice schema does not hold the role and has only a few CREATE privileges granted directly.)",
     },
     {
         "id": "q15-schema-vs-any",
@@ -529,7 +529,7 @@ QUESTIONS = [
         "prompt": "Domain lab_n15_email has DISPLAY LOWER(lab_n15_email). Column mail uses it and holds 'Ann@Example.com'; column id is a plain NUMBER. Which two statements are true?",
         "options": [
             "DOMAIN_DISPLAY(mail) returns 'ann@example.com'.",
-            "DOMAIN_NAME(mail) returns the owner and name, for example 'ORASTUDY.LAB_N15_EMAIL'.",
+            "DOMAIN_NAME(mail) returns the owner and name, for example '<your schema>.LAB_N15_EMAIL'.",
             "SELECT mail FROM lab_n15_c returns 'ann@example.com' because of the DISPLAY expression.",
             "DOMAIN_NAME(id) raises an error because id has no domain.",
             "DOMAIN_DISPLAY changes the value stored in the column.",
@@ -797,8 +797,8 @@ FLASHCARDS = [
      "back": "Właściciel schematu (do swojego schematu) albo ktoś z uprawnieniem GRANT ANY SCHEMA PRIVILEGE. Widać je w DBA_SCHEMA_PRIVS i USER_SCHEMA_PRIVS.",
      "try_sql": "-- Uprawnienia na schemat nadane Tobie (pusto, jeśli nikt ich nie nadał)\nSELECT * FROM user_schema_privs;"},
     {"id": "c1771", "topic": "t15", "objective": "17.5", "front": "Czym jest DB_DEVELOPER_ROLE?",
-     "back": "To rola z 23ai. Daje programiście to, czego potrzebuje we własnym schemacie: CREATE TABLE, VIEW, SEQUENCE, PROCEDURE, TRIGGER, TYPE, SYNONYM, CREATE DOMAIN, CREATE MLE, CREATE JOB, DEBUG CONNECT SESSION... Nie ma w niej uprawnień ANY ani UNLIMITED TABLESPACE.",
-     "try_sql": "-- Zawartość DB_DEVELOPER_ROLE: szukaj ANY i UNLIMITED TABLESPACE (nie ma ich)\nSELECT privilege FROM role_sys_privs WHERE role = 'DB_DEVELOPER_ROLE' ORDER BY privilege;"},
+     "back": "To rola z 23ai. Daje programiście to, czego potrzebuje we własnym schemacie: CREATE TABLE, VIEW, SEQUENCE, PROCEDURE, TRIGGER, TYPE, SYNONYM, CREATE DOMAIN, CREATE MLE, CREATE JOB, DEBUG CONNECT SESSION... Nie ma w niej uprawnień ANY ani UNLIMITED TABLESPACE. Twój schemat ćwiczeń nie ma tej roli, tylko kilka uprawnień CREATE nadanych bezpośrednio.",
+     "try_sql": "-- Twoje uprawnienia w sesji (sama rola DB_DEVELOPER_ROLE jest opisana na karcie; tu nie ma ANY ani UNLIMITED TABLESPACE)\nSELECT privilege FROM session_privs ORDER BY privilege;"},
     {"id": "c1772", "topic": "t15", "objective": "17.6", "front": "Czym jest domena SQL (domain)?",
      "back": "To gotowy opis kolumny, którego można użyć wiele razy: CREATE DOMAIN d AS VARCHAR2(100) CONSTRAINT d_ck CHECK (REGEXP_LIKE(d, '@')) DISPLAY LOWER(d) ORDER UPPER(d) ANNOTATIONS (...); Kolumna używa jej tak: col d albo col DOMAIN d. Ograniczenia domeny naprawdę działają (ORA-11534).",
      "try_sql": "-- Domena z CHECK i DISPLAY: zły e-mail daje ORA-11534, DOMAIN_DISPLAY pokazuje małe litery\nCREATE DOMAIN lab_c1772_email AS VARCHAR2(100)\n  CONSTRAINT lab_c1772_email_ck CHECK (REGEXP_LIKE(lab_c1772_email, '@'))\n  DISPLAY LOWER(lab_c1772_email);\nCREATE TABLE lab_c1772_t (id NUMBER, email lab_c1772_email);\nINSERT INTO lab_c1772_t VALUES (1, 'Ann@Example.COM');\nINSERT INTO lab_c1772_t VALUES (2, 'no-at-sign');\nSELECT id, email, DOMAIN_DISPLAY(email) AS disp, DOMAIN_NAME(email) AS dn FROM lab_c1772_t;",

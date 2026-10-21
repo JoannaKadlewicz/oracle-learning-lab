@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Reset password · Oracle Learning Lab</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#EDF1F6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0E1522" media="(prefers-color-scheme: dark)">
+  <script>
+    try { const t = JSON.parse(localStorage.getItem("study:theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400..700&family=Atkinson+Hyperlegible+Next:ital,wght@0,300..800;1,400&display=swap">
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/auth.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='7' width='26' height='18' rx='2' fill='%23FFFEFA' stroke='%2316233A' stroke-width='2'/%3E%3Cpath d='M9 7v18' stroke='%23C8364A' stroke-width='2'/%3E%3Cpath d='M12 14h13M12 19h10' stroke='%23A9BCD6' stroke-width='2'/%3E%3C/svg%3E">
+</head>
+<body>
+  <main class="auth-page">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <div class="auth-head">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <p class="auth-brand">Oracle Learning Lab</p>
+      </div>
+      <h1 id="auth-title">Choose a new password</h1>
+      <div id="done" class="notice good" role="status" hidden>Your password is set. <a href="/login">Sign in with it now.</a></div>
+      <form id="reset-form" novalidate>
+        <div id="form-error" class="form-error" role="alert" tabindex="-1" hidden></div>
+        <div class="fields-set">
+          <div class="field">
+            <label for="password">New password</label>
+            <div class="pw">
+              <input id="password" name="password" type="password" autocomplete="new-password" required aria-describedby="password-hint password-problems">
+              <button type="button" class="pw-toggle" aria-pressed="false" aria-controls="password">Show</button>
+            </div>
+            <p class="hint-text" id="password-hint">At least 12 characters.</p>
+            <ul class="problems" id="password-problems" hidden></ul>
+          </div>
+        </div>
+        <button class="btn large auth-submit" type="submit">Set password</button>
+      </form>
+      <p class="auth-alt"><a href="/login">Back to sign in</a></p>
+    </section>
+  </main>
+  <script type="module" src="/js/auth/reset.js"></script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+/* Admin page: accounts table, sign-up and clean-up panels, security events. */
+
+.admin { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.admin .section { min-width: 0; }
+.admin .table-wrap { position: relative; } /* contains the sr-only header label, which would widen the page */
+.admin-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 0 24px; align-items: start; }
+.admin-panels .section { margin-top: 48px; } /* each is a first child, which components.css would pull up */
+.admin-panels .panel { display: grid; gap: 20px; }
+.admin-panels .form-actions { align-items: center; }
+
+table.admin-users td, table.admin-events td { vertical-align: top; }
+table.admin-users { min-width: 860px; }
+table.admin-events { min-width: 880px; font-size: var(--t-s); }
+.acct-cell { display: grid; gap: 2px; min-width: 200px; }
+.acct-cell strong { overflow-wrap: anywhere; font-weight: 650; }
+.acct-cell .tag { justify-self: start; }
+
+.tag-admin { color: var(--link); background: color-mix(in srgb, var(--link) 12%, var(--paper)); box-shadow: none; }
+.tag-ok { color: var(--good); background: var(--good-bg); box-shadow: none; }
+
+.schemas { display: grid; gap: 4px; justify-items: start; }
+.schema { font-size: var(--t-xs); font-family: var(--mono); color: var(--muted); white-space: nowrap; }
+.schema-ready { color: var(--good); }
+.schema-failed { color: var(--bad); }
+.schema-provisioning { color: var(--warn); }
+
+.admin-filters { margin-bottom: 14px; }
+.admin-filters select { min-width: 200px; max-width: 100%; }
+.ev-detail { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-2); overflow-wrap: anywhere; min-width: 240px; }
+.ev-user { overflow-wrap: anywhere; min-width: 160px; }
+table.admin-events code { font-size: var(--t-xs); }
+
+.days-input { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+.days-input input { width: 7em; }
+#max-users { width: 7em; }
+
+.action-list { display: grid; gap: 8px; }
+.action-list .btn { justify-content: flex-start; width: 100%; }
+
+@media (max-width: 600px) {
+  .admin-filters { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .admin-filters select { min-width: 0; width: 100%; }
+  .admin-filters .btn { justify-self: start; }
+}

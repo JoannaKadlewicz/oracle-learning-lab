@@ -30,7 +30,7 @@ build: secrets ## build the all-in-one image (Oracle 19c + app)
 
 up: secrets ## build and start the stack in the background
 	$(COMPOSE) up -d --build
-	@echo "First start creates the database (10-30 min): make logs. Then open http://127.0.0.1:$${LAB_PORT:-8071}"
+	@echo "First start creates the database (10-30 min): make logs. Then open http://localhost:$${LAB_PORT:-8071}"
 
 down: ## stop the stack (data in ./data is kept)
 	$(COMPOSE) down

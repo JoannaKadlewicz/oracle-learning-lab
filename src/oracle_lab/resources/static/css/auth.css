@@ -1,0 +1,145 @@
+/* Sign-in, registration and reset pages: one ruled index card on the desk.
+   Loaded after tokens, base and components; these pages do not use the app's view CSS. */
+
+.brand-mark {
+  flex: none;
+  width: 34px;
+  height: 26px;
+  border-radius: 3px;
+  background:
+    linear-gradient(var(--card-margin), var(--card-margin)) 8px 0 / 2px 100% no-repeat,
+    linear-gradient(to bottom, transparent 6px, var(--card-margin) 6px 7.5px, transparent 7.5px),
+    repeating-linear-gradient(to bottom, transparent 0 5.5px, var(--card-rule) 5.5px 6.5px),
+    var(--card-paper);
+  box-shadow: 0 0 0 1.5px var(--card-ink), 2px 3px 0 -0.5px color-mix(in srgb, var(--card-ink) 25%, transparent);
+  transform: rotate(-4deg);
+}
+
+.auth-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+
+.auth-card {
+  --line: 32px;
+  --a-ink: var(--card-ink);
+  --a-muted: var(--card-muted);
+  --a-link: var(--card-link);
+  --a-bad: var(--card-bad);
+  --a-good: var(--card-good);
+  --a-focus: var(--card-link);
+  --a-edge: color-mix(in srgb, var(--card-ink) 35%, var(--card-rule));
+  --a-tint: color-mix(in srgb, var(--card-ink) 6%, var(--card-paper));
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  padding: 0 24px 28px 64px;
+  border-radius: 4px;
+  color: var(--a-ink);
+  background-color: var(--card-paper);
+  background-image:
+    linear-gradient(to bottom, transparent calc(2 * var(--line) - 2px), var(--card-margin) calc(2 * var(--line) - 2px) calc(2 * var(--line)), transparent calc(2 * var(--line))),
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), var(--card-rule) calc(var(--line) - 1px) var(--line));
+  box-shadow: var(--shadow-card);
+}
+.auth-card::before {
+  content: "";
+  position: absolute;
+  left: 44px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--card-margin);
+  opacity: .7;
+}
+.auth-card h1 { color: var(--a-ink); font-size: 26px; line-height: var(--line); margin: 0 0 var(--line); }
+.auth-card a { color: var(--a-link); }
+.auth-card :focus-visible { outline-color: var(--a-focus); }
+
+.auth-head { display: flex; align-items: flex-end; gap: 12px; height: calc(var(--line) * 2); padding-bottom: 3px; }
+.auth-brand { margin: 0; font-size: var(--t-s); font-weight: 700; letter-spacing: .02em; color: var(--a-muted); line-height: var(--line); }
+.auth-card h1 { margin-top: var(--line); }
+
+.fields-set { display: grid; gap: 16px; margin-bottom: 20px; }
+.auth-card .field { gap: 4px; }
+.auth-card label { font-weight: 650; font-size: var(--t-s); color: var(--a-ink); line-height: 22px; }
+.auth-card .hint-text { color: var(--a-muted); line-height: 20px; }
+
+.auth-card input {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--a-edge);
+  border-radius: var(--r-s);
+  background: var(--card-paper);
+  color: var(--a-ink);
+}
+.auth-card input:hover { border-color: var(--a-muted); }
+.auth-card input:focus-visible { outline: 3px solid color-mix(in srgb, var(--a-focus) 40%, transparent); outline-offset: 0; border-color: var(--a-focus); }
+.auth-card input[aria-invalid="true"] { border-color: var(--a-bad); }
+.auth-card input:disabled { background: var(--a-tint); color: var(--a-muted); }
+
+.pw { position: relative; }
+.pw input { padding-right: 70px; }
+.pw-toggle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  min-width: 56px;
+  padding: 0 10px;
+  font: 600 var(--t-s)/1 var(--font);
+  color: var(--a-link);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.pw-toggle:hover { background: var(--a-tint); }
+.pw-toggle:disabled { color: var(--a-muted); cursor: not-allowed; background: transparent; }
+
+.problems { margin: 4px 0 0; padding: 0 0 0 20px; color: var(--a-bad); font-size: var(--t-s); line-height: 20px; }
+.problems[hidden], .form-error[hidden], .notice[hidden], #google[hidden] { display: none; }
+
+.form-error, .notice {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: var(--r-s);
+  border: 1.5px solid color-mix(in srgb, var(--a-bad) 55%, var(--card-paper));
+  background: color-mix(in srgb, var(--a-bad) 9%, var(--card-paper));
+  color: var(--a-bad);
+  font-size: var(--t-s);
+  line-height: 1.45;
+}
+.notice { border-color: color-mix(in srgb, var(--mark) 60%, var(--card-ink)); background: color-mix(in srgb, var(--mark) 30%, var(--card-paper)); color: var(--a-ink); }
+.notice.good { border-color: color-mix(in srgb, var(--a-good) 55%, var(--card-paper)); background: color-mix(in srgb, var(--a-good) 10%, var(--card-paper)); color: var(--a-good); }
+.notice.good a { color: var(--a-good); font-weight: 700; }
+.form-error:focus-visible { outline: 3px solid color-mix(in srgb, var(--a-focus) 40%, transparent); outline-offset: 2px; }
+
+.auth-submit, .auth-google { width: 100%; justify-content: center; }
+.auth-card .btn { --btn-bg: var(--card-ink); --btn-fg: var(--card-paper); --btn-border: var(--card-ink); text-decoration: none; }
+.auth-card .btn:hover { --btn-bg: color-mix(in srgb, var(--card-ink) 80%, var(--card-paper)); }
+.auth-card .btn.secondary { --btn-bg: var(--card-paper); --btn-fg: var(--card-ink); --btn-border: var(--a-edge); }
+.auth-card .btn.secondary:hover { --btn-bg: var(--a-tint); --btn-border: var(--card-ink); }
+
+.or { display: flex; align-items: center; gap: 12px; margin: 20px 0 12px; color: var(--a-muted); font-size: var(--t-s); }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--a-edge); }
+.auth-alt { margin: 24px 0 0; font-size: var(--t-s); color: var(--a-muted); line-height: var(--line); }
+
+@media (min-width: 1600px) {
+  .auth-card { --line: 36px; max-width: 520px; padding-left: 72px; }
+  .auth-card::before { left: 50px; }
+  .auth-card h1 { font-size: 30px; }
+}
+
+@media (max-width: 480px) {
+  .auth-page { align-items: start; padding: 16px 12px; }
+  .auth-card { padding: 0 16px 24px 52px; }
+  .auth-card::before { left: 38px; }
+  .auth-card h1 { font-size: 23px; }
+}

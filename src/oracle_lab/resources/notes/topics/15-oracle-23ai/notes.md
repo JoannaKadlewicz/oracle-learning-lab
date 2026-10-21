@@ -151,7 +151,7 @@ CREATE TABLE lab_n15_c (
 |---|---|
 | insert 'bad' into mail | **ORA-11534** check constraint ... due to domain constraint ... violated |
 | `DOMAIN_DISPLAY(mail)` for 'Ann@Example.com' | 'ann@example.com' (stored value unchanged) |
-| `DOMAIN_NAME(mail)` / `DOMAIN_NAME(id)` | 'ORASTUDY.LAB_N15_EMAIL' / NULL |
+| `DOMAIN_NAME(mail)` / `DOMAIN_NAME(id)` | '<your schema>.LAB_N15_EMAIL' / NULL |
 | `DOMAIN_ORDER(mail)` | 'ANN@EXAMPLE.COM' |
 | `DROP DOMAIN` while used | **ORA-11502** |
 | `DROP DOMAIN ... FORCE` | column keeps type and data, DOMAIN_NAME becomes NULL |

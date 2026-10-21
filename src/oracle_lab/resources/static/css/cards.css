@@ -83,8 +83,7 @@
 .card-try { display: grid; gap: 14px; min-width: 0; }
 .card-try-head h2 { margin: 0 0 2px; font-size: var(--t-l); }
 .card-try-head p { margin: 0; color: var(--muted); font-size: var(--t-s); }
-.card-try .CodeMirror, .card-try textarea.editor { min-height: 180px; height: auto; }
-.card-try .CodeMirror-scroll { min-height: 180px; max-height: 340px; }
+.card-try textarea.editor { min-height: 180px; height: auto; }
 .card-try .results:empty { display: none; }
 
 @media (min-width: 1180px) {

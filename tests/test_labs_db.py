@@ -3,9 +3,13 @@
 import pytest
 
 from oracle_lab import content
+from oracle_lab.accounts.memory import MemorySchemas
+from oracle_lab.auth.models import Principal
 from oracle_lab.database.connection import DatabaseCatalog
 from oracle_lab.database.executor import ScriptRunner
 from oracle_lab.grading.labs import grade
+from oracle_lab.provisioning.guards import RunGuard
+from oracle_lab.provisioning.practice import PracticeDatabases
 from oracle_lab.services.sql_lab import SqlLabService
 from oracle_lab.study.state import MemoryStateStore
 
@@ -28,7 +32,9 @@ def scalar(database):
 
 @pytest.fixture
 def lab_service(database):
-    return SqlLabService(MemoryStateStore(), DatabaseCatalog(database), clock=lambda: 1_800_000_000)
+    admin = Principal("admin", "admin@x.org", "admin", "hash", "csrf", 0.0)
+    practice = PracticeDatabases(admin, MemorySchemas(), {}, {}, DatabaseCatalog(database), 15000, lambda: 1_800_000_000)
+    return SqlLabService(MemoryStateStore(), practice, RunGuard(), clock=lambda: 1_800_000_000)
 
 
 def test_dml_lab_passes_the_solution_and_leaves_no_changes(database, scalar):

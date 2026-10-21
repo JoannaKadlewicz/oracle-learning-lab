@@ -37,7 +37,7 @@ def handler_for(app: WebApplication) -> type[BaseHTTPRequestHandler]:
                 return
             body = self.rfile.read(length) if length else b""
             headers = {k.lower(): v for k, v in self.headers.items()}
-            self._write(app(Request(self.command, self.path, headers, body)))
+            self._write(app(Request(self.command, self.path, headers, body, client=self.client_address[0])))
 
         def _write(self, response: Response) -> None:
             self.send_response(response.status)
@@ -46,6 +46,8 @@ def handler_for(app: WebApplication) -> type[BaseHTTPRequestHandler]:
             self.send_header("X-Content-Type-Options", "nosniff")
             for name, value in response.headers.items():
                 self.send_header(name, value)
+            for cookie in response.cookies:
+                self.send_header("Set-Cookie", cookie)
             self.end_headers()
             self.wfile.write(response.body)
 

@@ -54,7 +54,8 @@ Oracle 19c base image built from [oracle/docker-images](https://github.com/oracl
     make up                  # generates ./secrets, builds, starts; the first start creates the database (10-30 min)
     make logs
 
-Then open http://127.0.0.1:8071 and log in as `study` with the password in `secrets/study_auth_password`.
+Then open http://localhost:8071 and register an account: the first one becomes the administrator
+(unless `STUDY_ADMIN_EMAIL` names another) and receives the progress of an earlier single-user version.
 For details (credentials, data folders, 23ai, the app-only image), see [docs/docker.md](docs/docker.md).
 
 ## Run against your own Oracle database
@@ -67,7 +68,9 @@ all checks), and a learning user with CREATE SESSION, TABLE, VIEW, SEQUENCE and 
     .venv/bin/oracle-lab init-db                  # once: creates the sample tables if they are missing
     .venv/bin/oracle-lab serve                    # then open http://127.0.0.1:8071
 
-The server listens on 127.0.0.1 only, because the SQL lab runs any SQL you type. Passwords are read
+The server listens on 127.0.0.1 only, because the SQL lab runs any SQL you type. Open it at the
+host of `STUDY_PUBLIC_URL` (here `http://127.0.0.1:8071`; in the Docker setup `http://localhost:8071`):
+Google sign-in redirects back to exactly that address. Passwords are read
 from files (`*_FILE`) rather than from the code or the command line. Settings:
 
 | Variable | Default | Meaning |
@@ -80,9 +83,26 @@ from files (`*_FILE`) rather than from the code or the command line. Settings:
 | `STUDY_STATE_FILE` | `$STUDY_DATA_DIR/progress.json` | Progress file, if it should live elsewhere |
 | `STUDY_STATE_USER`, `STUDY_STATE_PASSWORD_FILE` | – | Keep progress and saved notes in this Oracle user's tables instead of files (for hosts without a disk, see [docs/docker.md](docs/docker.md#only-the-app-external-database)) |
 | `STUDY_STATE_DSN` | `STUDY_DSN` | Its database |
-| `STUDY_AUTH_PASSWORD_FILE` | – | Turns on a login (user `STUDY_AUTH_USER`, default `study`) |
+| `STUDY_PUBLIC_URL` | `http://HOST:PORT` | Address users open the app at; `https://` turns on secure cookies |
+| `STUDY_TRUST_PROXY` | off | `1` behind a reverse proxy: believe `X-Forwarded-For` (needs an `https://` `STUDY_PUBLIC_URL`) |
+| `STUDY_ADMIN_EMAIL`, `STUDY_ADMIN_PASSWORD_FILE` | – | The administrator account (default: the first user to register); set `STUDY_ADMIN_PASSWORD`, or sign in with Google using that address |
+| `STUDY_GOOGLE_CLIENT_ID`, `STUDY_GOOGLE_CLIENT_SECRET_FILE` | – | Turn on "Sign in with Google" |
+| `STUDY_REGISTRATION`, `STUDY_MAX_USERS` | `open`, `25` | Allow sign-ups; cap on accounts |
+| `STUDY_PROVISIONER_USER`, `STUDY_PROVISIONER_PASSWORD_FILE` | – | Oracle user that creates private practice schemas |
+| `STUDY_GATEWAY_USER`, `STUDY_GATEWAY_PASSWORD_FILE` | – | Proxy user the app connects through (`CREATE SESSION` only) |
+| `STUDY_PRACTICE_TABLESPACE`, `STUDY_PRACTICE_QUOTA_MB` | `USERS`, `50` | Where a practice schema lives and its quota |
 | `STUDY_DSN_23AI` | – | Optional Oracle 23ai database used while the 1Z0-171 track is chosen |
 | `STUDY_USER_23AI`, `STUDY_PASSWORD_23AI_FILE` | the 19c user and password | Its learning user |
+
+### Accounts
+
+The app has sign-up and sign-in (e-mail and password, optionally Google). Progress, notes and SQL
+history are per user, and with the provisioner and gateway users set, each user works in a private
+practice schema, so dropping a table in the SQL lab never affects anyone else. The Docker setup
+creates both users itself; for your own database and for Google sign-in see
+[docs/docker.md](docs/docker.md#accounts-and-google-sign-in), and for upgrading an existing
+installation [docs/docker.md](docs/docker.md#upgrading-an-existing-deployment). Without them,
+learners cannot run SQL ("not set up"); only administrators use the shared schema. The old single `STUDY_AUTH_*` login is gone.
 
 The full list, with validation, is in [src/oracle_lab/config.py](src/oracle_lab/config.py).
 
