@@ -20,7 +20,7 @@ import re
 from pathlib import Path
 from typing import Protocol
 
-from oracle_lab.i18n import DEFAULT_LANGUAGE, LANGUAGES
+from oracle_lab.i18n import DEFAULT_LANGUAGE, LANGUAGES, translate
 
 PERSONAL = "personal"
 TITLE_LIMIT = 80
@@ -68,9 +68,11 @@ class NotesLibrary:
         self.builtin_dir = builtin_dir
         self.personal = personal
 
-    def list(self, globs: tuple[str, ...] | None = None) -> list[dict[str, str]]:
-        """The notes to show; with globs, the built-in ones are limited to those patterns (personal ones always show)."""
-        notes = [{"path": path, "title": title} for path, title, _ in self._builtin(globs)]
+    def list(self, globs: tuple[str, ...] | None = None, lang: str = DEFAULT_LANGUAGE) -> list[dict[str, str]]:
+        """The notes to show; with globs, the built-in ones are limited to those patterns (personal ones always show).
+        Guide titles are in `lang`; topic notes keep their path-based titles, which the app replaces with topic names."""
+        notes = [{"path": path, "title": translate(lang, title) if path.startswith("docs/") else title}
+                 for path, title, _ in self._builtin(globs)]
         notes += [{"path": f"{PERSONAL}/{name}", "title": f"My notes / {title}"} for name, title in self.personal.entries()]
         return notes
 
@@ -95,7 +97,7 @@ class NotesLibrary:
     def _builtin(self, globs: tuple[str, ...] | None = None) -> list[tuple[str, str, Path]]:
         """(library path, title, file) of every built-in note matching globs (all when None), in display order."""
         root = self.builtin_dir
-        entries = [(self._rel(f), f.stem.replace("-", " ").capitalize(), f) for f in source_files(root / "docs", "*.md")]
+        entries = [(self._rel(f), guide_title(f), f) for f in source_files(root / "docs", "*.md")]
         entries += [(self._rel(f), f"{f.parent.name} / {f.stem}", f) for f in source_files(root / "topics", "*/*.md")]
         entries += [(self._rel(f), f"{f.parent.name} / {f.name}", f) for f in source_files(root / "topics", "*/*.sql")
                     if f.name not in HIDDEN_FILES]
@@ -105,6 +107,11 @@ class NotesLibrary:
 
     def _rel(self, file: Path) -> str:
         return file.relative_to(self.builtin_dir).as_posix()
+
+
+def guide_title(file: Path) -> str:
+    """The English title of a guide, from its file name: cheat-sheet.md -> "Cheat sheet"."""
+    return file.stem.replace("-", " ").capitalize()
 
 
 def translation_language(file: Path) -> str | None:

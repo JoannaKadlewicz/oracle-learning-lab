@@ -2,10 +2,11 @@
 
 import copy
 import json
+from pathlib import Path
 
 import pytest
 
-from oracle_lab import bootstrap, content
+from oracle_lab import bootstrap, content, i18n
 from oracle_lab.analysis import error_hints, visualizer
 from oracle_lab.content import i18n as overlays
 from oracle_lab.database.executor import Transaction, client_command_result
@@ -184,6 +185,24 @@ def test_notes_serve_the_sibling_and_list_no_siblings(notes_dir):
     assert notes.read("docs/progress.md", lang="pl") == "# Progress\n"  # no sibling: English
     assert notes.read("topics/01-basic-select/examples.sql", lang="pl").startswith("-- przykład")
     assert notes.read("docs/cheat-sheet.pl.md", lang="pl") is None
+
+
+def test_guide_titles_follow_the_language(notes_dir):
+    notes = NotesLibrary(notes_dir, _NoPersonal())
+    titles = {n["path"]: n["title"] for n in notes.list(lang="pl")}
+    assert titles["docs/cheat-sheet.md"] == i18n.translate("pl", "Cheat sheet") != "Cheat sheet"
+    assert titles["topics/01-basic-select/notes.md"] == "01-basic-select / notes"  # the app names topic notes itself
+    assert [n["title"] for n in notes.list()] == [n["title"] for n in notes.list(lang="en")]
+
+
+def test_every_built_in_guide_title_has_a_polish_entry():
+    from oracle_lab.study.notes import guide_title
+
+    guides = sorted((Path(v.NOTES_DIR) / "docs").glob("*.md"))
+    assert guides
+    for file in guides:
+        if ".pl." not in file.name:
+            assert guide_title(file) in i18n.catalog("pl"), file.name
 
 
 def test_validator_checks_note_siblings(notes_dir, monkeypatch, overlay_dir):

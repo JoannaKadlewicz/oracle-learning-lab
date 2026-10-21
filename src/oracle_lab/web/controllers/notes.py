@@ -27,7 +27,7 @@ class NotesController:
         return content.pack_of(exam_code(self.contexts(request).state.load())).notes
 
     def register(self, router: Router) -> None:
-        router.get("/api/notes", lambda r: Response.json(self.notes(r).list(self.globs(r))))
+        router.get("/api/notes", lambda r: Response.json(self.notes(r).list(self.globs(r), r.language)))
         router.get("/api/note", self.read)
         router.post("/api/notes/save", self.save)
 
