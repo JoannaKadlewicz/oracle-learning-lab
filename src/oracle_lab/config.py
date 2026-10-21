@@ -44,7 +44,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from oracle_lab.credentials import Secret, resolve_secret
+from oracle_lab.credentials import Secret, SecretNotFoundError, resolve_secret
 
 EXAM_23AI = "1Z0-171"
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
@@ -200,6 +200,12 @@ def _google(env: Mapping[str, str]) -> GoogleConfig | None:
     secret = resolve_secret("STUDY_GOOGLE_CLIENT_SECRET", env)
     if secret is None:
         raise ConfigurationError("STUDY_GOOGLE_CLIENT_SECRET (or _FILE) is required when STUDY_GOOGLE_CLIENT_ID is set")
+    try:
+        empty = not secret.reveal()
+    except SecretNotFoundError:
+        empty = False  # an unreadable file is reported when the secret is used
+    if empty:
+        raise ConfigurationError("STUDY_GOOGLE_CLIENT_SECRET is empty but STUDY_GOOGLE_CLIENT_ID is set")
     return GoogleConfig(client_id, secret)
 
 

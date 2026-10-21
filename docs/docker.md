@@ -187,9 +187,9 @@ proxy authentication through the gateway.
 | gateway (`OLL_GATEWAY`) | `CREATE SESSION` only | `STUDY_GATEWAY_USER`, `STUDY_GATEWAY_PASSWORD[_FILE]` |
 
 Without both, the app still works but everyone shares the `ORASTUDY` schema. Locally the all-in-one
-container creates both users itself. For the 23ai container they are created when its database is
-first made; for an existing one run
-`docker compose exec -e ORACLE_PDB=FREEPDB1 -e PRACTICE_23AI=1 oracle23 /opt/provision-practice-users.sh`.
+container creates both users itself on every start. The 23ai container does the same through
+`docker/23ai-start/`, which the image runs after each start, so an existing 23ai database gets them
+too.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -202,8 +202,10 @@ first made; for an existing one run
 | `STUDY_PRACTICE_TABLESPACE`, `STUDY_PRACTICE_QUOTA_MB` | `USERS`, `50` | Where practice schemas live and their quota (`DATA` on Autonomous) |
 
 The `*_23AI` variants of the provisioner, gateway and practice settings apply to `STUDY_DSN_23AI`.
-In `docker-compose.yml` set `STUDY_ADMIN_EMAIL`, `STUDY_PUBLIC_URL` and the Google variables in `.env`
-(the Google secret as `STUDY_GOOGLE_CLIENT_SECRET`, which `docker inspect` can show).
+In `docker-compose.yml` set `STUDY_ADMIN_EMAIL`, `STUDY_PUBLIC_URL` and `STUDY_GOOGLE_CLIENT_ID` in
+`.env`. The Google client secret goes into the file `secrets/google_client_secret`, which
+`make secrets` creates empty (an empty file leaves Google sign-in off); it is mounted like the other
+secrets, never put in the environment.
 
 **The first administrator.** Set `STUDY_ADMIN_EMAIL` and register with that e-mail (or sign in with
 Google using it). Without it, the first account that registers is the administrator. The last
@@ -218,7 +220,8 @@ administrator cannot be deleted or demoted.
 3. Add the authorized redirect URI `<STUDY_PUBLIC_URL>/auth/google/callback`, for example
    `http://localhost:8071/auth/google/callback` locally or
    `https://oracle-learning-lab.onrender.com/auth/google/callback` on Render. It must match exactly.
-4. Put the client ID in `STUDY_GOOGLE_CLIENT_ID` and the client secret in `STUDY_GOOGLE_CLIENT_SECRET`.
+4. Put the client ID in `STUDY_GOOGLE_CLIENT_ID` and the client secret in `STUDY_GOOGLE_CLIENT_SECRET`
+   (locally: the file `secrets/google_client_secret`).
 
 **Autonomous Database.** `ADMIN` is the provisioner, so only the gateway has to be created (as
 `ADMIN`, in Database Actions):

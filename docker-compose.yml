@@ -35,10 +35,10 @@ services:
     stop_grace_period: 3m      # time for SHUTDOWN IMMEDIATE before Docker kills the database
     environment:
       # Accounts: users sign up (or sign in with Google) and each gets a private practice schema.
-      STUDY_PUBLIC_URL: ${STUDY_PUBLIC_URL:-http://localhost:8071}
+      STUDY_PUBLIC_URL: ${STUDY_PUBLIC_URL:-http://localhost:${LAB_PORT:-8071}}
       STUDY_ADMIN_EMAIL: ${STUDY_ADMIN_EMAIL:-}
       STUDY_GOOGLE_CLIENT_ID: ${STUDY_GOOGLE_CLIENT_ID:-}
-      STUDY_GOOGLE_CLIENT_SECRET: ${STUDY_GOOGLE_CLIENT_SECRET:-}
+      STUDY_GOOGLE_CLIENT_SECRET_FILE: /run/secrets/google_client_secret   # empty file: Google sign-in stays off
       STUDY_PROVISIONER_USER: oll_provisioner
       STUDY_PROVISIONER_PASSWORD_FILE: /run/secrets/provisioner_password
       STUDY_GATEWAY_USER: oll_gateway
@@ -61,6 +61,7 @@ services:
       - study_db_password
       - provisioner_password
       - gateway_password
+      - google_client_secret
     # Localhost only: the SQL lab runs any SQL you type. 1521 is for SQL Developer / SQLcl.
     ports:
       - "127.0.0.1:${LAB_PORT:-8071}:8071"
@@ -89,6 +90,7 @@ services:
     volumes:
       - ${DATA_DIR:-./data}/oradata-23ai:/opt/oracle/oradata
       - ./docker/23ai:/container-entrypoint-initdb.d:ro
+      - ./docker/23ai-start:/container-entrypoint-startdb.d:ro   # every start: practice users
       - ./docker/oracle/provision-practice-users.sh:/opt/provision-practice-users.sh:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh"]
@@ -108,3 +110,5 @@ secrets:
     file: ./secrets/provisioner_password
   gateway_password:
     file: ./secrets/gateway_password
+  google_client_secret:
+    file: ./secrets/google_client_secret

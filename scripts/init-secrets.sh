@@ -6,6 +6,7 @@
 #   secrets/study_db_password     the learning user ORASTUDY
 #   secrets/provisioner_password OLL_PROVISIONER, creates the learners' private practice schemas
 #   secrets/gateway_password      OLL_GATEWAY, the proxy user the app connects through
+#   secrets/google_client_secret  optional: the Google OAuth client secret; created empty (Google sign-in off)
 #
 # The folder is private to you (0700). The files are 0644 because Oracle reads them inside the
 # container as another user (uid 54321), and Compose cannot change the owner of file secrets.
@@ -29,3 +30,8 @@ for name in oracle_pwd study_db_password provisioner_password gateway_password; 
   fi
   chmod 0644 "$file"
 done
+
+# Optional secret: an empty file mounts fine and means "not configured". Never overwritten.
+file="$dir/google_client_secret"
+if [[ -e $file ]]; then echo "kept      $file"; else : >"$file"; echo "created   $file (empty)"; fi
+chmod 0644 "$file"

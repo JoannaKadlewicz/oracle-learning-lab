@@ -143,3 +143,11 @@ def test_unknown_log_level_is_a_configuration_error():
     with pytest.raises(ConfigurationError, match="STUDY_LOG_LEVEL"):
         Settings.from_env({"STUDY_LOG_LEVEL": "loud"})
     assert Settings.from_env({"STUDY_LOG_LEVEL": "debug"}).log_level == "DEBUG"
+
+
+def test_google_with_an_empty_secret_file_is_refused(tmp_path):
+    empty = tmp_path / "google"
+    empty.write_text("")
+    assert Settings.from_env({"STUDY_GOOGLE_CLIENT_SECRET_FILE": str(empty)}).google is None
+    with pytest.raises(ConfigurationError, match="empty"):
+        Settings.from_env({"STUDY_GOOGLE_CLIENT_ID": "abc", "STUDY_GOOGLE_CLIENT_SECRET_FILE": str(empty)})

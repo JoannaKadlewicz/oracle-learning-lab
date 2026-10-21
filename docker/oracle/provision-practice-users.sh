@@ -31,7 +31,7 @@ read_secret() {  # file -> stdout, trailing whitespace (e.g. a CR) dropped
 
 for file in "$provisioner_secret" "$gateway_secret"; do
   if [[ ! -r $file ]]; then
-    log "no readable password file at $file; skipping (private practice schemas stay off)"
+    log "no readable password file at $file; cannot create the practice users (private practice schemas stay off)"
     exit 1
   fi
 done
