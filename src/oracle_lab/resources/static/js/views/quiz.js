@@ -5,8 +5,8 @@ import { $, $$, esc, inlineCode, plural, shuffle, icon, LETTERS } from "../core/
 import { api } from "../core/api.js";
 import { store, forget } from "../core/store.js";
 import { C, S, P, Q, apply, topicLabel, blockedOn23ai, mistakes } from "../core/state.js";
-import { main, go } from "../core/router.js";
-import { toast, clearToast, toastError, confirmDialog } from "../ui/feedback.js";
+import { main, go, currentView, setLeaveGuard } from "../core/router.js";
+import { toast, clearToast, toastError, confirmDialog, closeDialogs } from "../ui/feedback.js";
 import { meter, pageHead, section } from "../ui/widgets.js";
 import { readinessHtml } from "../ui/charts.js";
 import { refreshNav } from "../shell.js";
@@ -27,7 +27,7 @@ const QTYPES = {
   concept: ["Concepts (no code)", q => !q.code],
 };
 
-export function resetQuiz() { stopTimer(); quiz = null; clearSession(); }
+export function resetQuiz() { stopTimer(); quiz = null; clearSession(); setExamMode(false); }
 
 function stopTimer() { clearInterval(timerHandle); timerHandle = null; }
 
@@ -180,21 +180,33 @@ export async function startMock({ topics, count, minutes, ids } = {}) {
   } catch (err) { toastError(`Could not start the mock exam. ${err.message}`); }
 }
 
-export async function resumeMock() {
-  try { openMock((await api("/api/mock?id=" + encodeURIComponent(P.active_mock.id))).mock); }
-  catch { toastError("Could not load the running mock exam."); }
+/** Today's "Resume your mock exam": /quiz reopens the running mock (the one in memory when it is
+    the same, so its option order stays; otherwise loaded from the server in render()). */
+export function resumeMock() {
+  if (!(quiz?.mode === "exam" && !quiz.finished && quiz.mockId === P.active_mock?.id)) quiz = null;
+  go("/quiz");
+}
+
+/** Where a mock opens: the stored position, else the first unanswered question, else the review screen. */
+function resumePoint(mock, answers) {
+  const p = mock.position;
+  if (Number.isInteger(p) && p >= 0 && p < mock.items.length) return { idx: p, reviewScreen: false };
+  const open = mock.items.findIndex(id => !(answers[id] || []).length);
+  return open >= 0 ? { idx: open, reviewScreen: false } : { idx: 0, reviewScreen: true };
 }
 
 function mockQuiz(mock) {
   const order = {};
   for (const id of mock.items) order[id] = shuffle(Q[id].options.map((_, i) => i));
   const pick = key => Object.fromEntries(Object.entries(mock.answers).map(([id, a]) => [id, a[key]]));
+  const answers = pick("chosen");
   return {
-    mode: "exam", mockId: mock.id, items: mock.items, order, idx: 0, checked: {},
-    answers: pick("chosen"), confidence: pick("confidence"), flags: pick("flagged"),
+    mode: "exam", mockId: mock.id, items: mock.items, order, checked: {},
+    answers, confidence: pick("confidence"), flags: pick("flagged"), ...resumePoint(mock, answers),
     timeOn: { ...mock.time_on }, shownId: null, shownAt: null,
     started: mock.started * 1000, deadline: (mock.started + mock.minutes * 60) * 1000,
-    finished: false, reviewIdx: null, reviewScreen: false, report: null,
+    finished: false, reviewIdx: null, report: null, submitting: false,
+    savedPosition: Number.isInteger(mock.position) ? mock.position : null, pendingPosition: null, positionTimer: null, positionAt: 0,
   };
 }
 
@@ -208,16 +220,115 @@ function trackTime(id) {
   quiz.shownAt = id ? now : null;
 }
 
+/** Every answer save also stores the question the learner is on. */
 function saveMockAnswer(id, change) {
-  api("/api/mock/answer", { mock_id: quiz.mockId, id, time_on: quiz.timeOn, ...change })
+  quiz.savedPosition = quiz.idx;
+  api("/api/mock/answer", { mock_id: quiz.mockId, id, position: quiz.idx, time_on: quiz.timeOn, ...change })
     .catch(() => toastError("Could not save your answer. Check that the server is running."));
+}
+
+/* Moving between questions without answering saves the position too, at most once per
+   POSITION_GAP: the latest position wins, and Leave, Review and Submit send it at once. */
+const POSITION_GAP = 2000;
+
+function savePosition(i) {
+  const q = quiz;
+  q.pendingPosition = i;
+  if (q.positionTimer) return;
+  q.positionTimer = setTimeout(() => sendPosition(q), Math.max(0, q.positionAt + POSITION_GAP - Date.now()));
+}
+
+/** Sends the pending position now; `force` sends even without one, so time_on reaches the server. */
+function sendPosition(q = quiz, force = false) {
+  if (!q || q.mode !== "exam") return Promise.resolve();
+  clearTimeout(q.positionTimer);
+  q.positionTimer = null;
+  const position = q.pendingPosition;
+  q.pendingPosition = null;
+  if (q.finished || (!force && (position === null || position === q.savedPosition))) return Promise.resolve();
+  q.positionAt = Date.now();
+  if (position !== null) q.savedPosition = position;
+  // A position that did not save only costs the place on resume; no message for it.
+  return api("/api/mock/answer", { mock_id: q.mockId, time_on: q.timeOn, ...(position !== null ? { position } : {}) })
+    .catch(() => {});
+}
+
+/* ---------------------------------------------------------------- exam mode
+
+   While a mock is open and unsubmitted, the rail and top bar are hidden, the router asks before
+   leaving /quiz, and closing or reloading the tab asks the browser's own question. */
+
+let examMode = false;
+
+function onBeforeUnload(e) {
+  e.preventDefault();
+  e.returnValue = "";
+}
+
+function setExamMode(on) {
+  if (on === examMode) return;
+  examMode = on;
+  document.body.classList.toggle("exam-mode", on);
+  setLeaveGuard(on ? guardLeave : null);
+  if (on) window.addEventListener("beforeunload", onBeforeUnload);
+  else window.removeEventListener("beforeunload", onBeforeUnload);
+}
+
+const LEAVE = {
+  title: "Leave the exam? The timer keeps running.",
+  body: "Your answers are saved. Resume it from Today.",
+  confirm: "Leave", cancel: "Stay in the exam",
+};
+
+/** The router's leave guard: true lets the navigation go on (leave() then turns exam mode off). */
+async function guardLeave() {
+  if (!await confirmDialog(LEAVE)) return false;
+  if (quiz?.mode === "exam" && !quiz.finished) { trackTime(null); await sendPosition(quiz, true); }
+  return true;
+}
+
+/** The exam bar's Leave: the mock keeps running, and Today offers to resume it. */
+async function leaveExam() {
+  if (!await confirmDialog(LEAVE)) return;
+  if (!quiz || quiz.finished) return;
+  stopTimer();
+  trackTime(null);
+  await sendPosition(quiz, true);
+  setExamMode(false);
+  go("/");
+}
+
+/** Question ids with no ticks, and with some ticks but fewer than asked for. */
+function openAnswers() {
+  const ticks = id => (quiz.answers[id] || []).length;
+  return {
+    unanswered: quiz.items.filter(id => !ticks(id)),
+    incomplete: quiz.items.filter(id => ticks(id) && !isComplete(Q[id], quiz.answers[id])),
+  };
+}
+
+async function confirmSubmit() {
+  const { unanswered, incomplete } = openAnswers();
+  const body = unanswered.length || incomplete.length
+    ? `Unanswered: ${unanswered.length}. Incomplete (fewer options ticked than asked for): ${incomplete.length}. Both score zero, and answers cannot be changed after submitting.`
+    : "Every question has a complete answer. Answers cannot be changed after submitting.";
+  if (!await confirmDialog({ title: "Submit the exam?", body, confirm: "Submit exam", cancel: "Keep working" })) return;
+  if (quiz?.mode === "exam" && !quiz.finished) finishQuiz();
 }
 
 /* ---------------------------------------------------------------- view */
 
-function render() {
-  // A practice session stored in this browser resumes, unless a mock exam is running (mocks come first).
+async function render() {
+  // A running mock exam reopens first; otherwise a practice session stored in this browser resumes.
+  if (!quiz && P.active_mock) {
+    try {
+      const { mock } = await api("/api/mock?id=" + encodeURIComponent(P.active_mock.id));
+      if (currentView() !== "quiz") return;  // the learner moved on while it loaded
+      if (!quiz) quiz = mockQuiz(mock);
+    } catch { toastError("Could not load the running mock exam."); }
+  }
   if (!quiz && !P.active_mock) { const s = loadSession(); if (s) quiz = sessionQuiz(s); }
+  setExamMode(quiz?.mode === "exam" && !quiz.finished);
   if (!quiz) return renderSetup();
   main.classList.add("reading");
   if (quiz.finished) return quiz.reviewIdx === null ? renderResults() : renderQuestion(quiz.reviewIdx, true);
@@ -310,22 +421,69 @@ function renderSetup() {
   sync();
 }
 
+/** "complete", "incomplete" (some ticks, fewer than asked for) or "open" (no ticks). */
+function answerState(id) {
+  const chosen = quiz.answers[id] || [];
+  return !chosen.length ? "open" : isComplete(Q[id], chosen) ? "complete" : "incomplete";
+}
+
+const STATE_GLYPH = { complete: "✓", incomplete: "◐", open: "" };
+
+/** One navigator button: the state is a glyph and a word in the label, not only a colour. */
+function qButton(qid, n, current) {
+  const state = answerState(qid);
+  const flag = !!quiz.flags[qid];
+  const label = `Question ${n + 1}${state === "complete" ? ", answered" : state === "incomplete" ? ", incomplete" : ""}${flag ? ", flagged" : ""}`;
+  return `<button data-go="${n}" class="${n === current ? "current" : ""} ${state === "complete" ? "answered" : state === "incomplete" ? "incomplete" : ""} ${flag ? "flagged" : ""}"
+    aria-label="${label}"${n === current ? ` aria-current="true"` : ""}>${n + 1}<span class="qmark" aria-hidden="true">${STATE_GLYPH[state]}</span>${flag ? `<span class="qflag" aria-hidden="true">⚑</span>` : ""}</button>`;
+}
+
 function navigatorHtml(current) {
   return `<section class="navigator" aria-label="Question navigator">
-    <div class="qgrid">${quiz.items.map((qid, n) =>
-      `<button data-go="${n}" class="${n === current ? "current" : ""} ${quiz.answers[qid]?.length ? "answered" : ""} ${quiz.flags[qid] ? "flagged" : ""}"
-        aria-label="Question ${n + 1}${quiz.answers[qid]?.length ? ", answered" : ""}${quiz.flags[qid] ? ", flagged" : ""}"${n === current ? ` aria-current="true"` : ""}>${n + 1}</button>`).join("")}</div>
-    <p class="qgrid-legend"><span><i class="answered"></i>Answered</span><span><i class="flagged"></i>Flagged</span><span><i></i>Not answered</span></p>
+    <div class="qgrid">${quiz.items.map((qid, n) => qButton(qid, n, current)).join("")}</div>
+    <p class="qgrid-legend"><span><b aria-hidden="true">✓</b>Answered</span><span><b aria-hidden="true">◐</b>Incomplete</span><span><b aria-hidden="true">⚑</b>Flagged</span><span><b aria-hidden="true">·</b>Not answered</span></p>
   </section>`;
 }
 
-function examBar(extra = "") {
-  const answered = quiz.items.filter(id => quiz.answers[id]?.length).length;
+/** Redraws the navigator in place after an answer changes, keeping focus on the options. */
+function refreshNavigator(current) {
+  const nav = $(".navigator", main);
+  if (!nav) return;
+  nav.outerHTML = navigatorHtml(current);
+  bindGo();
+}
+
+function bindGo() {
+  $$("[data-go]", main).forEach(b => b.addEventListener("click", () => { quiz.reviewScreen = false; quiz.idx = Number(b.dataset.go); render(); }));
+}
+
+/** The slim bar of a running mock; `i` is the question shown, or null on the review screen. */
+function examBar(i) {
+  const id = i === null ? null : quiz.items[i];
   return `<div class="exam-bar">
+    <span class="exam-code">${esc(C.exam.code)}</span>
     <span class="timer" id="timer" role="timer" aria-live="off">${icon("timer")}<span></span></span>
-    <span class="muted small">${answered} of ${quiz.items.length} answered</span>
-    <span class="spacer"></span>${extra}
+    <span class="exam-where">${i === null ? "Review" : `Question ${i + 1} of ${quiz.items.length}`}</span>
+    <span class="spacer"></span>
+    <span class="exam-tools">
+      ${i === null ? "" : `<button class="btn ghost small" id="bar-flag" aria-pressed="${!!quiz.flags[id]}"><span aria-hidden="true">⚑</span> ${quiz.flags[id] ? "Flagged" : "Flag"}</button>
+      <button class="btn ghost small" id="bar-review">Review</button>`}
+      <button class="btn ghost small" id="bar-leave">Leave</button>
+      <button class="btn small" id="bar-submit">Submit</button>
+    </span>
   </div>`;
+}
+
+function bindExamBar(i) {
+  $("#bar-flag")?.addEventListener("click", () => {
+    const id = quiz.items[i];
+    quiz.flags[id] = !quiz.flags[id];
+    saveMockAnswer(id, { flagged: quiz.flags[id] });
+    render();
+  });
+  $("#bar-review")?.addEventListener("click", showReviewScreen);
+  $("#bar-leave").addEventListener("click", leaveExam);
+  $("#bar-submit").addEventListener("click", confirmSubmit);
 }
 
 function renderQuestion(i, reviewing) {
@@ -349,7 +507,6 @@ function renderQuestion(i, reviewing) {
       ${i < total - 1 ? `<button class="btn" id="next">Next${icon("next")}</button>` : ""}`;
   } else if (exam) {
     actions = `${i > 0 ? `<button class="btn ghost" id="prev">${icon("prev")}Previous</button>` : ""}
-      <button class="btn secondary" id="flag" aria-pressed="${!!quiz.flags[id]}">${quiz.flags[id] ? "Remove flag" : "Flag for review"}</button>
       ${i < total - 1 ? `<button class="btn" id="next">Next <span class="kbd">Enter</span></button>` : `<button class="btn" id="finish">Review and submit</button>`}`;
   } else if (revealed) {
     actions = `<button class="btn" id="next">${i < total - 1 ? "Next question" : "See results"} <span class="kbd">Enter</span></button>`;
@@ -361,12 +518,12 @@ function renderQuestion(i, reviewing) {
   }
 
   main.innerHTML = `
-    ${exam ? examBar(`<button class="btn secondary small" id="submit-exam">Submit exam</button>`) : ""}
+    ${exam ? examBar(i) : ""}
     <div class="q-top">
-      <b>${second ? "Second try" : `Question ${placeOf(i)} of ${firsts}`}</b>
+      ${exam ? "" : `<b>${second ? "Second try" : `Question ${placeOf(i)} of ${firsts}`}</b>`}
       <span>${esc(topicLabel(q.topic))}</span>
       <span class="spacer"></span>
-      ${!reviewing ? `<button class="link-btn quiet small" id="quit">${quiz.mode === "exam" ? "Abandon exam" : "End quiz"}</button>` : ""}
+      ${!reviewing && !exam ? `<button class="link-btn quiet small" id="quit">End quiz</button>` : ""}
     </div>
     <div class="q-progress" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="${firsts}" aria-valuenow="${done}"><i style="width:${(done / firsts) * 100}%"></i></div>
     ${multi ? `<span class="q-choose">Choose ${q.answer.length}</span>` : ""}
@@ -424,7 +581,7 @@ function renderQuestion(i, reviewing) {
     saveSession();
     if (exam) {
       saveMockAnswer(id, { chosen: quiz.answers[id] });
-      $$(".qgrid button")[i].classList.toggle("answered", quiz.answers[id].length > 0);
+      refreshNavigator(i);
     }
   }));
   $$("[data-conf]", main).forEach(b => b.addEventListener("click", () => checkPractice(i, b.dataset.conf)));
@@ -441,15 +598,13 @@ function renderQuestion(i, reviewing) {
     render();
   });
   $("#prev")?.addEventListener("click", () => { if (reviewing) quiz.reviewIdx = i - 1; else quiz.idx = i - 1; render(); });
-  $("#flag")?.addEventListener("click", () => { quiz.flags[id] = !quiz.flags[id]; saveMockAnswer(id, { flagged: quiz.flags[id] }); render(); });
   $("#finish")?.addEventListener("click", showReviewScreen);
-  $("#submit-exam")?.addEventListener("click", showReviewScreen);
   $("#back-results")?.addEventListener("click", () => { quiz.reviewIdx = null; render(); });
   $("#try")?.addEventListener("click", () => { labDraft(q.try_sql || q.code); go("/lab"); });
   $("#quit")?.addEventListener("click", quit);
-  $$("[data-go]", main).forEach(b => b.addEventListener("click", () => { quiz.idx = Number(b.dataset.go); render(); }));
+  bindGo();
 
-  if (exam) { trackTime(id); startTimer(); }
+  if (exam) { bindExamBar(i); trackTime(id); savePosition(i); startTimer(); }
 }
 
 async function quit() {
@@ -459,8 +614,12 @@ async function quit() {
       body: "It will not be scored, and its questions count as seen.",
       confirm: "Abandon exam", cancel: "Keep going", danger: true,
     })) return;
+    if (!quiz || quiz.finished) return;  // time ran out while the question was open
+    stopTimer();
     trackTime(null);
-    api("/api/mock/abandon", { mock_id: quiz.mockId }).then(apply).catch(() => {});
+    // Wait for the server, so the next render does not reopen the mock it still reports as running.
+    try { apply(await api("/api/mock/abandon", { mock_id: quiz.mockId })); }
+    catch { toastError("Could not abandon the mock exam. Check that the server is running."); startTimer(); return; }
   }
   if (quiz.mode === "practice" && Object.keys(quiz.checked).length) return finishQuiz();
   resetQuiz();
@@ -518,29 +677,40 @@ async function checkPractice(i, confidence) {
 function showReviewScreen() {
   // Exam mode: show the review screen before submitting, like the real test.
   trackTime(null);
+  sendPosition(quiz, true);
   quiz.reviewScreen = true;
   render();
   window.scrollTo(0, 0);
 }
 
 function renderMockReview() {
-  const open = quiz.items.map((id, n) => [id, n]).filter(([id]) => !(quiz.answers[id] || []).length);
-  const flagged = quiz.items.map((id, n) => [id, n]).filter(([id]) => quiz.flags[id]);
-  const list = (rows, label) => rows.length
-    ? section(label, `<div class="qgrid">${rows.map(([, n]) => `<button data-go="${n}">${n + 1}</button>`).join("")}</div>`) : "";
+  const { unanswered, incomplete } = openAnswers();
+  const flagged = quiz.items.filter(id => quiz.flags[id]);
+  const complete = quiz.items.length - unanswered.length - incomplete.length;
+  const list = (ids, label, note = "") => ids.length
+    ? section(label, `<div class="qgrid">${ids.map(id => qButton(id, quiz.items.indexOf(id), -1)).join("")}</div>`, note ? { note } : {}) : "";
+  const counts = [`${complete} of ${quiz.items.length} answered`,
+    unanswered.length && `${unanswered.length} unanswered`,
+    incomplete.length && `${incomplete.length} incomplete`,
+    flagged.length && `${flagged.length} flagged for review`].filter(Boolean).join(", ");
   main.innerHTML = `
-    ${examBar()}
-    ${pageHead("Review before submitting", `${quiz.items.length - open.length} of ${quiz.items.length} answered${flagged.length ? `, ${flagged.length} flagged for review` : ""}. ${open.length ? "Unanswered questions score zero, and there is no penalty for guessing." : "Every question has an answer."}`)}
+    ${examBar(null)}
+    ${pageHead("Review before submitting", `${counts}. ${unanswered.length || incomplete.length
+      ? "Unanswered and incomplete questions score zero, and there is no penalty for guessing." : "Every question has a complete answer."}`)}
     <div class="row">
       <button class="btn large" id="submit-now">Submit exam</button>
       <button class="btn secondary large" id="back-to-questions">Back to the questions</button>
     </div>
-    ${list(open, "Unanswered")}
+    ${list(unanswered, "Unanswered")}
+    ${list(incomplete, "Incomplete", "Fewer options ticked than the question asks for. They score zero as they are.")}
     ${list(flagged, "Flagged")}
-    ${section("All questions", navigatorHtml(-1))}`;
-  $$("[data-go]", main).forEach(b => b.addEventListener("click", () => { quiz.reviewScreen = false; quiz.idx = Number(b.dataset.go); render(); }));
+    ${section("All questions", navigatorHtml(-1))}
+    <p class="abandon-line"><button class="link-btn quiet small" id="quit">Abandon exam</button></p>`;
+  bindGo();
+  bindExamBar(null);
   $("#back-to-questions").addEventListener("click", () => { quiz.reviewScreen = false; render(); });
-  $("#submit-now").addEventListener("click", finishQuiz);
+  $("#submit-now").addEventListener("click", confirmSubmit);
+  $("#quit").addEventListener("click", quit);
   startTimer();
 }
 
@@ -555,7 +725,13 @@ function startTimer() {
       el.setAttribute("aria-label", `${m} minutes left`);
       el.classList.toggle("warn", left < 5 * 60000);
     }
-    if (left <= 0) { stopTimer(); toast("Time is up. Your exam was submitted."); finishQuiz(); }
+    if (left <= 0) {
+      // A question still open (Leave, Submit, Abandon) no longer applies: time decides.
+      stopTimer();
+      closeDialogs();
+      toast("Time is up. Your exam was submitted.");
+      finishQuiz();
+    }
   };
   stopTimer();
   tick();
@@ -566,12 +742,16 @@ async function finishQuiz() {
   stopTimer();
   if (quiz.mode === "practice") clearSession();
   if (quiz.mode === "exam") {
+    if (quiz.submitting) return;
+    quiz.submitting = true;
     trackTime(null);
+    await sendPosition(quiz);
     try {
       const res = await api("/api/mock/submit", { mock_id: quiz.mockId, time_on: quiz.timeOn });
       apply(res);
       quiz.report = res.report;
     } catch {
+      quiz.submitting = false;
       toastError("Could not submit the exam. Your answers are saved; try again from Today.");
       return;
     }
@@ -743,7 +923,11 @@ export const quizView = {
   title: "Quiz",
   render,
   onKey,
-  leave() { stopTimer(); if (quiz?.mode === "exam" && !quiz.finished) trackTime(null); },
+  leave() {
+    stopTimer();
+    if (quiz?.mode === "exam" && !quiz.finished) { trackTime(null); sendPosition(quiz); }
+    setExamMode(false);
+  },
 };
 
 /** /mock/<id>: the report of a finished mock exam. */

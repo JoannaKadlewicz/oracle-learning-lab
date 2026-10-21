@@ -44,6 +44,12 @@ export function openDialog(inner, onOpen) {
   });
 }
 
+/** Closes every open dialog as if cancelled (its promise resolves "cancel"), for example when a
+    mock exam's time runs out while a question is open. */
+export function closeDialogs() {
+  document.querySelectorAll("dialog.modal[open]").forEach(d => d.close("cancel"));
+}
+
 /** Resolves true when the person confirms. */
 export async function confirmDialog({ title, body = "", confirm = "Continue", cancel = "Cancel", danger = false }) {
   const value = await openDialog(`

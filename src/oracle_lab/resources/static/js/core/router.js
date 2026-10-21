@@ -9,10 +9,26 @@ const views = {};
 let current = null;
 let listeners = [];
 let navigation = 0;  // counts route() calls, so a render that finishes after the user moved on is ignored
+let leaveGuard = null;
+let asking = false;  // a guard question is open: further navigation waits for its answer
+let routedPath = location.pathname;
 
 export function registerViews(map) { Object.assign(views, map); }
 export const currentView = () => current;
 export const onRoute = fn => listeners.push(fn);
+
+/** While set, an in-app navigation away from the current path first awaits fn(); false stays put.
+    Pass null to remove it. Leaving the page itself is beforeunload's job, not the router's. */
+export function setLeaveGuard(fn) { leaveGuard = fn; }
+
+async function mayLeave() {
+  if (!leaveGuard) return true;
+  if (asking) return false;
+  asking = true;
+  try { return !!await leaveGuard(); }
+  catch { return false; }
+  finally { asking = false; }
+}
 
 export function setTitle(title) {
   document.title = title ? `${title} | Oracle Learning Lab` : "Oracle Learning Lab";
@@ -22,6 +38,7 @@ export async function route() {
   if (location.pathname === "/home") history.replaceState(null, "", "/");  // the home page lives at /
   const [, name = "home", arg] = location.pathname.split("/");
   const next = views[name] ? name : "home";
+  routedPath = location.pathname;
   if (current && current !== next) views[current].leave?.();
   current = next;
   $$(".nav a").forEach(a => {
@@ -48,16 +65,29 @@ export async function route() {
 }
 
 /** Navigate to a path; re-renders when it is already the current one. Like the old hashchange,
-    a new path is routed in a task of its own, so views may call go() from their render(). */
-export function go(path) {
+    a new path is routed in a task of its own, so views may call go() from their render().
+    A leave guard may cancel it. */
+export async function go(path) {
   if (location.pathname === path) return route();
+  if (!await mayLeave()) return;
   history.pushState(null, "", path);
   setTimeout(route);
 }
 
+/** Back/forward: with a leave guard, the address bar goes straight back to the guarded path, and
+    the target is pushed again only when the guard lets the learner go. */
+async function onPopState() {
+  if (!leaveGuard || location.pathname === routedPath) return route();
+  const target = location.pathname + location.search;
+  history.pushState(null, "", routedPath);
+  if (!await mayLeave()) return;
+  history.pushState(null, "", target);
+  route();
+}
+
 /** Start routing: back/forward, in-app links without a page load, and old #/ bookmarks. */
 export function startRouting() {
-  window.addEventListener("popstate", route);
+  window.addEventListener("popstate", onPopState);
   document.addEventListener("click", e => {
     const a = e.target.closest("a[href^='/']");
     if (!a || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey

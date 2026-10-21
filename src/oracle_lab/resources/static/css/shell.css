@@ -24,6 +24,10 @@ main {
 main:focus { outline: none; }
 main.reading { max-width: calc(var(--reading-w) + 2 * 56px); }
 
+/* A running mock exam takes the whole window: no rail, no top bar, only the exam bar. */
+body.exam-mode .rail, body.exam-mode .topbar, body.exam-mode .scrim { display: none; }
+body.exam-mode .shell { grid-template-columns: minmax(0, 1fr); }
+
 /* ---------------------------------------------------------------- brand */
 
 .brand { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }

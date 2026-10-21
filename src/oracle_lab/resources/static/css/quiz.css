@@ -97,6 +97,18 @@
   background: var(--desk);
   border-bottom: 1px solid var(--rule);
 }
+.exam-bar { flex-wrap: wrap; gap: 8px 16px; }
+.exam-code { font-weight: 700; font-size: var(--t-s); padding: 3px 8px; border-radius: 999px; background: var(--paper-3); }
+.exam-where { font-weight: 650; font-size: var(--t-s); font-variant-numeric: tabular-nums; }
+.exam-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.exam-tools [aria-pressed="true"] { --btn-bg: var(--warn-bg); --btn-fg: var(--warn); }
+body.exam-mode .exam-bar { top: 0; }
+body.exam-mode main { padding-top: 28px; }
+@media (max-width: 600px) {
+  .exam-bar .spacer { display: none; }
+  .exam-tools { flex-basis: 100%; }
+  .exam-tools #bar-submit { margin-left: auto; }
+}
 .timer { display: inline-flex; align-items: center; gap: 8px; font: 700 19px/1 var(--mono); font-variant-numeric: tabular-nums; }
 .timer svg { width: 18px; height: 18px; color: var(--muted); }
 .timer.warn { color: var(--bad); }
@@ -119,14 +131,21 @@
 }
 .qgrid button:hover { border-color: var(--ink); }
 .qgrid button.answered { background: var(--paper-3); border-color: var(--rule-strong); color: var(--ink); }
-.qgrid button.flagged::after { content: ""; position: absolute; top: -1px; right: -1px; border: 6px solid transparent; border-top-color: #D4A700; border-right-color: #D4A700; border-top-right-radius: var(--r-s); }
+.qgrid button.incomplete { border-style: dashed; border-color: var(--warn); color: var(--ink); }
+.qgrid button.flagged { box-shadow: inset 0 -3px 0 var(--mark); }
+/* State glyphs in the corners: answered or incomplete bottom right, flag top right. */
+.qgrid .qmark, .qgrid .qflag { position: absolute; font: 700 10px/1 var(--font); }
+.qgrid .qmark { right: 3px; bottom: 3px; }
+.qgrid .qflag { right: 3px; top: 3px; color: var(--warn); }
+.qgrid button.answered .qmark { color: var(--good); }
+.qgrid button.incomplete .qmark { color: var(--warn); }
+.qgrid button.current .qmark, .qgrid button.current .qflag { color: inherit; }
 .qgrid button.current { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 .qgrid button.good { border-color: color-mix(in srgb, var(--good) 60%, transparent); background: var(--good-bg); color: var(--good); }
 .qgrid button.bad { border-color: color-mix(in srgb, var(--bad) 55%, transparent); background: var(--bad-bg); color: var(--bad); }
 .qgrid-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: var(--t-xs); color: var(--muted); margin: 10px 0 0; }
-.qgrid-legend i { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; border-radius: 3px; border: 1.5px solid var(--rule); background: var(--paper); }
-.qgrid-legend i.answered { background: var(--paper-3); border-color: var(--rule-strong); }
-.qgrid-legend i.flagged { background: linear-gradient(225deg, #D4A700 40%, var(--paper) 40%); }
+.qgrid-legend b { display: inline-block; min-width: 12px; margin-right: 6px; color: var(--ink-2); text-align: center; }
+.abandon-line { margin-top: 36px; }
 
 .navigator { margin-top: 30px; }
 .navigator > summary { margin-bottom: 12px; }

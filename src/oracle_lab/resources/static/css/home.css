@@ -189,6 +189,10 @@
   border-radius: var(--r-l);
 }
 .resume-bar:hover { background: var(--paper-2); }
+/* A running mock comes first and reads as the main action: its timer does not wait. */
+.resume-bar.primary { border-left-color: var(--ink); box-shadow: var(--shadow-s); }
+.resume-bar.primary svg { color: var(--ink); }
+.resume-bar + .resume-bar { margin-top: -12px; }
 .resume-bar svg { grid-row: span 2; width: 22px; height: 22px; color: var(--muted); }
 .resume-bar strong { font-weight: 650; }
 .resume-bar span { color: var(--muted); font-size: var(--t-s); }

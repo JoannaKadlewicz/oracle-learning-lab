@@ -77,6 +77,9 @@ function render() {
     </header>
     ${trackWarning()}
 
+    ${mock ? `<a class="resume-bar primary" href="/quiz" data-start="resume">${icon("timer")}
+      <strong>Resume your mock exam</strong>
+      <span>${mock.answered} of ${mock.count} answered, ${plural(mockLeft, "minute")} left. The timer is running.</span></a>` : ""}
     ${practice ? `<a class="resume-bar" href="/quiz" data-start="practice">${icon("quiz")}
       <strong>Resume practice (${practice.answered} of ${practice.total})</strong>
       <span>Pick up at the question you were on.</span></a>` : ""}
