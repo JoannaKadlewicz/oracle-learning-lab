@@ -69,7 +69,7 @@ def gateway(key):
 
 def practice(stores, provisioners, role="learner", user_id="u1", shared=None, clock=lambda: NOW):
     return PracticeDatabases(principal(user_id, role), stores.schemas, provisioners,
-                             {key: gateway(key) for key in provisioners}, shared or DatabaseCatalog(FakeDatabase()),
+                             {key: gateway(key) for key in provisioners}, shared or DatabaseCatalog({"default": FakeDatabase()}),
                              15000, clock, audit=AuditLog(stores.audit, clock))
 
 
@@ -81,7 +81,7 @@ def test_learner_without_practice_targets_gets_unavailable():
 
 def test_admin_falls_back_to_shared_schema():
     shared_19, shared_23 = FakeDatabase("orastudy"), FakeDatabase("orastudy23")
-    catalog = DatabaseCatalog(shared_19, {EXAM_23AI: shared_23})
+    catalog = DatabaseCatalog({"default": shared_19, "23ai": shared_23})
     admin = practice(memory_stores(), {}, role="admin", shared=catalog)
     assert admin.for_exam("1Z0-071") is shared_19
     assert admin.for_exam(EXAM_23AI) is shared_23
@@ -113,6 +113,38 @@ def test_without_a_23ai_target_the_23ai_track_uses_the_default_schema():
     stores = memory_stores()
     stores.schemas.put(PracticeSchema("u1", "default", "OLL_UABCDEFGHIJ", "ready", NOW))
     assert practice(stores, {"default": FakeProvisioner()}).for_exam(EXAM_23AI).schema == "OLL_UABCDEFGHIJ"
+
+
+def test_learner_reaches_the_schema_of_the_exams_database_key_else_its_fallback():
+    stores = memory_stores()
+    stores.schemas.put(PracticeSchema("u1", "default", "OLL_UDEFAULTAAA", "ready", NOW))
+    stores.schemas.put(PracticeSchema("u1", "23ai", "OLL_U23AIAAAAAA", "ready", NOW))
+    p19, p23 = FakeProvisioner(), FakeProvisioner()
+    db = practice(stores, {"default": p19, "23ai": p23}).for_exam(EXAM_23AI)
+    assert isinstance(db, ProxyDatabase) and db.schema == "OLL_U23AIAAAAAA" and db.gateway.user == "gw_23ai"
+    db = practice(stores, {"default": p19}).for_exam(EXAM_23AI)
+    assert isinstance(db, ProxyDatabase) and db.schema == "OLL_UDEFAULTAAA" and db.gateway.user == "gw_default"
+    assert p19.calls == p23.calls == []
+
+
+def test_exam_whose_database_key_is_not_configured_is_not_set_up(monkeypatch):
+    from oracle_lab import engines, exams
+
+    fake = exams.Exam(code="PG-1", name="PG", product="PostgreSQL", engine="fake", database="pg16",
+                      database_label="PostgreSQL 16", fallback=None, versions=(16, None), pack="oracle-sql",
+                      questions=1, minutes=1, passing_pct=1, about="")
+    monkeypatch.setitem(exams.EXAMS, "PG-1", fake)
+    monkeypatch.setitem(engines.ENGINES, "fake", engines.ENGINES["oracle"])
+    stores = memory_stores()
+    stores.schemas.put(PracticeSchema("u1", "default", "OLL_UDEFAULTAAA", "ready", NOW))
+    shared = DatabaseCatalog({"default": FakeDatabase()})
+    for role in ("learner", "admin"):
+        with pytest.raises(PracticeUnavailable) as raised:
+            practice(stores, {"default": FakeProvisioner()}, role=role, shared=shared).for_exam("PG-1")
+        assert str(raised.value) == NOT_SET_UP
+        with pytest.raises(PracticeUnavailable) as raised:
+            practice(stores, {}, role=role, shared=shared).for_exam("PG-1")
+        assert str(raised.value) == NOT_SET_UP
 
 
 def test_schema_still_being_prepared_is_unavailable():

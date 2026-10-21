@@ -1,4 +1,4 @@
-"""Connections to the learning schema, and the choice of database per exam track."""
+"""Connections to the learning schema, and the choice of database per exam (by database key)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Protocol
 
 import oracledb
 
+from oracle_lab import exams
 from oracle_lab.config import DatabaseTarget
 
 # Fetch NUMBER as Decimal, so values.to_json_value shows exactly what Oracle stores.
@@ -65,18 +66,28 @@ def session(database: Database) -> Iterator[oracledb.Connection]:
 
 
 class DatabaseCatalog:
-    """The database each exam track runs its SQL on; tracks without their own use the default."""
+    """The shared database of each database key; an exam runs on its key's database, else its fallback key's."""
 
-    def __init__(self, default: Database, by_exam: Mapping[str, Database] | None = None):
-        self.default = default
-        self.by_exam = dict(by_exam or {})
+    def __init__(self, by_key: Mapping[str, Database]):
+        self.by_key = dict(by_key)
+        self.default = self.by_key[exams.DEFAULT_DATABASE]
 
-    def for_exam(self, exam_code: str) -> Database:
-        return self.by_exam.get(exam_code, self.default)
+    def for_exam(self, exam_code: str | None) -> Database | None:
+        """The database of the exam's key, else of its registry fallback key; None when neither is configured."""
+        exam = exams.get(exam_code)
+        for key in (exam.database, exam.fallback):
+            if key is not None and key in self.by_key:
+                return self.by_key[key]
+        return None
 
     @property
     def has_track_databases(self) -> bool:
-        return bool(self.by_exam)
+        return len(self.by_key) > 1
 
     def all(self) -> list[Database]:
-        return [self.default, *(db for db in self.by_exam.values() if db is not self.default)]
+        """The distinct databases, the default first."""
+        found: list[Database] = []
+        for database in (self.default, *self.by_key.values()):
+            if not any(database is seen for seen in found):
+                found.append(database)
+        return found

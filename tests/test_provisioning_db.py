@@ -105,8 +105,8 @@ def test_sql_lab_runs_in_the_users_own_schema(provisioner_database, serve, tmp_p
     import time
 
     from conftest import settings_for
+    from oracle_lab import engines
     from oracle_lab.accounts.memory import memory_stores
-    from oracle_lab.bootstrap import build_provisioner
 
     stores = memory_stores()
     settings = dataclasses.replace(settings_for(tmp_path), practice={"default": provisioner_database})
@@ -130,6 +130,6 @@ def test_sql_lab_runs_in_the_users_own_schema(provisioner_database, serve, tmp_p
         for thread in threading.enumerate():
             if thread.name.startswith("provision-"):
                 thread.join(300)
-        cleaner = build_provisioner(provisioner_database)
+        cleaner = engines.engine("oracle").provisioner(provisioner_database, 15000)
         for rec in stores.schemas.all():
             cleaner.drop(rec.schema_name)

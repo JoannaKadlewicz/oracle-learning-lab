@@ -33,7 +33,8 @@ def scalar(database):
 @pytest.fixture
 def lab_service(database):
     admin = Principal("admin", "admin@x.org", "admin", "hash", "csrf", 0.0)
-    practice = PracticeDatabases(admin, MemorySchemas(), {}, {}, DatabaseCatalog(database), 15000, lambda: 1_800_000_000)
+    practice = PracticeDatabases(admin, MemorySchemas(), {}, {}, DatabaseCatalog({"default": database}), 15000,
+                                 lambda: 1_800_000_000)
     return SqlLabService(MemoryStateStore(), practice, RunGuard(), clock=lambda: 1_800_000_000)
 
 

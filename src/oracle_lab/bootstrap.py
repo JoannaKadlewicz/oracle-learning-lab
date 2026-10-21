@@ -6,7 +6,7 @@ import logging
 import time
 from collections.abc import Callable
 
-from oracle_lab import exams
+from oracle_lab import engines
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.first_admin import Sources, ensure_first_admin, first_user_is_admin, legacy_hook, retry_legacy_import
 from oracle_lab.accounts.maintenance import Maintenance
@@ -21,13 +21,11 @@ from oracle_lab.auth.passwords import PasswordPolicy, load_common_passwords
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.auth.throttle import Throttle
-from oracle_lab.config import ConfigurationError, PracticeTarget, Settings
-from oracle_lab.database.connection import DatabaseCatalog, OracleDatabase
-from oracle_lab.database.sample_schema import SampleSchema
+from oracle_lab.config import ConfigurationError, Settings
+from oracle_lab.database.connection import DatabaseCatalog
+from oracle_lab.engines import Provisioner
 from oracle_lab.provisioning.guards import RunGuard
 from oracle_lab.provisioning.practice import PracticeDatabases, drop_user_schemas, provisioning_hook
-from oracle_lab.provisioning.proxy import ProxyDatabase
-from oracle_lab.provisioning.schemas import SchemaProvisioner
 from oracle_lab.resources import COMMON_PASSWORDS, NOTES_DIR, STATIC_DIR
 from oracle_lab.services import Clock
 from oracle_lab.services.admin import AdminService
@@ -64,13 +62,15 @@ log = logging.getLogger(__name__)
 
 
 def build_catalog(settings: Settings) -> DatabaseCatalog:
-    default = OracleDatabase(settings.database, settings.call_timeout_ms)
-    by_exam = {}
-    for key, target in settings.databases.items():
-        if key != exams.DEFAULT_DATABASE:
-            database = OracleDatabase(target, settings.call_timeout_ms)
-            by_exam.update({exam.code: database for exam in exams.EXAMS.values() if exam.database == key})
-    return DatabaseCatalog(default, by_exam)
+    """The shared database of each configured database key, opened by the key's engine."""
+    return DatabaseCatalog({key: engines.engine_for_key(key).database(target, settings.call_timeout_ms)
+                            for key, target in settings.databases.items()})
+
+
+def build_provisioners(settings: Settings) -> dict[str, Provisioner]:
+    """The practice-schema provisioner of each practice target, built by the target's engine."""
+    return {key: engines.engine_for_key(key).provisioner(target, settings.call_timeout_ms)
+            for key, target in settings.practice.items()}
 
 
 def each_hook(*hooks: Callable[[User], None]) -> Callable[[User], None]:
@@ -83,16 +83,6 @@ def each_hook(*hooks: Callable[[User], None]) -> Callable[[User], None]:
             except Exception:  # noqa: BLE001
                 log.exception("on_user_created hook %s failed for %s", getattr(hook, "__qualname__", hook), user.id)
     return on_user_created
-
-
-PROVISIONER_CALL_TIMEOUT_MS = 120_000  # DROP USER ... CASCADE and loading the sample tables can be slow
-
-
-def build_provisioner(target: PracticeTarget) -> SchemaProvisioner:
-    """Creates and drops practice schemas on one target, loading the sample tables into each new one."""
-    return SchemaProvisioner(OracleDatabase(target.provisioner, PROVISIONER_CALL_TIMEOUT_MS), target.gateway.user,
-                             target.tablespace, target.quota_mb, sample_loader=lambda db: SampleSchema(db).reset(),
-                             proxy_factory=lambda name: ProxyDatabase(target.gateway, name, PROVISIONER_CALL_TIMEOUT_MS))
 
 
 def build_app_stores(settings: Settings, pool=None) -> AppStores:
@@ -130,7 +120,7 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         pool = ConnectionPool(settings.state_database, settings.call_timeout_ms)  # shared with the legacy readers
     stores = stores or build_app_stores(settings, pool)
     audit = AuditLog(stores.audit, clock)
-    provisioners = {key: build_provisioner(target) for key, target in settings.practice.items()}
+    provisioners = build_provisioners(settings)
     gateways = {key: target.gateway for key, target in settings.practice.items()}
 
     def user_exists(user_id: str) -> bool:

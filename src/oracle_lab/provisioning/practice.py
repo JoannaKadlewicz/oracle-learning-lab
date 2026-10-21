@@ -15,18 +15,17 @@ import threading
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING
 
-from oracle_lab import exams
+from oracle_lab import engines, exams
 from oracle_lab.accounts.repositories import PracticeSchemaRepository
 from oracle_lab.auth.models import PracticeSchema, Principal, User
 from oracle_lab.config import DatabaseTarget
 from oracle_lab.database.connection import Database, DatabaseCatalog
-from oracle_lab.provisioning.proxy import ProxyDatabase
 from oracle_lab.provisioning.schemas import schema_name
 from oracle_lab.services import Clock
 
 if TYPE_CHECKING:
     from oracle_lab.auth.audit import AuditLog
-    from oracle_lab.provisioning.schemas import SchemaProvisioner
+    from oracle_lab.engines import Provisioner
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +73,7 @@ def _audit(audit: AuditLog | None, event: str, outcome: str, user_id: str, **det
         log.exception("could not audit %s for %s", event, user_id)
 
 
-def _drop_quietly(user_id: str, key: str, name: str, provisioner: SchemaProvisioner, audit: AuditLog | None) -> None:
+def _drop_quietly(user_id: str, key: str, name: str, provisioner: Provisioner, audit: AuditLog | None) -> None:
     """Drops `name`; a failure is logged and audited (schema_drop_failed names it, for an admin to clean up)."""
     try:
         provisioner.drop(name)
@@ -83,7 +82,7 @@ def _drop_quietly(user_id: str, key: str, name: str, provisioner: SchemaProvisio
         _audit(audit, "schema_drop_failed", "fail", user_id, key=key, schema_name=name, error=_first_line(exc))
 
 
-def _provision_locked(user_id: str, key: str, repo: PracticeSchemaRepository, provisioner: SchemaProvisioner,
+def _provision_locked(user_id: str, key: str, repo: PracticeSchemaRepository, provisioner: Provisioner,
                       clock: Clock, audit: AuditLog | None, user_exists: UserExists) -> PracticeSchema | None:
     """Call with the (user_id, key) lock held. None when the account is gone (deleted meanwhile): then no schema
     and no record are left behind."""
@@ -117,7 +116,7 @@ def _provision_locked(user_id: str, key: str, repo: PracticeSchemaRepository, pr
     return None
 
 
-def provision_schema(user_id: str, key: str, repo: PracticeSchemaRepository, provisioner: SchemaProvisioner,
+def provision_schema(user_id: str, key: str, repo: PracticeSchemaRepository, provisioner: Provisioner,
                      clock: Clock, audit: AuditLog | None = None,
                      user_exists: UserExists = _always) -> PracticeSchema | None:
     """(Re)creates the user's schema on target `key` under a NEW name, dropping the recorded one first (a failure
@@ -128,7 +127,7 @@ def provision_schema(user_id: str, key: str, repo: PracticeSchemaRepository, pro
 
 
 def drop_user_schemas(user_id: str, repo: PracticeSchemaRepository,
-                      provisioners: Mapping[str, SchemaProvisioner]) -> None:
+                      provisioners: Mapping[str, Provisioner]) -> None:
     """Drops every recorded schema of the user and deletes its record (AccountDeletion.drop_schemas), each under
     its (user, key) lock, so it waits for a provisioning in progress. Raises after trying all of them when one
     could not be dropped (that record is kept)."""
@@ -152,16 +151,17 @@ def drop_user_schemas(user_id: str, repo: PracticeSchemaRepository,
         raise errors[0]
 
 
-def provisioning_hook(provisioners: Mapping[str, SchemaProvisioner], repo: PracticeSchemaRepository, clock: Clock,
+def provisioning_hook(provisioners: Mapping[str, Provisioner], repo: PracticeSchemaRepository, clock: Clock,
                       audit: AuditLog | None, user_exists: UserExists = _always) -> Callable[[User], None]:
     """The on_user_created hook: starts the default schema in a daemon thread. Never raises."""
-    provisioner = provisioners.get("default")
+    key = exams.DEFAULT_DATABASE
+    provisioner = provisioners.get(key)
 
     def work(user_id: str) -> None:
         try:
-            with _lock(user_id, "default"):
-                if repo.get(user_id, "default") is None:  # e.g. already created on first use
-                    _provision_locked(user_id, "default", repo, provisioner, clock, audit, user_exists)
+            with _lock(user_id, key):
+                if repo.get(user_id, key) is None:  # e.g. already created on first use
+                    _provision_locked(user_id, key, repo, provisioner, clock, audit, user_exists)
         except Exception:  # noqa: BLE001 - the first use of the SQL lab provisions it again
             log.exception("provisioning the practice schema of %s failed", user_id)
 
@@ -180,7 +180,7 @@ class PracticeDatabases:
     """The signed-in user's practice databases, one per exam track."""
 
     def __init__(self, principal: Principal, repo: PracticeSchemaRepository,
-                 provisioners: Mapping[str, SchemaProvisioner], gateways: Mapping[str, DatabaseTarget],
+                 provisioners: Mapping[str, Provisioner], gateways: Mapping[str, DatabaseTarget],
                  shared: DatabaseCatalog, call_timeout_ms: int, clock: Clock, audit: AuditLog | None = None,
                  user_exists: UserExists = _always):
         self.principal = principal
@@ -202,14 +202,15 @@ class PracticeDatabases:
         exam = exams.get(exam_code)
         key = next((k for k in (exam.database, exam.fallback) if k in self.provisioners), None)
         if key is None:
-            if self.principal.role == "admin":
-                return self.shared.for_exam(exam_code)
-            raise PracticeUnavailable(NOT_SET_UP)
+            shared = self.shared.for_exam(exam_code) if self.principal.role == "admin" else None
+            if shared is None:
+                raise PracticeUnavailable(NOT_SET_UP)
+            return shared
         rec = self.repo.get(self.user_id, key)
         if rec is None or self._stale(rec):
             rec = self._provision_now(key)
         if rec is not None and rec.status == "ready":
-            return ProxyDatabase(self.gateways[key], rec.schema_name, self.call_timeout_ms)
+            return engines.engine_for_key(key).proxy_database(self.gateways[key], rec.schema_name, self.call_timeout_ms)
         raise PracticeUnavailable(PREPARING if rec is None or rec.status == "provisioning" else FAILED)
 
     def _stale(self, rec: PracticeSchema) -> bool:

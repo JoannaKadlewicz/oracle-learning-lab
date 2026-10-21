@@ -32,20 +32,20 @@ def _serve(settings: Settings, _: argparse.Namespace) -> int:
     if settings.legacy_basic_auth:
         log.warning("STUDY_AUTH_PASSWORD is set but ignored: the app now has its own login.")
     app = build_app(settings)
-    extra = "".join(f"; {key} track on {target}" for key, target in settings.databases.items() if key != "default")
-    log.info("Oracle Learning Lab %s on http://%s:%d (database %s%s; data in %s)", __version__,
-             settings.host, settings.port, settings.database, extra, settings.state_database or settings.data_dir)
+    databases = ", ".join(f"{key}={target}" for key, target in settings.databases.items())
+    log.info("Oracle Learning Lab %s on http://%s:%d (databases: %s; data in %s)", __version__,
+             settings.host, settings.port, databases, settings.state_database or settings.data_dir)
     serve(app, settings.host, settings.port)
     return 0
 
 
 def _init_db(settings: Settings, _: argparse.Namespace) -> int:
+    from oracle_lab import engines
     from oracle_lab.bootstrap import build_catalog
     from oracle_lab.database.connection import OracleDatabase
-    from oracle_lab.database.sample_schema import ensure_sample_schema
 
-    for database in build_catalog(settings).all():
-        if not ensure_sample_schema(database, settings.init_timeout):
+    for key, database in build_catalog(settings).by_key.items():
+        if not engines.engine_for_key(key).ensure_sample(database, settings.init_timeout):
             return 1
     if settings.state_database is not None:
         from oracle_lab.database.app_store import ensure_app_schema
@@ -58,16 +58,10 @@ def _init_db(settings: Settings, _: argparse.Namespace) -> int:
 
 def _ensure_profiles(settings: Settings) -> None:
     """Create the learner profile on each practice database; a failure is only a warning."""
-    from oracle_lab.database.connection import OracleDatabase
-    from oracle_lab.database.sample_schema import SampleSchema
-    from oracle_lab.provisioning.proxy import ProxyDatabase
-    from oracle_lab.provisioning.schemas import SchemaProvisioner
+    from oracle_lab.bootstrap import build_provisioners
 
-    for key, practice in settings.practice.items():
-        provisioner = SchemaProvisioner(
-            OracleDatabase(practice.provisioner, settings.call_timeout_ms), practice.gateway.user,
-            practice.tablespace, practice.quota_mb, sample_loader=lambda db: SampleSchema(db).reset(),
-            proxy_factory=lambda name, gateway=practice.gateway: ProxyDatabase(gateway, name, settings.call_timeout_ms))
+    for key, provisioner in build_provisioners(settings).items():
+        practice = settings.practice[key]
         try:
             provisioner.ensure_profile()
         except Exception as exc:  # noqa: BLE001 - practice schemas still work without the profile

@@ -122,7 +122,9 @@ class Settings:
         password = (resolve_secret("STUDY_PASSWORD", env, fallback_file=Path.home() / ".orastudy_pwd")
                     or Secret.missing("STUDY_PASSWORD"))
         database = DatabaseTarget(user, env.get("STUDY_DSN", "localhost:1521/ORAPDB1"), password)
-        problems = exams.problems(exams.EXAMS, {"oracle"})
+        from oracle_lab import engines  # here, not at the top: engines.oracle imports this module
+
+        problems = exams.problems(exams.EXAMS, engines.ENGINES)
         if problems:
             raise ConfigurationError("exam registry is inconsistent: " + "; ".join(problems))
         databases = _databases(env, database)
