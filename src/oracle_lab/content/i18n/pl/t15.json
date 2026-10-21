@@ -1,0 +1,547 @@
+{
+  "questions": {
+    "q15-no-from-count": {
+      "prompt": "Co zwraca to polecenie w Oracle 23ai?",
+      "options": [
+        "Jeden wiersz: 0",
+        "Jeden wiersz: 1",
+        "Brak wierszy",
+        "ORA-00923: FROM keyword not found where expected"
+      ],
+      "explanation": "W 23ai klauzula FROM jest opcjonalna: zapytanie bez FROM działa jak zapytanie do jednowierszowej tabeli DUAL. Warunek WHERE usuwa ten wiersz, a funkcja agregująca bez GROUP BY zawsze zwraca dokładnie jeden wiersz, więc COUNT(*) daje 0. Bez klauzuli WHERE byłoby 1. ORA-00923 zgłasza 19c."
+    },
+    "q15-alias-which-clause": {
+      "prompt": "Przeanalizuj to zapytanie. Która klauzula powoduje błąd w Oracle 23ai?",
+      "options": [
+        "WHERE annual > 50000",
+        "GROUP BY annual",
+        "HAVING cnt > 1",
+        "ORDER BY cnt",
+        "Żadna: zapytanie wykonuje się w 23ai bez błędu."
+      ],
+      "explanation": "23ai pozwala GROUP BY i HAVING odwoływać się do aliasów z listy SELECT, a ORDER BY zawsze to umiało. WHERE nadal jest wyliczane przed listą SELECT, więc alias jeszcze tam nie istnieje i zapytanie zgłasza ORA-00904: \"ANNUAL\": invalid identifier. Zamiast tego powtórz wyrażenie w WHERE (e.salary * 12 > 50000). W 19c GROUP BY annual i HAVING cnt też kończyłyby się błędem."
+    },
+    "q15-alias-shadows-column": {
+      "prompt": "Co się stanie w Oracle 23ai po uruchomieniu tego zapytania?",
+      "options": [
+        "Zwróci jeden wiersz na dział (użyty zostanie alias).",
+        "Zwróci jeden wiersz na każdą różną pensję, pokazując department_id.",
+        "Zgłosi ORA-00979 (not a GROUP BY expression).",
+        "Zgłosi ORA-00918 (column ambiguously defined)."
+      ],
+      "explanation": "Gdy nazwa w GROUP BY pasuje zarówno do kolumny tabeli we FROM, jak i do aliasu z SELECT, wygrywa kolumna. Zapytanie grupuje po e.salary, więc e.department_id nie jest ani grupowane, ani agregowane: ORA-00979. Alias zostałby użyty tylko wtedy, gdyby żadna kolumna z FROM nie miała tej nazwy. Nie ma błędu niejednoznaczności, bo konflikt rozstrzyga reguła."
+    },
+    "q15-group-by-position": {
+      "prompt": "Parametr GROUP_BY_POSITION_ENABLED ma wartość domyślną. Co się stanie w Oracle 23ai?",
+      "options": [
+        "Jeden wiersz na department_id: GROUP BY 1 oznacza pierwszą kolumnę",
+        "Jeden wiersz z łączną liczbą: wiersze są grupowane po stałej 1",
+        "ORA-03162: department_id must appear in GROUP BY ... as 'group_by_position_enabled' is FALSE",
+        "ORA-00904: invalid identifier"
+      ],
+      "explanation": "GROUP BY po pozycji jest domyślnie wyłączone (group_by_position_enabled = FALSE); wtedy 1 to po prostu stała 1, department_id nie jest grupowane, a 23ai zgłasza ORA-03162 ze wskazówką o parametrze (19c zgłasza ORA-00979). Po ALTER SESSION SET group_by_position_enabled = TRUE zapytanie grupuje po pierwszej kolumnie, jak ORDER BY 1. GROUP BY po aliasie działa bez żadnego parametru."
+    },
+    "q15-alias-rules": {
+      "prompt": "Które trzy stwierdzenia o aliasach kolumn są prawdziwe w Oracle 23ai?",
+      "options": [
+        "GROUP BY może odwoływać się do aliasu kolumny zdefiniowanego na liście SELECT.",
+        "HAVING może odwoływać się do aliasu funkcji agregującej, na przykład HAVING cnt > 2 dla COUNT(*) AS cnt.",
+        "WHERE może odwoływać się do aliasu kolumny zdefiniowanego na liście SELECT.",
+        "Jeśli alias ma tę samą nazwę co kolumna tabeli we FROM, GROUP BY używa kolumny tabeli.",
+        "GROUP BY band + 0 działa, gdy band jest aliasem z listy SELECT.",
+        "GROUP BY może odwoływać się do aliasu funkcji agregującej, na przykład GROUP BY cnt."
+      ],
+      "explanation": "23ai przyjmuje aliasy w GROUP BY i HAVING, ale kolumna z FROM o tej samej nazwie ma pierwszeństwo. WHERE nadal jest wyliczane przed listą SELECT, więc alias w nim zgłasza ORA-00904. Rozpoznawany jest tylko sam alias: GROUP BY band + 0 zgłasza ORA-00904, a grupowanie po aliasie funkcji agregującej zgłasza ORA-00934 (group function not allowed here)."
+    },
+    "q15-values-constructor": {
+      "prompt": "Które dwa zapytania wykonują się bez błędu w Oracle 23ai?",
+      "options": [
+        "SELECT * FROM (VALUES (1, 'a'), (2, 'b')) t (id, txt);",
+        "SELECT * FROM (VALUES (1, 'a'), (2, 'b')) t;",
+        "WITH v (n) AS (VALUES (1), (2)) SELECT * FROM v;",
+        "SELECT * FROM (VALUES (1, 2), (3)) t (a, b);",
+        "SELECT * FROM (VALUES (1), ('x')) t (c);"
+      ],
+      "explanation": "Konstruktor tabeli VALUES tworzy wiersze w miejscu; we FROM wymaga aliasu tabeli z listą kolumn (bez niego: ORA-63814) i może też definiować zapytanie WITH. Każdy wiersz musi mieć tyle samo wartości (ORA-63801), a każda kolumna jeden typ danych, jak w UNION ALL (liczba i 'x': ORA-01790)."
+    },
+    "q15-no-from-valid": {
+      "prompt": "Które dwa polecenia wykonują się poprawnie w Oracle 23ai?",
+      "options": [
+        "SELECT 1 + 1;",
+        "SELECT *;",
+        "SELECT 'a' UNION ALL SELECT 'b';",
+        "SELECT COUNT(*) AS cnt FROM employees e GROUP BY cnt;",
+        "SELECT SYSDATE FROM;"
+      ],
+      "explanation": "W 23ai FROM jest opcjonalne, więc zapytanie bez FROM działa jak zapytanie do DUAL, także wewnątrz operacji zbiorowej. SELECT * bez FROM nie ma kolumn do rozwinięcia i zgłasza ORA-54058, a słowo FROM bez tabeli zgłasza ORA-00903. GROUP BY może podawać alias z listy SELECT, ale nie alias funkcji agregującej: GROUP BY cnt zgłasza ORA-00934 (group function is not allowed here)."
+    },
+    "q15-bool-three-valued": {
+      "prompt": "Co zwracają te cztery wyrażenia, po kolei?",
+      "options": [
+        "NULL, TRUE, NULL, FALSE",
+        "FALSE, TRUE, TRUE, FALSE",
+        "NULL, NULL, NULL, NULL",
+        "FALSE, TRUE, NULL, NULL"
+      ],
+      "explanation": "Wartości BOOLEAN podlegają logice trójwartościowej, a NULL to wartość nieznana. TRUE AND nieznane pozostaje nieznane, ale FALSE AND cokolwiek to FALSE; TRUE OR cokolwiek to TRUE; NOT nieznane to nieznane. NULL nie jest traktowane jak FALSE."
+    },
+    "q15-to-boolean-true": {
+      "prompt": "Które trzy wyrażenia zwracają TRUE?",
+      "options": [
+        "TO_BOOLEAN('YES')",
+        "TO_BOOLEAN('on')",
+        "TO_BOOLEAN(-5)",
+        "TO_BOOLEAN('off')",
+        "TO_BOOLEAN(0)",
+        "TO_BOOLEAN('maybe')"
+      ],
+      "explanation": "TO_BOOLEAN przyjmuje teksty 'true'/'false', 'yes'/'no', 'on'/'off', 't'/'f', 'y'/'n', '1'/'0' w dowolnej wielkości liter, a także liczby: 0 to FALSE, a każda inna liczba (także -5) to TRUE. 'off' i 0 zwracają FALSE; 'maybe' nie jest literałem logicznym i zgłasza ORA-61800."
+    },
+    "q15-to-boolean-error": {
+      "prompt": "Co się stanie w Oracle 23ai po uruchomieniu tego zapytania?",
+      "options": [
+        "Zwróci NULL.",
+        "Zwróci FALSE.",
+        "Zgłosi ORA-61800: invalid boolean literal.",
+        "Zgłosi ORA-01722: invalid number."
+      ],
+      "explanation": "Tekst, który nie jest jednym z akceptowanych literałów logicznych, zgłasza ORA-61800; tak samo dzieje się, gdy taki tekst jest wstawiany do kolumny BOOLEAN. Tylko argument NULL daje NULL. ORA-01722 dotyczy konwersji na liczbę, a nie na wartość logiczną."
+    },
+    "q15-bool-null-tests": {
+      "prompt": "Kolumna BOOLEAN b w pewnym wierszu ma wartość NULL. Które trzy warunki są dla tego wiersza TRUE?",
+      "options": [
+        "b IS NOT TRUE",
+        "b IS NOT FALSE",
+        "b IS NULL",
+        "NOT b",
+        "b IS FALSE",
+        "b = NULL"
+      ],
+      "explanation": "Testy IS [NOT] TRUE / IS [NOT] FALSE nigdy nie zwracają wartości nieznanej: NULL nie jest ani TRUE, ani FALSE, więc IS NOT TRUE i IS NOT FALSE dają TRUE, a IS FALSE daje FALSE. IS NULL jest TRUE, jak dla każdego typu danych. NOT nieznane i porównanie z NULL (= NULL) pozostają nieznane, więc WHERE odfiltrowuje wiersz."
+    },
+    "q15-bool-order-by": {
+      "prompt": "W jakiej kolejności ORDER BY x (rosnąco, bez klauzuli NULLS) zwraca te wartości BOOLEAN?",
+      "options": [
+        "FALSE, TRUE, NULL",
+        "TRUE, FALSE, NULL",
+        "NULL, FALSE, TRUE",
+        "ORA-00932: wartości BOOLEAN nie można sortować"
+      ],
+      "explanation": "Wartości BOOLEAN można porównywać i sortować: FALSE jest mniejsze od TRUE (jak 0 i 1). Jak dla każdego typu danych, wartości NULL są na końcu przy sortowaniu rosnącym i na początku przy DESC. TRUE na początku oznaczałoby kolejność malejącą."
+    },
+    "q15-bool-type-facts": {
+      "prompt": "Które dwa stwierdzenia o typie danych BOOLEAN w Oracle 23ai są prawdziwe?",
+      "options": [
+        "BOOL jest akceptowany jako synonim BOOLEAN w definicji kolumny.",
+        "Wyrażenie logiczne, takie jak e.salary > 10000, można wybrać jako kolumnę.",
+        "Kolumnę BOOLEAN użytą samodzielnie w WHERE trzeba porównać, jak w WHERE active = TRUE.",
+        "Wstawienie tekstu 'yes' do kolumny BOOLEAN zgłasza ORA-01722.",
+        "W 19c kolumny BOOLEAN są dozwolone w tabelach, gdy COMPATIBLE ustawiono na 19.0."
+      ],
+      "explanation": "Kolumna zadeklarowana jako BOOL jest tworzona jako BOOLEAN, a warunek może być wyrażeniem na liście SELECT, które zwraca TRUE, FALSE albo NULL. Kolumna BOOLEAN sama jest warunkiem: WHERE active działa. Teksty takie jak 'yes' są przy wstawianiu konwertowane niejawnie (niepoprawny tekst zgłasza ORA-61800, a nie ORA-01722). W 19c BOOLEAN istnieje tylko w PL/SQL; CREATE TABLE z kolumną BOOLEAN zgłasza ORA-00902."
+    },
+    "q15-if-not-exists-existing": {
+      "prompt": "Tabela lab_n15_t istnieje i ma kolumny id, active i status. Co się stanie po wykonaniu tego polecenia?",
+      "options": [
+        "Zakończy się bez błędu, a tabela zachowa swoje trzy kolumny.",
+        "Zakończy się bez błędu, a tabela zostanie zastąpiona tabelą z kolumną x.",
+        "Zgłosi ORA-00955: name is already used by an existing object.",
+        "Doda kolumnę x do istniejącej tabeli."
+      ],
+      "explanation": "IF NOT EXISTS sprawdza tylko nazwę: gdy obiekt o tej nazwie istnieje, polecenie nic nie robi i zgłasza sukces. Nigdy nie porównuje ani nie zmienia definicji, więc stara tabela zostaje. Bez IF NOT EXISTS polecenie zgłasza ORA-00955. (Sprawdzono w 23ai na tymczasowej tabeli.)"
+    },
+    "q15-or-replace-if-not-exists": {
+      "prompt": "Co się stanie w Oracle 23ai po wykonaniu tego polecenia?",
+      "options": [
+        "Widok zostanie utworzony albo zastąpiony, jeśli istnieje.",
+        "Widok zostanie utworzony tylko wtedy, gdy nie istnieje; OR REPLACE jest pomijane.",
+        "Zgłosi ORA-11541: REPLACE and IF NOT EXISTS cannot coexist in the same DDL statement.",
+        "Zgłosi ORA-00922: missing or invalid option."
+      ],
+      "explanation": "OR REPLACE oznacza „nadpisz, jeśli istnieje”, a IF NOT EXISTS „zostaw w spokoju, jeśli istnieje”; te dwa warunki się wykluczają, więc 23ai odrzuca to połączenie z ORA-11541 (sprawdzono dla widoków i synonimów). Użyj jednego albo drugiego. ORA-00922 zgłasza 19c dla IF NOT EXISTS w CREATE TABLE."
+    },
+    "q15-if-exists-valid": {
+      "prompt": "Które dwa polecenia są poprawne w Oracle 23ai?",
+      "options": [
+        "DROP TABLE IF EXISTS lab_n15_t PURGE;",
+        "ALTER TABLE IF EXISTS lab_n15_t ADD (c NUMBER);",
+        "DROP TABLE IF NOT EXISTS lab_n15_t;",
+        "CREATE OR REPLACE SYNONYM IF NOT EXISTS lab_n15_s FOR lab_n15_t;",
+        "ALTER TABLE lab_n15_t ADD IF NOT EXISTS (c NUMBER);"
+      ],
+      "explanation": "CREATE przyjmuje IF NOT EXISTS; ALTER i DROP przyjmują IF EXISTS, umieszczone zaraz po typie obiektu. DROP ... IF NOT EXISTS zgłasza ORA-11544, OR REPLACE z IF NOT EXISTS zgłasza ORA-11541, a dla pojedynczych kolumn w ALTER TABLE ... ADD nie ma IF NOT EXISTS (ORA-02000). (Wszystko sprawdzono w 23ai.)"
+    },
+    "q15-if-not-exists-sequence": {
+      "prompt": "Nowa sesja wykonuje te polecenia; sekwencja lab_n15_s wcześniej nie istniała. Co zwraca SELECT?",
+      "options": [
+        "1",
+        "100",
+        "101",
+        "Drugie CREATE zgłasza ORA-00955"
+      ],
+      "explanation": "Pierwsze polecenie tworzy sekwencję zaczynającą się od 1. Drugie stwierdza, że nazwa jest zajęta, i po cichu nic nie robi; jego START WITH 100 nigdy nie zostaje zastosowane i nie ma błędu. SELECT (w 23ai bez FROM) zwraca 1. Aby zmienić sekwencję, użyj ALTER SEQUENCE albo usuń ją i utwórz ponownie."
+    },
+    "q15-if-exists-facts": {
+      "prompt": "Które trzy stwierdzenia o IF [NOT] EXISTS w Oracle 23ai są prawdziwe?",
+      "options": [
+        "DROP VIEW IF EXISTS na nieistniejącym widoku kończy się bez błędu.",
+        "CREATE INDEX IF NOT EXISTS z nazwą istniejącego indeksu nic nie robi, nawet jeśli lista kolumn jest inna.",
+        "ALTER TABLE IF EXISTS na nieistniejącej tabeli kończy się bez błędu.",
+        "CREATE TABLE IF NOT EXISTS zgłasza błąd, jeśli istniejąca tabela ma inne kolumny.",
+        "IF NOT EXISTS można łączyć z OR REPLACE, aby utworzyć lub zaktualizować widok.",
+        "DROP TABLE IF EXISTS jest dostępne w 19c od aktualizacji 19.10."
+      ],
+      "explanation": "Te klauzule sprawdzają tylko, czy nazwa istnieje, i zamieniają błędy „już istnieje” / „nie istnieje” w ciche powodzenie (sprawdzono dla widoków, indeksów, tabel, sekwencji i synonimów). Istniejąca definicja nie jest porównywana, więc inna struktura nie powoduje błędu. OR REPLACE z IF NOT EXISTS zgłasza ORA-11541. 19c nie ma tych klauzul (DROP TABLE IF EXISTS zgłasza tam ORA-00933)."
+    },
+    "q15-works-only-23ai-ddl": {
+      "prompt": "Które polecenie działa w Oracle 23ai, ale w Oracle 19c kończy się błędem?",
+      "options": [
+        "DROP TABLE IF EXISTS lab_n15_old;",
+        "CREATE TABLE lab_n15_a (id NUMBER, status VARCHAR2(10) DEFAULT ON NULL 'NEW');",
+        "SELECT e.last_name FROM employees e ORDER BY e.salary DESC FETCH FIRST 3 ROWS ONLY;",
+        "CREATE TABLE lab_n15_b (id NUMBER GENERATED ALWAYS AS IDENTITY);"
+      ],
+      "explanation": "IF [NOT] EXISTS jest nowością w 23ai; 19c zgłasza ORA-00933 dla DROP TABLE IF EXISTS. DEFAULT ON NULL (dla wstawień), FETCH FIRST i kolumny identity pojawiły się w 12c, więc działają w obu wersjach. 23ai dodaje do DEFAULT ON NULL opcję FOR INSERT AND UPDATE."
+    },
+    "q15-update-from-syntax": {
+      "prompt": "Które polecenie działa w Oracle 23ai i podnosi o 10% pensje pracowników, których dział znajduje się w Warszawie?",
+      "options": [
+        "UPDATE employees e\nSET    e.salary = e.salary * 1.1\nFROM   departments d\nWHERE  d.department_id = e.department_id\nAND    d.location = 'Warsaw';",
+        "UPDATE employees e\nJOIN   departments d ON d.department_id = e.department_id\nSET    e.salary = e.salary * 1.1\nWHERE  d.location = 'Warsaw';",
+        "UPDATE employees e, departments d\nSET    e.salary = e.salary * 1.1\nWHERE  d.department_id = e.department_id\nAND    d.location = 'Warsaw';",
+        "UPDATE employees e\nSET    e.salary = e.salary * 1.1\nFROM   departments d ON (d.department_id = e.department_id)\nWHERE  d.location = 'Warsaw';"
+      ],
+      "explanation": "Postać z 23ai to UPDATE cel SET ... FROM inne_tabele WHERE złączenie_i_filtr: klauzula FROM jest po SET, a złączenie z tabelą docelową trafia do WHERE. JOIN w stylu MySQL po tabeli docelowej i lista tabel po przecinku zgłaszają ORA-00971 (missing SET keyword), a klauzula ON zaraz po tabeli z FROM, która nie jest częścią JOIN, zgłasza ORA-03048. 19c nie ma żadnej z tych postaci; tam używasz WHERE e.department_id IN (SELECT ...) albo MERGE."
+    },
+    "q15-update-from-duplicates": {
+      "prompt": "Niektórzy pracownicy są przedstawicielami handlowymi kilku zamówień. Co się stanie po wykonaniu tego polecenia?",
+      "options": [
+        "Każdy przedstawiciel dostanie wartość z ostatniego pasującego zamówienia.",
+        "Każdy przedstawiciel dostanie wartość z pierwszego pasującego zamówienia.",
+        "Polecenie zgłosi ORA-30926: ten sam wiersz zostałby zmieniony dwa razy.",
+        "Pracownicy bez zamówień dostaną prowizję NULL."
+      ],
+      "explanation": "Gdy wiersz docelowy łączy się z kilkoma wierszami źródłowymi, nowa wartość jest niedeterministyczna, więc Oracle zgłasza ORA-30926, tak samo jak MERGE. Najpierw zagreguj źródło (na przykład w podzapytaniu z MAX(o.order_id) dla każdego przedstawiciela). Wiersze bez dopasowania w ogóle nie są zmieniane, więc nikt nie dostaje NULL."
+    },
+    "q15-update-from-facts": {
+      "prompt": "Które dwa stwierdzenia o UPDATE ... FROM w Oracle 23ai są prawdziwe?",
+      "options": [
+        "Kolumn tabel z klauzuli FROM można używać w klauzuli SET.",
+        "UPDATE employees e SET e.salary = e.salary + 1 FROM departments d; bez klauzuli WHERE zgłasza ORA-30926.",
+        "Wiersze docelowe bez pasującego wiersza w tabelach z FROM są ustawiane na NULL.",
+        "Klauzula FROM może wymieniać tylko jedną tabelę.",
+        "Złączenie trzeba zapisać słowem kluczowym ON po tabeli z FROM."
+      ],
+      "explanation": "Tabele z FROM są złączane z tabelą docelową, a ich kolumny mogą zasilać SET (sprawdzono: SET e.salary = d.department_id * 100). Bez warunku złączenia każdy pracownik pasuje do wszystkich 4 działów, więc ten sam wiersz byłby zmieniony 4 razy: ORA-30926. Wiersze bez dopasowania zostają bez zmian; dozwolonych jest kilka tabel (lista po przecinku albo złączenia ANSI), a złączenie z tabelą docelową trafia do WHERE."
+    },
+    "q15-delete-from-facts": {
+      "prompt": "Które dwa stwierdzenia o DELETE z klauzulą FROM do złączeń (DELETE FROM orders o FROM order_items oi WHERE ...) w Oracle 23ai są prawdziwe?",
+      "options": [
+        "Wiersz docelowy pasujący do kilku wierszy złączonych tabel jest usuwany raz, bez błędu.",
+        "Złączane tabele można łączyć składnią ANSI JOIN ... ON wewnątrz drugiej klauzuli FROM.",
+        "Podobnie jak UPDATE ... FROM, polecenie zgłasza ORA-30926, gdy wiersz docelowy pasuje do więcej niż jednego wiersza.",
+        "Wiersze docelowe bez dopasowania w złączanych tabelach też są usuwane.",
+        "DELETE o FROM orders o JOIN order_items oi ON ... to równoważna, poprawna postać."
+      ],
+      "explanation": "Każdy wiersz docelowy z co najmniej jednym dopasowaniem jest usuwany raz; dwukrotne usunięcie tego samego wiersza nie jest niejednoznaczne, więc nie ma ORA-30926 (ten błąd dotyczy UPDATE, gdzie kilka dopasowań mogłoby dać różne nowe wartości). Dodatkowa klauzula FROM przyjmuje kilka tabel po przecinku albo złączenia ANSI (sprawdzono). Wiersze bez dopasowania zostają, jak przy złączeniu wewnętrznym. Postać z MySQL DELETE alias FROM ... traktuje o jako nazwę tabeli i zgłasza ORA-00942."
+    },
+    "q15-returning-old-new": {
+      "prompt": "Przed wykonaniem polecenia pracownik 100 zarabia 24000. Jakie wartości trafiają do :a i :b?",
+      "options": [
+        ":a = 24000, :b = 48000",
+        ":a = 48000, :b = 48000",
+        ":a = 24000, :b = 24000",
+        "ORA-00904: OLD nie jest poprawnym identyfikatorem poza wyzwalaczem"
+      ],
+      "explanation": "23ai pozwala klauzuli RETURNING w UPDATE, INSERT, DELETE i MERGE pytać o wartości OLD i NEW (sprawdzono ze zmiennymi wiązanymi). Bez tych słów kluczowych UPDATE zwraca nową wartość, więc przed 23ai stara wartość wymagała osobnego zapytania. :OLD i :NEW z dwukropkami należą do wyzwalaczy; tutaj OLD i NEW to zwykłe słowa kluczowe."
+    },
+    "q15-returning-facts": {
+      "prompt": "Które dwa stwierdzenia o RETURNING OLD i NEW są prawdziwe?",
+      "options": [
+        "W INSERT RETURNING OLD col zwraca NULL.",
+        "W DELETE RETURNING NEW col zwraca NULL.",
+        "W UPDATE RETURNING col bez OLD ani NEW zwraca wartość sprzed zmiany.",
+        "OLD i NEW można używać tylko w wyzwalaczach PL/SQL.",
+        "RETURNING OLD jest dozwolone tylko wtedy, gdy zmieniany jest dokładnie jeden wiersz."
+      ],
+      "explanation": "Wstawiony wiersz nie ma starej wersji, a usunięty nie ma nowej, więc te wartości to NULL (sprawdzono). Zwykłe RETURNING w UPDATE zwraca nowe wartości. OLD/NEW działają w każdym kliencie, który wiąże zmienne RETURNING INTO, a przy poleceniach wielowierszowych tablice (albo RETURNING BULK COLLECT INTO w PL/SQL) dostają po jednej wartości na wiersz."
+    },
+    "q15-default-on-null-update": {
+      "prompt": "Tabela lab_n15_d ma kolumny a VARCHAR2(5) DEFAULT ON NULL 'A' oraz c VARCHAR2(5) DEFAULT ON NULL FOR INSERT AND UPDATE 'C' i jeden wiersz. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "UPDATE lab_n15_d SET c = NULL; zapisuje 'C' w kolumnie c.",
+        "UPDATE lab_n15_d SET a = NULL; zgłasza ORA-01407 (cannot update to NULL).",
+        "UPDATE lab_n15_d SET a = NULL; zapisuje 'A' w kolumnie a.",
+        "UPDATE lab_n15_d SET c = NULL; zapisuje NULL w kolumnie c.",
+        "DEFAULT ON NULL FOR UPDATE 'C' (bez INSERT) ma poprawną składnię."
+      ],
+      "explanation": "DEFAULT ON NULL bez opcji oznacza FOR INSERT ONLY (zachowanie z 12c) i sprawia, że kolumna jest NOT NULL, więc ustawienie jej na NULL w UPDATE zgłasza ORA-01407. FOR INSERT AND UPDATE (nowość w 23ai) zastępuje wartością domyślną także NULL w UPDATE. Nie ma postaci tylko dla UPDATE: samo FOR UPDATE zgłasza ORA-02000. (Sprawdzono w 23ai.)"
+    },
+    "q15-multirow-insert-duplicate": {
+      "prompt": "Tabela promotions jest pusta, a promo_id to jej klucz główny. Jaki jest wynik?",
+      "options": [
+        "Wiersze 1 i 2 zostają wstawione, a potem dla trzeciego wiersza zgłaszany jest ORA-00001.",
+        "Zgłaszany jest ORA-00001 i żaden wiersz nie zostaje wstawiony.",
+        "Wstawiane są trzy wiersze; ograniczenie jest sprawdzane przy COMMIT.",
+        "Zgłaszany jest ORA-00933: VALUES przyjmuje tylko jeden wiersz."
+      ],
+      "explanation": "Wielowierszowe INSERT ... VALUES to jedno polecenie, a atomowość na poziomie polecenia wycofuje całe polecenie, gdy którykolwiek wiersz zawiedzie: ORA-00001, a tabela pozostaje pusta. Ograniczenie nie jest odraczalne, więc jest sprawdzane od razu. ORA-00933 zgłasza 19c, bo tam VALUES przyjmuje jeden wiersz."
+    },
+    "q15-schema-privilege-syntax": {
+      "prompt": "Użytkownik reporter musi móc odpytywać każdą tabelę w schemacie sales, także tabele utworzone tam w przyszłym roku, i żadnych tabel innych schematów. Które polecenie robi to w Oracle 23ai?",
+      "options": [
+        "GRANT SELECT ANY TABLE ON SCHEMA sales TO reporter;",
+        "GRANT SELECT ANY TABLE TO reporter;",
+        "GRANT SELECT ON SCHEMA sales TO reporter;",
+        "GRANT SELECT ON sales.* TO reporter;"
+      ],
+      "explanation": "Uprawnienie do schematu to uprawnienie systemowe ANY ograniczone do jednego schematu: GRANT <privilege> ON SCHEMA <schema> TO <grantee>. Obejmuje obiekty utworzone w tym schemacie później, czego nie potrafią nadania obiektowe. Zwykłe SELECT ANY TABLE obejmuje wszystkie schematy w bazie danych; SELECT ON SCHEMA jest odrzucane z ORA-00990 (missing or invalid privilege), a sales.* nie jest poprawną składnią."
+    },
+    "q15-schema-privilege-facts": {
+      "prompt": "Które dwa stwierdzenia o uprawnieniach do schematu w Oracle 23ai są prawdziwe?",
+      "options": [
+        "Właściciel schematu może nadawać uprawnienia do własnego schematu bez posiadania żadnego uprawnienia ANY.",
+        "Uprawnienia do schematu są widoczne w widokach takich jak DBA_SCHEMA_PRIVS i USER_SCHEMA_PRIVS.",
+        "GRANT SELECT ANY TABLE ON SCHEMA sys TO u; jest dozwolone dla DBA.",
+        "GRANT CREATE TABLE ON SCHEMA hr TO u; pozwala u tworzyć tabele w hr.",
+        "Uprawnienie do schematu obejmuje tylko obiekty istniejące w chwili nadania."
+      ],
+      "explanation": "Właściciel może nadawać uprawnienia do własnego schematu (nadanie na własnym schemacie przeszło kontrolę uprawnień i zawiodło tylko dlatego, że odbiorca nie istniał). Nadania są wymienione w DBA_SCHEMA_PRIVS, USER_SCHEMA_PRIVS i powiązanych widokach. Schemat SYS jest wyłączony (ORA-41905); kwalifikują się tylko uprawnienia ANY, więc CREATE TABLE ON SCHEMA zgłasza ORA-00990 (właściwa postać to CREATE ANY TABLE ON SCHEMA hr); a przyszłe obiekty są objęte."
+    },
+    "q15-db-developer-role": {
+      "prompt": "Które dwa stwierdzenia o DB_DEVELOPER_ROLE są prawdziwe?",
+      "options": [
+        "Daje programiście aplikacji typowe uprawnienia do tworzenia tabel, widoków, sekwencji, procedur i wyzwalaczy we własnym schemacie.",
+        "Obejmuje nowsze uprawnienia, takie jak CREATE DOMAIN i CREATE MLE.",
+        "Obejmuje UNLIMITED TABLESPACE.",
+        "Obejmuje SELECT ANY TABLE, aby programiści mogli czytać inne schematy.",
+        "To rola, którą każdy użytkownik dostaje automatycznie przez PUBLIC."
+      ],
+      "explanation": "DB_DEVELOPER_ROLE (nowość w 23ai) łączy to, czego programista potrzebuje we własnym schemacie, w tym CREATE DOMAIN, CREATE MLE, CREATE JOB i DEBUG CONNECT SESSION, jako alternatywę z minimalnymi uprawnieniami dla CONNECT + RESOURCE czy DBA. Nie ma uprawnień ANY ani UNLIMITED TABLESPACE (limit miejsca nadaje się osobno) i trzeba ją nadać jawnie. (Jej uprawnienia sprawdzono w ROLE_SYS_PRIVS w 23ai; twój schemat ćwiczeniowy nie ma tej roli i ma tylko kilka uprawnień CREATE nadanych bezpośrednio.)"
+    },
+    "q15-schema-vs-any": {
+      "prompt": "Użytkownik auditor ma SELECT ANY TABLE ON SCHEMA hr. Schemat hr tworzy potem nową tabelę hr.bonuses. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "auditor może od razu odpytywać hr.bonuses, bez kolejnego nadania.",
+        "To uprawnienie nie pozwala auditor odpytywać tabel schematu sales.",
+        "auditor najpierw potrzebuje GRANT SELECT ON hr.bonuses.",
+        "auditor może odpytywać każdą tabelę w każdym schemacie.",
+        "auditor może też wstawiać do hr.bonuses."
+      ],
+      "explanation": "Uprawnienia do schematu dotyczą wszystkich obecnych i przyszłych obiektów tego schematu, więc nowe tabele są objęte automatycznie; to ich główna przewaga nad nadaniami obiektowymi. Zakres to jeden schemat (a nie cała baza danych, jak przy SELECT ANY TABLE) i obowiązuje tylko nadane uprawnienie: wstawianie wymaga INSERT ANY TABLE ON SCHEMA hr."
+    },
+    "q15-domain-check": {
+      "prompt": "Domena lab_n15_email to VARCHAR2(100) z CHECK (REGEXP_LIKE(lab_n15_email, '^[^@]+@[^@]+$')). Kolumna mail tabeli lab_n15_c używa tej domeny. Co robi INSERT INTO lab_n15_c (mail) VALUES ('bad')?",
+      "options": [
+        "Zgłasza ORA-11534: check constraint ... due to domain constraint ... violated.",
+        "Wstawia wiersz; ograniczenia domeny służą tylko do dokumentacji.",
+        "Wstawia wiersz, ale DOMAIN_DISPLAY(mail) zwraca NULL.",
+        "Zgłasza ORA-12899: value too large for column."
+      ],
+      "explanation": "Ograniczenia domeny są wymuszane na każdej kolumnie, która jej używa: Oracle dodaje do kolumny ograniczenie CHECK, a jego naruszenie zgłasza ORA-11534 z nazwą ograniczenia domeny (sprawdzono). To właśnie czyni domeny czymś więcej niż adnotacjami. ORA-12899 wymagałby wartości dłuższej niż 100 bajtów."
+    },
+    "q15-domain-functions": {
+      "prompt": "Domena lab_n15_email ma DISPLAY LOWER(lab_n15_email). Kolumna mail jej używa i zawiera 'Ann@Example.com'; kolumna id to zwykły NUMBER. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "DOMAIN_DISPLAY(mail) zwraca 'ann@example.com'.",
+        "DOMAIN_NAME(mail) zwraca właściciela i nazwę, na przykład '<your schema>.LAB_N15_EMAIL'.",
+        "SELECT mail FROM lab_n15_c zwraca 'ann@example.com' z powodu wyrażenia DISPLAY.",
+        "DOMAIN_NAME(id) zgłasza błąd, bo id nie ma domeny.",
+        "DOMAIN_DISPLAY zmienia wartość zapisaną w kolumnie."
+      ],
+      "explanation": "DISPLAY określa tylko, jak DOMAIN_DISPLAY formatuje wartość; zapisana wartość i zwykły SELECT pozostają 'Ann@Example.com'. DOMAIN_NAME zwraca kwalifikowaną nazwę domeny, a obie funkcje zwracają NULL (bez błędu) dla kolumny bez domeny. ORDER działa tak samo z DOMAIN_ORDER. (Sprawdzono w 23ai.)"
+    },
+    "q15-domain-drop": {
+      "prompt": "Domeny lab_n15_pct używa kolumna tabeli lab_n15_c. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "DROP DOMAIN lab_n15_pct; zgłasza ORA-11502, bo domena ma obiekty zależne.",
+        "DROP DOMAIN lab_n15_pct FORCE; usuwa domenę; kolumna zachowuje swój typ danych, ale nie ma już domeny.",
+        "DROP DOMAIN lab_n15_pct; usuwa też kolumnę.",
+        "DROP DOMAIN lab_n15_pct FORCE; usuwa też tabelę lab_n15_c.",
+        "Domeny nie można usunąć, póki istnieje; znika tylko razem ze swoim schematem."
+      ],
+      "explanation": "Używanej domeny nie można usunąć zwykłym poleceniem (ORA-11502). FORCE odłącza kolumny: zachowują swój typ danych i dane, a DOMAIN_NAME w USER_TAB_COLUMNS staje się NULL (sprawdzono). Po usunięciu tabeli zwykłe DROP DOMAIN działa."
+    },
+    "q15-annotations-view": {
+      "prompt": "Tabelę utworzono z ANNOTATIONS (Owner 'HR', Display 'Contacts'), a jedna kolumna ma ANNOTATIONS (Hidden). Który widok słownika danych wymienia te adnotacje razem z ich wartościami?",
+      "options": [
+        "USER_ANNOTATIONS_USAGE",
+        "USER_TAB_COMMENTS",
+        "USER_DOMAINS",
+        "USER_ANNOTATION_VALUES"
+      ],
+      "explanation": "USER_ANNOTATIONS_USAGE ma jeden wiersz na każde użycie adnotacji: OBJECT_NAME, OBJECT_TYPE, COLUMN_NAME (NULL dla adnotacji na poziomie tabeli), ANNOTATION_NAME i ANNOTATION_VALUE (NULL dla adnotacji z samą nazwą, takiej jak Hidden). Komentarze to inna, starsza funkcja (COMMENT ON, USER_TAB_COMMENTS); USER_DOMAINS opisuje domeny; USER_ANNOTATION_VALUES nie istnieje."
+    },
+    "q15-annotations-facts": {
+      "prompt": "Które dwa stwierdzenia o adnotacjach w Oracle 23ai są prawdziwe?",
+      "options": [
+        "Adnotacja może być nazwą bez wartości, na przykład ANNOTATIONS (Hidden).",
+        "Kolumna używająca domeny pokazuje adnotacje domeny w USER_ANNOTATIONS_USAGE.",
+        "Nazwy adnotacji są zapisywane dokładnie w takiej wielkości liter, w jakiej je napisano.",
+        "Adnotacja taka jak Max '100' jest wymuszana jak ograniczenie CHECK.",
+        "Adnotacje można dodawać tylko w CREATE, nigdy przez ALTER."
+      ],
+      "explanation": "Adnotacje to metadane dla aplikacji w postaci nazwy i opcjonalnej wartości. Adnotacje domeny pojawiają się dla każdej używającej jej kolumny (z wypełnionym DOMAIN_NAME). Nazwy adnotacji bez cudzysłowów są zapisywane wielkimi literami, jak inne identyfikatory (Owner staje się OWNER); wartości zachowują wielkość liter. Nigdy nie są wymuszane, a ALTER TABLE ... ANNOTATIONS (ADD ..., DROP ...) zmienia je później. (Sprawdzono w 23ai.)"
+    },
+    "q15-vector-distances": {
+      "prompt": "Co zwracają te dwie odległości?",
+      "options": [
+        "1 i 5",
+        "0 i 5",
+        "1 i 7",
+        "0 i 25"
+      ],
+      "explanation": "Odległość kosinusowa to 1 minus podobieństwo kosinusowe; wektory prostopadłe mają podobieństwo 0, więc odległość wynosi 1 (identyczne kierunki dają 0). Odległość euklidesowa to długość odcinka sqrt(3*3 + 4*4) = 5. 7 to odległość MANHATTAN, a 25 to EUCLIDEAN_SQUARED. Wyniki są wartościami BINARY_DOUBLE."
+    },
+    "q15-vector-default-metric": {
+      "prompt": "VECTOR_DISTANCE jest wywoływane z dwoma wektorami bez metryki i bez udziału indeksu wektorowego. Która metryka jest używana?",
+      "options": [
+        "COSINE",
+        "EUCLIDEAN",
+        "DOT",
+        "MANHATTAN"
+      ],
+      "explanation": "COSINE to metryka domyślna (gdy istnieje indeks wektorowy, używana jest jego metryka). Tutaj wynik to około 0.293, czyli odległość kosinusowa, a EUCLIDEAN dałaby sqrt(5), około 2.236. DOT zwraca iloczyn skalarny ze zmienionym znakiem, aby mniejsza wartość nadal oznaczała bliżej."
+    },
+    "q15-vector-order-by": {
+      "prompt": "Co się stanie po uruchomieniu tego zapytania?",
+      "options": [
+        "Zwróci a, b (wektory są sortowane wymiar po wymiarze).",
+        "Zwróci b, a (wektory są sortowane według długości).",
+        "Zgłosi ORA-22848: cannot use VECTOR type as comparison key.",
+        "Zwróci wiersze w dowolnej kolejności: ORDER BY na wektorze jest pomijane."
+      ],
+      "explanation": "Wektorów nie można bezpośrednio porównywać, sortować ani grupować (ORA-22848 także dla = i GROUP BY). Wyszukiwanie podobieństwa sortuje zamiast tego po odległości: ORDER BY VECTOR_DISTANCE(t.v, :query_vector, COSINE) FETCH FIRST n ROWS ONLY."
+    },
+    "q15-vector-top-k": {
+      "prompt": "Jakie nazwy zwraca to wyszukiwanie podobieństwa i w jakiej kolejności?",
+      "options": [
+        "a, c",
+        "c, a",
+        "a, b",
+        "b, c"
+      ],
+      "explanation": "Odległości od [1, 0.2] to 0.2 dla a, około 0.8 dla c i około 1.28 dla b. Sortowanie po odległości rosnąco stawia najbliższy na początku, a FETCH FIRST 2 zachowuje dwa najbliższe: a, c. Sortowanie malejące zwróciłoby najdalsze wektory."
+    },
+    "q15-vector-facts": {
+      "prompt": "Kolumna emb jest zadeklarowana jako VECTOR(3, FLOAT32). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "INSERT ... VALUES (1, '[1, 2, 3]') działa: tekst jest konwertowany na wektor.",
+        "INSERT ... VALUES (2, '[1, 2]') zgłasza ORA-51803, bo liczba wymiarów musi wynosić 3.",
+        "Kolumna zadeklarowana po prostu jako VECTOR też mogłaby przechowywać tylko trójwymiarowe wektory FLOAT32.",
+        "FETCH APPROX FIRST 5 ROWS ONLY zawsze zwraca dokładnie te same wiersze co wyszukiwanie dokładne.",
+        "WHERE emb = VECTOR('[1, 2, 3]') znajduje wiersze z dokładnie tym wektorem."
+      ],
+      "explanation": "Tekst literału wektora jest konwertowany niejawnie (albo jawnie przez VECTOR() / TO_VECTOR()), a stała liczba wymiarów jest wymuszana (ORA-51803). Zwykła kolumna VECTOR (albo VECTOR(*, *)) przyjmuje dowolną liczbę wymiarów i format. FETCH APPROX pozwala indeksowi wektorowemu zwracać wyniki przybliżone, kosztem dokładności na rzecz szybkości. Wektorów nie można porównywać przez = (ORA-22848)."
+    },
+    "q15-concat-many": {
+      "prompt": "Co zwraca to zapytanie w Oracle 23ai?",
+      "options": [
+        "Steven King (100)",
+        "ORA-00909: invalid number of arguments",
+        "Steven King",
+        "NULL"
+      ],
+      "explanation": "W 23ai CONCAT przyjmuje więcej niż dwa argumenty, niejawnie konwertuje liczby i, tak jak ||, pomija argumenty NULL. W 19c CONCAT przyjmuje dokładnie dwa argumenty, a to wywołanie zgłasza ORA-00909 (trzeba zagnieździć CONCAT albo użyć ||). Pojedynczy argument nadal zgłasza ORA-00909."
+    },
+    "q15-sum-interval": {
+      "prompt": "Co zwraca to zapytanie w Oracle 23ai?",
+      "options": [
+        "+01 02:15:00",
+        "+00 08:45:00",
+        "NULL",
+        "ORA-00932: inconsistent datatypes: expected NUMBER got INTERVAL DAY TO SECOND"
+      ],
+      "explanation": "23ai dodaje SUM i AVG dla wartości INTERVAL; wartości NULL są jak zwykle pomijane: 1 dzień + 2 h 15 min. +00 08:45:00 to AVG (suma podzielona przez 3 wartości różne od NULL). W 19c interwały przyjmują tylko MIN, MAX i COUNT, a SUM zgłasza ORA-00932."
+    },
+    "q15-boolean-aggregates": {
+      "prompt": "Co zwracają te dwie funkcje agregujące?",
+      "options": [
+        "FALSE, TRUE",
+        "NULL, TRUE",
+        "FALSE, NULL",
+        "ORA-00904: invalid identifier"
+      ],
+      "explanation": "BOOLEAN_AND_AGG jest TRUE tylko wtedy, gdy każda wartość różna od NULL jest TRUE; BOOLEAN_OR_AGG jest TRUE, gdy co najmniej jedna wartość jest TRUE. Jak inne funkcje agregujące pomijają NULL, więc wiersz z NULL nie zmienia wyniku w NULL. Nazwy z PostgreSQL, BOOL_AND i BOOL_OR, zgłaszają w Oracle ORA-00904."
+    },
+    "q15-functions-new-in-23ai": {
+      "prompt": "Które dwa wyrażenia działają w Oracle 23ai, ale w Oracle 19c kończą się błędem?",
+      "options": [
+        "CEIL(DATE '2024-03-15', 'MM')",
+        "TRUNC(INTERVAL '1 23:00:00' DAY TO SECOND)",
+        "ROUND(DATE '2024-03-16', 'MM')",
+        "MAX(ev.duration)",
+        "TRUNC(DATE '2024-03-15', 'MM')"
+      ],
+      "explanation": "23ai dodaje CEIL i FLOOR dla dat (CEIL do miesiąca daje 2024-04-01) oraz CEIL, FLOOR, ROUND i TRUNC dla interwałów (TRUNC z 1 dnia 23 godzin daje 1 dzień). W 19c zgłaszają ORA-00909 i ORA-00932. ROUND i TRUNC dla dat oraz MAX dla interwałów działały już w 19c."
+    }
+  },
+  "labs": {
+    "lab-n15-group-by-alias": {
+      "title": "GROUP BY i HAVING z aliasami",
+      "task": "Dla każdego stanowiska zajmowanego przez więcej niż jednego pracownika pokaż job (stanowisko), headcount (liczbę pracowników) i total_salary (sumę pensji). Użyj aliasów job, headcount i total_salary w GROUP BY i HAVING zamiast powtarzać wyrażenia. Posortuj po total_salary od najwyższej.",
+      "hint": "W 23ai GROUP BY i HAVING mogą podawać alias z listy SELECT.",
+      "hint2": "GROUP BY job HAVING headcount > 1 ORDER BY total_salary DESC. Uwaga: jeśli alias ma tę samą nazwę co kolumna employees, GROUP BY używa kolumny, a nie aliasu."
+    },
+    "lab-n15-values-bonus": {
+      "title": "Złącz listę VALUES",
+      "task": "Premie dla działów nie są zapisane w tabeli: dział 10 dostaje 500, dział 20 dostaje 300, dział 30 dostaje 400. Zbuduj je konstruktorem tabeli VALUES (kolumny department_id i bonus) i złącz z departments. Pokaż department_name, bonus i label, gdzie label powstaje jednym wywołaniem CONCAT z department_name, ': ', bonus, ' EUR' (na przykład 'Sales: 300 EUR'). Posortuj po department_name.",
+      "hint": "FROM (VALUES (10, 500), (20, 300), (30, 400)) v (department_id, bonus) działa jak mała tabela; alias wymaga listy kolumn.",
+      "hint2": "CONCAT w 23ai przyjmuje dowolną liczbę argumentów i konwertuje liczbę: CONCAT(d.department_name, ': ', v.bonus, ' EUR')."
+    },
+    "lab-n15-merge-values": {
+      "title": "MERGE z listy VALUES",
+      "task": "Nowe ceny katalogowe przychodzą jako pary (product_id, list_price): (12, 30), (14, 45) i (16, 99). Jednym MERGE, którego źródłem jest konstruktor tabeli VALUES z kolumnami product_id i list_price (bez tabeli i bez SELECT z DUAL), zmień list_price istniejących produktów i wstaw brakujące z product_name 'New product', category 'Hardware' i podaną list_price.",
+      "hint": "W 23ai USING przyjmuje (VALUES (...), (...)) v (product_id, list_price); alias wymaga listy kolumn (inaczej ORA-63814).",
+      "hint2": "ON (p.product_id = v.product_id), potem WHEN MATCHED THEN UPDATE SET p.list_price = v.list_price i WHEN NOT MATCHED THEN INSERT (...) VALUES (v.product_id, 'New product', 'Hardware', v.list_price)."
+    },
+    "lab-n15-boolean-flags": {
+      "title": "Wyrażenia logiczne jako kolumny",
+      "task": "Dla pracowników działu 20 pokaż employee_id, high_earner i has_commission. high_earner to wynik BOOLEAN wyrażenia salary >= 10000; has_commission to wynik BOOLEAN wyrażenia commission_pct IS NOT NULL. Posortuj po employee_id.",
+      "hint": "W 23ai warunek można zapisać bezpośrednio na liście SELECT, a zwraca on TRUE, FALSE albo NULL.",
+      "hint2": "e.salary >= 10000 AS high_earner. Wyrażenie CASE nie jest potrzebne."
+    },
+    "lab-n15-fix-is-not-true": {
+      "title": "Napraw: NOT a IS NOT TRUE",
+      "task": "Wymień last_name każdego pracownika, którego prowizja nie jest większa niż 0.15, łącznie z pracownikami bez prowizji (NULL). Posortuj po last_name. Zapytanie startowe pomija część pracowników: napraw je testem logicznym, który traktuje wartość nieznaną jako „niewiększą”.",
+      "hint": "Dla prowizji NULL porównanie jest nieznane, a NOT nieznane nadal jest nieznane, więc wiersz zostaje odfiltrowany.",
+      "hint2": "(warunek) IS NOT TRUE jest TRUE dla FALSE i dla NULL. NVL(e.commission_pct, 0) <= 0.15 też by zadziałało."
+    },
+    "lab-n15-vector-nearest": {
+      "title": "Najbliższe wektory",
+      "task": "Wektory osadzeń produktów podano jako listę VALUES z kolumnami item_name i embedding: ('Laptop', VECTOR('[0.9, 0.6, 0.1]')), ('Mouse', VECTOR('[0.2, 0.9, 0.1]')), ('Office Suite', VECTOR('[0.1, 0.1, 0.9]')), ('Antivirus', VECTOR('[0.3, 0.2, 0.8]')), ('Dock', VECTOR('[0.8, 0.4, 0.0]')). Znajdź 3 elementy najbliższe wektorowi zapytania [1, 0.5, 0] według odległości EUCLIDEAN. Pokaż item_name i distance (odległość zaokrągloną do 3 miejsc po przecinku), od najbliższego.",
+      "hint": "VECTOR_DISTANCE(t.embedding, VECTOR('[1, 0.5, 0]'), EUCLIDEAN) oblicza odległość; mniejsza oznacza bliżej.",
+      "hint2": "Posortuj po odległości rosnąco i dodaj FETCH FIRST 3 ROWS ONLY. Samych wektorów nie można sortować (ORA-22848)."
+    },
+    "lab-n15-delete-from-join": {
+      "title": "DELETE ze złączeniem",
+      "task": "Usuń order_items zamówień, które mają status NEW i należą do klienta, którego country_code to 'US'. Użyj składni DELETE ... FROM z 23ai, z orders i customers złączonymi w klauzulach FROM/WHERE (bez podzapytania).",
+      "hint": "DELETE FROM order_items oi FROM orders o, customers c WHERE ... łączy tabelę docelową z innymi tabelami.",
+      "hint2": "Złącz oi z o po order_id i o z c po customer_id, potem filtruj o.status = 'NEW' AND c.country_code = 'US'. Warunki spełnia tylko zamówienie 1004 (2 pozycje)."
+    },
+    "lab-n15-fix-update-from": {
+      "title": "Napraw: UPDATE ... FROM bez złączenia z tabelą docelową",
+      "task": "Podnieś o 10% list_price każdego produktu, który występuje w zamówieniu CANCELLED. Startowe UPDATE ... FROM zmienia o wiele za dużo produktów: napraw je tak, aby zmieniały się tylko produkty sprzedane w anulowanym zamówieniu.",
+      "hint": "Gdy nic nie łączy tabeli docelowej products z tabelami z FROM, każdy produkt łączy się z pozycją anulowanego zamówienia.",
+      "hint2": "Dodaj AND oi.product_id = p.product_id. Gdyby produkt występował w dwóch anulowanych zamówieniach, dostałbyś ORA-30926 i potrzebne byłoby podzapytanie z DISTINCT."
+    },
+    "lab-n15-multirow-insert": {
+      "title": "Wstaw kilka wierszy jedną klauzulą VALUES",
+      "task": "Jednym poleceniem INSERT dodaj trzy promocje: (1, 'Spring Sale', 10), (2, 'Summer Sale', 15) i (3, 'Clearance', NULL) do promotions (promo_id, promo_name, discount_pct).",
+      "hint": "23ai: INSERT INTO t (kolumny) VALUES (...), (...), (...);",
+      "hint2": "Oddziel krotki wierszy przecinkami. Wszystkie wiersze muszą mieć tyle samo wartości (inaczej ORA-63801)."
+    },
+    "lab-n15-create-tasks": {
+      "title": "CREATE TABLE IF NOT EXISTS z BOOLEAN i DEFAULT ON NULL",
+      "task": "Używając CREATE TABLE IF NOT EXISTS, utwórz lab_n15_tasks z kolumnami w tej kolejności: task_id NUMBER(6) jako klucz główny, title VARCHAR2(60) NOT NULL, done BOOLEAN z wartością domyślną FALSE oraz priority VARCHAR2(10), której wartość domyślna 'NORMAL' zastępuje NULL zarówno przy INSERT, jak i przy UPDATE.",
+      "hint": "Kolumna BOOLEAN przyjmuje DEFAULT FALSE; opcja z 23ai to DEFAULT ON NULL FOR INSERT AND UPDATE 'NORMAL'.",
+      "hint2": "DEFAULT ON NULL automatycznie czyni priority kolumną NOT NULL. Sprawdzarka czyta USER_TAB_COLUMNS, łącznie z DEFAULT_ON_NULL i DEFAULT_ON_NULL_UPD."
+    },
+    "lab-n15-domain-annotations": {
+      "title": "Domena i adnotacje",
+      "task": "Utwórz domenę lab_n15_percent jako NUMBER(5,2) z CHECK, że wartość mieści się między 0 a 100, i z wyrażeniem DISPLAY pokazującym wartość, po której następuje '%'. Potem utwórz tabelę lab_n15_discounts z discount_id NUMBER(6) jako kluczem głównym i pct używającą domeny lab_n15_percent; daj kolumnie pct adnotację Unit 'percent', a tabeli adnotację Owner 'Sales'.",
+      "hint": "CREATE DOMAIN nazwa AS typ CHECK (nazwa BETWEEN 0 AND 100) DISPLAY wyrażenie; wewnątrz domeny nazwa domeny oznacza wartość.",
+      "hint2": "Kolumna używa domeny jak typu danych: pct lab_n15_percent ANNOTATIONS (Unit 'percent'). Adnotacje tabeli są po nawiasie zamykającym: ) ANNOTATIONS (Owner 'Sales');"
+    }
+  }
+}

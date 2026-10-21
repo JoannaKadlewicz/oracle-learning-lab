@@ -1,0 +1,657 @@
+{
+  "questions": {
+    "q14-interval-month": {
+      "prompt": "Co zwraca SELECT DATE '2024-01-31' + INTERVAL '1' MONTH FROM dual?",
+      "options": [
+        "2024-02-29",
+        "2024-03-02",
+        "2024-02-28",
+        "ORA-01839: date not valid for month specified"
+      ],
+      "explanation": "Arytmetyka na interwałach stosuje regułę ANSI i nie dopasowuje wyniku do ostatniego dnia miesiąca. 31 lutego nie istnieje, więc wyrażenie kończy się błędem. ADD_MONTHS dopasowuje datę i zwraca 2024-02-29."
+    },
+    "q14-extract-date": {
+      "prompt": "Co zwraca SELECT EXTRACT(HOUR FROM DATE '2024-03-31') FROM dual?",
+      "options": [
+        "0",
+        "NULL",
+        "Błąd",
+        "24"
+      ],
+      "explanation": "EXTRACT może pobrać z DATE tylko YEAR, MONTH i DAY (ORA-30076: invalid extract field for extract source). Dla godzin użyj TIMESTAMP: EXTRACT(HOUR FROM CAST(d AS TIMESTAMP)) albo TO_CHAR(d, 'HH24')."
+    },
+    "q14-current-date": {
+      "prompt": "Które stwierdzenie jest prawdziwe?",
+      "options": [
+        "SYSDATE używa strefy czasowej sesji.",
+        "CURRENT_DATE zwraca bieżącą datę i godzinę w strefie czasowej sesji; SYSDATE używa strefy czasowej systemu operacyjnego serwera bazy danych.",
+        "CURRENT_TIMESTAMP zwraca DATE.",
+        "SYSTIMESTAMP zwraca TIMESTAMP bez strefy czasowej."
+      ],
+      "explanation": "SYSDATE i SYSTIMESTAMP pochodzą z zegara systemu operacyjnego hosta bazy danych. CURRENT_DATE (DATE), CURRENT_TIMESTAMP (TIMESTAMP WITH TIME ZONE) i LOCALTIMESTAMP (TIMESTAMP) używają strefy czasowej sesji."
+    },
+    "q14-tsltz": {
+      "prompt": "Które stwierdzenie o TIMESTAMP WITH LOCAL TIME ZONE jest prawdziwe?",
+      "options": [
+        "Zapisuje przesunięcie strefy czasowej z każdą wartością.",
+        "Wartości są przy zapisie normalizowane do strefy czasowej bazy danych, a przy odczycie pokazywane w strefie czasowej sesji.",
+        "Jest identyczny z TIMESTAMP.",
+        "Nie może być typem danych kolumny."
+      ],
+      "explanation": "TIMESTAMP WITH TIME ZONE przechowuje przesunięcie albo region razem z wartością. WITH LOCAL TIME ZONE go nie zapisuje: normalizuje wartość do DBTIMEZONE i przy wyświetlaniu konwertuje do strefy czasowej sesji."
+    },
+    "q14-interval-literal": {
+      "prompt": "Co oznacza INTERVAL '1-6' YEAR TO MONTH?",
+      "options": [
+        "1 rok i 6 miesięcy",
+        "1,6 roku",
+        "16 miesięcy",
+        "Od 1 do 6 miesięcy"
+      ],
+      "explanation": "Literały INTERVAL YEAR TO MONTH mają postać 'lata-miesiące'. Literały INTERVAL DAY TO SECOND wyglądają jak '2 10:30:00', czyli 2 dni 10 godzin 30 minut."
+    },
+    "q14-function-types": {
+      "prompt": "Które dwie funkcje zwracają wartość TIMESTAMP WITH TIME ZONE?",
+      "options": [
+        "CURRENT_TIMESTAMP",
+        "SYSTIMESTAMP",
+        "LOCALTIMESTAMP",
+        "CURRENT_DATE",
+        "SYSDATE"
+      ],
+      "explanation": "Wykonano w 19c przez CREATE TABLE ... AS SELECT: CURRENT_TIMESTAMP i SYSTIMESTAMP mają typ TIMESTAMP(6) WITH TIME ZONE, LOCALTIMESTAMP to TIMESTAMP(6), a CURRENT_DATE i SYSDATE to DATE. LOCALTIMESTAMP to CURRENT_TIMESTAMP bez części ze strefą czasową, w strefie czasowej sesji."
+    },
+    "q14-localtimestamp-same": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "same",
+        "different",
+        "NULL",
+        "ORA-00932: inconsistent datatypes"
+      ],
+      "explanation": "Obie funkcje odczytują zegar raz na polecenie i obie używają strefy czasowej sesji; LOCALTIMESTAMP to po prostu CURRENT_TIMESTAMP bez strefy czasowej. Rzutowanie na TIMESTAMP usuwa strefę, więc wartości są równe. CAST sprawia, że obie strony są zwykłym TIMESTAMP, więc nie ma błędu typu."
+    },
+    "q14-session-tz-change": {
+      "prompt": "Które trzy funkcje po ALTER SESSION SET TIME_ZONE = '-05:00' zwracają inną godzinę niż wcześniej?",
+      "options": [
+        "CURRENT_DATE",
+        "CURRENT_TIMESTAMP",
+        "LOCALTIMESTAMP",
+        "SYSDATE",
+        "SYSTIMESTAMP",
+        "DBTIMEZONE"
+      ],
+      "explanation": "Funkcje CURRENT_ i LOCALTIMESTAMP podążają za strefą czasową sesji. SYSDATE i SYSTIMESTAMP pochodzą z systemu operacyjnego serwera bazy danych i ją ignorują. Wykonano w 19c: po zmianie CURRENT_DATE pokazywało 15:03, a SYSDATE 20:03. DBTIMEZONE jest ustawiana dla bazy danych, a nie dla sesji."
+    },
+    "q14-sessiontimezone-dbtimezone": {
+      "prompt": "Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "SESSIONTIMEZONE można zmienić przez ALTER SESSION SET TIME_ZONE.",
+        "Wartości TIMESTAMP WITH LOCAL TIME ZONE są przy zapisie normalizowane do DBTIMEZONE.",
+        "SYSDATE zwraca czas w DBTIMEZONE.",
+        "SYSTIMESTAMP zwraca czas w SESSIONTIMEZONE.",
+        "DBTIMEZONE można zmienić dla jednej sesji przez ALTER SESSION."
+      ],
+      "explanation": "Strefa czasowa sesji domyślnie pochodzi od klienta i można ją zmienić dla każdej sesji. Strefę czasową bazy danych ustawia się przez CREATE albo ALTER DATABASE i służy głównie do zapisu TIMESTAMP WITH LOCAL TIME ZONE. SYSDATE i SYSTIMESTAMP używają strefy czasowej systemu operacyjnego hosta bazy danych, która może się różnić od DBTIMEZONE."
+    },
+    "q14-at-time-zone": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "02:00",
+        "14:00",
+        "03:00",
+        "08:00"
+      ],
+      "explanation": "AT TIME ZONE zachowuje moment w czasie i zmienia sposób jego wyświetlania. W styczniu Warszawa ma UTC+1, a Nowy Jork UTC-5, więc 08:00 w Warszawie to 07:00 UTC i 02:00 w Nowym Jorku. 14:00 to przeliczenie w złą stronę, a 08:00 oznaczałoby, że zmieniła się tylko etykieta."
+    },
+    "q14-from-tz": {
+      "prompt": "Które dwa stwierdzenia o FROM_TZ są prawdziwe?",
+      "options": [
+        "FROM_TZ(TIMESTAMP '2024-07-01 12:00:00', '-04:00') zwraca 12:00 przy -04:00.",
+        "Jej pierwszy argument musi być typu TIMESTAMP; DATE zgłasza ORA-00932.",
+        "Konwertuje znacznik czasu ze strefy czasowej sesji do podanej strefy.",
+        "Zwraca TIMESTAMP WITH LOCAL TIME ZONE.",
+        "Przyjmuje tylko przesunięcia, a nie nazwy regionów."
+      ],
+      "explanation": "FROM_TZ dołącza strefę czasową do zwykłego TIMESTAMP bez zmiany godziny i zwraca TIMESTAMP WITH TIME ZONE. Wykonano: FROM_TZ(TIMESTAMP '2024-07-01 12:00:00', '-04:00') pokazuje 12:00 -04:00, a FROM_TZ(DATE '2024-07-01', 'UTC') kończy się błędem ORA-00932: expected TIMESTAMP got DATE. Nazwy regionów, takie jak 'Europe/Warsaw', też działają. Przeliczanie momentu do innej strefy to zadanie AT TIME ZONE."
+    },
+    "q14-extract-utc": {
+      "prompt": "31 marca 2024 w Nowym Jorku obowiązuje czas letni (EDT, UTC-4). Co zwraca to zapytanie?",
+      "options": [
+        "3",
+        "23",
+        "4",
+        "19"
+      ],
+      "explanation": "EXTRACT z wartości ze strefą czasową zwraca pole w UTC. 23:30 EDT (UTC-4) to 03:30 UTC 1 kwietnia, więc godzina to 3, a EXTRACT(DAY ...) zwróciłoby 1. Aby dostać lokalną godzinę, użyj TO_CHAR(..., 'HH24') albo CAST(... AS TIMESTAMP)."
+    },
+    "q14-extract-tz-hour": {
+      "prompt": "Nowy Jork ma zimą UTC-5 (EST), a w czasie letnim UTC-4 (EDT), który zaczął się 10 marca 2024. Co zwraca to zapytanie?",
+      "options": [
+        "-4",
+        "-5",
+        "4",
+        "NULL"
+      ],
+      "explanation": "Region America/New_York jest rozwiązywany dla daty wartości: 31 marca 2024 obowiązuje czas letni (EDT), więc przesunięcie wynosi -04:00, a TIMEZONE_HOUR to -4. -5 to przesunięcie zimowe (EST). W ten sam sposób można pobrać TIMEZONE_MINUTE, TIMEZONE_REGION i TIMEZONE_ABBR (EDT)."
+    },
+    "q14-extract-region-offset": {
+      "prompt": "Co zwraca SELECT EXTRACT(TIMEZONE_REGION FROM TIMESTAMP '2024-02-29 09:00:00 +00:00') FROM dual?",
+      "options": [
+        "UNKNOWN",
+        "UTC",
+        "NULL",
+        "GMT"
+      ],
+      "explanation": "Wartość zapisano z liczbowym przesunięciem, a nie z nazwą regionu, a przesunięcia nie da się przypisać do jednego regionu, więc Oracle zwraca tekst UNKNOWN (a TIMEZONE_ABBR zwraca UNK). Sama wartość nie jest NULL. Dla wartości zapisanej z regionem, takiej jak TIMESTAMP '2024-03-31 01:30:00 Europe/Warsaw', wynik to Europe/Warsaw."
+    },
+    "q14-dst-gap": {
+      "prompt": "W Warszawie 31 marca 2024 zegary przeskoczyły z 02:00 na 03:00. Co się stanie przy SELECT TIMESTAMP '2024-03-31 02:30:00 Europe/Warsaw' FROM dual?",
+      "options": [
+        "ORA-01878: specified field not found in datetime or interval",
+        "Zwróci 2024-03-31 02:30:00 CET.",
+        "Zwróci 2024-03-31 03:30:00 CEST.",
+        "Zwróci 2024-03-31 02:30:00 +02:00."
+      ],
+      "explanation": "Godzina 02:30 tego dnia w Warszawie nie istnieje, a przy nazwie regionu Oracle sprawdza reguły czasu letniego, więc literał kończy się błędem ORA-01878. Oracle nie przesuwa godziny do przodu. Przy stałym przesunięciu, takim jak +01:00, nie ma reguł czasu letniego i wartość zostałaby przyjęta."
+    },
+    "q14-dst-add": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "03:30 CEST",
+        "02:30 CET",
+        "02:30 CEST",
+        "ORA-01878: specified field not found in datetime or interval"
+      ],
+      "explanation": "Arytmetyka na TIMESTAMP WITH TIME ZONE działa na momencie w czasie: 01:30 CET to 00:30 UTC, godzinę później jest 01:30 UTC, czyli w Warszawie po zmianie czasu 03:30 CEST. Pominięta godzina lokalna 02:30 nigdy nie powstaje, więc nie ma błędu."
+    },
+    "q14-same-instant": {
+      "prompt": "Które dwa literały są równe TIMESTAMP '2024-03-31 01:30:00 Europe/Warsaw'?",
+      "options": [
+        "TIMESTAMP '2024-03-31 00:30:00 UTC'",
+        "TIMESTAMP '2024-03-31 01:30:00 +01:00'",
+        "TIMESTAMP '2024-03-31 01:30:00 +02:00'",
+        "TIMESTAMP '2024-03-31 02:30:00 UTC'",
+        "TIMESTAMP '2024-03-31 01:30:00 UTC'"
+      ],
+      "explanation": "Wartości TIMESTAMP WITH TIME ZONE są porównywane jako momenty w UTC. 31 marca o 01:30 Warszawa ma jeszcze CET (+01:00), więc wartość to 00:30 UTC, czyli tyle samo co dwa pierwsze literały (wykonano). +02:00 to przesunięcie letnie, które zaczyna obowiązywać dopiero o 02:00 czasu lokalnego."
+    },
+    "q14-to-timestamp-tz": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "2024-07-02 01:00",
+        "2024-07-01 23:00",
+        "2024-07-01 12:00",
+        "2024-07-02 03:00"
+      ],
+      "explanation": "TO_TIMESTAMP_TZ odczytuje przesunięcie przez TZH:TZM: 12:00 przy -04:00 to 16:00 UTC. Tokio ma UTC+9, więc wynik to 01:00 następnego dnia. 23:00 odejmuje zamiast dodawać, a 12:00 pomija przeliczenie."
+    },
+    "q14-tsltz-utc": {
+      "prompt": "Tabela log_t ma jedną kolumnę, logged_at TIMESTAMP WITH LOCAL TIME ZONE, i jest pusta. Wiersz wstawiono tak, jak pokazano (tego dnia w Nowym Jorku obowiązuje EDT, UTC-4). Co zwraca zapytanie w dowolnej sesji?",
+      "options": [
+        "2024-04-01 03:30",
+        "2024-03-31 23:30",
+        "2024-04-01 04:30",
+        "2024-03-31 19:30"
+      ],
+      "explanation": "TIMESTAMP WITH LOCAL TIME ZONE zapisuje moment w czasie bez pierwotnej strefy, a SYS_EXTRACT_UTC zwraca go w UTC: 23:30 EDT to 03:30 UTC. Zwykły SELECT kolumny logged_at pokazałby godzinę w strefie czasowej sesji, dlatego tamta odpowiedź zależy od sesji. Pierwotna strefa America/New_York jest tracona."
+    },
+    "q14-tz-offset": {
+      "prompt": "Które trzy wywołania TZ_OFFSET są poprawne?",
+      "options": [
+        "TZ_OFFSET('Europe/Warsaw')",
+        "TZ_OFFSET('-05:00')",
+        "TZ_OFFSET(SESSIONTIMEZONE)",
+        "TZ_OFFSET(SYSTIMESTAMP)",
+        "TZ_OFFSET(TIMESTAMP '2024-01-01 00:00:00 UTC')"
+      ],
+      "explanation": "TZ_OFFSET przyjmuje strefę czasową: nazwę regionu, tekst z przesunięciem, SESSIONTIMEZONE albo DBTIMEZONE, i zwraca przesunięcie jako tekst, na przykład +01:00. Dla regionu zwraca przesunięcie obowiązujące w bieżącej dacie, więc wynik dla Europe/Warsaw zmienia się z czasem letnim. Znacznik czasu nie jest nazwą strefy czasowej: takie wywołania kończą się błędem ORA-01882: timezone region not found (wykonano)."
+    },
+    "q14-cast-tstz-date": {
+      "prompt": "31 marca 2024 w Nowym Jorku obowiązuje EDT (UTC-4). Co zwraca to zapytanie?",
+      "options": [
+        "2024-03-31 23:30",
+        "2024-04-01 03:30",
+        "2024-04-01 01:30",
+        "ORA-00932: inconsistent datatypes"
+      ],
+      "explanation": "CAST na DATE (albo na TIMESTAMP) zachowuje lokalną godzinę i usuwa strefę, więc wartość zostaje 23:30 31 marca. Inaczej działa EXTRACT, który pracuje w UTC i dałby godzinę 3 1 kwietnia. Jeśli chcesz godzinę w innej strefie, najpierw użyj AT TIME ZONE."
+    },
+    "q14-leap-year": {
+      "prompt": "Co zwraca SELECT DATE '2024-02-29' + INTERVAL '1' YEAR FROM dual?",
+      "options": [
+        "ORA-01839: date not valid for month specified",
+        "2025-02-28",
+        "2025-03-01",
+        "2025-02-29"
+      ],
+      "explanation": "Interwały lat i miesięcy zmieniają tylko pola roku i miesiąca; 29 lutego 2025 nie istnieje, więc wyrażenie kończy się błędem ORA-01839, a dodanie kolumny z INTERVAL '1-0' YEAR TO MONTH zawodzi tak samo. ADD_MONTHS(DATE '2024-02-29', 12) zwraca 2025-02-28, bo przechodzi na ostatni dzień miesiąca. Dodanie INTERVAL '4' YEAR działa (2028-02-29)."
+    },
+    "q14-interval-precision": {
+      "prompt": "Co zwraca SELECT INTERVAL '123' DAY FROM dual?",
+      "options": [
+        "ORA-01873: the leading precision of the interval is too small",
+        "+123 00:00:00",
+        "+04-03",
+        "+12 03:00:00"
+      ],
+      "explanation": "Domyślna precyzja wiodąca literału interwału to 2 cyfry, więc 123 dni wymagają INTERVAL '123' DAY(3), które zwraca +123 00:00:00 (wykonano). Ta sama reguła dotyczy INTERVAL '100' YEAR. Precyzja DAY nie ogranicza godzin: INTERVAL '100' HOUR jest poprawny i zwraca +04 04:00:00."
+    },
+    "q14-interval-mix": {
+      "prompt": "Co zwraca SELECT INTERVAL '1' DAY + INTERVAL '1' MONTH FROM dual?",
+      "options": [
+        "ORA-30081: invalid data type for datetime/interval arithmetic",
+        "+01-00 01:00:00",
+        "INTERVAL DAY TO SECOND równy 31 dniom",
+        "INTERVAL YEAR TO MONTH równy 1 miesiącowi"
+      ],
+      "explanation": "INTERVAL YEAR TO MONTH i INTERVAL DAY TO SECOND to różne typy, których nie da się łączyć, bo miesiąc nie ma stałej liczby dni. Wyrażenie kończy się błędem ORA-30081. Zamiast tego dodaj każdy interwał do daty osobno: DATE '2024-01-15' + INTERVAL '1' MONTH + INTERVAL '1' DAY."
+    },
+    "q14-subtraction-types": {
+      "prompt": "Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "TIMESTAMP '2024-03-10 12:00:00' - TIMESTAMP '2024-03-08 09:30:00' zwraca INTERVAL DAY TO SECOND.",
+        "DATE '2024-03-10' - DATE '2024-03-08' zwraca NUMBER 2.",
+        "DATE '2024-03-10' - DATE '2024-03-08' zwraca INTERVAL '2' DAY.",
+        "TIMESTAMP '2024-01-01 10:00:00' + 1 zwraca TIMESTAMP.",
+        "Odjęcie dwóch znaczników czasu zwraca liczbę dni z ułamkiem."
+      ],
+      "explanation": "Wykonano w 19c: różnica znaczników czasu to +02 02:30:00 (INTERVAL DAY TO SECOND), a DATE minus DATE to liczba dni. TIMESTAMP + liczba konwertuje na DATE, co usuwa ułamki sekund; aby zachować TIMESTAMP, użyj + INTERVAL '1' DAY."
+    },
+    "q14-numtodsinterval": {
+      "prompt": "Co zwraca SELECT NUMTODSINTERVAL(100, 'HOUR') FROM dual? (w formacie laboratorium)",
+      "options": [
+        "+04 04:00:00",
+        "+00 100:00:00",
+        "+100 00:00:00",
+        "+00 01:40:00"
+      ],
+      "explanation": "NUMTODSINTERVAL zamienia liczbę w podanej jednostce (DAY, HOUR, MINUTE albo SECOND) na INTERVAL DAY TO SECOND i ją normalizuje: 100 godzin to 4 dni i 4 godziny, bo pole godzin nigdy nie przekracza 23. +00 01:40:00 to byłoby 100 minut, a +100 00:00:00 to 100 dni."
+    },
+    "q14-num-to-interval-valid": {
+      "prompt": "Które dwa wyrażenia są poprawne?",
+      "options": [
+        "NUMTOYMINTERVAL(18, 'MONTH')",
+        "NUMTODSINTERVAL(90, 'MINUTE')",
+        "NUMTODSINTERVAL(1, 'MONTH')",
+        "NUMTOYMINTERVAL(1, 'DAY')",
+        "TO_YMINTERVAL('1-12')"
+      ],
+      "explanation": "NUMTOYMINTERVAL przyjmuje YEAR albo MONTH, a NUMTODSINTERVAL DAY, HOUR, MINUTE albo SECOND; mieszanie tych dwóch rodzin kończy się błędem ORA-01760: illegal argument for function. TO_YMINTERVAL('1-12') kończy się błędem ORA-01843, bo pole miesiąca musi mieć wartość od 0 do 11 (wykonano). Dwa lata zapisz jako 2-0."
+    },
+    "q14-eighteen-months": {
+      "prompt": "Które trzy wyrażenia zwracają interwał 1 roku i 6 miesięcy?",
+      "options": [
+        "TO_YMINTERVAL('01-06')",
+        "NUMTOYMINTERVAL(18, 'MONTH')",
+        "INTERVAL '18' MONTH",
+        "NUMTOYMINTERVAL(1.6, 'YEAR')",
+        "TO_YMINTERVAL('1.5')"
+      ],
+      "explanation": "Wszystkie trzy dają +01-06 (wykonano); literał z jednym polem, taki jak INTERVAL '18' MONTH, jest normalizowany do lat i miesięcy. NUMTOYMINTERVAL(1.6, 'YEAR') to 19,2 miesiąca i pokazuje +01-07, a TO_YMINTERVAL('1.5') kończy się błędem ORA-01867: the interval is invalid, bo tekst wymaga postaci 'lata-miesiące' (albo ISO 'P1Y6M')."
+    },
+    "q14-ym-add": {
+      "prompt": "Co zwraca SELECT INTERVAL '1-6' YEAR TO MONTH + INTERVAL '8' MONTH FROM dual? (w formacie laboratorium)",
+      "options": [
+        "+02-02",
+        "+01-14",
+        "+00-26",
+        "+02-08"
+      ],
+      "explanation": "Interwały z tej samej rodziny można dodawać: 18 miesięcy + 8 miesięcy = 26 miesięcy, po normalizacji 2 lata i 2 miesiące. Wynik jest normalizowany, a pole miesiąca nigdy nie przekracza 11, więc +01-14 i +00-26 nie mogą się pojawić. +02-08 dodaje rok, którego nie ma."
+    },
+    "q14-interval-literals-valid": {
+      "prompt": "Które trzy literały interwałów są poprawne?",
+      "options": [
+        "INTERVAL '90' MINUTE",
+        "INTERVAL '2:30' HOUR TO MINUTE",
+        "INTERVAL '30' MONTH",
+        "INTERVAL '123' DAY",
+        "INTERVAL '1 25' DAY TO HOUR",
+        "INTERVAL '1-12' YEAR TO MONTH"
+      ],
+      "explanation": "Pojedyncze pole wiodące może przekroczyć swój normalny zakres (90 minut, 30 miesięcy), jeśli mieści się w precyzji wiodącej 2 cyfr. INTERVAL '123' DAY przekracza tę precyzję (ORA-01873). Pola końcowe muszą mieścić się w zakresie: 25 godzin kończy się błędem ORA-01850, a miesiąc 12 błędem ORA-01843 (wszystko wykonano w 19c)."
+    },
+    "q14-extract-interval": {
+      "prompt": "Co zwraca SELECT EXTRACT(HOUR FROM INTERVAL '2 10:30:00' DAY TO SECOND) FROM dual?",
+      "options": [
+        "10",
+        "58",
+        "2",
+        "58.5"
+      ],
+      "explanation": "EXTRACT zwraca jedno pole interwału, a nie sumę: pole godzin to 10. Łączną liczbę godzin (2 * 24 + 10 = 58 albo 58,5 z minutami) trzeba obliczyć z pól DAY, HOUR i MINUTE. 2 to pole DAY."
+    },
+    "q14-equivalent-duration": {
+      "prompt": "Kolumna events.duration ma typ INTERVAL DAY(2) TO SECOND(0). Które trzy zapytania zwracają te same wiersze co to zapytanie, niezależnie od danych?",
+      "options": [
+        "SELECT e.event_id FROM events e WHERE e.duration >= NUMTODSINTERVAL(1.5, 'HOUR')",
+        "SELECT e.event_id FROM events e WHERE e.duration >= INTERVAL '1:30' HOUR TO MINUTE",
+        "SELECT e.event_id FROM events e WHERE e.duration >= TO_DSINTERVAL('0 01:30:00')",
+        "SELECT e.event_id FROM events e WHERE e.duration > INTERVAL '90' MINUTE",
+        "SELECT e.event_id FROM events e WHERE EXTRACT(HOUR FROM e.duration) >= 1"
+      ],
+      "explanation": "90 minut, 1,5 godziny, 1:30 i '0 01:30:00' to ta sama wartość INTERVAL DAY TO SECOND, więc te trzy warunki są identyczne. Ostre „większe niż” pomija czas trwania równy dokładnie 1:30. EXTRACT(HOUR ...) czyta tylko pole godzin: czas trwania 1 dzień 0 godzin zostaje zgubiony, a 1:10 błędnie zachowany."
+    },
+    "q14-sum-interval": {
+      "prompt": "Kolumna events.duration ma typ INTERVAL DAY(2) TO SECOND(0), a niektóre wiersze mają NULL. Co zwraca to zapytanie w Oracle Database 19c?",
+      "options": [
+        "ORA-00932: inconsistent datatypes: expected NUMBER got INTERVAL DAY TO SECOND",
+        "+01 02:15:00",
+        "NULL, bo niektóre czasy trwania to NULL",
+        "1.09375"
+      ],
+      "explanation": "W 19c SUM i AVG przyjmują tylko argumenty liczbowe, więc sumowanie kolumny interwałów kończy się błędem ORA-00932 (wykonano). Oracle Database 23ai dodaje SUM i AVG dla interwałów. W 19c zamień wartości na liczbę, na przykład przez EXTRACT, a z powrotem przez NUMTODSINTERVAL. Liczba taka jak 1.09375 pojawiłaby się dopiero po takiej konwersji, a wartości NULL byłyby pominięte, a nie zmieniały sumy w NULL."
+    },
+    "q14-returns-date": {
+      "prompt": "Które dwa wyrażenia zwracają DATE?",
+      "options": [
+        "CURRENT_TIMESTAMP - 1",
+        "CURRENT_DATE",
+        "LOCALTIMESTAMP",
+        "SYSTIMESTAMP + INTERVAL '1' DAY",
+        "CURRENT_TIMESTAMP"
+      ],
+      "explanation": "Dodanie lub odjęcie liczby konwertuje znacznik czasu na DATE, więc CURRENT_TIMESTAMP - 1 to DATE (wykonano przez CREATE TABLE ... AS SELECT); dodanie INTERVAL zachowuje typ znacznika czasu, tutaj TIMESTAMP WITH TIME ZONE. CURRENT_DATE to DATE w strefie czasowej sesji. LOCALTIMESTAMP to TIMESTAMP, a CURRENT_TIMESTAMP to TIMESTAMP WITH TIME ZONE."
+    },
+    "q14-tsltz-two": {
+      "prompt": "Kolumna events.logged_at ma typ TIMESTAMP WITH LOCAL TIME ZONE. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "SELECT logged_at pokazuje inną godzinę, gdy zmienia się strefa czasowa sesji.",
+        "Strefa czasowa zapisana we wstawianym literale nie jest przechowywana.",
+        "Nazwę regionu z wstawianego literału można odczytać przez TO_CHAR(logged_at, 'TZR').",
+        "Nie można do niej zastosować SYS_EXTRACT_UTC.",
+        "Przechowuje wartość w strefie czasowej sesji, która ją wstawiła."
+      ],
+      "explanation": "Wykonano: wydarzenie 3 pokazuje 2024-04-01 05:30 w sesji +02:00, 2024-03-31 22:30 w sesji -05:00 i 2024-04-01 03:30 w UTC, a SYS_EXTRACT_UTC zawsze zwraca 2024-04-01 03:30. Wartość jest przy wstawianiu normalizowana do strefy czasowej bazy danych, a pierwotna strefa (America/New_York) jest tracona. Zachowywanie strefy to zadanie TIMESTAMP WITH TIME ZONE."
+    },
+    "q14-utc-text-equivalent": {
+      "prompt": "31 marca 2024 w Nowym Jorku obowiązuje EDT (UTC-4). Które dwa zapytania zwracają 2024-04-01 03:30, tak jak pokazane zapytanie?",
+      "options": [
+        "SELECT TO_CHAR(SYS_EXTRACT_UTC(TIMESTAMP '2024-03-31 23:30:00 America/New_York'), 'YYYY-MM-DD HH24:MI') FROM dual",
+        "SELECT TO_CHAR(TIMESTAMP '2024-03-31 23:30:00 America/New_York' AT TIME ZONE '+00:00', 'YYYY-MM-DD HH24:MI') FROM dual",
+        "SELECT TO_CHAR(TIMESTAMP '2024-03-31 23:30:00 America/New_York', 'YYYY-MM-DD HH24:MI') FROM dual",
+        "SELECT TO_CHAR(CAST(TIMESTAMP '2024-03-31 23:30:00 America/New_York' AS TIMESTAMP), 'YYYY-MM-DD HH24:MI') FROM dual",
+        "SELECT TO_CHAR(FROM_TZ(CAST(TIMESTAMP '2024-03-31 23:30:00 America/New_York' AS TIMESTAMP), 'UTC'), 'YYYY-MM-DD HH24:MI') FROM dual"
+      ],
+      "explanation": "SYS_EXTRACT_UTC i AT TIME ZONE '+00:00' przeliczają moment w czasie na UTC. TO_CHAR na samej wartości i CAST na TIMESTAMP zachowują lokalną godzinę (23:30 31 marca). FROM_TZ dołącza wtedy tylko UTC do tej lokalnej godziny, więc nadal pokazuje 23:30; niczego nie przelicza."
+    },
+    "q14-interval-ops-valid": {
+      "prompt": "Które dwa wyrażenia wykonują się bez błędu?",
+      "options": [
+        "INTERVAL '1-6' YEAR TO MONTH / 2",
+        "INTERVAL '2' HOUR - INTERVAL '30' MINUTE",
+        "INTERVAL '1' DAY + 1",
+        "INTERVAL '1' DAY + INTERVAL '1' MONTH",
+        "DATE '2024-01-31' + INTERVAL '1' MONTH"
+      ],
+      "explanation": "Interwały można mnożyć i dzielić przez liczby (+00-09) oraz łączyć z interwałami z tej samej rodziny (+00 01:30:00). Dodanie zwykłej liczby do interwału i mieszanie dwóch rodzin interwałów zgłaszają ORA-30081. Ostatnie wyrażenie ma poprawną składnię, ale w czasie wykonania kończy się błędem ORA-01839, bo 31 lutego nie istnieje (wszystko wykonano)."
+    },
+    "q14-tz-offset-kolkata": {
+      "prompt": "Co zwraca SELECT TZ_OFFSET('Asia/Kolkata') FROM dual?",
+      "options": [
+        "+05:30",
+        "+05:00",
+        "5.5",
+        "Asia/Kolkata"
+      ],
+      "explanation": "TZ_OFFSET zwraca przesunięcie względem UTC jako tekst w postaci +HH:MI. Indie przez cały rok mają UTC+5:30 bez czasu letniego, więc wynik nie zależy od daty wykonania (wykonano). Przesunięcie nie jest zaokrąglane do pełnych godzin ani zwracane jako liczba, a nazwa regionu jest argumentem, a nie wynikiem."
+    },
+    "q14-from-tz-then-convert": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "14:00",
+        "12:00",
+        "13:00",
+        "10:00"
+      ],
+      "explanation": "FROM_TZ najpierw deklaruje, że zwykły znacznik czasu to 12:00 UTC, bez zmiany godziny; AT TIME ZONE przelicza następnie ten moment na Warszawę, gdzie w lipcu obowiązuje czas letni (UTC+2). 12:00 dałoby samo FROM_TZ, 13:00 pomija czas letni, a 10:00 przelicza w złą stronę."
+    },
+    "q14-scenario-tsltz": {
+      "prompt": "Globalna aplikacja rezerwacyjna zapisuje moment każdej rezerwacji. Każdy użytkownik musi widzieć ten moment w strefie czasowej swojej sesji, a strefa osoby rezerwującej nie ma znaczenia. Który typ danych pasuje najlepiej?",
+      "options": [
+        "TIMESTAMP WITH LOCAL TIME ZONE",
+        "TIMESTAMP WITH TIME ZONE",
+        "TIMESTAMP",
+        "DATE"
+      ],
+      "explanation": "WITH LOCAL TIME ZONE normalizuje wartość do strefy czasowej bazy danych i automatycznie pokazuje ją w strefie czasowej każdej sesji, czyli dokładnie tak, jak trzeba. WITH TIME ZONE zachowuje i pokazuje pierwotną strefę, więc każdy czytający potrzebowałby AT LOCAL albo AT TIME ZONE. TIMESTAMP i DATE w ogóle nie przechowują strefy, więc ta sama wartość oznaczałaby różne momenty dla użytkowników w różnych miejscach."
+    },
+    "q14-scenario-tstz": {
+      "prompt": "Linia lotnicza zapisuje godzinę każdego odlotu i musi ją wydrukować jako czas lokalny z regionem lotniska wylotu, na przykład 23:30 America/New_York, niezależnie od tego, kto to czyta. Który typ danych pasuje najlepiej?",
+      "options": [
+        "TIMESTAMP WITH TIME ZONE",
+        "TIMESTAMP WITH LOCAL TIME ZONE",
+        "TIMESTAMP",
+        "INTERVAL DAY TO SECOND"
+      ],
+      "explanation": "TIMESTAMP WITH TIME ZONE przechowuje region albo przesunięcie razem z każdą wartością, więc TO_CHAR(dep, 'HH24:MI TZR') drukuje lokalny czas lotniska i strefę (tak działa events.starts_at). WITH LOCAL TIME ZONE odrzuca pierwotną strefę i pokazuje zamiast tego czas sesji czytającego. Zwykły TIMESTAMP nie ma strefy do wydrukowania, a interwał to czas trwania, a nie moment w czasie."
+    },
+    "q14-scenario-interval-types": {
+      "prompt": "Tabela działu wsparcia musi przechowywać, jak długo trwała każda rozmowa, z dokładnością do sekundy, oraz długość każdej umowy w latach i miesiącach. Których dwóch typów kolumn należy użyć?",
+      "options": [
+        "INTERVAL DAY TO SECOND dla długości rozmowy",
+        "INTERVAL YEAR TO MONTH dla długości umowy",
+        "INTERVAL YEAR TO MONTH dla długości rozmowy",
+        "INTERVAL DAY TO SECOND dla długości umowy",
+        "TIMESTAMP dla długości rozmowy"
+      ],
+      "explanation": "Czasy trwania mierzone w dniach, godzinach, minutach i sekundach używają INTERVAL DAY TO SECOND; okresy kalendarzowe używają INTERVAL YEAR TO MONTH, bo miesiąc nie ma stałej liczby dni. YEAR TO MONTH nie przechowa sekund, a DAY TO SECOND nie wyrazi „jednego miesiąca”. TIMESTAMP to moment w czasie, a nie długość."
+    },
+    "q14-leap-day-three": {
+      "prompt": "Które trzy zapytania zwracają 2024-02-29?",
+      "options": [
+        "SELECT TO_CHAR(ADD_MONTHS(DATE '2024-01-31', 1), 'YYYY-MM-DD') FROM dual",
+        "SELECT TO_CHAR(DATE '2024-01-29' + INTERVAL '1' MONTH, 'YYYY-MM-DD') FROM dual",
+        "SELECT TO_CHAR(ADD_MONTHS(DATE '2024-03-31', -1), 'YYYY-MM-DD') FROM dual",
+        "SELECT TO_CHAR(DATE '2024-01-31' + INTERVAL '1' MONTH, 'YYYY-MM-DD') FROM dual",
+        "SELECT TO_CHAR(DATE '2023-02-28' + INTERVAL '1' YEAR, 'YYYY-MM-DD') FROM dual"
+      ],
+      "explanation": "ADD_MONTHS przenosi datę z końca miesiąca na ostatni dzień miesiąca docelowego, w przód lub w tył. Arytmetyka na interwałach zmienia tylko pole miesiąca: 29 stycznia staje się 29 lutego, który w 2024 istnieje, ale 31 stycznia staje się 31 lutego i kończy się błędem ORA-01839. Dodanie roku do 2023-02-28 zachowuje dzień 28 i zwraca 2024-02-28."
+    },
+    "q14-extract-month-interval": {
+      "prompt": "Co zwraca SELECT EXTRACT(MONTH FROM INTERVAL '30' MONTH) FROM dual?",
+      "options": [
+        "6",
+        "30",
+        "2",
+        "2.5"
+      ],
+      "explanation": "Literał jest normalizowany do +02-06 (2 lata i 6 miesięcy), a EXTRACT zwraca jedno jego pole: pole miesiąca to 6. 30 to łączna liczba miesięcy, czyli EXTRACT(YEAR ...) * 12 + EXTRACT(MONTH ...). 2 to pole roku, a EXTRACT nigdy nie zwraca ułamków lat."
+    },
+    "q14-dsinterval-times-two": {
+      "prompt": "Co zwraca SELECT TO_DSINTERVAL('1 12:00:00') * 2 FROM dual? (w formacie laboratorium)",
+      "options": [
+        "+03 00:00:00",
+        "+02 24:00:00",
+        "+02 12:00:00",
+        "ORA-30081: invalid data type for datetime/interval arithmetic"
+      ],
+      "explanation": "TO_DSINTERVAL zamienia '1 12:00:00' na 1 dzień 12 godzin; mnożenie interwału przez liczbę jest dozwolone i daje 3 dni, po normalizacji +03 00:00:00. Pole godzin nigdy nie pokazuje 24, a +02 12:00:00 podwaja tylko pole dni. ORA-30081 pojawia się przy dodawaniu liczby do interwału albo mieszaniu rodzin interwałów, a nie przy mnożeniu."
+    },
+    "q14-fix-previous-month-end": {
+      "prompt": "To zapytanie powinno zwrócić ostatni dzień miesiąca poprzedzającego 31 marca 2024, ale kończy się błędem ORA-01839. Które dwa zapytania zwracają zamierzone 2024-02-29?",
+      "options": [
+        "SELECT TO_CHAR(ADD_MONTHS(DATE '2024-03-31', -1), 'YYYY-MM-DD') FROM dual",
+        "SELECT TO_CHAR(TRUNC(DATE '2024-03-31', 'MM') - 1, 'YYYY-MM-DD') FROM dual",
+        "SELECT TO_CHAR(DATE '2024-03-31' + INTERVAL '-1' MONTH, 'YYYY-MM-DD') FROM dual",
+        "SELECT TO_CHAR(DATE '2024-03-31' - INTERVAL '30' DAY, 'YYYY-MM-DD') FROM dual",
+        "SELECT TO_CHAR(DATE '2024-03-31' - NUMTOYMINTERVAL(1, 'MONTH'), 'YYYY-MM-DD') FROM dual"
+      ],
+      "explanation": "ADD_MONTHS z -1 dopasowuje koniec miesiąca do 29 lutego, a TRUNC(..., 'MM') - 1 przechodzi na pierwszy dzień marca i cofa się o jeden dzień. Dodanie ujemnego interwału miesięcy albo wartości NUMTOYMINTERVAL to nadal arytmetyka miesięcy, więc oba kończą się błędem ORA-01839 (31 lutego). Trzydzieści dni przed 31 marca to 1 marca, a nie koniec lutego."
+    },
+    "q14-compare-tstz-literals": {
+      "prompt": "31 marca 2024 w Nowym Jorku obowiązuje EDT (UTC-4). Co zwraca to zapytanie?",
+      "options": [
+        "later",
+        "not later",
+        "NULL",
+        "ORA-00932: inconsistent datatypes"
+      ],
+      "explanation": "Wartości TIMESTAMP WITH TIME ZONE są porównywane jako momenty w UTC, a nie według zapisanych godzin. 23:30 EDT to 03:30 UTC 1 kwietnia, czyli później niż 01:00 UTC, więc wynik to 'later'. Porównanie dat w zapisanej postaci (31 marca z 1 kwietnia) daje kuszące 'not later'. Dwie wartości z różnymi strefami mają ten sam typ danych, więc nie ma błędu."
+    },
+    "q14-interval-where-errors": {
+      "prompt": "Kolumna events.duration ma typ INTERVAL DAY(2) TO SECOND(0). Które dwie klauzule WHERE zgłaszają ORA-00932: inconsistent datatypes?",
+      "options": [
+        "WHERE e.duration > INTERVAL '1' MONTH",
+        "WHERE e.duration > SYSDATE",
+        "WHERE e.duration > NUMTODSINTERVAL(60, 'MINUTE')",
+        "WHERE e.duration BETWEEN INTERVAL '1' HOUR AND INTERVAL '2' DAY",
+        "WHERE e.duration > '0 01:00:00'"
+      ],
+      "explanation": "INTERVAL DAY TO SECOND można porównywać tylko z innym INTERVAL DAY TO SECOND. INTERVAL '1' MONTH to INTERVAL YEAR TO MONTH, a SYSDATE to DATE, więc oba kończą się błędem ORA-00932 (wykonano). NUMTODSINTERVAL i literały z jednym polem, takie jak INTERVAL '1' HOUR czy INTERVAL '2' DAY, to interwały DAY TO SECOND, a tekst '0 01:00:00' jest na taki interwał konwertowany niejawnie."
+    },
+    "q14-extract-second": {
+      "prompt": "Co zwraca SELECT EXTRACT(SECOND FROM TIMESTAMP '2024-01-01 10:20:30.5') FROM dual?",
+      "options": [
+        "30.5",
+        "30",
+        "1230.5",
+        "ORA-30076: invalid extract field for extract source"
+      ],
+      "explanation": "Dla TIMESTAMP EXTRACT(SECOND ...) uwzględnia ułamki sekund, więc wynik to 30.5 (wykonano). Zwraca tylko pole sekund, a nie sekundy od początku godziny (1230.5). ORA-30076 pojawia się przy SECOND z DATE, który nie ma pól czasu dla EXTRACT; TIMESTAMP je ma."
+    },
+    "q14-to-dsinterval-valid": {
+      "prompt": "Które dwa wywołania TO_DSINTERVAL wykonują się bez błędu?",
+      "options": [
+        "TO_DSINTERVAL('1 12:00:00')",
+        "TO_DSINTERVAL('PT36H')",
+        "TO_DSINTERVAL('36:00:00')",
+        "TO_DSINTERVAL('1 25:00:00')",
+        "TO_DSINTERVAL('1-6')"
+      ],
+      "explanation": "TO_DSINTERVAL przyjmuje postać SQL 'dni gg:mi:ss' i postać ISO 8601, więc 'PT36H' daje +01 12:00:00 (wykonano). Bez części z dniami '36:00:00' jest niepoprawne (ORA-01867); w '1 25:00:00' godzina jest poza zakresem (ORA-01850); a '1-6' to tekst YEAR TO MONTH, też ORA-01867."
+    },
+    "q14-numtoym-fraction": {
+      "prompt": "Co zwraca SELECT NUMTOYMINTERVAL(2.5, 'YEAR') FROM dual? (w formacie laboratorium)",
+      "options": [
+        "+02-06",
+        "+02-05",
+        "+02-00",
+        "ORA-01760: illegal argument for function"
+      ],
+      "explanation": "NUMTOYMINTERVAL przyjmuje liczby ułamkowe i zamienia je na pełne miesiące: 2,5 roku to 30 miesięcy, pokazane jako +02-06 (wykonano). +02-05 myli ułamek .5 z pięcioma miesiącami, a ułamek nie jest odrzucany. ORA-01760 pojawia się przy złej jednostce, na przykład 'DAY', a nie przy wartości ułamkowej."
+    },
+    "q14-column-precision": {
+      "prompt": "Kolumna events.duration ma typ INTERVAL DAY(2) TO SECOND(0). Co się stanie po wykonaniu tego polecenia?",
+      "options": [
+        "ORA-01873: the leading precision of the interval is too small",
+        "1 row updated; czas trwania zostaje zapisany jako +120 00:00:00.",
+        "1 row updated; wartość zostaje obcięta do +99 00:00:00.",
+        "ORA-01438: value larger than specified precision allowed for this column"
+      ],
+      "explanation": "Sam literał jest poprawny, bo DAY(3) pozwala na trzy cyfry, ale kolumna pozwala tylko na dwie cyfry dni, więc UPDATE kończy się błędem ORA-01873 (wykonano). Oracle nie obcina wartości interwałów, żeby się zmieściły. ORA-01438 to odpowiedni błąd dla kolumn NUMBER. Precyzja ułamków sekund działa inaczej: SECOND(0) zaokrągla 15,75 sekundy do 16 zamiast zgłaszać błąd."
+    },
+    "q14-dst-difference": {
+      "prompt": "W Warszawie 31 marca 2024 zegary przeskoczyły z 02:00 na 03:00. Co zwraca to zapytanie? (w formacie laboratorium)",
+      "options": [
+        "+00 01:00:00",
+        "+00 02:00:00",
+        "0.0833333333",
+        "ORA-01878: specified field not found in datetime or interval"
+      ],
+      "explanation": "Odejmowanie wartości TIMESTAMP WITH TIME ZONE działa na momentach w UTC: 01:00 CET to 00:00 UTC, a 03:00 CEST to 01:00 UTC, więc minęła tylko jedna godzina (wykonano). Odpowiedź z dwiema godzinami czyta wskazania zegara i pomija opuszczoną godzinę. Odejmowanie znaczników czasu zwraca INTERVAL DAY TO SECOND, a nie liczbę dni, a obie godziny lokalne istnieją, więc ORA-01878 nie ma tu zastosowania."
+    },
+    "q14-extract-valid": {
+      "prompt": "Które dwa wywołania EXTRACT wykonują się bez błędu?",
+      "options": [
+        "EXTRACT(TIMEZONE_HOUR FROM SYSTIMESTAMP)",
+        "EXTRACT(YEAR FROM SYSDATE)",
+        "EXTRACT(TIMEZONE_HOUR FROM LOCALTIMESTAMP)",
+        "EXTRACT(MINUTE FROM SYSDATE)",
+        "EXTRACT(DAY FROM INTERVAL '1-6' YEAR TO MONTH)"
+      ],
+      "explanation": "SYSTIMESTAMP to TIMESTAMP WITH TIME ZONE, więc ma pola strefy czasowej, a z DATE można pobrać YEAR, MONTH i DAY. Pozostałe trzy zgłaszają ORA-30076 (wykonano): LOCALTIMESTAMP to TIMESTAMP bez strefy, EXTRACT przyjmuje z DATE tylko YEAR, MONTH i DAY, a interwał YEAR TO MONTH nie ma pola DAY."
+    },
+    "q14-ora-01839-two": {
+      "prompt": "Które dwa wyrażenia zgłaszają ORA-01839: date not valid for month specified?",
+      "options": [
+        "DATE '2024-05-31' + INTERVAL '1' MONTH",
+        "DATE '2023-01-29' + INTERVAL '1' MONTH",
+        "DATE '2024-01-29' + INTERVAL '1' MONTH",
+        "DATE '2024-07-31' + INTERVAL '1' MONTH",
+        "ADD_MONTHS(DATE '2024-05-31', 1)"
+      ],
+      "explanation": "Interwały miesięcy zachowują numer dnia, więc wynik kończy się błędem zawsze, gdy tego dnia nie ma w miesiącu docelowym: 31 czerwca i 29 lutego 2023 (rok nieprzestępny). 29 lutego 2024 i 31 sierpnia istnieją, więc te działają (wykonano). ADD_MONTHS nigdy nie kończy się takim błędem: zwraca 2024-06-30."
+    },
+    "q14-interval-three": {
+      "prompt": "Które trzy stwierdzenia są prawdziwe?",
+      "options": [
+        "INTERVAL '-1-6' YEAR TO MONTH to poprawny ujemny interwał.",
+        "WHERE e.duration > 1 kończy się błędem, bo INTERVAL DAY TO SECOND nie można porównać z liczbą.",
+        "Zapisanie INTERVAL '2 10:30:15.75' DAY TO SECOND w kolumnie typu INTERVAL DAY(2) TO SECOND(0) zapisuje +02 10:30:16.",
+        "WHERE e.duration > 1 porównuje czas trwania z jednym dniem.",
+        "Wartość INTERVAL YEAR TO MONTH może przechować 45 dni."
+      ],
+      "explanation": "Interwały mogą być ujemne (-01-06, wykonano). Porównanie interwału z liczbą nie jest konwertowane niejawnie i kończy się błędem ORA-00932, więc napisz INTERVAL '1' DAY. Precyzja ułamków sekund 0 zaokrągla 15,75 sekundy do 16 (wykonano na events.duration i wycofano). Interwał YEAR TO MONTH nie ma pola dni, więc 45 dni wymaga interwału DAY TO SECOND."
+    }
+  },
+  "labs": {
+    "lab-events-utc": {
+      "title": "Godziny rozpoczęcia w UTC",
+      "task": "Dla każdego wydarzenia z godziną rozpoczęcia pokaż event_name i starts_utc: godzinę rozpoczęcia przeliczoną na UTC i sformatowaną jako 'YYYY-MM-DD HH24:MI'. Posortuj po starts_utc.",
+      "hint": "AT TIME ZONE 'UTC' przelicza moment w czasie; TO_CHAR go formatuje.",
+      "hint2": "SYS_EXTRACT_UTC(e.starts_at) też działa. Wydarzenie 3 (23:30 w Nowym Jorku) staje się 2024-04-01 03:30."
+    },
+    "lab-events-zone-parts": {
+      "title": "Strefa i godzina lokalna",
+      "task": "Dla wydarzeń od 1 do 3 pokaż event_id, zone (region strefy czasowej z starts_at, przez EXTRACT), local_hour (godzinę zapisaną we własnej strefie wydarzenia, jako liczbę) i utc_hour (EXTRACT(HOUR ...) z starts_at). Posortuj po event_id.",
+      "hint": "EXTRACT dla wartości ze strefą czasową działa w UTC; TO_CHAR zachowuje własną strefę wartości.",
+      "hint2": "TO_NUMBER(TO_CHAR(e.starts_at, 'HH24')) daje godzinę lokalną. Wydarzenie 2 zapisano z przesunięciem, więc jego region to UNKNOWN."
+    },
+    "lab-events-tokyo": {
+      "title": "Pokaż harmonogram w Tokio",
+      "task": "Pokaż event_name i tokyo_time dla każdego wydarzenia z godziną rozpoczęcia: starts_at przeliczone na region Asia/Tokyo i sformatowane jako 'YYYY-MM-DD HH24:MI TZD'. Posortuj po event_id.",
+      "hint": "AT TIME ZONE przyjmuje nazwę regionu w apostrofach.",
+      "hint2": "TZD formatuje skrót (JST). Tokio ma UTC+9 przez cały rok."
+    },
+    "lab-events-end-time": {
+      "title": "Kiedy kończy się każde wydarzenie?",
+      "task": "Dla każdego wydarzenia z godziną rozpoczęcia i czasem trwania pokaż event_name i ends_utc: starts_at plus duration, przeliczone na UTC i sformatowane jako 'YYYY-MM-DD HH24:MI'. Posortuj po event_id.",
+      "hint": "TIMESTAMP WITH TIME ZONE plus INTERVAL DAY TO SECOND to nadal TIMESTAMP WITH TIME ZONE.",
+      "hint2": "Umieść dodawanie w nawiasie przed AT TIME ZONE: (e.starts_at + e.duration) AT TIME ZONE 'UTC'."
+    },
+    "lab-events-duration-minutes": {
+      "title": "Czasy trwania w minutach",
+      "task": "Pokaż event_name i minutes, czyli łączny czas trwania w minutach (dni, godziny i minuty razem) jako liczbę, dla każdego wydarzenia z czasem trwania. Posortuj po minutes malejąco.",
+      "hint": "EXTRACT zwraca naraz jedno pole interwału.",
+      "hint2": "Dni * 1440 + godziny * 60 + minuty. Jednodniowe wydanie daje 1440."
+    },
+    "lab-events-warranty-end": {
+      "title": "Koniec gwarancji bez ORA-01839",
+      "task": "Dla każdego wydarzenia z gwarancją i godziną rozpoczęcia pokaż event_name i warranty_ends: datę rozpoczęcia (godzinę rozpoczęcia rzutowaną na DATE) plus gwarancję, sformatowaną jako 'YYYY-MM-DD'. Użyj ADD_MONTHS z gwarancją zamienioną na miesiące, aby 29 lutego nie kończył się błędem. Posortuj po event_id.",
+      "hint": "starts_at + warranty kończy się dla wydarzenia z dnia przestępnego błędem ORA-01839. Zamiast tego zamień interwał na liczbę miesięcy.",
+      "hint2": "EXTRACT(YEAR FROM w) * 12 + EXTRACT(MONTH FROM w) miesięcy, przekazane do ADD_MONTHS. Wydanie z dnia przestępnego kończy się 2025-02-28."
+    },
+    "lab-interval-literals": {
+      "title": "Zbuduj interwały na cztery sposoby",
+      "task": "Zwróć jeden wiersz z czterema kolumnami: a = 1 rok 6 miesięcy z TO_YMINTERVAL, b = 90 minut z NUMTODSINTERVAL, c = 2 dni 10 godzin 30 minut jako literał INTERVAL DAY TO SECOND, d = różnica TIMESTAMP '2024-03-10 12:00:00' minus TIMESTAMP '2024-03-08 09:30:00'.",
+      "hint": "TO_YMINTERVAL przyjmuje 'lata-miesiące'; NUMTODSINTERVAL przyjmuje liczbę i jednostkę.",
+      "hint2": "Literał to INTERVAL '2 10:30:00' DAY TO SECOND. Odjęcie dwóch znaczników czasu zwraca INTERVAL DAY TO SECOND."
+    },
+    "lab-n14-local-end": {
+      "title": "Lokalna godzina końca przy zmianie czasu",
+      "task": "Dla każdego wydarzenia z godziną rozpoczęcia i czasem trwania pokaż event_name i ends_local: starts_at plus duration, we własnej strefie czasowej wydarzenia, sformatowane jako 'YYYY-MM-DD HH24:MI TZH:TZM'. Posortuj po event_id.",
+      "hint": "TIMESTAMP WITH TIME ZONE plus INTERVAL DAY TO SECOND pozostaje w tym samym regionie strefy czasowej.",
+      "hint2": "TO_CHAR(e.starts_at + e.duration, 'YYYY-MM-DD HH24:MI TZH:TZM'). Warszawski webinar zaczyna się o 01:30 CET, trwa 1:30 i kończy o 04:00 +02:00, bo zegary przeskoczyły do przodu."
+    },
+    "lab-n14-zone-report": {
+      "title": "Region czy przesunięcie?",
+      "task": "Dla każdego wydarzenia z godziną rozpoczęcia pokaż event_id, zone_text (strefę czasową starts_at tak, jak pokazuje ją TO_CHAR z elementem TZR) i utc_offset (przesunięcie obowiązujące dla tej wartości, sformatowane przez TZH:TZM). Posortuj po event_id.",
+      "hint": "TZR drukuje nazwę regionu, jeśli wartość z nią zapisano, a w przeciwnym razie przesunięcie.",
+      "hint2": "TO_CHAR(e.starts_at, 'TZR') i TO_CHAR(e.starts_at, 'TZH:TZM'). Nowy Jork pokazuje -04:00, bo 31 marca obowiązywał czas letni."
+    },
+    "lab-n14-fix-utc-day": {
+      "title": "Napraw: wydarzenia 1 kwietnia w UTC",
+      "task": "Pokaż event_name każdego wydarzenia, którego początek wypada 1 kwietnia 2024 w UTC (od 2024-04-01 00:00 do, ale bez, 2024-04-02 00:00 UTC). Posortuj po event_name. Zapytanie startowe nie zwraca wierszy; napraw je.",
+      "hint": "CAST(... AS DATE) zachowuje lokalną godzinę we własnej strefie każdego wydarzenia i usuwa strefę.",
+      "hint2": "Porównuj z literałami TIMESTAMP zawierającymi UTC albo przeliczaj przez SYS_EXTRACT_UTC(e.starts_at). Zamknięcie kwartału w Nowym Jorku (23:30 31 marca czasu lokalnego) to 03:30 1 kwietnia UTC."
+    },
+    "lab-n14-fix-longer-than-hour": {
+      "title": "Napraw: wydarzenia dłuższe niż godzina",
+      "task": "Pokaż event_id i event_name każdego wydarzenia, którego czas trwania jest dłuższy niż godzina (wydarzenia bez czasu trwania nie są uwzględniane). Posortuj po event_id. Zapytanie startowe pomija jedno wydarzenie; napraw je.",
+      "hint": "EXTRACT(HOUR ...) czyta tylko pole godzin interwału, a nie jego łączną długość.",
+      "hint2": "Porównaj cały interwał z innym interwałem: WHERE e.duration > INTERVAL '1' HOUR. Wydanie z dnia przestępnego trwa 1 dzień 0 godzin, więc jego pole godzin to 0. Czas trwania NULL nigdy nie jest większy od czegokolwiek."
+    }
+  }
+}
