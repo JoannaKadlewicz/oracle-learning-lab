@@ -1,0 +1,537 @@
+{
+  "questions": {
+    "q03-round-trunc": {
+      "prompt": "Co zwracają ROUND(1234.567, -2) i TRUNC(1234.567, 1)?",
+      "options": [
+        "1200 i 1234.5",
+        "1234.57 i 1234.5",
+        "1300 i 1234.6",
+        "1200 i 1230"
+      ],
+      "explanation": "Ujemna precyzja zaokrągla na lewo od przecinka dziesiętnego: -2 zaokrągla do setek, co daje 1200. TRUNC z 1 zachowuje jedno miejsce po przecinku bez zaokrąglania: 1234.5. 1234.57 dałoby ROUND(..., 2), a 1230 dałoby TRUNC(..., -1)."
+    },
+    "q03-substr-neg": {
+      "prompt": "Co zwraca SUBSTR('ORACLE SQL', -3, 2)?",
+      "options": [
+        "QL",
+        "SQ",
+        "LE",
+        "NULL"
+      ],
+      "explanation": "Ujemna pozycja startowa liczy się od końca: -3 to S w SQL. Dwa znaki od tego miejsca to SQ. Długość nadal liczy się w prawo, a nie wstecz, więc QL jest błędne."
+    },
+    "q03-instr": {
+      "prompt": "Co zwraca INSTR('BANANA', 'AN', 1, 2)?",
+      "options": [
+        "2",
+        "3",
+        "4",
+        "0"
+      ],
+      "explanation": "INSTR(string, search, start, occurrence): zaczynając od pozycji 1, znajdź 2. wystąpienie AN. Pierwsze jest na pozycji 2, drugie na pozycji 4. Jeśli nic nie znajdzie, INSTR zwraca 0."
+    },
+    "q03-date-arith": {
+      "prompt": "Które dwa stwierdzenia o arytmetyce na wartościach DATE są prawdziwe?",
+      "options": [
+        "DATE - DATE zwraca liczbę dni typu NUMBER.",
+        "DATE + DATE zwraca DATE.",
+        "DATE + 1/24 dodaje jedną godzinę.",
+        "SYSDATE zwraca TIMESTAMP WITH TIME ZONE."
+      ],
+      "explanation": "Odjęcie dwóch wartości DATE daje różnicę w dniach, być może ułamkową. Dodanie liczby do DATE dodaje dni, więc 1/24 to jedna godzina. Dodanie dwóch wartości DATE to błąd (ORA-00975). SYSDATE zwraca DATE; SYSTIMESTAMP zwraca TIMESTAMP WITH TIME ZONE."
+    },
+    "q03-mod": {
+      "prompt": "Co zwraca MOD(-7, 3)?",
+      "options": [
+        "-1",
+        "1",
+        "2",
+        "-2"
+      ],
+      "explanation": "MOD w Oracle zwraca wynik ze znakiem dzielnej: -7 - 3 * TRUNC(-7/3) = -7 - 3 * (-2) = -1. Niektóre języki (np. Python) zwracają tu 2; Oracle nie."
+    },
+    "q03-last-day": {
+      "prompt": "Co zwraca ADD_MONTHS(DATE '2024-01-31', 1)?",
+      "options": [
+        "2024-02-29",
+        "2024-03-02",
+        "2024-02-28",
+        "Błąd"
+      ],
+      "explanation": "Jeśli data początkowa to ostatni dzień miesiąca albo miesiąc docelowy jest krótszy, ADD_MONTHS zwraca ostatni dzień miesiąca docelowego. 2024 to rok przestępny, więc wynik to 2024-02-29. Porównaj z dodaniem INTERVAL '1' MONTH, które zgłasza ORA-01839."
+    },
+    "q03-months-between": {
+      "prompt": "Co zostanie zwrócone?",
+      "options": [
+        "1",
+        "Około 1.0645",
+        "Nieco mniej niż 1",
+        "-1"
+      ],
+      "explanation": "Gdy obie daty są ostatnimi dniami swoich miesięcy (albo tym samym dniem miesiąca), MONTHS_BETWEEN zwraca liczbę całkowitą. W przeciwnym razie część ułamkowa jest liczona na podstawie miesiąca 31-dniowego. Pierwszy argument późniejszy od drugiego daje wynik dodatni."
+    },
+    "q03-concat-args": {
+      "prompt": "Co się stanie po wykonaniu tego zapytania?",
+      "options": [
+        "Zwraca nazwy w rodzaju Steven King.",
+        "Zwraca nazwy w rodzaju StevenKing.",
+        "Zgłasza ORA-00909: invalid number of arguments.",
+        "Zwraca NULL dla każdego wiersza."
+      ],
+      "explanation": "CONCAT w Oracle przyjmuje dokładnie dwa argumenty, więc trzy zgłaszają ORA-00909. MySQL i PostgreSQL akceptują dowolną liczbę. Użyj e.first_name || ' ' || e.last_name albo zagnieźdź CONCAT(CONCAT(e.first_name, ' '), e.last_name)."
+    },
+    "q03-equivalent-ora": {
+      "prompt": "Które trzy zapytania zwracają tekst ORA?",
+      "explanation": "SUBSTR traktuje pozycję startową 0 jak 1. LPAD do długości mniejszej niż długość tekstu obcina go, zachowując znaki od lewej. RTRIM usuwa z prawej strony wszystkie znaki ze zbioru C, L, E, aż natrafi na A. SUBSTR z -3 daje CLE, LTRIM nie znajduje z lewej żadnego znaku ze zbioru i zwraca ORACLE, a TRIM przyjmuje tylko jeden znak do usunięcia (ORA-30001)."
+    },
+    "q03-trim-set": {
+      "prompt": "Co zwraca SELECT TRIM('xy' FROM 'xyaxy') FROM dual?",
+      "options": [
+        "a",
+        "axy",
+        "xya",
+        "ORA-30001: trim set should have only one character"
+      ],
+      "explanation": "TRIM usuwa pojedynczy znak z początku, z końca albo z obu stron. Zbiór dwóch znaków do usunięcia zgłasza ORA-30001. Aby usunąć zbiór znaków, użyj LTRIM i RTRIM: RTRIM(LTRIM('xyaxy', 'xy'), 'xy') zwraca a."
+    },
+    "q03-replace-omitted": {
+      "prompt": "Co zwraca REPLACE('banana', 'an')?",
+      "options": [
+        "ba",
+        "bana",
+        "banana",
+        "NULL"
+      ],
+      "explanation": "Gdy pominiesz tekst zastępujący (albo podasz NULL), REPLACE usuwa każde wystąpienie szukanego tekstu. Oba an są usuwane, zostaje b + a. REPLACE nie zatrzymuje się po pierwszym dopasowaniu, a brak trzeciego argumentu nie daje wyniku NULL."
+    },
+    "q03-initcap": {
+      "prompt": "Co zwraca INITCAP('o''neil mc-DONALD')?",
+      "options": [
+        "O'neil Mc-donald",
+        "O'Neil Mc-Donald",
+        "O'neil mc-DONALD",
+        "O'NEIL MC-DONALD"
+      ],
+      "explanation": "INITCAP zamienia pierwszą literę każdego słowa na wielką, a resztę na małe. Słowa są rozdzielane każdym znakiem, który nie jest literą ani cyfrą, więc apostrof i łącznik zaczynają nowe słowa: O'Neil Mc-Donald."
+    },
+    "q03-case-where": {
+      "prompt": "LAST_NAME ma typ VARCHAR2, a potrzebny pracownik jest zapisany jako King (wielkie K, reszta małymi literami). Które dwa zapytania znajdują ten wiersz?",
+      "explanation": "Porównania tekstów rozróżniają wielkość liter, więc zapisaną wartość trzeba zamienić na tę samą wielkość liter co literał. UPPER porównane z KING i INITCAP porównane z King pasują. Porównanie surowej kolumny z KING lub k% albo LOWER(...) z literałem o mieszanej wielkości liter nigdy nie pasuje."
+    },
+    "q03-equivalent-haan": {
+      "prompt": "Które trzy zapytania zwracają dokładnie Haan?",
+      "explanation": "Spacja jest na pozycji 3, więc start o jeden znak dalej daje Haan; -4 odlicza cztery znaki od końca; usunięcie 'De ' zostawia Haan. Start od samej spacji zachowuje spację na początku, LTRIM ze zbiorem D, e zatrzymuje się na spacji i też zwraca ' Haan', a ujemna długość sprawia, że SUBSTR zwraca NULL."
+    },
+    "q03-equivalent-lpad": {
+      "prompt": "Które dwa zapytania zwracają tekst ***42?",
+      "explanation": "LPAD(string, total_length, pad) dopełnia z lewej do długości całkowitej, która obejmuje oryginalne znaki. Liczba 42 jest niejawnie konwertowana na '42', więc oba wywołania LPAD dają ***42. RPAD dopełnia z prawej (42***), długość całkowita 3 daje *42, a zamiana argumentów powtarza '42' jako dopełnienie (4242*)."
+    },
+    "q03-char-facts": {
+      "prompt": "Które dwa stwierdzenia o funkcjach znakowych w Oracle są prawdziwe?",
+      "options": [
+        "LENGTH('') zwraca NULL.",
+        "INSTR zwraca 0, gdy szukany tekst nie zostanie znaleziony.",
+        "INSTR zwraca NULL, gdy szukany tekst nie zostanie znaleziony.",
+        "SUBSTR('ORACLE', 0, 3) zwraca NULL, bo pozycje zaczynają się od 1.",
+        "UPPER(e.last_name) na liście SELECT zmienia zapisane dane."
+      ],
+      "explanation": "Oracle traktuje pusty tekst jak NULL, a LENGTH(NULL) to NULL, a nie 0. INSTR zwraca 0, gdy nie ma dopasowania (NULL zwraca tylko wtedy, gdy któryś argument jest NULL). SUBSTR traktuje pozycję 0 jak 1, a funkcje w zapytaniu zmieniają tylko wyświetlaną wartość, nigdy tabelę."
+    },
+    "q03-date-plus-date": {
+      "prompt": "Co się stanie po wykonaniu tego zapytania?",
+      "options": [
+        "Zwraca sumę obu dat w dniach.",
+        "Zgłasza ORA-00975: date + date not allowed.",
+        "Zwraca NULL dla każdego wiersza.",
+        "Zgłasza ORA-01722: invalid number."
+      ],
+      "explanation": "Możesz dodać liczbę do DATE i odjąć jedną wartość DATE od drugiej, ale dodawanie dwóch wartości DATE nie ma sensu i zgłasza ORA-00975. DATE - DATE zwraca liczbę dni."
+    },
+    "q03-date-minus-half": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "2024-02-29 12:00",
+        "2024-02-28 12:00",
+        "2024-03-01 12:00",
+        "2024-02-29 00:00"
+      ],
+      "explanation": "Liczba dodawana do DATE lub od niej odejmowana to liczba dni, więc 0.5 to dwanaście godzin. Północ 1 marca minus dwanaście godzin to południe 29 lutego (2024 to rok przestępny). Część czasowa nie znika: DATE zawsze przechowuje godziny, minuty i sekundy."
+    },
+    "q03-order-days": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "30",
+        "31",
+        "30.98",
+        "Błąd, bo TRUNC dla dat wymaga formatu"
+      ],
+      "explanation": "DATE - DATE daje około 30.979 dnia z powodu godziny 23:30. Odejmowanie zwraca NUMBER, więc to liczbowe TRUNC, które obcina ułamek: 30. ROUND dałoby 31."
+    },
+    "q03-hours-between": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "8.5",
+        "8.3",
+        ".354166667",
+        "510"
+      ],
+      "explanation": "Różnica dwóch wartości DATE jest w dniach (tutaj 0.354...). Pomnożenie przez 24 zamienia dni na godziny: 8.5, a nie 8.3 (30 minut to pół godziny). Pomnożenie przez 1440 dałoby minuty (510)."
+    },
+    "q03-equivalent-90-minutes": {
+      "prompt": "ORDER_DATE to kolumna DATE. Które trzy wyrażenia zwracają moment 90 minut po ORDER_DATE?",
+      "options": [
+        "o.order_date + 90/1440",
+        "o.order_date + 1.5/24",
+        "o.order_date + INTERVAL '90' MINUTE",
+        "o.order_date + 90",
+        "o.order_date + 0.0090",
+        "o.order_date + 1.5"
+      ],
+      "explanation": "Liczby dodawane do DATE to dni: doba ma 1440 minut i 24 godziny, więc 90/1440 i 1.5/24 to w obu przypadkach 90 minut. Dodanie INTERVAL też działa i zwraca DATE. + 90 dodaje 90 dni, + 1.5 dodaje półtora dnia, a 0.009 dnia to około 13 minut."
+    },
+    "q03-equivalent-nine-days": {
+      "prompt": "Które dwa zapytania zwracają liczbę 9?",
+      "explanation": "DATE - DATE to liczba dni: od północy do północy daje dokładnie 9. Przy godzinie 18:00 w późniejszej dacie różnica wynosi 9.75, co TRUNC obcina do 9, ale ROUND zamienia na 10. DATE - 9 to DATE, a nie liczba."
+    },
+    "q03-round-half": {
+      "prompt": "Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "ROUND(-2.5) zwraca -3.",
+        "TRUNC(-2.7) zwraca -2.",
+        "ROUND(2.5) zwraca 2, bo Oracle zaokrągla połówki do parzystej.",
+        "TRUNC(-2.7) zwraca -3, bo TRUNC zaokrągla w dół.",
+        "MOD(10, 0) zgłasza ORA-01476: divisor is equal to zero."
+      ],
+      "explanation": "Dla wartości NUMBER ROUND zaokrągla połówki od zera, więc -2.5 staje się -3, a 2.5 staje się 3 (zaokrąglenie bankierskie stosują niektóre inne systemy). TRUNC obcina w kierunku zera, więc -2.7 staje się -2; FLOOR dałoby -3. MOD z dzielnikiem 0 zwraca dzielną zamiast błędu."
+    },
+    "q03-mod-zero": {
+      "prompt": "Co zwraca MOD(10, 0)?",
+      "options": [
+        "10",
+        "0",
+        "NULL",
+        "ORA-01476: divisor is equal to zero"
+      ],
+      "explanation": "Oracle definiuje MOD(m, 0) jako m, więc zwraca 10. Dzielenie przez zero operatorem / zgłasza ORA-01476, dlatego wiele osób spodziewa się tu błędu."
+    },
+    "q03-equivalent-even": {
+      "prompt": "EMPLOYEE_ID zawiera dodatnie liczby całkowite. Które dwa zapytania zwracają te same wiersze co to, niezależnie od danych?",
+      "explanation": "Identyfikator jest parzysty dokładnie wtedy, gdy jego połowa nie ma części ułamkowej, co sprawdza TRUNC(x/2) = x/2. Dla nieparzystych identyfikatorów x/2 kończy się na .5, co ROUND zamienia na inną liczbę całkowitą, więc ROUND(x/2) * 2 = x też jest spełnione tylko dla parzystych. MOD(..., 2) = 1 znajduje nieparzyste identyfikatory, ROUND(x/2) = 0 nie jest spełnione dla żadnej dodatniej liczby całkowitej (ROUND(0.5) to 1), a MOD(2, id) zamienia argumenty, więc jest prawdziwe tylko dla identyfikatorów 1 i 2."
+    },
+    "q03-equivalent-45-9": {
+      "prompt": "Które dwa zapytania zwracają 45.9?",
+      "explanation": "ROUND(45.926, 1) zaokrągla w dół, bo druga cyfra po przecinku to 2: 45.9. TRUNC(45.96, 1) po prostu odrzuca wszystko po pierwszej cyfrze po przecinku: 45.9. ROUND(45.96, 1) zaokrągla w górę do 46, TRUNC(..., -1) obcina do dziesiątek (40), a ROUND bez precyzji zaokrągla do liczby całkowitej (46)."
+    },
+    "q03-next-day": {
+      "prompt": "5 marca 2024 to wtorek. Co to zwraca w sesji angielskiej (AMERICAN)?",
+      "options": [
+        "2024-03-12",
+        "2024-03-05",
+        "2024-03-11",
+        "2024-03-06"
+      ],
+      "explanation": "NEXT_DAY zwraca pierwszy wskazany dzień tygodnia ściśle późniejszy od daty, więc wtorek daje następny wtorek, a nie ten sam dzień. Nazwa dnia jest interpretowana zgodnie z NLS_DATE_LANGUAGE, więc 'TUESDAY' nie zadziałałoby np. w sesji polskiej."
+    },
+    "q03-add-months-feb28": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "2023-03-31",
+        "2023-03-28",
+        "2023-03-30",
+        "2023-03-29"
+      ],
+      "explanation": "2023 nie jest rokiem przestępnym, więc 28 lutego to ostatni dzień miesiąca, a ADD_MONTHS zamienia ostatni dzień na ostatni dzień miesiąca docelowego: 31 marca. W 2024 ADD_MONTHS(DATE '2024-02-28', 1) daje 2024-03-28, bo 28 lutego 2024 nie jest końcem miesiąca."
+    },
+    "q03-months-between-fraction": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "1.0323",
+        "1.0345",
+        "1.0333",
+        "1"
+      ],
+      "explanation": "Od 15 lutego do 15 marca jest jeden pełny miesiąc; dodatkowy dzień liczy się jako 1/31 miesiąca, niezależnie od rzeczywistej długości lutego. 1 + 1/31 = 1.0323. Użycie 29 lub 30 dni daje pozostałe, błędne odpowiedzi."
+    },
+    "q03-round-date-month": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "2024-08-01",
+        "2024-07-01",
+        "2024-07-31",
+        "2024-07-16"
+      ],
+      "explanation": "ROUND z 'MM' zaokrągla do pierwszego dnia najbliższego miesiąca, a od 16. dnia zaokrągla w górę, niezależnie od długości miesiąca. TRUNC(..., 'MM') zwróciłoby 2024-07-01."
+    },
+    "q03-round-date-year": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "2025-01-01",
+        "2024-01-01",
+        "2024-12-31",
+        "2024-07-01"
+      ],
+      "explanation": "ROUND z 'YYYY' zaokrągla w górę od 1 lipca, więc 2024-07-01 staje się 2025-01-01. 30 czerwca zaokrągliłoby się w dół do 2024-01-01, co zwraca też TRUNC(..., 'YYYY') dla każdego dnia 2024 roku."
+    },
+    "q03-date-func-facts": {
+      "prompt": "Które trzy stwierdzenia są prawdziwe?",
+      "options": [
+        "LAST_DAY zachowuje część czasową swojego argumentu.",
+        "MONTHS_BETWEEN(d1, d2) jest ujemne, gdy d1 jest wcześniejsza niż d2.",
+        "TRUNC(d) bez formatu ustawia godzinę d na północ.",
+        "NEXT_DAY(d, 'MONDAY') zwraca samo d, gdy d to poniedziałek.",
+        "ADD_MONTHS nie potrafi odejmować miesięcy; zamiast tego użyj ujemnego INTERVAL.",
+        "ROUND(d, 'YYYY') dla 1 lipca zaokrągla w dół do 1 stycznia tego samego roku."
+      ],
+      "explanation": "LAST_DAY zmienia tylko dzień, więc 2024-03-31 23:30 nadal ma 23:30. MONTHS_BETWEEN odejmuje drugą datę od pierwszej, więc wcześniejsza d1 daje liczbę ujemną. TRUNC(d) domyślnie używa 'DD'. NEXT_DAY zwraca dzień ściśle późniejszy, ADD_MONTHS(d, -1) odejmuje miesiąc, a 1 lipca zaokrągla się w górę do następnego roku."
+    },
+    "q03-equivalent-march-orders": {
+      "prompt": "ORDER_DATE to kolumna DATE, której wartości mogą zawierać godzinę, a zamówienia obejmują kilka lat. Które dwa zapytania zwracają te same wiersze co to, dla dowolnych danych?",
+      "explanation": "TRUNC do miesiąca zamienia każdą chwilę marca 2024 na 2024-03-01, a TRUNC daty porównany z pierwszym i ostatnim dniem usuwa godzinę przed zastosowaniem BETWEEN. EXTRACT(MONTH) = 3 pasuje też do marca innych lat. BETWEEN z DATE '2024-03-31' kończy się o północy i pomija późniejsze godziny tego dnia, a LAST_DAY zachowuje godzinę, więc zamówienie z 23:30 w dowolny dzień marca nie spełnia równości z północą."
+    },
+    "q03-equivalent-feb-end": {
+      "prompt": "Które trzy zapytania zwracają DATE 2024-02-29 00:00:00?",
+      "explanation": "LAST_DAY dowolnej daty z lutego 2024 to 29., dzień przed 1 marca to 29., a ADD_MONTHS od końca miesiąca wstecz do krótszego miesiąca zwraca ostatni dzień tego miesiąca. LAST_DAY zachowuje godzinę 08:00, TRUNC do 'MM' daje 1 lutego, a + 1/24 dodaje tylko godzinę."
+    },
+    "q03-instr-backwards": {
+      "prompt": "Co zwraca INSTR('MISSISSIPPI', 'SS', -1)?",
+      "options": [
+        "6",
+        "3",
+        "-6",
+        "0"
+      ],
+      "explanation": "Ujemna pozycja startowa sprawia, że INSTR szuka wstecz od końca, więc znajduje ostatnie SS, które zaczyna się na pozycji 6. Zwracana pozycja jest nadal liczona od lewej, więc nigdy nie jest ujemna. 3 to pierwsze SS (wyszukiwanie w przód), a 0 oznaczałoby brak dopasowania."
+    },
+    "q03-lpad-multi-char": {
+      "prompt": "Co zwraca LPAD('Oracle', 10, 'xy')?",
+      "options": [
+        "xyxyOracle",
+        "xyxyxyxyxyOracle",
+        "yxyxOracle",
+        "Oraclexyxy"
+      ],
+      "explanation": "Drugi argument to długość całkowita, więc potrzebne są cztery znaki dopełnienia. Wieloznakowy tekst dopełnienia jest powtarzany od początku i obcinany po osiągnięciu długości: xyxy. Dopełnienie nie jest dodawane dziesięć razy, nie jest odwracane, by kończyć się przy tekście, a dopełnianie z prawej to RPAD."
+    },
+    "q03-equivalent-null-strings": {
+      "prompt": "Które trzy zapytania zwracają NULL?",
+      "explanation": "Usunięcie samych spacji zostawia pusty tekst, dopełnienie do długości 0 nic nie zostawia, a SUBSTR startujące za ostatnim znakiem niczego nie znajduje; Oracle zapisuje wszystkie trzy puste wyniki jako NULL. REPLACE z szukanym tekstem NULL zwraca oryginalne abc, CONCAT (tak jak ||) ignoruje operand NULL i zwraca abc, a pojedyncza spacja ma długość 1."
+    },
+    "q03-equivalent-fix-k-names": {
+      "prompt": "To zapytanie miało zwrócić pracowników, których nazwisko zaczyna się na K w dowolnej wielkości (K lub k), ale nigdy nie zwraca żadnego wiersza. Które trzy zapytania zwracają zamierzone wiersze?",
+      "explanation": "Kolumna jest zamieniana na małe litery, ale porównywana ze wzorcem pisanym wielkimi literami, więc nic nie pasuje. Ujednolicenie wielkości liter po obu stronach to naprawia: wzorzec małymi literami, UPPER albo INITCAP (który też zamienia pierwszą literę na wielką). Przy = znak % jest zwykłym znakiem, a k_ pasuje tylko do dwuliterowych nazwisk."
+    },
+    "q03-date-multiply": {
+      "prompt": "Co się stanie po wykonaniu tego zapytania?",
+      "options": [
+        "Zgłasza ORA-00932: inconsistent datatypes.",
+        "Zgłasza ORA-00975: date + date not allowed.",
+        "Zwraca każdą datę zatrudnienia jako liczbę dni, podwojoną.",
+        "Zgłasza ORA-01722: invalid number."
+      ],
+      "explanation": "Dla dat zdefiniowane są tylko + i - (DATE plus lub minus liczba, DATE minus DATE). Mnożenie wymaga liczb, a DATE nigdy nie jest niejawnie konwertowane na NUMBER, więc Oracle zgłasza ORA-00932 (w 23ai komunikat brzmi 'expression is of data type DATE, which is incompatible with expected data type NUMBER'). ORA-00975 dotyczy wyłącznie DATE + DATE, a ORA-01722 tekstów, które nie są liczbami."
+    },
+    "q03-minutes-after-midnight": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "1410",
+        "23.5",
+        "1430",
+        "0"
+      ],
+      "explanation": "TRUNC(d) to północ tego samego dnia, więc różnica to pora dnia jako ułamek doby (0.979...). Pomnożenie przez 1440 minut na dobę daje 23.5 * 60 = 1410. 23.5 wymagałoby * 24 (godziny), 1430 odczytuje 23:30 jako 23 godziny i 50 minut, a różnica nie wynosi 0, bo TRUNC usuwa godzinę."
+    },
+    "q03-date-result-types": {
+      "prompt": "Które trzy wyrażenia zwracają DATE?",
+      "options": [
+        "DATE '2024-03-01' + 1/24",
+        "DATE '2024-03-01' - 7",
+        "DATE '2024-03-01' + '1'",
+        "DATE '2024-03-10' - DATE '2024-03-01'",
+        "DATE '2024-03-02' - TIMESTAMP '2024-03-01 00:00:00'",
+        "TRUNC(DATE '2024-03-10' - DATE '2024-03-01')"
+      ],
+      "explanation": "DATE plus lub minus liczba to DATE, a tekst '1' jest tu niejawnie konwertowany na liczbę 1. DATE - DATE to liczba dni typu NUMBER (TRUNC z niej to liczbowe TRUNC), natomiast DATE minus TIMESTAMP jest wyliczane jako arytmetyka TIMESTAMP i zwraca INTERVAL DAY TO SECOND (+01 00:00:00), a nie liczbę."
+    },
+    "q03-equivalent-36-hours-before": {
+      "prompt": "Które trzy zapytania zwracają moment 36 godzin przed 2024-03-31 23:30?",
+      "explanation": "36 godzin to 1.5 dnia, co wyrażają 1.5 i 36/24, a INTERVAL w godzinach daje ten sam DATE: 2024-03-30 11:30. Odjęcie 36 odejmuje 36 dni, 36/1440 to tylko 36 minut, a TRUNC najpierw przesuwa początek na północ, więc wynikiem jest 12:00 zamiast 11:30."
+    },
+    "q03-round-trunc-negative": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "20 / -10",
+        "20 / -20",
+        "10 / -10",
+        "16 / -15"
+      ],
+      "explanation": "Precyzja -1 działa na dziesiątkach. 15.5 jest za punktem połowy 15, więc ROUND daje 20. TRUNC obcina w kierunku zera, więc -15.5 staje się -10, a nie -20 (to byłoby zaokrąglenie od zera albo zachowanie podobne do FLOOR). 16 i -15 dałaby precyzja 0."
+    },
+    "q03-mod-sign-decimal": {
+      "prompt": "Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "MOD(7, -3) zwraca 1.",
+        "MOD(5.5, 2) zwraca 1.5.",
+        "MOD(7, -3) zwraca -2.",
+        "MOD(5.5, 2) zgłasza błąd, bo MOD wymaga liczb całkowitych.",
+        "MOD(NULL, 2) zwraca 0."
+      ],
+      "explanation": "MOD(m, n) to m - n * TRUNC(m/n), więc wynik ma znak dzielnej: 7 - (-3) * (-2) = 1. MOD działa też z ułamkami: 5.5 - 2 * 2 = 1.5. -2 dałoby modulo oparte na FLOOR ze znakiem dzielnika, a jak niemal każda funkcja MOD zwraca NULL dla argumentu NULL."
+    },
+    "q03-round-rules": {
+      "prompt": "Które dwa stwierdzenia o ROUND są prawdziwe?",
+      "options": [
+        "ROUND(-0.5) zwraca -1.",
+        "ROUND(TO_BINARY_DOUBLE(2.5)) zwraca 2, bo binarne wartości zmiennoprzecinkowe zaokrąglają połówki do parzystej.",
+        "ROUND(-0.5) zwraca 0.",
+        "ROUND(TO_BINARY_DOUBLE(2.5)) zwraca 3, dokładnie jak NUMBER 2.5.",
+        "ROUND(15.193, 1.9) zaokrągla do dwóch miejsc po przecinku i zwraca 15.19."
+      ],
+      "explanation": "Dla wartości NUMBER ROUND zaokrągla połówki od zera, więc -0.5 staje się -1, a nie 0. Dla BINARY_FLOAT i BINARY_DOUBLE Oracle zaokrągla połówki do najbliższej wartości parzystej, więc 2.5 staje się 2, a 3.5 staje się 4. Ułamkowa precyzja jest obcinana do liczby całkowitej, więc ROUND(15.193, 1.9) używa 1 i zwraca 15.2."
+    },
+    "q03-round-thousands": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "1000,2000",
+        "1000,1000",
+        "2000,2000",
+        "1500,1500"
+      ],
+      "explanation": "Precyzja -3 zaokrągla do pełnych tysięcy. 1499.99 jest tuż poniżej punktu połowy i zaokrągla się w dół do 1000; dokładnie 1500 to połowa i zaokrągla się od zera do 2000. ROUND nie zaokrągla najpierw części ułamkowej (1499.99 nie staje się 1500 przed zaokrągleniem tysięcy)."
+    },
+    "q03-equivalent-1700": {
+      "prompt": "Które trzy zapytania zwracają 1700?",
+      "explanation": "TRUNC do setek odrzuca 89, 1749 jest poniżej połowy (1750) i zaokrągla się w dół, a FLOOR(17.89) * 100 to też 1700. ROUND(1789, -2) zaokrągla w górę do 1800, TRUNC z dodatnią precyzją zachowuje część ułamkową (1789.99), a CEIL(17.01) * 100 to 1800."
+    },
+    "q03-equivalent-per-day": {
+      "prompt": "9000 / 7 = 1285.714... Które dwa zapytania zwracają 1285.71?",
+      "explanation": "Trzecia cyfra po przecinku to 4, więc zaokrąglenie i obcięcie do dwóch miejsc dają tu to samo 1285.71; różnią się tylko wtedy, gdy ta cyfra to 5 lub więcej. Precyzja -2 zaokrągla do setek (1300), TRUNC bez precyzji daje 1285, a MOD zwraca resztę z dzielenia (5), a nie iloraz."
+    },
+    "q03-add-months-leap-day": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "2025-02-28",
+        "2025-03-01",
+        "2025-02-29",
+        "ORA-01839: date not valid for month specified"
+      ],
+      "explanation": "29 lutego 2024 to ostatni dzień miesiąca, więc ADD_MONTHS zwraca ostatni dzień miesiąca docelowego, 28 lutego 2025. ADD_MONTHS nigdy nie przechodzi na marzec i nigdy nie tworzy niepoprawnej daty. Dodanie INTERVAL '1' YEAR zgłosiłoby natomiast ORA-01839, bo 2025-02-29 nie istnieje."
+    },
+    "q03-round-quarter": {
+      "prompt": "Co to zwraca?",
+      "options": [
+        "2024-04-01",
+        "2024-01-01",
+        "2024-03-31",
+        "2024-03-01"
+      ],
+      "explanation": "'Q' zaokrągla do pierwszego dnia najbliższego kwartału, a punktem zaokrąglenia jest 16. dzień drugiego miesiąca kwartału. 16 lutego to właśnie ten punkt, więc wynik to 1 kwietnia. 15 lutego zaokrągliłoby się w dół do 2024-01-01 (to też wynik TRUNC(..., 'Q')); ROUND nigdy nie zwraca ostatniego dnia kwartału ani początku miesiąca."
+    },
+    "q03-date-func-facts-2": {
+      "prompt": "Które trzy stwierdzenia są prawdziwe w sesji angielskiej (AMERICAN)?",
+      "options": [
+        "ROUND(d) bez formatu zwraca północ następnego dnia, gdy godzina d to 12:00 lub później.",
+        "NEXT_DAY(d, 'TUE') przyjmuje skróconą nazwę dnia.",
+        "MONTHS_BETWEEN zwraca liczbę całkowitą, gdy obie daty są ostatnimi dniami swoich miesięcy, nawet jeśli ich godziny się różnią.",
+        "ADD_MONTHS(d, 1.9) dodaje dwa miesiące, bo liczba jest zaokrąglana.",
+        "NEXT_DAY(d, 'WTOREK') działa, bo nazwy dni są akceptowane w dowolnym języku.",
+        "TRUNC(d, 'MM') zwraca ostatni dzień miesiąca."
+      ],
+      "explanation": "ROUND(d) domyślnie używa 'DD' i zaokrągla w górę od południa. NEXT_DAY przyjmuje pełne lub skrócone nazwy w języku dat sesji, więc polska nazwa zgłasza tu ORA-01846. Dla dwóch dat z końca miesiąca MONTHS_BETWEEN ignoruje godzinę i zwraca liczbę całkowitą. ADD_MONTHS obcina 1.9 do 1, a TRUNC(d, 'MM') zwraca pierwszy dzień miesiąca."
+    },
+    "q03-date-diff-sign": {
+      "prompt": "HIRE_DATE to kolumna DATE. Które dwa stwierdzenia o wyrażeniu DATE '2020-06-30' - e.hire_date są prawdziwe?",
+      "options": [
+        "Zwraca liczbę ujemną dla pracowników zatrudnionych po 30 czerwca 2020.",
+        "Zwraca liczbę dni typu NUMBER, z częścią ułamkową, gdy hire_date ma godzinę inną niż północ.",
+        "Zwraca wartość INTERVAL DAY TO SECOND.",
+        "Zwraca bezwzględną liczbę dni, więc kolejność operandów nie ma znaczenia.",
+        "Zgłasza ORA-00975, bo oba operandy są datami."
+      ],
+      "explanation": "DATE - DATE zwraca liczbę dni typu NUMBER (pierwszy operand minus drugi), więc późniejsza data zatrudnienia daje wynik ujemny, a godzina daje część ułamkową. Dlatego filtr w rodzaju DATE '2020-06-30' - e.hire_date < 365 przepuszcza też późniejsze zatrudnienia. INTERVAL pojawia się tylko wtedy, gdy w grę wchodzi TIMESTAMP, wynik ma znak, a ORA-00975 jest zgłaszany dla DATE + DATE, a nie DATE - DATE."
+    },
+    "q03-minus-three": {
+      "prompt": "Które trzy zapytania zwracają -3?",
+      "explanation": "TRUNC obcina w kierunku zera (-3.7 staje się -3), ROUND(-3.4) jest bliżej -3, a CEIL zwraca najmniejszą liczbę całkowitą nie mniejszą niż -3.7, czyli -3. FLOOR schodzi do -4, ROUND(-3.5) zaokrągla połówkę od zera do -4, a MOD ma znak dzielnej, więc MOD(9, -6) to 3, a nie -3."
+    }
+  },
+  "labs": {
+    "lab-service-years": {
+      "title": "Lata pracy",
+      "task": "Dla każdego pracownika zwróć last_name i pełne lata pracy na dzień 1 stycznia 2026 (kolumna years). Posortuj po years malejąco, a potem po last_name.",
+      "hint": "MONTHS_BETWEEN(DATE '2026-01-01', e.hire_date) daje liczbę miesięcy pracy.",
+      "hint2": "Podziel miesiące przez 12 i obetnij część ułamkową przez TRUNC (nie ROUND)."
+    },
+    "lab-login-names": {
+      "title": "Loginy",
+      "task": "Dla każdego pracownika zwróć employee_id, login (pierwsza litera first_name, a po niej last_name bez spacji, całość małymi literami, np. ldehaan) i name_length (liczba znaków w last_name, łącznie ze spacjami). Posortuj po employee_id.",
+      "hint": "SUBSTR(e.first_name, 1, 1) daje pierwszą literę; REPLACE bez trzeciego argumentu usuwa tekst.",
+      "hint2": "LOWER(SUBSTR(e.first_name, 1, 1) || REPLACE(e.last_name, ' ')) AS login oraz LENGTH(e.last_name)."
+    },
+    "lab-dotted-report": {
+      "title": "Wiersze raportu z kropkami",
+      "task": "Dla pracowników departamentu 30 zwróć employee_id, name_col (last_name dopełnione z prawej kropkami do 12 znaków) i salary_col (salary dopełnione z lewej gwiazdkami do 8 znaków, np. ***12000). Posortuj po employee_id.",
+      "hint": "RPAD dopełnia z prawej, LPAD z lewej; argument długości to długość całkowita.",
+      "hint2": "RPAD(e.last_name, 12, '.') i LPAD(e.salary, 8, '*'); salary jest niejawnie konwertowane na tekst."
+    },
+    "lab-upper-us-customers": {
+      "title": "Nazwy klientów z USA wielkimi literami",
+      "task": "Zamień na wielkie litery customer_name każdego klienta z country_code US. Nie zmieniaj żadnego innego klienta.",
+      "hint": "Jedno UPDATE z klauzulą WHERE na country_code.",
+      "hint2": "SET c.customer_name = UPPER(c.customer_name) WHERE c.country_code = 'US'."
+    },
+    "lab-open-order-deadlines": {
+      "title": "Terminy dla otwartych zamówień",
+      "task": "Dla zamówień ze statusem NEW zwróć order_id, ship_by (dzień zamówienia o północy plus 14 dni, wartość DATE) i age_days (liczba pełnych dni od dnia zamówienia o północy do DATE '2024-04-30'). Posortuj po order_id.",
+      "hint": "TRUNC(o.order_date) usuwa godzinę (zamówienie 1006 ma 23:30). Liczba dodana do DATE to dni.",
+      "hint2": "TRUNC(o.order_date) + 14 AS ship_by, DATE '2024-04-30' - TRUNC(o.order_date) AS age_days."
+    },
+    "lab-net-prices": {
+      "title": "Ceny netto",
+      "task": "Dla produktów, które mają list_price, zwróć product_id, net_price (list_price podzielone przez 1.23, zaokrąglone do 2 miejsc po przecinku) i price_floor (list_price obcięte do pełnych setek, np. 1200, a dla 25 wynik 0). Posortuj po product_id.",
+      "hint": "ROUND(x, 2) zachowuje dwa miejsca po przecinku; ujemna precyzja działa na lewo od przecinka dziesiętnego.",
+      "hint2": "ROUND(p.list_price / 1.23, 2) i TRUNC(p.list_price, -2), z WHERE p.list_price IS NOT NULL."
+    },
+    "lab-even-id-remainders": {
+      "title": "Parzyste identyfikatory pracowników",
+      "task": "Zwróć employee_id, last_name i salary_rest (reszta z dzielenia salary przez 1000) pracowników, których employee_id jest parzyste. Posortuj po employee_id.",
+      "hint": "MOD(n, 2) = 0 sprawdza, czy liczba jest parzysta.",
+      "hint2": "MOD(e.salary, 1000) AS salary_rest ... WHERE MOD(e.employee_id, 2) = 0."
+    },
+    "lab-probation-dates": {
+      "title": "Daty okresu próbnego",
+      "task": "Dla pracowników departamentu 30 zwróć employee_id, probation_end (hire_date plus 6 miesięcy), first_review (pierwszy poniedziałek po probation_end; język sesji to angielski) i hire_month_end (ostatni dzień miesiąca zatrudnienia). Posortuj po employee_id.",
+      "hint": "ADD_MONTHS, NEXT_DAY i LAST_DAY zwracają DATE.",
+      "hint2": "NEXT_DAY(ADD_MONTHS(e.hire_date, 6), 'MONDAY') AS first_review."
+    },
+    "lab-order-month-start": {
+      "title": "Miesiące zamówień",
+      "task": "Dla każdego zamówienia zwróć order_id, order_month (pierwszy dzień miesiąca zamówienia o północy, wartość DATE) i months_ago (pełne miesiące między order_date a DATE '2024-12-31', z obciętą częścią ułamkową). Posortuj po order_id.",
+      "hint": "TRUNC dla DATE przyjmuje format, np. 'MM'.",
+      "hint2": "TRUNC(o.order_date, 'MM') i TRUNC(MONTHS_BETWEEN(DATE '2024-12-31', o.order_date))."
+    },
+    "lab-fix-march-orders": {
+      "title": "Popraw: zamówienia z marca",
+      "task": "Zwróć order_id i status każdego zamówienia złożonego w marcu 2024, o dowolnej porze dnia. Posortuj po order_id. Zapytanie startowe pomija jedno zamówienie: znajdź przyczynę i popraw je.",
+      "hint": "DATE '2024-03-31' oznacza północ na początku 31 marca. Zamówienie 1006 złożono tego dnia o 23:30.",
+      "hint2": "Użyj przedziału prawostronnie otwartego: o.order_date >= DATE '2024-03-01' AND o.order_date < DATE '2024-04-01' (albo porównaj TRUNC(o.order_date, 'MM') z DATE '2024-03-01')."
+    },
+    "lab-weekly-pay": {
+      "title": "Rozbicie tygodniowej pensji",
+      "task": "Dla pracowników departamentu 20 zwróć employee_id, weekly_pay (salary * 12 / 52 zaokrąglone do 2 miejsc po przecinku), thousands (liczba pełnych tysięcy w salary, np. 4 dla 4800) i remainder (to, co zostaje z salary po odjęciu pełnych tysięcy, np. 800). Posortuj po employee_id.",
+      "hint": "ROUND(x, 2) dla pensji; pełne tysiące to iloraz bez części ułamkowej, a reszta to reszta z dzielenia.",
+      "hint2": "TRUNC(e.salary / 1000) AS thousands (nie ROUND: 4800 musi dać 4) i MOD(e.salary, 1000) AS remainder."
+    },
+    "lab-open-order-hours": {
+      "title": "Godziny otwarcia zamówienia",
+      "task": "Dla zamówień ze statusem NEW zwróć order_id i hours_open: liczbę godzin od order_date do DATE '2024-04-03' (północ), zaokrągloną do 1 miejsca po przecinku (zamówienie 1006, złożone o 23:30, ma 48.5). Posortuj po hours_open malejąco.",
+      "hint": "DATE - DATE to liczba dni; doba ma 24 godziny.",
+      "hint2": "ROUND((DATE '2024-04-03' - o.order_date) * 24, 1) AS hours_open. Nie stosuj TRUNC do order_date, godzina 23:30 się liczy."
+    },
+    "lab-fix-hire-window": {
+      "title": "Popraw: zatrudnieni w roku poprzedzającym",
+      "task": "Zwróć employee_id i hire_date pracowników zatrudnionych 30 czerwca 2020 lub wcześniej i mniej niż 365 dni przed tą datą. Posortuj po employee_id. Zapytanie startowe zwraca też pracownika zatrudnionego po 30 czerwca 2020: znajdź przyczynę i popraw je.",
+      "hint": "DATE - DATE ma znak. Co zwraca DATE '2020-06-30' - e.hire_date dla kogoś zatrudnionego w 2021?",
+      "hint2": "Ujemna liczba dni też jest < 365. Dodaj AND e.hire_date <= DATE '2020-06-30' (albo wymagaj, aby różnica była >= 0)."
+    }
+  }
+}

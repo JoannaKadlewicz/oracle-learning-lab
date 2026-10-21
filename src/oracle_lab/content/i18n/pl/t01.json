@@ -1,0 +1,515 @@
+{
+  "questions": {
+    "q01-quotes": {
+      "prompt": "Które dwa zapytania zwracają tekst It's done?",
+      "explanation": "W literale tekstowym apostrof zapisujesz, podwajając go. Alternatywny mechanizm cytowania q'[...]' pozwala użyć dowolnej pary ograniczników. Cudzysłowy ograniczają identyfikatory, a nie teksty, a Oracle nie obsługuje escape'owania ukośnikiem odwrotnym."
+    },
+    "q01-concat-null": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "King!",
+        "NULL",
+        "Błąd",
+        "KingNULL!"
+      ],
+      "explanation": "W Oracle || traktuje operand NULL jak pusty tekst, więc wynik to King!, a nie NULL. Inaczej jest w arytmetyce, gdzie dowolny operand NULL daje NULL dla całego wyrażenia; błąd też nie występuje. KingNULL! wymagałby tekstu 'NULL' w apostrofach."
+    },
+    "q01-alias-where": {
+      "prompt": "Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Wykonuje się i zwraca pracowników z roczną pensją powyżej 100000.",
+        "Kończy się błędem, bo aliasu kolumny nie można użyć w klauzuli WHERE.",
+        "Kończy się błędem, bo aliasu kolumny nie można użyć w klauzuli ORDER BY.",
+        "Kończy się błędem, bo przed aliasem kolumny nie wolno pisać AS."
+      ],
+      "explanation": "WHERE jest wyliczane przed listą SELECT, więc alias jeszcze nie istnieje (ORA-00904: invalid identifier). ORDER BY jest wyliczane na końcu i może używać aliasu. Powtórz wyrażenie w WHERE albo użyj widoku inline."
+    },
+    "q01-relational-table-rules": {
+      "prompt": "Które dwa stwierdzenia o tabelach w relacyjnej bazie danych są prawdziwe?",
+      "options": [
+        "Klucz główny jednoznacznie identyfikuje każdy wiersz i nie może zawierać NULL.",
+        "Wiersze są zwracane w kolejności wstawiania, chyba że użyjesz ORDER BY.",
+        "Każda wartość w kolumnie ma typ danych tej kolumny.",
+        "Tabela może mieć kilka kluczy głównych, po jednym na każdy klucz kandydujący.",
+        "Kolumna klucza obcego nigdy nie może zawierać NULL."
+      ],
+      "explanation": "Klucz główny to UNIQUE plus NOT NULL, a tabela ma co najwyżej jeden. Każda kolumna ma jeden typ danych. Wiersze w tabeli nie mają gwarantowanej kolejności: bez ORDER BY kolejność wynika ze ścieżki dostępu. Kolumna klucza obcego może zawierać NULL, chyba że zadeklarowano ją też jako NOT NULL (pracownik 108 ma department_id równe NULL)."
+    },
+    "q01-fk-null": {
+      "prompt": "employees.department_id to klucz obcy wskazujący na departments.department_id, a departament 99 nie istnieje. Co się stanie po wykonaniu tego polecenia?",
+      "options": [
+        "Kończy się błędem ORA-02291 (parent key not found), bo departament 99 nie istnieje.",
+        "Wykonuje się, a departament 99 zostaje utworzony automatycznie.",
+        "Wykonuje się, bo klucze obce są sprawdzane dopiero przy COMMIT.",
+        "Kończy się błędem ORA-01400, bo department_id nie może być NULL."
+      ],
+      "explanation": "Wartość klucza obcego musi odpowiadać istniejącemu kluczowi nadrzędnemu albo być NULL. Departament 99 nie istnieje, więc od razu pojawia się ORA-02291 (integrity constraint violated - parent key not found); ograniczenia (constraints) domyślnie nie są odroczone. Wstawienie NULL do department_id by się udało, tak jak w przypadku pracownika 108."
+    },
+    "q01-logical-physical": {
+      "prompt": "Które dwa elementy należą do fizycznego przechowywania danych w bazie Oracle, a nie do logicznego modelu relacyjnego?",
+      "options": [
+        "Pliki danych (data files)",
+        "Encje",
+        "Atrybuty",
+        "Przestrzenie tabel (tablespaces)",
+        "Związki",
+        "Klucze główne"
+      ],
+      "explanation": "Encje, atrybuty, związki i klucze opisują model logiczny, który staje się tabelami, kolumnami i ograniczeniami. Pliki danych to pliki systemu operacyjnego przechowujące dane, a przestrzeń tabel (tablespace) to jednostka przechowywania, która grupuje pliki danych i zawiera segmenty, takie jak tabele i indeksy. SQL działa na poziomie logicznym i nie odwołuje się do plików danych."
+    },
+    "q01-relational-null-key": {
+      "prompt": "Jak w modelu relacyjnym wiersze employees są powiązane z wierszami departments?",
+      "options": [
+        "Przez równe wartości w employees.department_id i departments.department_id.",
+        "Przez fizyczne wskaźniki do wierszy zapisane w każdym wierszu pracownika.",
+        "Przez kolejność, w jakiej wiersze zostały wstawione.",
+        "Przez ukrytą kolumnę ROWID, którą klucz obcy kopiuje z wiersza nadrzędnego."
+      ],
+      "explanation": "Związki są reprezentowane wyłącznie przez wartości danych: kolumna klucza obcego przechowuje wartość klucza wiersza nadrzędnego, a złączenie (JOIN) dopasowuje te wartości. Wiersze nie mają znaczącej kolejności. ROWID to fizyczny adres wiersza, ale klucze obce przechowują wartość klucza, a nie ROWID."
+    },
+    "q01-erd-fk-side": {
+      "prompt": "ERD pokazuje związek jeden-do-wielu: jeden DEPARTMENT ma wielu EMPLOYEE. Gdzie trafia kolumna klucza obcego?",
+      "options": [
+        "Do tabeli EMPLOYEES, z odwołaniem do klucza głównego departamentu.",
+        "Do tabeli DEPARTMENTS, jako lista identyfikatorów pracowników.",
+        "Do obu tabel, każda z odwołaniem do drugiej.",
+        "Do osobnej tabeli, która jest zawsze wymagana dla związku."
+      ],
+      "explanation": "Klucz obcy trafia po stronie 'wielu', więc każdy wiersz pracownika przechowuje jedno department_id. Kolumna z listą identyfikatorów łamie pierwszą postać normalną. Osobna tabela pośrednia jest potrzebna tylko dla związków wiele-do-wielu."
+    },
+    "q01-erd-projection-selection": {
+      "prompt": "Które dwa stwierdzenia poprawnie wiążą klauzule SELECT z elementami ERD?",
+      "options": [
+        "Lista SELECT wybiera atrybuty (kolumny): projekcja.",
+        "Klauzula WHERE wybiera wystąpienia (wiersze): selekcja.",
+        "Klauzula WHERE wybiera atrybuty (kolumny): projekcja.",
+        "ORDER BY podąża za związkiem między dwiema encjami.",
+        "Klauzula FROM może wskazać tylko jedną encję."
+      ],
+      "explanation": "Projekcja wybiera kolumny (atrybuty) i realizuje ją lista SELECT; selekcja wybiera wiersze (wystąpienia encji) i realizuje ją WHERE. Przejście po związku między encjami to złączenie (JOIN) po kluczu obcym, które używa FROM z kilkoma tabelami; ORDER BY tylko sortuje."
+    },
+    "q01-erd-intersection": {
+      "prompt": "ERD mówi: ORDER może zawierać wiele PRODUCT, a PRODUCT może występować w wielu ORDER. Projektant dodaje tabelę ORDER_ITEMS (order_id, line_no, product_id, quantity, unit_price). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "ORDER_ITEMS to tabela pośrednia, która rozwiązuje związek wiele-do-wielu między zamówieniami a produktami.",
+        "ORDER_ITEMS potrzebuje kluczy obcych wskazujących zarówno na zamówienia, jak i na produkty.",
+        "Samo product_id jest odpowiednim kluczem głównym dla ORDER_ITEMS.",
+        "ORDER_ITEMS nie potrzebuje kluczy obcych, bo przechowuje tylko ilości.",
+        "Związek wiele-do-wielu można by zamiast tego zrealizować jedną kolumną klucza obcego product_id w orders."
+      ],
+      "explanation": "Związek wiele-do-wielu realizuje się tabelą pośrednią z kluczami obcymi do obu tabel nadrzędnych, więc każdy wiersz łączy jedno zamówienie z jednym produktem. Samo product_id nie może być kluczem, bo ten sam produkt występuje w wielu zamówieniach; zamiast tego używa się klucza złożonego, np. (order_id, line_no). Jedna kolumna klucza obcego w orders mogłaby wskazać tylko jeden produkt na zamówienie."
+    },
+    "q01-erd-optional": {
+      "prompt": "ERD mówi: każdy EMPLOYEE może należeć do jednego DEPARTMENT (opcjonalnie, linia przerywana). Jak w employees realizuje się tę opcjonalność?",
+      "options": [
+        "department_id to klucz obcy, który dopuszcza NULL.",
+        "department_id to klucz obcy zadeklarowany jako NOT NULL.",
+        "department_id ma ograniczenie UNIQUE.",
+        "department_id jest częścią klucza głównego employees."
+      ],
+      "explanation": "'Może' (opcjonalnie) oznacza, że pracownik może istnieć bez departamentu, więc kolumna klucza obcego dopuszcza NULL: pracownik 108 ma department_id równe NULL. NOT NULL realizowałoby 'musi należeć'. UNIQUE pozwoliłoby tylko na jednego pracownika w departamencie, zmieniając związek w jeden-do-jednego."
+    },
+    "q01-sql-categories": {
+      "prompt": "Które dwa polecenia SQL to polecenia DML (data manipulation language)?",
+      "explanation": "INSERT, UPDATE, DELETE i MERGE zmieniają dane i należą do DML (dokumentacja Oracle zalicza do DML także SELECT). TRUNCATE i CREATE to DDL, GRANT to DCL (w terminologii Oracle również DDL), a COMMIT to polecenie sterowania transakcją. TRUNCATE usuwa wiersze, ale jest poleceniem DDL: zatwierdza transakcję i nie da się go wycofać."
+    },
+    "q01-sql-declarative": {
+      "prompt": "Które stwierdzenie o SQL i bazie danych Oracle jest prawdziwe?",
+      "options": [
+        "SQL jest deklaratywny: opisujesz wynik, a optymalizator decyduje, jak dotrzeć do danych.",
+        "Polecenia SQL muszą wskazywać indeks do użycia, inaczej baza przegląda całą tabelę.",
+        "Średnik jest częścią każdego polecenia SQL i jest wysyłany do bazy.",
+        "SQL można uruchamiać tylko z SQL*Plus."
+      ],
+      "explanation": "SQL mówi, co zwrócić, a nie jak; optymalizator wybiera ścieżki dostępu, np. indeksy. Średnik to terminator używany przez klientów, takich jak SQL*Plus i SQL Developer, i nie jest częścią tekstu polecenia wysyłanego do serwera. SQL może wysłać dowolny klient lub program (JDBC, Python, APEX)."
+    },
+    "q01-case-rules": {
+      "prompt": "Które dwa stwierdzenia o wielkości liter w Oracle SQL są prawdziwe?",
+      "options": [
+        "Słowa kluczowe i identyfikatory bez cudzysłowów nie rozróżniają wielkości liter.",
+        "Porównania literałów tekstowych rozróżniają wielkość liter.",
+        "Identyfikatory bez cudzysłowów są zapisywane w słowniku danych małymi literami.",
+        "Słowa kluczowe trzeba pisać wielkimi literami.",
+        "WHERE last_name = 'king' znajduje King, bo porównania ignorują wielkość liter."
+      ],
+      "explanation": "select, SELECT i Select to to samo słowo kluczowe, a employees i EMPLOYEES to ta sama tabela, bo nazwy bez cudzysłowów są zapisywane WIELKIMI literami. Z danymi jest inaczej: 'king' nie jest równe 'King' przy domyślnym porównaniu binarnym. Aby porównać bez względu na wielkość liter, użyj UPPER() albo LOWER()."
+    },
+    "q01-case-count": {
+      "prompt": "Tabelę EMPLOYEES utworzono z nazwą bez cudzysłowów, a nazwiska są zapisane mieszaną wielkością liter, np. King. Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Wykonuje się, ale dopasowuje tylko wiersze, w których last_name to dokładnie KING wielkimi literami, więc wiersz zapisany jako King nie zostanie zwrócony.",
+        "Zwraca wiersz zapisany jako King, bo porównania tekstów ignorują wielkość liter.",
+        "Kończy się błędem: aliasy tabeli e i E to różne identyfikatory.",
+        "Kończy się błędem: Employees nie jest zapisaną nazwą tabeli."
+      ],
+      "explanation": "Słowa kluczowe i identyfikatory bez cudzysłowów nie rozróżniają wielkości liter: są zamieniane na wielkie litery, więc E i e to ten sam alias, a Employees oznacza EMPLOYEES. Literały tekstowe są natomiast porównywane dokładnie (przy domyślnym porównaniu binarnym), więc 'KING' nie jest równe 'King'. Aby dopasować bez względu na wielkość liter, użyj UPPER(e.last_name) = 'KING'."
+    },
+    "q01-star-mixed": {
+      "prompt": "Które dwa polecenia wykonują się bez błędu?",
+      "explanation": "Samodzielna * musi być jedynym elementem listy SELECT; w połączeniu z innymi elementami trzeba ją kwalifikować (e.* albo employees.*). Oracle nie akceptuje AS przed aliasem tabeli (ORA-00933), tylko przed aliasem kolumny. SELECT *, salary zgłasza ORA-00923, a SELECT salary, * zgłasza ORA-00936."
+    },
+    "q01-table-alias-as": {
+      "prompt": "Jaki błąd zgłasza to polecenie?",
+      "options": [
+        "ORA-00933: SQL command not properly ended",
+        "ORA-00904: \"E\".\"LAST_NAME\": invalid identifier",
+        "ORA-00942: table or view does not exist",
+        "Żaden: zwraca 9 wierszy"
+      ],
+      "explanation": "Oracle pozwala na AS tylko przy aliasach kolumn. Po FROM employees parser traktuje AS jako nieoczekiwane słowo i zgłasza ORA-00933. FROM employees e działa. Wiele innych baz danych (PostgreSQL, SQL Server, MySQL) akceptuje AS przy aliasach tabel. Oracle 23ai zgłasza ten sam błąd jako ORA-03048 (SQL reserved word is not syntactically valid)."
+    },
+    "q01-clause-first": {
+      "prompt": "Która klauzula polecenia SELECT jest logicznie przetwarzana jako pierwsza?",
+      "options": [
+        "FROM",
+        "SELECT",
+        "WHERE",
+        "ORDER BY"
+      ],
+      "explanation": "Kolejność logiczna to FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY. FROM jest pierwsze, bo pozostałe klauzule odwołują się do jego wierszy. Ta kolejność wyjaśnia, dlaczego alias kolumny zdefiniowany w SELECT działa w ORDER BY, ale nie w WHERE."
+    },
+    "q01-describe": {
+      "prompt": "Które stwierdzenie o DESCRIBE employees jest prawdziwe?",
+      "options": [
+        "To polecenie SQL*Plus/SQLcl, które wyświetla nazwy kolumn, oznaczenia NOT NULL i typy danych.",
+        "To polecenie SQL, które wyświetla też klucze główne i obce.",
+        "Zwraca wiersze tabeli w układzie pionowym.",
+        "Musi kończyć się średnikiem, inaczej się nie wykona."
+      ],
+      "explanation": "DESCRIBE (DESC) to polecenie klienta, a nie SQL: dla każdej kolumny pokazuje Name, Null? i Type. Nie pokazuje ograniczeń innych niż NOT NULL; po nie sięgnij do USER_CONSTRAINTS. Polecenia SQL*Plus nie wymagają średnika."
+    },
+    "q01-alias-valid": {
+      "prompt": "Które dwie listy SELECT są poprawne?",
+      "explanation": "AS jest opcjonalne, a alias ze spacjami lub znakami specjalnymi wymaga cudzysłowów. Bez cudzysłowów Monthly Pay to dwa słowa (ORA-00923). Apostrofy tworzą literał tekstowy, a nie alias (ORA-00923). Słowo zastrzeżone, np. SELECT, może być aliasem tylko w cudzysłowie."
+    },
+    "q01-alias-quoted-case": {
+      "prompt": "Co się stanie po wykonaniu tego zapytania?",
+      "options": [
+        "Kończy się błędem ORA-00904: alias w cudzysłowie \"Name\" nie pasuje do NAME.",
+        "Zwraca nazwiska posortowane alfabetycznie.",
+        "Kończy się błędem, bo alias kolumny nie może wystąpić w ORDER BY.",
+        "Zwraca nazwiska w kolejności z tabeli, bo name jest ignorowane."
+      ],
+      "explanation": "Identyfikatory w cudzysłowie zachowują dokładną wielkość liter, więc alias to Name. Nazwa bez cudzysłowu w ORDER BY staje się NAME, co nie jest ani aliasem, ani kolumną employees: ORA-00904. ORDER BY \"Name\" (albo ORDER BY 1) działa."
+    },
+    "q01-q-quote-delimiters": {
+      "prompt": "Które dwa wyrażenia zwracają tekst O'Neil?",
+      "options": [
+        "q'{O'Neil}'",
+        "q'!O'Neil!'",
+        "q'(O'Neil]'",
+        "q\"[O'Neil]\"",
+        "'O\\'Neil'"
+      ],
+      "explanation": "W q'...' ogranicznik następuje po otwierającym apostrofie; nawiasy musi zamknąć ich para ([], {}, (), <>), a każdy inny znak trzeba powtórzyć jako ogranicznik zamykający, tak jak !. Łączenie ( z ] jest niepoprawne, po q musi stać apostrof, a Oracle nie ma escape'owania ukośnikiem odwrotnym."
+    },
+    "q01-concat-number": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "Ernst earns 6000",
+        "Ernst earns 6000.00",
+        "Błąd, bo salary ma typ NUMBER",
+        "Ernst earns"
+      ],
+      "explanation": "|| niejawnie konwertuje liczbę na tekst domyślną konwersją, która pomija końcowe zera: 6000, a nie 6000.00 (skala NUMBER(8,2) nie dodaje cyfr). Błąd nie występuje, bo Oracle przy konkatenacji automatycznie zamienia liczby na teksty. Aby sterować wynikiem, użyj TO_CHAR z modelem formatu, np. '99990.00'."
+    },
+    "q01-equivalent-concat": {
+      "prompt": "Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "W 19c CONCAT przyjmuje dokładnie dwa argumenty, więc trzy wartości wymagają zagnieżdżenia; forma z trzema argumentami zgłasza ORA-00909 (23ai ją akceptuje). q'[, ]' to tylko inny zapis ', '. + to w Oracle operator arytmetyczny i na tekście kończy się błędem ORA-01722. Ostatnie zapytanie pomija Granta, który nie ma departamentu."
+    },
+    "q01-equivalent-distinct": {
+      "prompt": "Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "UNIQUE to w Oracle synonim DISTINCT, a grupowanie po kolumnie też zwraca każdą wartość raz, łącznie z jedną grupą NULL. ALL to wartość domyślna i zachowuje duplikaty. Odfiltrowanie NULL gubi wiersz Granta z NULL. DISTINCT musi stać zaraz po SELECT; w środku listy zgłasza ORA-00936."
+    },
+    "q01-null-arithmetic": {
+      "prompt": "Jaka jest wartość total?",
+      "options": [
+        "288000",
+        "NULL",
+        "0",
+        "Błąd, bo commission_pct to NULL"
+      ],
+      "explanation": "Każda operacja arytmetyczna z operandem NULL zwraca NULL, więc 24000 * 12 * NULL to NULL, a 288000 + NULL to nadal NULL. NULL nie jest traktowany jak 0 (to dałoby 288000) i błąd nie występuje. Kolumnę dopuszczającą NULL, taką jak commission_pct, opakuj w NVL(commission_pct, 0)."
+    },
+    "q01-arith-precedence": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "7200",
+        "73200",
+        "72100",
+        "6112"
+      ],
+      "explanation": "* i / mają wyższy priorytet niż + i -, więc to 6000 + (100 * 12) = 7200. (6000 + 100) * 12 = 73200 wymaga nawiasów. Operatory o tym samym priorytecie są wyliczane od lewej do prawej."
+    },
+    "q01-null-facts": {
+      "prompt": "Które dwa stwierdzenia o NULL w Oracle są prawdziwe?",
+      "options": [
+        "NULL to nie to samo co zero ani spacja.",
+        "Wyrażenie arytmetyczne z operandem NULL daje NULL.",
+        "salary / NULL zgłasza ORA-01476 (divisor is equal to zero).",
+        "Pusty tekst '' to wartość różna od NULL.",
+        "Kolumna dowolnego typu danych poza NUMBER może zawierać NULL."
+      ],
+      "explanation": "NULL oznacza wartość nieznaną lub nie mającą zastosowania, inną niż 0 i ' '. Arytmetyka z NULL daje NULL, także dzielenie przez NULL; tylko dzielenie przez 0 zgłasza ORA-01476. Oracle zapisuje '' jako NULL (inne bazy danych nie). Kolumny dowolnego typu danych mogą zawierać NULL, chyba że mają ograniczenie NOT NULL albo należą do klucza głównego."
+    },
+    "q01-divide-zero": {
+      "prompt": "Co się stanie po wykonaniu tego zapytania?",
+      "options": [
+        "Kończy się błędem ORA-01476: divisor is equal to zero.",
+        "Zwraca NULL, bo dzielnik był początkowo NULL.",
+        "Zwraca 0.",
+        "Zwraca 1000, bo dzielenie przez zero jest ignorowane."
+      ],
+      "explanation": "NVL zamienia NULL na 0 przed dzieleniem, a dzielenie wartości NUMBER przez zero zgłasza ORA-01476. Bez NVL 1000 / NULL po cichu zwróciłoby NULL. Ta sama pułapka występuje w salary / NVL(commission_pct, 0): jeden wiersz z prowizją NULL sprawia, że całe zapytanie kończy się błędem."
+    },
+    "q01-alias-naming-rules": {
+      "prompt": "Które dwa polecenia SELECT wykonują się bez błędu?",
+      "explanation": "Alias bez cudzysłowów podlega regułom identyfikatorów: zaczyna się literą i może zawierać litery, cyfry, _, $ i #, więc annual_2024 i annual$pay są poprawne (nagłówki ANNUAL_2024 i ANNUAL$PAY). 2024_annual zaczyna się cyfrą, a annual-pay zawiera łącznik, więc oba zgłaszają ORA-00923 (FROM keyword not found where expected). 'annual' w apostrofach to literał tekstowy, a nie alias, i też zgłasza ORA-00923. Każdy z nich działa w cudzysłowie."
+    },
+    "q01-alias-shadows-column": {
+      "prompt": "Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "ORDER BY salary odwołuje się do aliasu, więc wiersze są sortowane po -e.salary: najwyższa pensja jest pierwsza.",
+        "ORDER BY salary odwołuje się do kolumny tabeli, więc najniższa pensja jest pierwsza.",
+        "Kończy się błędem ORA-00918: column ambiguously defined.",
+        "Kończy się błędem, bo alias nie może mieć tej samej nazwy co kolumna."
+      ],
+      "explanation": "Niekwalifikowana nazwa w ORDER BY jest najpierw dopasowywana do aliasu z listy SELECT, więc wiersze są sortowane po wyrażeniu -e.salary, co stawia najwyższą pensję na początku. Aby sortować po kolumnie tabeli, kwalifikuj ją: ORDER BY e.salary. Nie ma błędu niejednoznaczności, a alias może powtarzać nazwę kolumny."
+    },
+    "q01-alias-filter-scenario": {
+      "prompt": "Raport ma pokazać roczne wynagrodzenie (salary * 12) powyżej 100000, filtrując po aliasie annual zamiast powtarzać wyrażenie. Które dwa zapytania zwracają właściwe wiersze?",
+      "explanation": "Alias kolumny istnieje dopiero po wyliczeniu listy SELECT, co następuje po WHERE i HAVING. Zdefiniowanie go w widoku inline albo w zapytaniu WITH czyni go prawdziwą kolumną zapytania zewnętrznego, więc zewnętrzne WHERE może go użyć (4 wiersze). Cudzysłów wokół aliasu nie pomaga (ORA-00904), a HAVING też jest wyliczane przed SELECT: kończy się błędem ORA-00904 w 19c (ORA-00979 w 23ai)."
+    },
+    "q01-distinct-position": {
+      "prompt": "Jaki błąd zgłasza to polecenie?",
+      "options": [
+        "ORA-00936: missing expression",
+        "ORA-00923: FROM keyword not found where expected",
+        "ORA-00979: not a GROUP BY expression",
+        "Żaden: zwraca każde stanowisko raz na departament"
+      ],
+      "explanation": "DISTINCT (lub UNIQUE) może wystąpić tylko raz, zaraz po SELECT, i zawsze dotyczy całego wiersza. W środku listy parser trafia na słowo kluczowe tam, gdzie oczekuje wyrażenia, i zgłasza ORA-00936 w 19c; Oracle 23ai zgłasza ORA-03045 (DISTINCT or UNIQUE keyword in select_list). Aby dostać każdą kombinację departamentu i stanowiska raz, napisz SELECT DISTINCT e.department_id, e.job_title."
+    },
+    "q01-distinct-facts": {
+      "prompt": "Które dwa stwierdzenia o DISTINCT są prawdziwe?",
+      "options": [
+        "SELECT DISTINCT * FROM departments jest poprawne i usuwa wiersze powtórzone we wszystkich kolumnach.",
+        "DISTINCT traktuje NULL-e jako równe, więc kilka NULL-i w kolumnie daje jeden wiersz.",
+        "DISTINCT dotyczy tylko pierwszej kolumny wymienionej po nim.",
+        "DISTINCT pomija wiersze, które mają NULL w dowolnej wybranej kolumnie.",
+        "DISTINCT gwarantuje, że wynik jest posortowany rosnąco."
+      ],
+      "explanation": "DISTINCT dotyczy całego wiersza, także w SELECT DISTINCT *, a przy usuwaniu duplikatów NULL-e są grupowane razem (SELECT DISTINCT commission_pct zwraca jeden wiersz z NULL). Nigdy nie dotyczy tylko pierwszej kolumny i nigdy nie usuwa wierszy z powodu NULL-i. Usuwanie duplikatów może korzystać z haszowania, więc bez ORDER BY kolejność nie jest gwarantowana."
+    },
+    "q01-from-mandatory": {
+      "prompt": "Które dwie klauzule musi zawierać każde polecenie SELECT w Oracle Database 19c?",
+      "options": [
+        "SELECT",
+        "FROM",
+        "WHERE",
+        "ORDER BY",
+        "GROUP BY"
+      ],
+      "explanation": "W 19c zapytanie wymaga listy SELECT i klauzuli FROM; aby wyliczyć wyrażenie, wybierasz je FROM dual. SELECT 2 + 3 * 4 bez FROM zgłasza ORA-00923 (FROM keyword not found where expected). WHERE, GROUP BY i ORDER BY są opcjonalne. W Oracle 23ai FROM jest opcjonalne, więc tam SELECT 2 + 3 * 4 zwraca 14."
+    },
+    "q01-missing-comma": {
+      "prompt": "Programista chciał wybrać first_name, last_name i salary. Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Zwraca dwie kolumny: FIRST_NAME, która zawiera nazwiska, i SALARY.",
+        "Zwraca trzy kolumny: LAST_NAME, FIRST_NAME i SALARY.",
+        "Kończy się błędem ORA-00923: FROM keyword not found where expected.",
+        "Kończy się błędem ORA-00904, bo first_name jest już nazwą kolumny."
+      ],
+      "explanation": "Bez przecinka first_name nie jest drugą kolumną, tylko aliasem dla e.last_name, więc zapytanie zwraca dwie kolumny: FIRST_NAME (z nazwiskami) i SALARY. Błąd nie występuje, bo alias nie wymaga AS i może powtarzać nazwę kolumny. Ten cichy błąd sprawia, że brakujący przecinek na liście SELECT jest tak groźny."
+    },
+    "q01-clause-order-error": {
+      "prompt": "Jaki błąd zgłasza to polecenie?",
+      "options": [
+        "ORA-00933: SQL command not properly ended",
+        "ORA-00904: invalid identifier",
+        "ORA-00936: missing expression",
+        "Żaden: klauzule można pisać w dowolnej kolejności"
+      ],
+      "explanation": "Klauzule trzeba pisać w kolejności SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY. Po pełnej klauzuli ORDER BY parser nie oczekuje WHERE, więc w 19c zgłasza ORA-00933; Oracle 23ai zgłasza ORA-03048 (SQL reserved word 'WHERE' is not syntactically valid). Żaden identyfikator nie jest błędny, więc to nie ORA-00904."
+    },
+    "q01-date-arithmetic": {
+      "prompt": "Które dwa wyrażenia można wybrać FROM employees e bez błędu?",
+      "options": [
+        "e.hire_date + 30",
+        "e.hire_date - DATE '2015-01-01'",
+        "e.hire_date + e.hire_date",
+        "e.hire_date * 2"
+      ],
+      "explanation": "DATE + liczba dodaje dni i zwraca DATE; DATE - DATE zwraca liczbę dni między datami (167 dla Kinga). Dodawanie dwóch dat nie ma sensu i zgłasza ORA-00975 (date + date not allowed). Mnożenie daty zgłasza ORA-00932 (inconsistent datatypes), bo * i / wymagają liczb."
+    },
+    "q01-null-divide-zero": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "NULL",
+        "0",
+        "ORA-01476: divisor is equal to zero",
+        "ORA-01722: invalid number"
+      ],
+      "explanation": "Każda operacja arytmetyczna z operandem NULL zwraca NULL, także NULL / 0: dzielenie się nie odbywa, więc błąd nie występuje. Wartość różna od NULL podzielona przez zero, np. 0.3 / 0, zgłasza ORA-01476. 0 jest błędne, bo NULL to nie zero, a ORA-01722 dotyczy tekstu, którego nie da się zamienić na liczbę."
+    },
+    "q01-q-quote-inner-delimiter": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "x]y",
+        "x",
+        "[x]y]",
+        "ORA-01756: quoted string not properly terminated"
+      ],
+      "explanation": "Literał q kończy się tylko tam, gdzie zaraz po ograniczniku zamykającym stoi apostrof. Po pierwszym ] stoi y, więc to zwykły tekst, a wartość to x]y. Same nawiasy są ogranicznikami i nie należą do wartości, a literał jest poprawnie zakończony przez ]'."
+    },
+    "q01-empty-string": {
+      "prompt": "Co zawierają v i len?",
+      "options": [
+        "ab i NULL",
+        "ab i 0",
+        "NULL i NULL",
+        "NULL i 0"
+      ],
+      "explanation": "Oracle traktuje pusty tekst '' jak NULL. Konkatenacja ignoruje NULL, więc v to ab, ale każda funkcja z NULL, np. LENGTH, zwraca NULL, a nie 0. Bazy danych, które przechowują '' jako pusty tekst (PostgreSQL, SQL Server), zwróciłyby długość 0."
+    },
+    "q01-composite-pk": {
+      "prompt": "order_items ma złożony klucz główny (order_id, line_no). Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "To samo order_id może wystąpić w wielu wierszach, o ile każda kombinacja (order_id, line_no) jest unikalna.",
+        "Zarówno order_id, jak i line_no muszą być unikalne każde z osobna.",
+        "Ani order_id, ani line_no nie może być NULL.",
+        "line_no może być NULL, o ile order_id nie jest NULL.",
+        "Złożony klucz główny można zdefiniować tylko wtedy, gdy tabela nie ma innego ograniczenia unikalności."
+      ],
+      "explanation": "Złożony klucz główny wymaga unikalności kombinacji kolumn, więc powtórzenie samego order_id albo samego line_no jest w porządku; zduplikowana kombinacja zgłasza ORA-00001. Każda kolumna klucza głównego jest niejawnie NOT NULL, więc line_no równe NULL zgłasza ORA-01400, nawet jeśli druga kolumna klucza ma wartość. Tabela może mieć jeden klucz główny i dowolnie wiele ograniczeń UNIQUE."
+    },
+    "q01-unique-null": {
+      "prompt": "employees.email ma ograniczenie (constraint) UNIQUE (i nie ma NOT NULL), a co najmniej jeden wiersz ma już email równy NULL. Co się stanie po wykonaniu tego polecenia?",
+      "options": [
+        "Wykona się: ograniczenie UNIQUE dopuszcza dowolną liczbę NULL-i.",
+        "Kończy się błędem ORA-00001, bo email NULL już istnieje.",
+        "Kończy się błędem ORA-01400, bo kolumna UNIQUE nie może być NULL.",
+        "Wykona się tylko wtedy, gdy najpierw zmienisz istniejący NULL."
+      ],
+      "explanation": "Klucz unikalny porównuje wartości, a NULL nie jest równy niczemu, więc wiersze z emailem NULL nigdy nie są w konflikcie. Tylko zduplikowana wartość różna od NULL (np. 'SKING') zgłasza ORA-00001. ORA-01400 dotyczy kolumn NOT NULL i kluczy głównych, czego samo ograniczenie UNIQUE nie oznacza."
+    },
+    "q01-erd-self-reference": {
+      "prompt": "employees.manager_id to klucz obcy wskazujący na employees.employee_id. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Realizuje rekurencyjny związek jeden-do-wielu: jeden kierownik ma wielu pracowników.",
+        "Jeśli manager_id nie jest zadeklarowane jako NOT NULL, pracownik na szczycie hierarchii może mieć manager_id równe NULL.",
+        "Wymaga tabeli pośredniej, bo pracownik jest jednocześnie kierownikiem i podwładnym.",
+        "manager_id musi być unikalne, bo każdy kierownik występuje tylko raz.",
+        "Każda wartość manager_id jest akceptowana, bo klucz obcy wskazuje na własną tabelę."
+      ],
+      "explanation": "Klucz obcy wskazujący na własną tabelę modeluje związek rekurencyjny (samoodwołujący się), na ERD rysowany jako 'świńskie ucho' (pig's ear). Stroną 'wielu' jest wiersz pracownika, więc manager_id się powtarza (101 kieruje trzema osobami) i może być NULL na szczycie hierarchii. Nadal jest sprawdzany: manager_id, któremu nie odpowiada żaden pracownik, zgłasza ORA-02291. Tabela pośrednia nie jest potrzebna, bo to związek jeden-do-wielu."
+    },
+    "q01-ddl-categories": {
+      "prompt": "Które dwa polecenia SQL to polecenia DDL (data definition language)?",
+      "explanation": "DDL definiuje lub zmienia obiekty: CREATE, ALTER, DROP, RENAME, TRUNCATE i COMMENT, a każde z nich niejawnie zatwierdza transakcję. TRUNCATE usuwa wiersze jak DELETE, ale jest poleceniem DDL, więc nie da się go wycofać. MERGE i DELETE to DML, SAVEPOINT to sterowanie transakcją, a GRANT to DCL."
+    },
+    "q01-sqlplus-commands": {
+      "prompt": "Które dwa elementy to polecenia SQL*Plus, a nie polecenia SQL wysyłane do bazy?",
+      "options": [
+        "DESCRIBE employees",
+        "SET VERIFY OFF",
+        "SELECT * FROM dual",
+        "COMMIT",
+        "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'"
+      ],
+      "explanation": "SQL*Plus wykonuje własne polecenia (DESCRIBE, SET, DEFINE, COLUMN, SPOOL) po stronie klienta; nie są one SQL i nie wymagają średnika. SELECT i COMMIT to polecenia SQL. ALTER SESSION też wygląda jak ustawienie, ale jest poleceniem SQL wykonywanym przez serwer bazy danych."
+    },
+    "q01-distinct-lob": {
+      "prompt": "Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Kończy się błędem, bo DISTINCT nie potrafi porównywać wartości typu LOB, takiego jak CLOB.",
+        "Zwraca jeden wiersz zawierający x.",
+        "Nie zwraca żadnych wierszy, bo wartości LOB nigdy nie są równe.",
+        "Kończy się błędem ORA-00936, bo DISTINCT wymaga nazwy kolumny, a nie funkcji."
+      ],
+      "explanation": "DISTINCT musi porównywać całe wiersze, a kolumn LOB (CLOB, BLOB, NCLOB) nie da się porównywać, więc zapytanie kończy się błędem: ORA-00932 (inconsistent datatypes: expected - got CLOB) w 19c i ORA-22848 (cannot use CLOB type as comparison key) w 23ai. DISTINCT przyjmuje dowolne wyrażenie, także wywołania funkcji, więc ORA-00936 jest błędne. To samo ograniczenie dotyczy GROUP BY, ORDER BY i operatorów zbiorowych na LOB-ach."
+    },
+    "q01-distinct-literal-rows": {
+      "prompt": "Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "explanation": "DISTINCT traktuje NULL-e jako duplikaty siebie nawzajem, więc dwa NULL-e stają się jednym wierszem, a teksty porównuje z rozróżnianiem wielkości liter, więc 'A' i 'a' pozostają osobno: NULL, A i a. 2 oznaczałoby, że DISTINCT ignoruje wielkość liter albo pomija NULL-e; nie robi ani jednego, ani drugiego. 4 oznaczałoby, że NULL-e nigdy nie są duplikatami, a ta reguła dotyczy porównań =, nie DISTINCT."
+    },
+    "q01-distinct-parentheses": {
+      "prompt": "Które dwa polecenia wykonują się poprawnie?",
+      "explanation": "DISTINCT pisze się raz, zaraz po SELECT, i dotyczy całego wiersza. W DISTINCT(e.department_id) nawiasy obejmują tylko pierwsze wyrażenie, więc to zapytanie jest takie samo jak pierwsze i nadal zwraca każdą kombinację departamentu i stanowiska raz, a nie każdy departament raz. Podwójne DISTINCT, ALL razem z DISTINCT albo DISTINCT po innym elemencie listy kończą się błędem (ORA-00936 w 19c, ORA-03045 w 23ai)."
+    }
+  },
+  "labs": {
+    "lab-all-departments": {
+      "title": "Wszystkie kolumny departments",
+      "task": "Zwróć wszystkie kolumny tabeli departments w kolejności z definicji tabeli, posortowane po department_id.",
+      "hint": "SELECT * zwraca każdą kolumnę w kolejności, w jakiej ją zdefiniowano.",
+      "hint2": "SELECT * FROM departments, potem ORDER BY po kolumnie klucza."
+    },
+    "lab-annual-salary": {
+      "title": "Roczna pensja z aliasem",
+      "task": "Zwróć employee_id, last_name i roczną pensję (salary razy 12) o nazwie annual_salary dla każdego pracownika, posortowane po annual_salary od najwyższej do najniższej, a potem po employee_id.",
+      "hint": "Nadaj wyrażeniu alias kolumny przez AS; ORDER BY może użyć tego aliasu.",
+      "hint2": "ORDER BY annual_salary DESC, e.employee_id rozstrzyga remisy przy 6000 i 4800."
+    },
+    "lab-bonus-precedence": {
+      "title": "Premia miesięczna, potem rocznie",
+      "task": "Każdy pracownik dostaje premię 500 doliczaną do miesięcznej pensji. Zwróć employee_id, salary i yearly_total = (salary plus 500) razy 12, posortowane po employee_id.",
+      "hint": "Mnożenie jest wykonywane przed dodawaniem, chyba że użyjesz nawiasów.",
+      "hint2": "King powinien dostać (24000 + 500) * 12 = 294000, a nie 30000."
+    },
+    "lab-full-name": {
+      "title": "Nazwisko, imię",
+      "task": "Zwróć employee_id i full_name w postaci 'King, Steven' (nazwisko, przecinek, spacja, imię) dla każdego pracownika, posortowane po employee_id.",
+      "hint": "Użyj operatora || z literałem ', ' między dwiema kolumnami.",
+      "hint2": "e.last_name || ', ' || e.first_name AS full_name"
+    },
+    "lab-job-sentence": {
+      "title": "Zdanie z apostrofem",
+      "task": "Zwróć employee_id i description w postaci King's job is President (nazwisko, apostrof i s, słowa job is, stanowisko) dla każdego pracownika, posortowane po employee_id.",
+      "hint": "Literał zawiera apostrof: podwój go ('''s job is ') albo użyj operatora q'[...]'.",
+      "hint2": "e.last_name || q'['s job is ]' || e.job_title"
+    },
+    "lab-distinct-jobs": {
+      "title": "Każde stanowisko raz",
+      "task": "Zwróć każde job_title występujące w employees dokładnie raz, posortowane alfabetycznie.",
+      "hint": "DISTINCT usuwa z wyniku zduplikowane wiersze.",
+      "hint2": "SELECT DISTINCT e.job_title ... ORDER BY e.job_title"
+    },
+    "lab-quoted-headings": {
+      "title": "Nagłówki ze spacjami",
+      "task": "Zwróć last_name z nagłówkiem Employee Name i salary z nagłówkiem Monthly Salary (dokładnie taka wielkość liter, ze spacją) dla każdego pracownika, posortowane po \"Monthly Salary\" malejąco, a potem po \"Employee Name\".",
+      "hint": "Alias ze spacją trzeba ująć w cudzysłów.",
+      "hint2": "ORDER BY musi zapisać aliasy w ten sam sposób: ORDER BY \"Monthly Salary\" DESC."
+    },
+    "lab-fix-annual-alias": {
+      "title": "Popraw: roczne wynagrodzenie powyżej 100000",
+      "task": "Zwróć last_name i annual (salary * 12, z nagłówkiem kolumny ANNUAL) pracowników, których roczne wynagrodzenie przekracza 100000, od najwyższego rocznego wynagrodzenia. Zapytanie startowe kończy się błędem: popraw je.",
+      "hint": "WHERE jest wyliczane przed listą SELECT, więc alias annual jeszcze tam nie istnieje (ORA-00904).",
+      "hint2": "Powtórz wyrażenie w WHERE: WHERE e.salary * 12 > 100000. ORDER BY może zostać z aliasem."
+    },
+    "lab-fix-total-pay-null": {
+      "title": "Popraw: łączne wynagrodzenie z prowizją",
+      "task": "Zwróć employee_id i total_pay, czyli roczne wynagrodzenie z prowizją: salary * 12 * (1 + commission_pct), gdzie brak prowizji liczy się jako 0. Każdy pracownik musi mieć wartość total_pay. Posortuj po employee_id. Zapytanie startowe zwraca NULL dla większości pracowników: popraw je.",
+      "hint": "Arytmetyka z operandem NULL zwraca NULL. Którzy pracownicy nie mają prowizji?",
+      "hint2": "Zamień NULL na 0 przed dodawaniem: (1 + NVL(e.commission_pct, 0))."
+    },
+    "lab-erd-projects-table": {
+      "title": "Zrealizuj związek jeden-do-wielu",
+      "task": "ERD mówi: każdy DEPARTMENT może prowadzić wiele PROJECT, a każdy PROJECT może należeć do jednego DEPARTMENT. Utwórz tabelę LAB_N01_PROJECTS z project_id NUMBER(6) jako kluczem głównym (ograniczenie LAB_N01_PROJECTS_PK), project_name VARCHAR2(40) NOT NULL i department_id NUMBER(4), opcjonalnym kluczem obcym do departments (ograniczenie LAB_N01_PROJECTS_DEPT_FK).",
+      "hint": "Klucz obcy trafia po stronie 'wielu' (projects). 'Może należeć' oznacza, że kolumna klucza obcego dopuszcza NULL.",
+      "hint2": "department_id NUMBER(4) CONSTRAINT lab_n01_projects_dept_fk REFERENCES departments (department_id), bez NOT NULL."
+    },
+    "lab-distinct-dept-commission": {
+      "title": "Unikalne kombinacje z NULL-ami",
+      "task": "Zwróć każdą unikalną kombinację department_id i commission_pct występującą w employees, raz na kombinację (brak wartości liczy się jako wartość, więc kombinacja z NULL też pojawia się raz). Posortuj po department_id, a potem po commission_pct, oba rosnąco z NULL-ami na końcu.",
+      "hint": "DISTINCT dotyczy całego wiersza i traktuje NULL-e jako równe sobie.",
+      "hint2": "SELECT DISTINCT e.department_id, e.commission_pct ... ORDER BY e.department_id, e.commission_pct (porządek rosnący domyślnie stawia NULL-e na końcu)."
+    }
+  }
+}

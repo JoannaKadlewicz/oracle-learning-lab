@@ -1,0 +1,536 @@
+{
+  "questions": {
+    "q02-like-escape": {
+      "prompt": "Który warunek znajduje wartości zawierające dosłowny znak podkreślenia?",
+      "explanation": "W LIKE _ pasuje do dowolnego pojedynczego znaku, a % do dowolnego ciągu znaków. Aby dopasować je dosłownie, zadeklaruj znak ucieczki przez ESCAPE. Nawiasy kwadratowe to składnia SQL Server, nie Oracle."
+    },
+    "q02-nulls-desc": {
+      "prompt": "commission_pct dopuszcza NULL i niektórzy pracownicy mają commission_pct równe NULL. Które stwierdzenie o zwróconym wierszu jest prawdziwe?",
+      "options": [
+        "Jego commission_pct to NULL, bo w porządku malejącym NULL-e są domyślnie na początku.",
+        "Ma najwyższe commission_pct różne od NULL, bo NULL-e są zawsze sortowane na końcu.",
+        "Ma najniższe commission_pct różne od NULL.",
+        "Zapytanie kończy się błędem, bo FETCH FIRST nie działa, gdy klucz sortowania zawiera NULL-e."
+      ],
+      "explanation": "Oracle sortuje NULL-e tak, jakby były większe od każdej wartości: NULLS LAST to domyślne ustawienie dla porządku rosnącego, a NULLS FIRST dla malejącego. Dlatego pierwszy wiersz w porządku DESC ma commission_pct równe NULL. Napisz ORDER BY commission_pct DESC NULLS LAST, aby dostać najwyższą prowizję; FETCH FIRST działa z każdym kluczem sortowania."
+    },
+    "q02-offset": {
+      "prompt": "Które wiersze zwraca to zapytanie?",
+      "options": [
+        "3. i 4. wiersz w kolejności employee_id",
+        "2. i 3. wiersz w kolejności employee_id",
+        "1. i 2. wiersz w kolejności employee_id",
+        "3., 4. i 5. wiersz w kolejności employee_id"
+      ],
+      "explanation": "OFFSET 2 ROWS pomija dwa pierwsze wiersze posortowanego wyniku, a FETCH NEXT 2 ROWS ONLY zwraca kolejne dwa: 3. i 4. OFFSET podaje liczbę wierszy do pominięcia, a nie numer pierwszego zwracanego wiersza. Klauzula ograniczania wierszy (row limiting clause, od 12c) jest stosowana po ORDER BY."
+    },
+    "q02-between": {
+      "prompt": "Które stwierdzenie o BETWEEN jest prawdziwe?",
+      "options": [
+        "BETWEEN 10 AND 5 zwraca te same wiersze co BETWEEN 5 AND 10.",
+        "BETWEEN wyklucza obie wartości graniczne.",
+        "BETWEEN obejmuje obie wartości graniczne, a BETWEEN 10 AND 5 nie zwraca żadnych wierszy.",
+        "BETWEEN nie działa z datami."
+      ],
+      "explanation": "x BETWEEN a AND b oznacza x >= a AND x <= b. Jeśli a > b, nic nie spełnia obu warunków, więc żadne wiersze nie są zwracane. Przy kolumnach DATE pamiętaj, że górna granica to północ na początku tego dnia."
+    },
+    "q02-equivalent-precedence": {
+      "prompt": "Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "AND jest wyliczane przed OR, więc oryginał oznacza 'departament 20' OR 'departament 30 z pensją powyżej 8000': 101, 105, 106, 102 i 103. Przeniesienie pary z AND na początek nie zmienia tego grupowania. Ujęcie OR w nawiasy (albo użycie IN) stosuje filtr pensji także do departamentu 20, co usuwa 105 i 106."
+    },
+    "q02-precedence-first": {
+      "prompt": "Która operacja w poniższym warunku jest wyliczana jako pierwsza?",
+      "options": [
+        "e.salary > 5000 (porównanie)",
+        "NOT",
+        "AND",
+        "OR"
+      ],
+      "explanation": "Operatory porównania mają pierwszeństwo przed operatorami logicznymi, a wśród tych kolejność to NOT, AND, OR. Najpierw są więc wyliczane porównania, potem NOT (e.salary > 5000), potem AND, a OR na końcu. Arytmetyka i || są wyliczane przed porównaniami."
+    },
+    "q02-not-in-null": {
+      "prompt": "Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "Nie zwraca żadnych wierszy.",
+        "Zamiana NOT IN na IN zwraca pracowników departamentów 10 i 20.",
+        "Zwraca pracowników departamentu 30 i pracowników bez departamentu.",
+        "Kończy się błędem, bo NULL nie jest dozwolony na liście IN.",
+        "Zwraca tylko pracowników departamentu 30."
+      ],
+      "explanation": "NOT IN (10, 20, NULL) oznacza <> 10 AND <> 20 AND <> NULL, a ostatni test jest zawsze UNKNOWN, więc żaden wiersz nie przechodzi. IN to łańcuch OR, w którym dodatkowy test = NULL nie szkodzi, więc IN (10, 20, NULL) zwraca pracowników departamentów 10 i 20. Błąd nie występuje, a wiersze z department_id równym NULL nigdy nie przechodzą żadnego z testów."
+    },
+    "q02-equivalent-null-test": {
+      "prompt": "commission_pct to NULL dla pracowników bez prowizji. Które dwa zapytania zwracają dokładnie pracowników bez prowizji, dla dowolnych danych?",
+      "explanation": "IS NULL sprawdza NULL, a NVL2 zwraca swój trzeci argument (0) dokładnie wtedy, gdy pierwszy jest NULL, więc oba są poprawne dla dowolnych danych. = NULL i IN (NULL) porównują z NULL, co daje UNKNOWN dla każdego wiersza, więc nic nie zwracają, bez błędu. NOT (NULL > 0) też jest UNKNOWN, więc to zapytanie pomija dokładnie te wiersze, które miało znaleźć."
+    },
+    "q02-equivalent-march": {
+      "prompt": "order_date to DATE, który może zawierać godzinę. Które dwa zapytania zwracają każde zamówienie złożone w marcu 2024?",
+      "explanation": "Zamówienie 1006 złożono 31 marca o 23:30. DATE '2024-03-31' oznacza północ na początku tego dnia, więc zarówno BETWEEN ... AND DATE '2024-03-31', jak i <= DATE '2024-03-31' je pomijają. Przedział prawostronnie otwarty (< pierwszy dzień następnego miesiąca) i TRUNC do miesiąca je obejmują."
+    },
+    "q02-fetch-percent": {
+      "prompt": "Tabela T ma dokładnie 9 wierszy, a id to jej klucz główny. Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "2",
+        "3",
+        "25",
+        "Kończy się błędem: PERCENT wymaga WITH TIES"
+      ],
+      "explanation": "25 procent z 9 wierszy to 2.25, a FETCH ... PERCENT zaokrągla w górę do pełnego wiersza, więc zwracane są 3 wiersze. PERCENT działa z ONLY albo WITH TIES, więc nie wymaga WITH TIES. Procent liczy się od wierszy pozostałych po WHERE."
+    },
+    "q02-row-limiting-facts": {
+      "prompt": "Które dwa stwierdzenia o klauzuli ograniczania wierszy (row limiting clause) w Oracle 19c są prawdziwe?",
+      "options": [
+        "OFFSET n ROWS bez klauzuli FETCH zwraca wszystkie wiersze po pierwszych n.",
+        "FETCH FIRST n ROWS ONLY jest dozwolone bez ORDER BY, ale nie wiadomo, które wiersze dostaniesz.",
+        "Klauzula ograniczania wierszy jest stosowana przed klauzulą WHERE.",
+        "FETCH FIRST n ROWS ONLY można umieścić przed ORDER BY.",
+        "OFFSET 0 ROWS zgłasza błąd; pierwszy wiersz to OFFSET 1."
+      ],
+      "explanation": "Klauzula ograniczania wierszy jest ostatnia, po ORDER BY, i działa na wierszach, które przeszły WHERE. Samo OFFSET pomija wiersze i zwraca resztę; samo FETCH zaczyna od pierwszego wiersza. Bez ORDER BY zapytanie działa, ale wybrane wiersze zależą od ścieżki dostępu. OFFSET 0 jest poprawne i niczego nie pomija."
+    },
+    "q02-rownum-greater": {
+      "prompt": "Ile wierszy zwraca to zapytanie, niezależnie od tego, jakie wiersze zawiera employees?",
+      "options": [
+        "0",
+        "1",
+        "8",
+        "9"
+      ],
+      "explanation": "ROWNUM jest przydzielany w miarę, jak wiersze przechodzą przez klauzulę WHERE. Pierwszy kandydat dostaje ROWNUM 1, nie spełnia > 1 i zostaje odrzucony; następny kandydat znowu ma ROWNUM 1, więc żaden wiersz nigdy nie przechodzi. ROWNUM <= n działa; aby 'pominąć n wierszy', użyj OFFSET albo ROWNUM z widoku inline."
+    },
+    "q02-subst-quotes": {
+      "prompt": "W SQL*Plus użytkownik uruchamia to zapytanie i wpisuje King, gdy SQL*Plus pyta o wartość. Co się stanie?",
+      "options": [
+        "Kończy się błędem ORA-00904, bo polecenie staje się WHERE e.last_name = King.",
+        "Zwraca pracownika 100, bo SQL*Plus dodaje apostrofy dla kolumn znakowych.",
+        "Nie zwraca żadnych wierszy, bo King jest zamieniane na wielkie litery.",
+        "SQL*Plus odmawia wykonania, bo zmienna podstawienia musi być w apostrofach."
+      ],
+      "explanation": "Podstawienie to zwykła zamiana tekstu wykonywana przez SQL*Plus przed wysłaniem polecenia, więc serwer widzi King jako identyfikator: ORA-00904 \"KING\": invalid identifier. Napisz '&name' w poleceniu, aby użytkownik mógł wpisać King bez apostrofów. Wartości liczbowe nie wymagają apostrofów."
+    },
+    "q02-subst-double-ampersand": {
+      "prompt": "W nowej sesji SQL*Plus, w której dept nie jest zdefiniowane, uruchamiasz ten skrypt. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "SQL*Plus pyta o wartość raz, przy pierwszym poleceniu.",
+        "Drugie polecenie używa wartości wpisanej dla pierwszego, bez pytania.",
+        "SQL*Plus pyta o wartość dwa razy, raz na polecenie.",
+        "dept jest automatycznie usuwane po zakończeniu pierwszego polecenia.",
+        "&& sprawia, że dept staje się zmienną wiązaną przechowywaną przez serwer."
+      ],
+      "explanation": "&&dept pyta o wartość, bo dept nie jest zdefiniowane, a potem definiuje je tak jak DEFINE. Każde późniejsze &dept lub &&dept używa tej wartości bez pytania, aż do UNDEFINE dept albo końca sesji. Zmienne podstawienia to tekst po stronie klienta, a nie zmienne wiązane."
+    },
+    "q02-subst-facts": {
+      "prompt": "Które dwa stwierdzenia o zmiennych podstawienia w SQL*Plus są prawdziwe?",
+      "options": [
+        "Mogą dostarczyć dowolny tekst: nazwy kolumn, nazwy tabel albo cały warunek, nie tylko wartości.",
+        "SQL*Plus podstawia je przed wysłaniem polecenia do bazy.",
+        "To serwer bazy danych pyta o ich wartości.",
+        "Można ich używać tylko w klauzuli WHERE.",
+        "& wewnątrz literału tekstowego w apostrofach nigdy nie jest traktowane jako zmienna podstawienia."
+      ],
+      "explanation": "Podstawienie to zamiana tekstu po stronie klienta, więc &col albo &condition mogą zastąpić dowolną część polecenia, także ORDER BY &sort_col. Serwer nigdy nie widzi zmiennej. & w apostrofach też jest podstawiane ('R&D' pyta o D), chyba że użyjesz SET DEFINE OFF."
+    },
+    "q02-set-define-off": {
+      "prompt": "W SQL*Plus polecenie INSERT INTO departments (department_id, department_name) VALUES (50, 'R&D'); pyta o wartość D. Które polecenie sprawi, że następne uruchomienie wstawi tekst R&D bez pytania?",
+      "options": [
+        "SET DEFINE OFF",
+        "SET VERIFY OFF",
+        "UNDEFINE D",
+        "SET ECHO OFF"
+      ],
+      "explanation": "SET DEFINE OFF wyłącza podstawianie, więc & jest zwykłym znakiem (SET DEFINE ON je przywraca). SET VERIFY OFF tylko ukrywa linie old/new; pytanie nadal się pojawia. UNDEFINE D usuwa zdefiniowaną wartość, a właśnie dlatego SQL*Plus pyta."
+    },
+    "q02-define-facts": {
+      "prompt": "W SQL*Plus użytkownik uruchamia DEFINE dept_id = 20, a potem zapytanie zawierające WHERE e.department_id = &dept_id. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "Zapytanie wykonuje się z 20 bez pytania o wartość.",
+        "dept_id to zmienna podstawienia typu CHAR przechowująca tekst 20.",
+        "dept_id to zmienna NUMBER, bo wartość jest liczbowa.",
+        "Wartość jest zapisana w bazie i dostępna w innych sesjach.",
+        "Wartość jest odrzucana po pierwszym poleceniu, które jej używa."
+      ],
+      "explanation": "DEFINE tworzy zmienną podstawienia typu CHAR; DEFINE dept_id pokazuje ją jako DEFINE DEPT_ID = \"20\" (CHAR). Zdefiniowana zmienna jest podstawiana bez pytania za każdym razem, aż do UNDEFINE dept_id albo wyjścia. Istnieje tylko w tej sesji SQL*Plus po stronie klienta."
+    },
+    "q02-verify": {
+      "prompt": "Co robi SET VERIFY ON w SQL*Plus?",
+      "options": [
+        "Pokazuje każdą linię polecenia zawierającą zmienną podstawienia przed podstawieniem i po nim (linie old i new).",
+        "Sprawdza składnię polecenia bez jego wykonania.",
+        "Wyświetla plan wykonania każdego zapytania.",
+        "Prosi użytkownika o potwierdzenie każdej wartości wpisanej przy pytaniu o zmienną podstawienia."
+      ],
+      "explanation": "VERIFY (domyślnie ON) wypisuje dotknięte linie jako old 3: WHERE e.department_id = &dept_id i new 3: WHERE e.department_id = 20. SET VERIFY OFF je ukrywa; nie zmienia tego, co jest podstawiane. Plany wykonania pochodzą z AUTOTRACE albo EXPLAIN PLAN."
+    },
+    "q02-undefine": {
+      "prompt": "Po DEFINE region = EMEA które polecenie SQL*Plus sprawi, że następne &region znowu zapyta użytkownika o wartość?",
+      "options": [
+        "UNDEFINE region",
+        "SET DEFINE OFF",
+        "SET VERIFY OFF",
+        "DEFINE region = NULL"
+      ],
+      "explanation": "UNDEFINE usuwa zmienną, więc następne odwołanie pyta o wartość. SET DEFINE OFF całkowicie wyłącza podstawianie, więc &region zostałoby wysłane jako tekst i nigdy by nie pytało. DEFINE region = NULL definiuje tekst NULL, który jest potem podstawiany bez pytania."
+    },
+    "q02-define-show": {
+      "prompt": "Które dwa polecenia SQL*Plus wyświetlają bieżącą wartość zmiennej podstawienia dept_id?",
+      "options": [
+        "DEFINE dept_id",
+        "DEFINE",
+        "SET VERIFY ON",
+        "DESCRIBE dept_id",
+        "UNDEFINE dept_id"
+      ],
+      "explanation": "DEFINE z nazwą pokazuje tę zmienną, a samo DEFINE wypisuje wszystkie zdefiniowane zmienne (także predefiniowane, takie jak _USER i _DATE). SET VERIFY ON pokazuje wartości tylko w momencie ich podstawiania do polecenia. DESCRIBE opisuje obiekty bazy danych, a UNDEFINE usuwa zmienną."
+    },
+    "q02-order-position": {
+      "prompt": "department_id dopuszcza NULL i niektórzy pracownicy nie mają departamentu. Które stwierdzenie o wyniku jest prawdziwe?",
+      "code": "-- EMPLOYEES (wszystkie wiersze)\n-- LAST_NAME  DEPARTMENT_ID\n-- King       10\n-- Kochhar    20\n-- De Haan    30\n-- Hunold     30\n-- Ernst      30\n-- Russell    20\n-- Partners   20\n-- Lorentz    30\n-- Grant      (null)\nSELECT e.last_name, e.department_id\nFROM   employees e\nORDER  BY 2 DESC, 1;",
+      "options": [
+        "Wiersze z department_id równym NULL są pierwsze, posortowane po last_name.",
+        "Wiersze są sortowane po drugiej kolumnie z definicji tabeli EMPLOYEES.",
+        "Wiersze z department_id równym NULL są ostatnie, bo NULL-e są ignorowane przy sortowaniu.",
+        "Kończy się błędem, bo pozycji kolumny w ORDER BY nie można łączyć z DESC."
+      ],
+      "explanation": "ORDER BY 2 odwołuje się do drugiego elementu listy SELECT, department_id, a nie do drugiej kolumny tabeli, a DESC może stać po pozycji jak po każdym kluczu sortowania. NULL-e sortują się jak najwyższa wartość, więc w porządku DESC wiersze bez departamentu są pierwsze, a remisy rozstrzyga element 1, last_name."
+    },
+    "q02-distinct-order": {
+      "prompt": "Co się stanie po wykonaniu tego zapytania?",
+      "options": [
+        "Kończy się błędem ORA-01791: not a SELECTed expression.",
+        "Zwraca stanowiska uporządkowane według najniższej pensji na każdym stanowisku.",
+        "Zwraca stanowiska uporządkowane według pensji, z duplikatami.",
+        "Zwraca stanowiska w kolejności alfabetycznej, ignorując ORDER BY."
+      ],
+      "explanation": "Zwykle ORDER BY może używać kolumn, które nie są wybierane. Przy DISTINCT każdy wiersz wyniku może odpowiadać kilku wierszom źródłowym z różnymi pensjami, więc Oracle wymaga, aby elementy ORDER BY występowały na liście SELECT: ORA-01791. Ta sama reguła dotyczy operatorów zbiorowych, takich jak UNION."
+    },
+    "q02-order-valid": {
+      "prompt": "Które trzy klauzule ORDER BY mogą zakończyć to zapytanie bez błędu?",
+      "options": [
+        "ORDER BY annual",
+        "ORDER BY e.salary * 12",
+        "ORDER BY e.hire_date",
+        "ORDER BY 3",
+        "ORDER BY \"annual\""
+      ],
+      "explanation": "ORDER BY przyjmuje alias, samo wyrażenie albo kolumnę tabeli, która nie jest wybierana. Pozycja 3 nie istnieje na dwuelementowej liście SELECT (ORA-01785). Alias nie był w cudzysłowie, więc jest zapisany jako ANNUAL, a \"annual\" małymi literami do niego nie pasuje (ORA-00904)."
+    },
+    "q02-order-facts": {
+      "prompt": "Które dwa stwierdzenia o ORDER BY są prawdziwe?",
+      "options": [
+        "Domyślny kierunek sortowania to rosnący.",
+        "Zapytanie bez ORDER BY nie ma gwarantowanej kolejności wierszy.",
+        "ORDER BY jest wyliczane przed klauzulą WHERE.",
+        "ORDER BY 2 sortuje po drugiej kolumnie tabeli zgodnie z definicją w CREATE TABLE.",
+        "DESC dotyczy każdej kolumny wymienionej po nim w klauzuli ORDER BY."
+      ],
+      "explanation": "ASC jest domyślne i tylko ORDER BY gwarantuje kolejność. ORDER BY to ostatnia przetwarzana klauzula. Pozycja odwołuje się do listy SELECT, a nie do definicji tabeli. ASC lub DESC dotyczy tylko wyrażenia, po którym stoi: ORDER BY a DESC, b sortuje b rosnąco."
+    },
+    "q02-equivalent-de-morgan": {
+      "prompt": "Które dwa zapytania zwracają te same wiersze co to?",
+      "explanation": "Zgodnie z prawem De Morgana NOT (a OR b) to NOT a AND NOT b, więc obie wersje z AND zwracają 100, 101 i 105. Przeniesienie NOT do wnętrza nawiasów bez zamiany OR na AND zmienia wynik na 7 wierszy. Bez nawiasów NOT dotyczy tylko pierwszego porównania, co daje 6 wierszy."
+    },
+    "q02-concat-plus-precedence": {
+      "prompt": "Co się stanie po wykonaniu tego zapytania?",
+      "options": [
+        "Kończy się błędem ORA-01722: invalid number.",
+        "Zwraca Total: 15.",
+        "Zwraca Total: 105.",
+        "Kończy się błędem ORA-00932: inconsistent datatypes."
+      ],
+      "explanation": "W 19c operator konkatenacji ma ten sam priorytet co dwuargumentowe + i -, a operatory o równym priorytecie są wyliczane od lewej do prawej. 'Total: ' || 10 daje 'Total: 10', a dodanie 5 do tego tekstu kończy się niepowodzeniem niejawnej konwersji na liczbę: ORA-01722 (23ai używa tego samego kodu z dłuższym komunikatem). Napisz 'Total: ' || (10 + 5), aby dostać Total: 15; 5 + 10 || ' total' działa, bo dodawanie jest pierwsze."
+    },
+    "q02-fix-precedence": {
+      "prompt": "Raport ma pokazać pracowników na stanowiskach Programmer i Sales Rep, którzy zarabiają więcej niż 5000. To zapytanie zwraca też pracowników Programmer zarabiających 5000 lub mniej. Które dwa zapytania zwracają zamierzone wiersze?",
+      "explanation": "AND jest wyliczane przed OR, więc test pensji dotyczy tylko Sales Rep, a zwracany jest każdy pracownik Programmer. Nawiasy wokół OR albo lista IN stosują test pensji do obu stanowisk. Przeniesienie testu pensji na początek dołącza go tylko do Programmer (zwracani są wszyscy pracownicy Sales Rep), a zmiana kolejności warunków bez nawiasów niczego nie zmienia."
+    },
+    "q02-fetch-fraction": {
+      "prompt": "Tabela T ma dokładnie 9 wierszy, a id to jej klucz główny. Ile wierszy zwraca to zapytanie?",
+      "options": [
+        "2",
+        "3",
+        "0",
+        "Żaden: kończy się błędem, bo liczba wierszy musi być całkowita"
+      ],
+      "explanation": "Ułamkowa liczba wierszy jest obcinana, więc FETCH FIRST 2.7 ROWS zwraca 2 wiersze. Zaokrąglenie w górę następuje tylko przy PERCENT, gdzie wyliczona liczba wierszy jest zaokrąglana w górę. Liczba nie musi być całkowita, a liczba wierszy 0 lub ujemna nie zwraca żadnych wierszy zamiast zgłaszać błąd."
+    },
+    "q02-fetch-before-offset": {
+      "prompt": "Jaki błąd zgłasza to polecenie?",
+      "options": [
+        "ORA-00933: SQL command not properly ended",
+        "ORA-00904: invalid identifier",
+        "Żaden: pomija jeden wiersz i zwraca następne dwa",
+        "Żaden: zwraca pierwsze dwa wiersze i ignoruje OFFSET"
+      ],
+      "explanation": "Klauzula ograniczania wierszy ma stałą kolejność: ORDER BY, potem OFFSET, potem FETCH. Klauzuli po FETCH ... ONLY nie da się sparsować, więc 19c zgłasza ORA-00933, a Oracle 23ai ORA-03049 (SQL keyword 'OFFSET' is not syntactically valid). Napisz ORDER BY e.salary OFFSET 1 ROWS FETCH NEXT 2 ROWS ONLY, aby pominąć jeden wiersz i zwrócić dwa."
+    },
+    "q02-lowest-three": {
+      "prompt": "Raport ma pokazać trzech najniżej opłacanych pracowników. Które trzy zapytania zwracają dokładnie te wiersze?",
+      "explanation": "Limit wierszy trzeba zastosować po sortowaniu: FETCH FIRST robi to z definicji (OFFSET 0 ROWS niczego nie zmienia), a ROWNUM tylko wtedy, gdy sortowanie odbywa się w widoku inline. WHERE ROWNUM <= 3 z ORDER BY w tym samym zapytaniu numeruje wiersze przed sortowaniem, więc sortuje trzy przypadkowe wiersze (tutaj 100, 101 i 102). DESC zwraca trzy najwyższe pensje."
+    },
+    "q02-subst-twice": {
+      "prompt": "W sesji SQL*Plus, w której id nie jest zdefiniowane, użytkownik uruchamia to zapytanie. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "SQL*Plus pyta o wartość dwa razy, raz dla każdego &id.",
+        "Użytkownik może wpisać dwie różne wartości, np. 100 i 102.",
+        "SQL*Plus pyta o wartość raz i używa jej w obu odwołaniach.",
+        "Po zapytaniu id pozostaje zdefiniowane i następne &id nie pyta o wartość.",
+        "Zapytanie kończy się błędem, bo zmienna podstawienia może wystąpić w poleceniu tylko raz."
+      ],
+      "explanation": "Pojedyncze & nie definiuje zmiennej, więc SQL*Plus pyta o każde niezdefiniowane odwołanie, nawet w jednym poleceniu; wpisanie 100 i 102 daje WHERE e.employee_id = 100 OR e.manager_id = 102. Użyj &&id (albo najpierw DEFINE id), aby SQL*Plus zapytał raz i ponownie użył wartości. Ponieważ nic nie zostało zdefiniowane, następne &id znowu pyta."
+    },
+    "q02-subst-date-input": {
+      "prompt": "W SQL*Plus z domyślnym NLS_DATE_FORMAT (DD-MON-RR) które dwie wartości wpisane po pytaniu o zmienną sprawią, że to zapytanie zwróci pracowników zatrudnionych po 1 stycznia 2020?",
+      "options": [
+        "DATE '2020-01-01'",
+        "TO_DATE('2020-01-01', 'YYYY-MM-DD')",
+        "2020-01-01",
+        "'2020-01-01'"
+      ],
+      "explanation": "Podstawienie to zwykła zamiana tekstu, więc użytkownik może wpisać dowolny tekst SQL, także literał DATE albo wywołanie TO_DATE; oba zwracają 3 wiersze. Wpisane bez apostrofów 2020-01-01 staje się działaniem arytmetycznym 2020 - 1 - 1 = 2018, czyli wartością NUMBER porównywaną z DATE: ORA-00932. '2020-01-01' jest konwertowane niejawnie z DD-MON-RR i kończy się błędem ORA-01861 (literal does not match format string)."
+    },
+    "q02-subst-period": {
+      "prompt": "W SQL*Plus wykonano DEFINE pre = emp. Którą tabelę czyta to zapytanie?",
+      "options": [
+        "employees",
+        "emp.loyees, co zgłasza ORA-00942",
+        "Żadną: SQL*Plus pyta o wartość pre.loyees",
+        "Żadną: SQL*Plus pyta o wartość preloyees"
+      ],
+      "explanation": "Kropka kończy nazwę zmiennej podstawienia i jest usuwana, więc &pre.loyees staje się emp + loyees = employees (SET VERIFY pokazuje new 1: SELECT COUNT(*) FROM employees). Bez kropki &pre_loyees albo &preloyees zostałoby odczytane jako inna, niezdefiniowana zmienna i SQL*Plus zapytałby o jej wartość."
+    },
+    "q02-define-blank": {
+      "prompt": "Użytkownik uruchamia DEFINE job = Sales Rep, a potem DEFINE job. Co wyświetli SQL*Plus?",
+      "options": [
+        "DEFINE JOB = \"Sales\" (CHAR)",
+        "DEFINE JOB = \"Sales Rep\" (CHAR)",
+        "DEFINE JOB = \"Sales Rep\" (VARCHAR2)",
+        "SP2-0552: Bind variable \"JOB\" not declared"
+      ],
+      "explanation": "Wartość DEFINE bez apostrofów kończy się na pierwszej spacji, więc job zawiera tylko Sales. Tekst ze spacjami ujmij w apostrofy: DEFINE job = 'Sales Rep' zapisuje Sales Rep. DEFINE zawsze tworzy zmienną CHAR, nigdy VARCHAR2 ani NUMBER."
+    },
+    "q02-define-off-defined": {
+      "prompt": "W SQL*Plus użytkownik uruchamia DEFINE dept = 20, potem SET DEFINE OFF, a potem zapytanie zawierające WHERE e.department_id = &dept. Które dwa stwierdzenia są prawdziwe?",
+      "options": [
+        "&dept nie jest podstawiane, więc wartość 20 nie jest użyta i zapytanie kończy się błędem.",
+        "Po SET DEFINE ON &dept znowu jest zastępowane przez 20 bez pytania.",
+        "SQL*Plus pyta o nową wartość dept.",
+        "SET DEFINE OFF usunęło zmienną dept, tak jak UNDEFINE dept.",
+        "Zapytanie wykonuje się z 20, bo dept jest nadal zdefiniowane."
+      ],
+      "explanation": "SET DEFINE OFF wyłącza podstawianie, więc &dept jest wysyłane tak, jak je zapisano, i polecenie kończy się błędem (SQL*Plus zgłasza SP2-0552: Bind variable \"DEPT\" not declared). Nie pyta o wartość i nie usuwa zmiennych: po SET DEFINE ON to samo zapytanie od razu wykonuje się z 20. Tylko UNDEFINE usuwa zmienną."
+    },
+    "q02-verify-multiline": {
+      "prompt": "Przy SET VERIFY ON użytkownik uruchamia w SQL*Plus to trzywierszowe zapytanie, gdy dept jest zdefiniowane jako 20. Co VERIFY wypisze przed wynikiem?",
+      "options": [
+        "Tylko linię 3, jako old   3: ... &dept i new   3: ... 20",
+        "Wszystkie trzy linie, przed podstawieniem i po nim",
+        "Nic, bo dept zdefiniowano przez DEFINE i nie trzeba było pytać o wartość",
+        "Tylko nową linię 3, bez starej"
+      ],
+      "explanation": "VERIFY wypisuje każdą linię zawierającą zmienną podstawienia, z numerem, raz przed podstawieniem (old) i raz po nim (new); linie bez zmiennej nie są powtarzane. Działa niezależnie od tego, czy wartość pochodzi z pytania, z && czy z DEFINE. SET VERIFY OFF ukrywa te linie, ale podstawianie nadal się odbywa."
+    },
+    "q02-distinct-order-expression": {
+      "prompt": "department_id dopuszcza NULL i niektórzy pracownicy nie mają departamentu. Które dwa stwierdzenia o tym zapytaniu są prawdziwe?",
+      "options": [
+        "Wykonuje się bez błędu i zwraca każde department_id raz.",
+        "Wiersz z department_id równym NULL jest pierwszy.",
+        "Kończy się błędem ORA-01791, bo wyrażenia z ORDER BY nie ma na liście SELECT.",
+        "Wiersz z department_id równym NULL jest ostatni, bo NULL-e w porządku rosnącym sortują się wysoko.",
+        "Zwraca duplikaty, bo ORDER BY jest stosowane przed DISTINCT."
+      ],
+      "explanation": "Przy DISTINCT ORDER BY może używać wyrażeń zbudowanych wyłącznie z wybranych elementów, a NVL(e.department_id, 0) jest takim wyrażeniem, więc nie ma ORA-01791. NVL zamienia NULL na 0, najmniejszy klucz, więc departament NULL jest pierwszy, a nie ostatni. ORA-01791 pojawia się, gdy ORDER BY używa kolumny, która nie jest wybierana, np. e.salary."
+    },
+    "q02-binary-sort-case": {
+      "prompt": "Przy domyślnym sortowaniu binarnym (NLS_SORT = BINARY) jaka wartość jest w pierwszym wierszu?",
+      "options": [
+        "Banana",
+        "apple",
+        "cherry",
+        "Żadna: ORDER BY nie może następować po widoku inline z UNION ALL"
+      ],
+      "explanation": "Sortowanie binarne porównuje kody znaków, a wszystkie wielkie litery są przed wszystkimi małymi, więc Banana jest przed apple i cherry. Porządek alfabetyczny bez względu na wielkość liter wymaga ORDER BY UPPER(w) (albo lingwistycznego NLS_SORT). Sortowanie widoku inline jest dozwolone."
+    },
+    "q02-nulls-first-desc-syntax": {
+      "prompt": "Jaki błąd zgłasza to polecenie?",
+      "options": [
+        "ORA-00933: SQL command not properly ended",
+        "ORA-00936: missing expression",
+        "ORA-00904: invalid identifier",
+        "Żaden: sortuje po salary malejąco z NULL-ami na początku"
+      ],
+      "explanation": "Dla każdego elementu ORDER BY składnia to wyrażenie [ASC | DESC] [NULLS FIRST | NULLS LAST]: kierunek stoi przed opcją NULLS. DESC po NULLS FIRST nie da się sparsować, więc 19c zgłasza ORA-00933, a Oracle 23ai ORA-03048 (SQL reserved word 'DESC' is not syntactically valid). Poprawna forma to ORDER BY e.salary DESC NULLS FIRST."
+    },
+    "q02-and-or-literal": {
+      "prompt": "Co zwraca to zapytanie?",
+      "options": [
+        "Y",
+        "N",
+        "NULL",
+        "Błąd, bo AND i OR nie można mieszać bez nawiasów"
+      ],
+      "explanation": "AND jest wyliczane przed OR, więc warunek to 1 = 1 OR (1 = 0 AND 1 = 0), czyli TRUE OR FALSE = TRUE. N byłoby wynikiem (1 = 1 OR 1 = 0) AND 1 = 0, czyli czytania ściśle od lewej do prawej. Mieszanie AND i OR bez nawiasów jest dozwolone; łatwo je tylko źle odczytać."
+    },
+    "q02-three-valued-logic": {
+      "prompt": "Porównanie z NULL, np. salary > NULL, daje UNKNOWN. Które dwa stwierdzenia o warunkach w klauzuli WHERE są prawdziwe?",
+      "options": [
+        "UNKNOWN AND FALSE daje FALSE.",
+        "UNKNOWN OR TRUE daje TRUE.",
+        "NOT UNKNOWN daje TRUE.",
+        "UNKNOWN AND TRUE daje TRUE.",
+        "Wiersz jest zwracany, gdy warunek WHERE to UNKNOWN."
+      ],
+      "explanation": "W logice trójwartościowej FALSE rozstrzyga AND, a TRUE rozstrzyga OR, niezależnie od drugiego operandu, więc UNKNOWN AND FALSE to FALSE, a UNKNOWN OR TRUE to TRUE. NOT UNKNOWN pozostaje UNKNOWN, a UNKNOWN AND TRUE to UNKNOWN. WHERE zwraca tylko wiersze, dla których warunek jest TRUE, więc wiersze z UNKNOWN są odfiltrowywane tak samo jak te z FALSE."
+    },
+    "q02-not-and-equivalent": {
+      "prompt": "Które zapytanie zwraca te same wiersze co to, dla dowolnych danych?",
+      "explanation": "NOT ma wyższy priorytet niż AND, więc neguje tylko porównanie obok siebie: (NOT department_id = 30) AND salary > 5000, czyli department_id <> 30 AND salary > 5000. Nawiasy wokół całego AND negują oba testy razem, co jest innym warunkiem (zgodnie z De Morganem staje się <> 30 OR <= 5000). Zamiana AND na OR też zmienia wynik."
+    },
+    "q02-conditions-true": {
+      "prompt": "Które dwa warunki dają TRUE?",
+      "options": [
+        "'abc' LIKE 'a_c'",
+        "2 IN (1, 2, NULL)",
+        "3 BETWEEN 5 AND 1",
+        "'ABC' LIKE 'a%'",
+        "2 NOT IN (1, NULL)",
+        "NULL = NULL"
+      ],
+      "explanation": "_ pasuje do dokładnie jednego znaku, więc 'abc' LIKE 'a_c' to TRUE, a IN jest TRUE, gdy tylko jedna wartość pasuje (2 = 2), niezależnie od NULL. BETWEEN 5 AND 1 oznacza >= 5 AND <= 1, czego nic nie spełnia. LIKE rozróżnia wielkość liter, więc 'ABC' nie pasuje do 'a%'. 2 NOT IN (1, NULL) zawiera 2 <> NULL, co daje UNKNOWN, a NULL = NULL to też UNKNOWN."
+    },
+    "q02-like-facts": {
+      "prompt": "Które trzy stwierdzenia o operatorze LIKE są prawdziwe?",
+      "options": [
+        "_ pasuje do dokładnie jednego znaku.",
+        "% pasuje do dowolnego ciągu znaków, także pustego.",
+        "WHERE last_name LIKE '%' nie zwraca wierszy, w których last_name to NULL.",
+        "LIKE ignoruje wielkość liter, więc 'king' LIKE 'K%' to TRUE.",
+        "Znakiem ESCAPE musi być ukośnik odwrotny."
+      ],
+      "explanation": "_ oznacza dokładnie jeden znak, a % zero lub więcej znaków, więc 'abc' LIKE 'abc%' to TRUE. NULL porównany przez LIKE daje UNKNOWN, więc nawet LIKE '%' pomija wartości NULL. LIKE rozróżnia wielkość liter tak jak =, a ESCAPE przyjmuje dowolny wybrany pojedynczy znak, np. ESCAPE '!'."
+    },
+    "q02-with-ties-facts": {
+      "prompt": "Które dwa stwierdzenia o FETCH FIRST ... WITH TIES są prawdziwe?",
+      "options": [
+        "Może zwrócić więcej wierszy, niż zażądano.",
+        "Można je łączyć z PERCENT, np. FETCH FIRST 10 PERCENT ROWS WITH TIES.",
+        "Zgłasza błąd, gdy zapytanie nie ma klauzuli ORDER BY.",
+        "ONLY i WITH TIES można zapisać razem: FETCH FIRST 2 ROWS ONLY WITH TIES.",
+        "Wymaga klauzuli OFFSET."
+      ],
+      "explanation": "WITH TIES zwraca też każdy wiersz, który ma te same wartości ORDER BY co ostatni wiersz, więc wynik może być większy niż n; działa z liczbą wierszy albo z PERCENT. Bez ORDER BY nie ma czego porównywać, więc remisowe wiersze nie są dodawane, ale błąd nie występuje. ONLY i WITH TIES to alternatywy, a OFFSET jest opcjonalne."
+    },
+    "q02-order-alias-expression": {
+      "prompt": "Które stwierdzenie o tym zapytaniu jest prawdziwe?",
+      "options": [
+        "Wykonuje się i sortuje wiersze według rocznego wynagrodzenia rosnąco.",
+        "Kończy się błędem ORA-00904, bo alias może wystąpić w ORDER BY tylko samodzielnie, a nie w wyrażeniu.",
+        "Kończy się błędem ORA-00904, bo aliasu kolumny nigdy nie można użyć w ORDER BY.",
+        "Wykonuje się, ale wiersze nie są posortowane, bo ORDER BY ignoruje wyrażenia."
+      ],
+      "explanation": "ORDER BY jest przetwarzane po liście SELECT, więc może odwoływać się do aliasu kolumny, zarówno samodzielnie, jak i wewnątrz wyrażenia, np. annual + 1. Dodanie 1 do każdej wartości nie zmienia kolejności, więc wiersze są posortowane według rocznego wynagrodzenia. Ograniczenie dotyczące aliasów obejmuje WHERE (a w 19c też GROUP BY i HAVING), nie ORDER BY."
+    },
+    "q02-nulls-order-facts": {
+      "prompt": "Które trzy stwierdzenia o NULL-ach w ORDER BY są prawdziwe?",
+      "options": [
+        "W porządku rosnącym NULL-e są domyślnie na końcu.",
+        "W porządku malejącym NULL-e są domyślnie na początku.",
+        "NULLS FIRST lub NULLS LAST można podać osobno dla każdego klucza sortowania.",
+        "NULLS FIRST trzeba napisać przed ASC lub DESC.",
+        "Wiersze z kluczem sortowania NULL są pomijane w posortowanym wyniku."
+      ],
+      "explanation": "Oracle sortuje NULL tak, jakby był większy od każdej wartości, więc jest na końcu w porządku ASC i na początku w porządku DESC, chyba że zdecydujesz inaczej. NULLS FIRST lub NULLS LAST należy do jednego klucza sortowania i stoi po ASC lub DESC: ORDER BY salary DESC NULLS LAST; odwrotna kolejność zgłasza ORA-00933. ORDER BY nigdy nie usuwa wierszy."
+    }
+  },
+  "labs": {
+    "lab-hired-2019": {
+      "title": "Niedawno zatrudnieni",
+      "task": "Zwróć last_name i hire_date pracowników zatrudnionych 1 stycznia 2019 lub później, od najwcześniej zatrudnionego.",
+      "hint": "Porównaj hire_date z literałem DATE w WHERE; '1 stycznia lub później' oznacza >=.",
+      "hint2": "WHERE e.hire_date >= DATE '2019-01-01' ORDER BY e.hire_date"
+    },
+    "lab-lowest-ties": {
+      "title": "Cztery najniższe pensje, z remisami",
+      "task": "Zwróć employee_id i salary dla czterech najniższych pensji, łącznie z wierszami, które mają tę samą pensję co czwarty. Posortuj po salary, a potem po employee_id.",
+      "hint": "WITH TIES porównuje wszystkie wyrażenia ORDER BY, więc dodanie employee_id do tego ORDER BY usuwa remisy. Najpierw ogranicz po salary, potem posortuj wynik.",
+      "hint2": "Umieść ORDER BY e.salary FETCH FIRST 4 ROWS WITH TIES w widoku inline, a na zewnątrz ORDER BY salary, employee_id."
+    },
+    "lab-mid-salaries": {
+      "title": "Dwa departamenty, jeden przedział pensji",
+      "task": "Zwróć employee_id, department_id i salary pracowników z departamentu 20 lub 30, których pensja mieści się między 5000 a 12000 włącznie. Posortuj po salary malejąco, a potem po employee_id.",
+      "hint": "AND wiąże silniej niż OR: ujmij test departamentu w nawiasy albo użyj IN (20, 30).",
+      "hint2": "WHERE e.department_id IN (20, 30) AND e.salary BETWEEN 5000 AND 12000"
+    },
+    "lab-no-commission": {
+      "title": "Pracownicy bez prowizji",
+      "task": "Zwróć last_name i job_title pracowników, którzy nie mają commission_pct, posortowane po last_name.",
+      "hint": "= NULL nigdy nie pasuje. NULL wymaga własnego operatora.",
+      "hint2": "WHERE e.commission_pct IS NULL"
+    },
+    "lab-second-letter-o": {
+      "title": "Druga litera o",
+      "task": "Zwróć employee_id i last_name pracowników, których nazwisko ma małe o jako drugi znak, posortowane po last_name.",
+      "hint": "W LIKE _ pasuje do dokładnie jednego znaku, a % do dowolnej liczby znaków.",
+      "hint2": "LIKE '_o%'"
+    },
+    "lab-open-orders": {
+      "title": "Zamówienia nowe lub anulowane",
+      "task": "Zwróć order_id, status i order_date zamówień, których status to NEW lub CANCELLED, posortowane po order_date, a potem po order_id.",
+      "hint": "IN porównuje wartość z listą; wartości statusu są pisane wielkimi literami.",
+      "hint2": "WHERE o.status IN ('NEW', 'CANCELLED')"
+    },
+    "lab-second-page": {
+      "title": "Druga strona zatrudnionych",
+      "task": "Posortuj pracowników po hire_date (od najwcześniej zatrudnionego) i zwróć employee_id, last_name i hire_date tylko dla wierszy od 4 do 6 w tej kolejności.",
+      "hint": "Pomiń pierwsze trzy wiersze, potem weź trzy. Klauzula ograniczania wierszy stoi po ORDER BY.",
+      "hint2": "ORDER BY e.hire_date OFFSET 3 ROWS FETCH NEXT 3 ROWS ONLY"
+    },
+    "lab-commission-ranking": {
+      "title": "Najwyższa prowizja pierwsza, NULL-e na końcu",
+      "task": "Zwróć employee_id i commission_pct wszystkich pracowników, od najwyższej prowizji, z pracownikami bez prowizji na końcu. Remisy rozstrzygnij po employee_id rosnąco.",
+      "hint": "W porządku malejącym Oracle domyślnie stawia NULL-e na początku.",
+      "hint2": "ORDER BY e.commission_pct DESC NULLS LAST, e.employee_id"
+    },
+    "lab-department-sort": {
+      "title": "Sortowanie po departamencie, potem po pensji",
+      "task": "Zwróć department_id, last_name i salary wszystkich pracowników. Posortuj po department_id rosnąco, z pracownikiem bez departamentu na początku, potem po salary malejąco, a potem po last_name.",
+      "hint": "Każdy element ORDER BY ma własne ASC/DESC i NULLS FIRST/LAST.",
+      "hint2": "ORDER BY e.department_id NULLS FIRST, e.salary DESC, e.last_name"
+    },
+    "lab-fix-job-salary-precedence": {
+      "title": "Popraw: Programmer i Sales Rep powyżej 5000",
+      "task": "Zwróć employee_id, job_title i salary pracowników na stanowiskach Programmer i Sales Rep, którzy zarabiają więcej niż 5000, posortowane po employee_id. Zapytanie startowe zwraca też pracownika Programmer, który zarabia mniej: popraw je.",
+      "hint": "AND jest wyliczane przed OR. Do którego stanowiska odnosi się test pensji w zapytaniu startowym?",
+      "hint2": "Ujmij dwa testy stanowisk w nawiasy albo użyj e.job_title IN ('Programmer', 'Sales Rep') AND e.salary > 5000."
+    },
+    "lab-fix-lowest-three-rownum": {
+      "title": "Popraw: trzy najniższe pensje",
+      "task": "Zwróć employee_id i salary trzech najniżej opłacanych pracowników, posortowane po salary, a potem po employee_id. Zapytanie startowe zwraca zamiast tego trzech z najwyżej opłacanych pracowników: popraw je.",
+      "hint": "ROWNUM jest przydzielany podczas odczytu wierszy, zanim ORDER BY je posortuje.",
+      "hint2": "Usuń test ROWNUM i dodaj FETCH FIRST 3 ROWS ONLY po ORDER BY (albo filtruj ROWNUM wokół posortowanego widoku inline)."
+    },
+    "lab-raise-lowest-programmers": {
+      "title": "Podwyżka dla dwóch najniżej opłacanych programistów",
+      "task": "Zwiększ o 10% pensję dwóch pracowników na stanowisku Programmer z najniższymi pensjami. Żaden inny pracownik nie może się zmienić. Sprawdzenie pokazuje employee_id i salary każdego pracownika.",
+      "hint": "Znajdź tych dwóch pracowników Programmer w podzapytaniu, które sortuje po salary i ogranicza liczbę wierszy; WHERE podzapytania działa przed jego limitem wierszy.",
+      "hint2": "WHERE e.employee_id IN (SELECT p.employee_id FROM employees p WHERE p.job_title = 'Programmer' ORDER BY p.salary FETCH FIRST 2 ROWS ONLY)"
+    },
+    "lab-fix-not-precedence": {
+      "title": "Popraw: wszyscy poza dobrze opłacanymi z departamentu 30",
+      "task": "Zwróć employee_id, department_id i salary każdego pracownika poza tymi, którzy są w departamencie 30 i zarabiają więcej niż 5000. Pracownik bez departamentu ma być uwzględniony. Posortuj po employee_id. Zapytanie startowe zwraca za mało wierszy: popraw je.",
+      "hint": "NOT jest wyliczane przed AND, więc w zapytaniu startowym neguje tylko test departamentu.",
+      "hint2": "Ujmij w nawiasy dwa testy opisujące wykluczonych pracowników i zaneguj je razem: WHERE NOT (... AND ...)."
+    },
+    "lab-fix-not-between-null": {
+      "title": "Popraw: poza departamentami od 20 do 30",
+      "task": "Zwróć employee_id i department_id pracowników, których department_id nie mieści się między 20 a 30, łącznie z pracownikami bez departamentu. Posortuj po employee_id. Zapytanie startowe pomija jednego pracownika: popraw je.",
+      "hint": "Dla department_id równego NULL NOT BETWEEN daje UNKNOWN, a nie TRUE.",
+      "hint2": "Dodaj do warunku OR e.department_id IS NULL."
+    },
+    "lab-fix-nulls-first-commission": {
+      "title": "Popraw: najpierw bez prowizji",
+      "task": "Zwróć employee_id i commission_pct wszystkich pracowników: najpierw pracowników bez prowizji, potem pozostałych od najniższej prowizji do najwyższej. Remisy rozstrzygnij po employee_id malejąco. Zapytanie startowe stawia pracowników bez prowizji na końcu: popraw je.",
+      "hint": "W porządku rosnącym Oracle domyślnie stawia NULL-e na końcu.",
+      "hint2": "ORDER BY e.commission_pct NULLS FIRST, e.employee_id DESC"
+    }
+  }
+}
