@@ -5,7 +5,7 @@
 import { $, $$, esc, plural, shuffle } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
-import { C, P, CARD, DB, apply, dueCards, cardLearned, topicLabel, needsNewerDb, sqlOff, NO_SQL, todayLeft } from "../core/state.js";
+import { C, P, CARD, DB, apply, dueCards, cardLearned, topicLabel, needsNewerDb, sqlOff, noSql, todayLeft } from "../core/state.js";
 import { main, go } from "../core/router.js";
 import { toast, toastError } from "../ui/feedback.js";
 import { meter, pageHead, section, loading } from "../ui/widgets.js";
@@ -160,7 +160,7 @@ function updateTry(card) {
   }
   const sample = formatSample(card.try_sql);
   const off = sqlOff();
-  const note = off ? NO_SQL
+  const note = off ? noSql()
     : needsNewerDb(card)
     ? `This sample needs ${esc(card.needs.label)}, and your database is ${esc(DB.product)} ${esc(DB.version)}.`
     : !sample ? "No sample for this card. Write your own query; changes are rolled back."

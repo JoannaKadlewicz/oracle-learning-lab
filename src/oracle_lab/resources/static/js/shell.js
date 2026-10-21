@@ -19,7 +19,7 @@ export function refreshNav() {
   const badge = $("#nav-mistakes");
   badge.hidden = !n;
   badge.textContent = n;
-  badge.setAttribute("aria-label", `${n} open`);
+  badge.setAttribute("aria-label", t("{n} open", { n }));
 }
 
 export function applyTheme(theme) {
@@ -43,9 +43,9 @@ export function renderExamSwitch() {
 async function switchExam(code) {
   if (code === C.exam.code) return;
   if (P.active_mock && !await confirmDialog({
-    title: `Switch to ${code}?`,
-    body: "A mock exam is running on this exam track. It stays open and resumes when you switch back.",
-    confirm: "Switch exam",
+    title: t("Switch to {code}?", { code }),
+    body: t("A mock exam is running on this exam track. It stays open and resumes when you switch back."),
+    confirm: t("Switch exam"),
   })) return;
   try {
     apply(await api("/api/settings", { exam: code }));
@@ -54,8 +54,8 @@ async function switchExam(code) {
     renderExamSwitch();
     await route();
     checkDatabase();
-    toast(`Now preparing for ${C.exam.code}.`);
-  } catch (err) { toastError(`Could not switch the exam. ${err.message}`); }
+    toast(t("Now preparing for {code}.", { code: C.exam.code }));
+  } catch (err) { toastError(t("Could not switch the exam. {error}", { error: err.message })); }
 }
 
 /* ---------------------------------------------------------------- database */
@@ -67,7 +67,7 @@ export function checkDatabase() {
   if (sqlOff()) {
     setDatabase(null);
     el.className = "db-status";
-    el.textContent = "SQL practice unavailable";
+    el.textContent = t("SQL practice unavailable");
     el.title = "";
     return;
   }
@@ -75,12 +75,14 @@ export function checkDatabase() {
     setSchema(r);
     setDatabase(r.ok ? r.database : null);
     el.className = "db-status " + (r.ok ? "ok" : "down");
-    el.textContent = r.ok ? `${r.database.product} ${r.database.version.split(".").slice(0, 2).join(".")} connected` : "Database offline";
+    el.textContent = r.ok
+      ? t("{product} {version} connected", { product: r.database.product, version: r.database.version.split(".").slice(0, 2).join(".") })
+      : t("Database offline");
     el.title = r.ok ? `${r.database.dsn}, ${r.database.product} ${r.database.version}` : r.error;
     if (currentView() === "home") refresh();
   }).catch(() => {
     el.className = "db-status down";
-    el.textContent = "Database offline";
+    el.textContent = t("Database offline");
   });
 }
 
@@ -113,7 +115,6 @@ export function initShell({ onExamChange: handler }) {
   $("#rail-account").title = user.email;
   $("#nav-admin").hidden = user.role !== "admin";
   $("#sign-out").addEventListener("click", signOut);
-  $("#rail-lang").setAttribute("aria-label", t("Language"));
   wireLanguageSwitch($("#rail-lang"));
   onRoute(refreshNav);
 }

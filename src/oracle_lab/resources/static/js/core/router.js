@@ -3,6 +3,7 @@
    the document title, focus and scroll, and calls leave() on the old view. */
 
 import { $, $$, esc } from "./dom.js";
+import { t } from "./i18n.js";
 
 export const main = $("#main");
 const views = {};
@@ -54,8 +55,8 @@ export async function route() {
     // A view still loading when the user left fails on elements that are gone; the new page stays.
     if (id !== navigation) return;
     console.error(err);
-    main.innerHTML = `<div class="empty"><strong>This page could not be loaded</strong>
-      <p>${esc(err.message)}</p><button class="btn secondary" id="reload-app">Reload the app</button></div>`;
+    main.innerHTML = `<div class="empty"><strong>${esc(t("This page could not be loaded"))}</strong>
+      <p>${esc(err.message)}</p><button class="btn secondary" id="reload-app">${esc(t("Reload the app"))}</button></div>`;
     $("#reload-app").addEventListener("click", () => location.reload());
   }
   if (id !== navigation) return;

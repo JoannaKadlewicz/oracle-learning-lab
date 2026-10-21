@@ -14,6 +14,13 @@
       document.documentElement.dataset.theme = t;
       for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = t === "dark" ? "#0E1522" : "#EDF1F6";
     }
+    // Polish remembered in this browser: hide the page until the catalog is loaded, so English never flashes.
+    let l = null;
+    try { l = localStorage.getItem("study:lang"); } catch {}
+    if (l === "pl") {
+      document.documentElement.lang = "pl";
+      document.documentElement.classList.add("i18n-pending");
+    }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -49,60 +56,60 @@
     </defs>
   </svg>
 
-  <a class="skip" href="#main">Skip to content</a>
+  <a class="skip" href="#main" data-i18n="Skip to content">Skip to content</a>
 
   <header class="topbar">
-    <button class="icon-btn" id="nav-open" aria-label="Open navigation" aria-controls="rail" aria-expanded="false"><svg><use href="#i-menu"/></svg></button>
+    <button class="icon-btn" id="nav-open" aria-label="Open navigation" data-i18n-aria-label="Open navigation" aria-controls="rail" aria-expanded="false"><svg><use href="#i-menu"/></svg></button>
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text"><strong>Oracle Learning Lab</strong></span></a>
     <span class="topbar-exam" id="topbar-exam"></span>
   </header>
 
   <div class="shell" id="shell">
-    <nav class="rail" id="rail" aria-label="Main">
+    <nav class="rail" id="rail" aria-label="Main" data-i18n-aria-label="Main">
       <div class="rail-head">
-        <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text"><strong>Oracle Learning Lab</strong><span>SQL certification prep</span></span></a>
-        <button class="icon-btn rail-close" id="nav-close" aria-label="Close navigation"><svg><use href="#i-close"/></svg></button>
+        <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span><span class="brand-text"><strong>Oracle Learning Lab</strong><span data-i18n="SQL certification prep">SQL certification prep</span></span></a>
+        <button class="icon-btn rail-close" id="nav-close" aria-label="Close navigation" data-i18n-aria-label="Close navigation"><svg><use href="#i-close"/></svg></button>
       </div>
 
       <div class="exam-switch">
-        <span id="exam-switch-label">Preparing for</span>
+        <span id="exam-switch-label" data-i18n="Preparing for">Preparing for</span>
         <div id="exam-picker"></div>
       </div>
 
       <ul class="nav">
-        <li class="nav-label">Study</li>
-        <li><a href="/" data-view="home"><svg aria-hidden="true"><use href="#i-today"/></svg>Today</a></li>
-        <li><a href="/quiz" data-view="quiz"><svg aria-hidden="true"><use href="#i-quiz"/></svg>Quiz</a></li>
-        <li><a href="/cards" data-view="cards"><svg aria-hidden="true"><use href="#i-cards"/></svg>Flashcards</a></li>
-        <li><a href="/exercises" data-view="exercises"><svg aria-hidden="true"><use href="#i-exercise"/></svg>Exercises</a></li>
-        <li><a href="/lab" data-view="lab"><svg aria-hidden="true"><use href="#i-lab"/></svg>SQL lab</a></li>
-        <li class="nav-label">Review</li>
-        <li><a href="/review" data-view="review"><svg aria-hidden="true"><use href="#i-mistakes"/></svg>Mistakes <span class="count" id="nav-mistakes" hidden></span></a></li>
-        <li><a href="/progress" data-view="progress"><svg aria-hidden="true"><use href="#i-progress"/></svg>Progress</a></li>
-        <li><a href="/notes" data-view="notes"><svg aria-hidden="true"><use href="#i-notes"/></svg>Notes</a></li>
+        <li class="nav-label" data-i18n="Study">Study</li>
+        <li><a href="/" data-view="home"><svg aria-hidden="true"><use href="#i-today"/></svg><span data-i18n="Today">Today</span></a></li>
+        <li><a href="/quiz" data-view="quiz"><svg aria-hidden="true"><use href="#i-quiz"/></svg><span data-i18n="Quiz">Quiz</span></a></li>
+        <li><a href="/cards" data-view="cards"><svg aria-hidden="true"><use href="#i-cards"/></svg><span data-i18n="Flashcards">Flashcards</span></a></li>
+        <li><a href="/exercises" data-view="exercises"><svg aria-hidden="true"><use href="#i-exercise"/></svg><span data-i18n="Exercises">Exercises</span></a></li>
+        <li><a href="/lab" data-view="lab"><svg aria-hidden="true"><use href="#i-lab"/></svg><span data-i18n="SQL lab">SQL lab</span></a></li>
+        <li class="nav-label" data-i18n="Review">Review</li>
+        <li><a href="/review" data-view="review"><svg aria-hidden="true"><use href="#i-mistakes"/></svg><span data-i18n="Mistakes">Mistakes</span> <span class="count" id="nav-mistakes" hidden></span></a></li>
+        <li><a href="/progress" data-view="progress"><svg aria-hidden="true"><use href="#i-progress"/></svg><span data-i18n="Progress">Progress</span></a></li>
+        <li><a href="/notes" data-view="notes"><svg aria-hidden="true"><use href="#i-notes"/></svg><span data-i18n="Notes">Notes</span></a></li>
       </ul>
 
       <div class="rail-foot">
         <div class="account" id="rail-account">
           <span class="account-name" id="account-name"></span>
           <span class="account-email" id="account-email"></span>
-          <button class="btn secondary small" id="sign-out" type="button">Sign out</button>
+          <button class="btn secondary small" id="sign-out" type="button" data-i18n="Sign out">Sign out</button>
         </div>
         <ul class="nav">
-          <li id="nav-admin" hidden><a href="/admin" data-view="admin"><svg aria-hidden="true"><use href="#i-admin"/></svg>Admin</a></li>
-          <li><a href="/settings" data-view="settings"><svg aria-hidden="true"><use href="#i-settings"/></svg>Settings</a></li>
+          <li id="nav-admin" hidden><a href="/admin" data-view="admin"><svg aria-hidden="true"><use href="#i-admin"/></svg><span data-i18n="Admin">Admin</span></a></li>
+          <li><a href="/settings" data-view="settings"><svg aria-hidden="true"><use href="#i-settings"/></svg><span data-i18n="Settings">Settings</span></a></li>
         </ul>
-        <div class="lang-switch rail-lang" id="rail-lang" role="group" aria-label="Language">
+        <div class="lang-switch rail-lang" id="rail-lang" role="group" aria-label="Language" data-i18n-aria-label="Language">
           <button type="button" data-lang="en" lang="en" aria-label="English">EN</button>
           <button type="button" data-lang="pl" lang="pl" aria-label="Polski">PL</button>
         </div>
-        <p class="db-status" id="db-status" role="status">Checking database…</p>
+        <p class="db-status" id="db-status" role="status" data-i18n="Checking database…">Checking database…</p>
       </div>
     </nav>
     <div class="scrim" id="scrim"></div>
 
     <main id="main" tabindex="-1">
-      <p class="loading">Loading your study plan…</p>
+      <p class="loading" data-i18n="Loading your study plan…">Loading your study plan…</p>
     </main>
   </div>
 

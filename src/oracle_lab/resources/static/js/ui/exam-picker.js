@@ -3,6 +3,7 @@
    the active option. The open list is position: fixed so the scrolling rail cannot clip it. */
 
 import { esc } from "../core/dom.js";
+import { t } from "../core/i18n.js";
 
 const TYPEAHEAD_MS = 500;
 
@@ -184,7 +185,7 @@ function optionHtml(id, x, current) {
   const selected = x.code === current;
   return `<li role="option" id="${id}-${esc(x.code)}" data-exam="${esc(x.code)}" aria-selected="${selected}">
     <span class="exam-picker-option-title"><span class="exam-picker-code">${esc(x.code)}</span> ${esc(x.name)}</span>
-    <span class="exam-picker-option-meta">${esc(x.database)}, ${x.questions} questions, ${x.minutes} min</span>
+    <span class="exam-picker-option-meta">${esc(t("{database}, {questions} questions, {minutes} min", { database: x.database, questions: x.questions, minutes: x.minutes }))}</span>
     <svg class="exam-picker-tick" aria-hidden="true"><use href="#i-check"/></svg>
   </li>`;
 }

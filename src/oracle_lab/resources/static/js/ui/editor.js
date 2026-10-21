@@ -4,6 +4,7 @@
 import { esc } from "../core/dom.js";
 import { C } from "../core/state.js";
 import { api } from "../core/api.js";
+import { t } from "../core/i18n.js";
 
 let schemaCache = null;
 
@@ -21,20 +22,20 @@ export function invalidateSchema() { schemaCache = null; }
 
 function schemaTables() {
   const tables = {};
-  for (const t of schemaCache?.tables || []) tables[t.name.toLowerCase()] = t.columns.map(c => c.name.toLowerCase());
+  for (const table of schemaCache?.tables || []) tables[table.name.toLowerCase()] = table.columns.map(c => c.name.toLowerCase());
   return tables;
 }
 
 export async function schemaHtml() {
   try {
     const schema = await getSchema();
-    if (!schema.ok) return `<p class="small muted">Schema unavailable: ${esc(schema.error)}</p>`;
-    return schema.tables.map(t => `<details><summary>${esc(t.name)}</summary><ul>
-      ${t.columns.map(c => `<li class="${c.nullable ? "" : "nn"}"><b>${esc(c.name.toLowerCase())}</b><span>${esc(c.type)}</span></li>`).join("")}
-    </ul><button class="link-btn" data-insert="${esc(t.name.toLowerCase())}">Insert a SELECT</button></details>`).join("")
+    if (!schema.ok) return `<p class="small muted">${esc(t("Schema unavailable: {error}", { error: schema.error }))}</p>`;
+    return schema.tables.map(table => `<details><summary>${esc(table.name)}</summary><ul>
+      ${table.columns.map(c => `<li class="${c.nullable ? "" : "nn"}"><b>${esc(c.name.toLowerCase())}</b><span>${esc(c.type)}</span></li>`).join("")}
+    </ul><button class="link-btn" data-insert="${esc(table.name.toLowerCase())}">${esc(t("Insert a SELECT"))}</button></details>`).join("")
       + `<p class="xsmall muted">* NOT NULL</p>`;
   } catch {
-    return `<p class="small muted">Schema unavailable.</p>`;
+    return `<p class="small muted">${esc(t("Schema unavailable."))}</p>`;
   }
 }
 
@@ -43,8 +44,8 @@ function plainKeys(textarea, onRun) {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); onRun(); }
     else if (e.key === "Tab" && !e.shiftKey) {
       e.preventDefault();
-      const { selectionStart: s, selectionEnd: t, value } = textarea;
-      textarea.value = value.slice(0, s) + "  " + value.slice(t);
+      const { selectionStart: s, selectionEnd: end, value } = textarea;
+      textarea.value = value.slice(0, s) + "  " + value.slice(end);
       textarea.selectionStart = textarea.selectionEnd = s + 2;
     }
   });
@@ -73,7 +74,7 @@ export function makeEditor(textarea, { onRun, onChange }) {
       Tab: c => c.replaceSelection("  "), Esc: c => c.getInputField().blur(),
     },
   });
-  cm.getInputField().setAttribute("aria-label", textarea.getAttribute("aria-label") || "SQL editor");
+  cm.getInputField().setAttribute("aria-label", textarea.getAttribute("aria-label") || t("SQL editor"));
   cm.on("inputRead", (c, change) => { if (change.text[0] === ".") hint(c); });
   if (onChange) cm.on("change", () => onChange(cm.getValue()));
   return {

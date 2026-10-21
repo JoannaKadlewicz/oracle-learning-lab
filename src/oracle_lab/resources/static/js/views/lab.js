@@ -4,7 +4,7 @@
 import { $, $$, esc, plural } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
-import { S, DB, sqlOff, NO_SQL } from "../core/state.js";
+import { S, DB, sqlOff, noSql } from "../core/state.js";
 import { main } from "../core/router.js";
 import { toast, toastError, confirmDialog, promptDialog } from "../ui/feedback.js";
 import { pageHead, loading } from "../ui/widgets.js";
@@ -54,7 +54,7 @@ async function render() {
   const editor = makeEditor($("#sql"), { onRun: () => run(), onChange: v => labDraft(v) });
   editor.onSelection(has => { $("#run span").textContent = has ? "Run selection" : "Run"; });
   const note = () => {
-    $("#keep-note").textContent = off ? NO_SQL : keep.checked
+    $("#keep-note").textContent = off ? noSql() : keep.checked
       ? "Changes are committed after each run."
       : "Changes are rolled back after each run. DDL (CREATE, DROP, TRUNCATE…) always commits at once, including any DML before it.";
   };

@@ -1,7 +1,10 @@
 /* Entry point: load progress and content, wire the shell and the views, start routing. */
 
 import { esc } from "./core/dom.js";
-import { initI18n, preferredLanguage, rememberedLanguage, explicitLanguage, clearExplicitLanguage, setAccountSaver, t } from "./core/i18n.js";
+import {
+  initI18n, preferredLanguage, rememberedLanguage, rememberLanguage, explicitLanguage, clearExplicitLanguage,
+  setAccountSaver, translatePage, lang, t,
+} from "./core/i18n.js";
 import { api } from "./core/api.js";
 import { loadSession, currentUser } from "./core/session.js";
 import { useUser } from "./core/store.js";
@@ -70,6 +73,12 @@ async function adoptRememberedLanguage() {
   catch (err) { console.error(err); }  // the page still shows in the remembered language
 }
 
+/** Fills the static texts of index.html in the chosen language and reveals the page (see the head script). */
+function showPage() {
+  translatePage();
+  document.documentElement.classList.remove("i18n-pending");
+}
+
 async function boot() {
   setAccountSaver(async code => { apply(await api("/api/settings", { language: code })); });
   let languageReady = false;
@@ -81,16 +90,19 @@ async function boot() {
     await initI18n(preferredLanguage(S?.settings?.language));
     languageReady = true;
     await adoptRememberedLanguage();
+    rememberLanguage(lang());  // the head script's hint for the next load, so it never flashes the other language
     await loadContent();
   } catch (err) {
     console.error(err);
     if (!languageReady) await initI18n(preferredLanguage());
+    showPage();
     main.innerHTML = `<div class="empty"><strong>${esc(t("The study server is not responding"))}</strong>
       <p>${esc(t("The app could not load. Reload, or try again in a minute."))}</p>
       <button class="btn" id="reload-app">${esc(t("Reload"))}</button></div>`;
     document.getElementById("reload-app").addEventListener("click", () => location.reload());
     return;
   }
+  showPage();
   initShell({ onExamChange: () => { resetQuiz({ forgetPractice: true }); resetDeck(); resetExercise(); } });
   await startRouting();
   checkDatabase();

@@ -2,6 +2,7 @@
    and replace window.confirm/prompt so the app keeps one look and one voice. */
 
 import { $, esc } from "../core/dom.js";
+import { t } from "../core/i18n.js";
 
 let toastTimer;
 let toastTag = null;
@@ -52,7 +53,7 @@ export function closeDialogs() {
 
 /** Resolves true when the person confirms. `focus: "cancel"` starts on the cancel button, so a
     stray Enter keeps things as they are. */
-export async function confirmDialog({ title, body = "", confirm = "Continue", cancel = "Cancel", danger = false, focus = "confirm" }) {
+export async function confirmDialog({ title, body = "", confirm = t("Continue"), cancel = t("Cancel"), danger = false, focus = "confirm" }) {
   const value = await openDialog(`
     <h2>${esc(title)}</h2>
     ${body ? `<p>${esc(body)}</p>` : ""}
@@ -64,28 +65,28 @@ export async function confirmDialog({ title, body = "", confirm = "Continue", ca
 }
 
 /** Resolves the entered text, or null when cancelled. */
-export async function promptDialog({ title, body = "", label, value = "", confirm = "Save" }) {
+export async function promptDialog({ title, body = "", label, value = "", confirm = t("Save") }) {
   let input;
   const result = await openDialog(`
     <h2>${esc(title)}</h2>
     ${body ? `<p>${esc(body)}</p>` : ""}
     <label class="field"><span>${esc(label)}</span><input type="text" name="value" value="${esc(value)}" autocomplete="off"></label>
     <div class="row">
-      <button type="button" class="btn secondary" data-close>Cancel</button>
+      <button type="button" class="btn secondary" data-close>${esc(t("Cancel"))}</button>
       <button class="btn" value="ok">${esc(confirm)}</button>
     </div>`, dialog => { input = dialog.querySelector("input"); input.select(); });
   return result === "ok" ? input.value : null;
 }
 
 /** Asks for a password before a dangerous step. Resolves the entered text, or null when cancelled. */
-export async function passwordDialog({ title, body = "", label = "Password", confirm = "Continue", danger = false, autocomplete = "current-password" }) {
+export async function passwordDialog({ title, body = "", label = t("Password"), confirm = t("Continue"), danger = false, autocomplete = "current-password" }) {
   let input;
   const result = await openDialog(`
     <h2>${esc(title)}</h2>
     ${body ? `<p>${esc(body)}</p>` : ""}
     <label class="field"><span>${esc(label)}</span><input type="password" name="value" autocomplete="${esc(autocomplete)}" required></label>
     <div class="row">
-      <button type="button" class="btn secondary" data-close>Cancel</button>
+      <button type="button" class="btn secondary" data-close>${esc(t("Cancel"))}</button>
       <button class="btn ${danger ? "danger solid" : ""}" value="ok">${esc(confirm)}</button>
     </div>`, dialog => { input = dialog.querySelector("input"); input.focus(); });
   return result === "ok" ? input.value : null;

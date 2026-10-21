@@ -1,7 +1,7 @@
 /* JSON calls to the study server. GET without a body, POST with one (and the CSRF token). */
 
 import { csrfToken } from "./session.js";
-import { lang } from "./i18n.js";
+import { lang, t } from "./i18n.js";
 
 export class ApiError extends Error {}
 
@@ -20,16 +20,16 @@ export async function api(path, body) {
   try {
     res = await fetch(path, { ...opts, headers: { ...opts.headers, "X-Language": lang() } });
   } catch {
-    throw new ApiError("The study server is not responding.");
+    throw new ApiError(t("The study server is not responding."));
   }
   const payload = res.ok ? null : await res.json().catch(() => null);
   // A 401 is also "wrong password" on the account endpoints: only a dead session leaves the page.
   if (res.status === 401 && await sessionEnded()) {
     location.assign("/login?next=" + encodeURIComponent(location.pathname + location.search));
-    throw new ApiError("Your session has ended. Please sign in again.");
+    throw new ApiError(t("Your session has ended. Please sign in again."));
   }
   if (!res.ok) {
-    const err = new ApiError(payload?.error || `${path} failed with HTTP ${res.status}.`);
+    const err = new ApiError(payload?.error || t("{path} failed with HTTP {status}.", { path, status: res.status }));
     err.problems = Array.isArray(payload?.problems) ? payload.problems : [];
     err.status = res.status;
     throw err;

@@ -147,6 +147,10 @@ body.exam-mode .shell { grid-template-columns: minmax(0, 1fr); }
   text-decoration: none;
   font-weight: 500;
 }
+/* Hidden while a Polish page waits for its catalog (see the head script of index.html); the animation is a safety net. */
+html.i18n-pending body { visibility: hidden; animation: i18n-reveal 0s 2s forwards; }
+@keyframes i18n-reveal { to { visibility: visible; } }
+
 .nav a svg { width: 20px; height: 20px; flex: none; color: var(--muted); }
 .nav a:hover { background: var(--paper-3); color: var(--ink); }
 .nav a[aria-current="page"] { background: var(--paper); color: var(--ink); font-weight: 650; box-shadow: var(--shadow-s), 0 0 0 1px var(--rule); }

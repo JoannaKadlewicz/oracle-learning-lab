@@ -4,7 +4,7 @@
 import { $, $$, esc, inlineCode, icon, plural } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
-import { C, S, P, L, DB, apply, loadProgress, topicLabel, needsNewerDb, sqlOff, NO_SQL } from "../core/state.js";
+import { C, S, P, L, DB, apply, loadProgress, topicLabel, needsNewerDb, sqlOff, noSql } from "../core/state.js";
 import { main, go, setTitle } from "../core/router.js";
 import { currentUser } from "../core/session.js";
 import { confirmDialog } from "../ui/feedback.js";
@@ -121,7 +121,7 @@ function render(arg) {
             </span>
           </div>
         </div>
-        ${off ? `<p class="editor-note">${NO_SQL}</p>` : ""}
+        ${off ? `<p class="editor-note">${esc(noSql())}</p>` : ""}
         <div class="results" id="ex-results" aria-live="polite">${st?.passed ? `<div class="verdict good"><strong>Passed earlier</strong><p>You solved this in ${plural(st.tries, "attempt")}.</p></div>` : ""}</div>
       </section>
     </div>`;

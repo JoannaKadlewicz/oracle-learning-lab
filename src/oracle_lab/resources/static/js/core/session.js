@@ -1,7 +1,7 @@
 /* The signed-in person and their CSRF token, loaded once at start-up from /api/auth/me. */
 
 import { clearUserStore } from "./store.js";
-import { lang } from "./i18n.js";
+import { lang, t } from "./i18n.js";
 
 let session = { user: null, csrf: "" };
 
@@ -11,7 +11,7 @@ export async function loadSession() {
     location.assign("/login?next=" + encodeURIComponent(location.pathname + location.search));
     return new Promise(() => {});  // the page is leaving; never boot the app
   }
-  if (!res.ok) throw new Error(`The study server answered HTTP ${res.status}.`);
+  if (!res.ok) throw new Error(t("The study server answered HTTP {status}.", { status: res.status }));
   const body = await res.json();
   session = { user: body.user, csrf: body.csrf_token };
   return session;

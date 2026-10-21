@@ -8,6 +8,7 @@
    DB the connected database: version, major */
 
 import { api } from "./api.js";
+import { t } from "./i18n.js";
 
 export let C = null;
 export let S = null;
@@ -24,7 +25,7 @@ export function apply(snapshot) {
 }
 
 /** The one line shown where a SQL action would be, for users without SQL practice. */
-export const NO_SQL = "SQL practice isn't enabled on this server yet.";
+export const noSql = () => t("SQL practice isn't enabled on this server yet.");
 export const sqlOff = () => P?.sql_available === false;
 
 /** What is left of today's plan after the questions: flashcard ids not reviewed yet, and the

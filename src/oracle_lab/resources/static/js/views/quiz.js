@@ -4,7 +4,7 @@
 import { $, $$, esc, inlineCode, plural, shuffle, icon, LETTERS } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { store, forget } from "../core/store.js";
-import { C, S, P, Q, CARD, apply, topicLabel, needsNewerDb, mistakes, sqlOff, NO_SQL, todayLeft } from "../core/state.js";
+import { C, S, P, Q, CARD, apply, topicLabel, needsNewerDb, mistakes, sqlOff, noSql, todayLeft } from "../core/state.js";
 import { main, go, currentView, setLeaveGuard } from "../core/router.js";
 import { toast, clearToast, toastError, confirmDialog, closeDialogs } from "../ui/feedback.js";
 import { meter, pageHead, section } from "../ui/widgets.js";
@@ -566,7 +566,7 @@ function renderQuestion(i, reviewing) {
       ${actions}
       <span class="spacer"></span>
       ${canTry ? (sqlOff()
-        ? `<span class="small muted">${NO_SQL}</span><button class="btn ghost" disabled>Run it in the SQL lab</button>`
+        ? `<span class="small muted">${esc(noSql())}</span><button class="btn ghost" disabled>Run it in the SQL lab</button>`
         : needsNewerDb(q)
         ? `<span class="small muted" title="${esc(C.exam.code)}'s SQL features need ${esc(q.needs.label)}, which this server does not provide.">Runs on ${esc(q.needs.label)} only</span>`
         : `<button class="btn ghost" id="try">Run it in the SQL lab</button>`) : ""}
