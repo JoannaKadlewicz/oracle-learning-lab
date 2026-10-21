@@ -142,6 +142,10 @@ textarea.editor:focus { outline: none; }
 }
 .result-msg { padding: 11px 14px; font-size: 15px; }
 .result-msg.error { color: var(--bad); font: 14px/1.5 var(--mono); white-space: pre-wrap; }
+.result-msg.expected { color: var(--warn); background: var(--warn-bg); font: 14px/1.5 var(--mono); white-space: pre-wrap; }
+.result-expected { margin: 0 0 4px; font: 600 var(--t-s)/1.4 var(--font); }
+.result-step { padding: 8px 14px 0; background: var(--paper-2); font-size: var(--t-s); line-height: 1.45; }
+.result-step b { font-weight: 650; }
 .result-msg.prompt { font-weight: 650; }
 .result-foot { padding: 7px 14px; border-top: 1px solid var(--rule); font-size: var(--t-xs); color: var(--muted); }
 .run-end { font-size: var(--t-s); color: var(--muted); margin: 0; }

@@ -108,6 +108,11 @@ SAVEPOINT and ROLLBACK only, rolled back after the run, and `try_error` (plus
 a statement can show (a function, a clause, NULL handling, an error); keep the sample short,
 on the sample tables or `dual`, with a `--` comment saying what to look at. Leave it out for
 cards about theory (the editor then starts empty).
+The app shows each statement's `--` comment as the heading of its step in the results, and an
+error matching `try_error` (or a code named in that comment) as expected, so put a comment
+before each statement that shows something different. Long one-line statements are broken
+before FROM, WHERE and the other main clauses in the editor; write them on one line or format
+them yourself.
 
 For a card about DDL, the sample may create and change its own objects, named after the card
 (`lab_c055_emp` for card c055), when the card also has a `cleanup` that drops all of them:
