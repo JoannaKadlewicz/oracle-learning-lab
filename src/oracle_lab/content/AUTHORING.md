@@ -56,7 +56,8 @@ exam, so a new one needs no change outside these steps.
 1. **Registry entry.** Add an `Exam` to `EXAMS` in `src/oracle_lab/exams.py`: `code`, `name`,
    `product` (the group in the exam drop-down), `engine` (a key of `ENGINES`), `database` (the
    database key, see 3), `database_label`, `fallback` (the database key of another exam of the same
-   engine, or `None`), `versions` (engine major versions the exam covers, minimum inclusive and
+   engine, or `None`; if the exam's own database is not configured it runs on the fallback key's
+   database, so 1Z0-171 uses the default database until `STUDY_DSN_23AI` is set), `versions` (engine major versions the exam covers, minimum inclusive and
    maximum exclusive, `None` for no maximum), `pack`, `questions`, `minutes`, `passing_pct` and
    `about`. `DEFAULT_EXAM` is the exam shown when nothing is chosen. `exams.problems()` reports
    registry mistakes (a missing default, an unknown engine, a database key shared by two engines,
@@ -71,7 +72,8 @@ exam, so a new one needs no change outside these steps.
 3. **Database.** Every exam names a database key. `default` is the primary database and uses
    `STUDY_DSN`, `STUDY_USER` and `STUDY_PASSWORD[_FILE]`. Any other key adds its upper-case form as
    a suffix: key `23ai` reads `STUDY_DSN_23AI`, `STUDY_USER_23AI` and `STUDY_PASSWORD_23AI[_FILE]`.
-   The key is used only when its `STUDY_DSN` is set. Private practice schemas take the same
+   The key is used only when its `STUDY_DSN` is set. Otherwise the exam runs on its fallback key's
+   database, and an exam with neither shows the database as not set up. Private practice schemas take the same
    suffix on `STUDY_PROVISIONER_USER`, `STUDY_PROVISIONER_PASSWORD[_FILE]`, `STUDY_GATEWAY_USER`,
    `STUDY_GATEWAY_PASSWORD[_FILE]`, `STUDY_PRACTICE_TABLESPACE` and `STUDY_PRACTICE_QUOTA_MB`.
 4. **New engine.** An exam for another database product needs an engine. Implement `engines.Engine`
