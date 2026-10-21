@@ -183,3 +183,22 @@ def test_todays_plan_ignores_work_from_earlier_days():
     plan = engine.todays_plan(CONTENT, state, NOW)
     assert "c001" in plan["cards"] and "q06-a" in plan["questions"]
     assert plan["done"] == {"questions": [], "cards": [], "lab": False}
+
+
+def test_hard_grows_slower_than_good():
+    assert engine.sm2([(0, 3)])["interval"] == 1.0
+    s = engine.sm2([(0, 4), (DAY, 4), (4 * DAY, 3)])  # previous interval 3 days, then hard
+    assert s["interval"] == max(3.0 * 1.2, 3.0 + 1) and s["reps"] == 3
+
+
+def test_old_ratings_replay_unchanged():  # golden value from the code before Hard existed
+    assert engine.sm2([(0, 4), (DAY, 4), (4 * DAY, 4)])["interval"] == 3.0 * 2.5
+
+
+def test_card_previews_order():
+    p = engine.card_previews({"reviews": [[0, "good"], [DAY, "good"]]}, 4 * DAY)
+    assert p["again"] == 0 and p["hard"] < p["good"] <= p["easy"]  # easy only differs from good through later ease
+
+
+def test_card_previews_of_a_new_card():
+    assert engine.card_previews(None, 0) == {"again": 0, "hard": 1.0, "good": 1.0, "easy": 1.0}

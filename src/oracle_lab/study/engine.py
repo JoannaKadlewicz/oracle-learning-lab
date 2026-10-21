@@ -5,7 +5,7 @@ Pure functions over the saved progress (`state`) and the study content. They tak
 
 State layout (progress.json in the data directory, see config.Settings):
     attempts  {question_id: [{"t", "correct", "chosen", "confidence", "mode"}, ...]}
-    cards     {card_id: {"reviews": [[t, "again" | "good" | "easy"], ...]}}
+    cards     {card_id: {"reviews": [[t, "again" | "hard" | "good" | "easy"], ...]}}
     labs      {lab_id: {"tries", "passed", "last", "t"}}
     settings  {"exam_date": "YYYY-MM-DD", "daily_minutes": 30}
     mocks     [{"id", "started", "minutes", "topics", "items", "seen_before", "answers": {qid: {"chosen",
@@ -20,7 +20,7 @@ import random
 
 DAY = 86400
 CONFIDENCE = ("sure", "think", "guess")
-CARD_RATINGS = {"again": 1, "good": 4, "easy": 5}  # SM-2 quality
+CARD_RATINGS = {"again": 1, "hard": 3, "good": 4, "easy": 5}  # SM-2 quality
 
 # Minutes per item, used to fit the daily plan into the time available.
 MINUTES = {"card": 0.3, "question": 1.5, "lab": 8}
@@ -54,7 +54,9 @@ def answer_quality(attempt):
 def sm2(reviews):
     """Replay (t, quality) reviews with SM-2 and return the resulting schedule.
 
-    Intervals are 1 day, 3 days, then the previous interval times the ease factor.
+    Intervals are 1 day, 3 days, then the previous interval times the ease factor. Quality 3 is the
+    Hard card rating: 1 day first, then max(previous * 1.2, previous + 1) days. Question schedules
+    never reach that rule, because `answer_quality` yields only 5/4/2 (correct) and 0/1 (wrong).
     A quality below 3 resets the repetitions and makes the item due again right away.
     """
     reps, interval, ease, lapses = 0, 0.0, 2.5, 0
@@ -62,7 +64,14 @@ def sm2(reviews):
     for t, quality in reviews:
         if quality >= 3:
             reps += 1
-            interval = 1.0 if reps == 1 else 3.0 if reps == 2 else interval * ease
+            if reps == 1:
+                interval = 1.0
+            elif quality == 3:  # Hard (card rating only, see above)
+                interval = max(interval * 1.2, interval + 1)
+            elif reps == 2:
+                interval = 3.0
+            else:
+                interval = interval * ease
         else:
             if reps:
                 lapses += 1
@@ -78,6 +87,15 @@ def question_schedule(history):
 
 def card_schedule(entry):
     return sm2([(t, CARD_RATINGS[rating]) for t, rating in entry.get("reviews", [])])
+
+
+def card_previews(entry, now):
+    """Interval in days each rating would give the card now; "again" brings it back in this session."""
+    reviews = [(t, CARD_RATINGS[rating]) for t, rating in (entry or {}).get("reviews", [])]
+    previews = {"again": 0}
+    for rating in ("hard", "good", "easy"):
+        previews[rating] = sm2(reviews + [(now, CARD_RATINGS[rating])])["interval"]
+    return previews
 
 
 # --------------------------------------------------------------------------- mistakes

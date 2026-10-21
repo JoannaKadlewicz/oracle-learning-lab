@@ -81,3 +81,12 @@ def test_cross_site_fetches_are_refused(serve):
     http = serve().sign_in()
     assert http("/api/reset-progress", data={}, headers={"Sec-Fetch-Site": "cross-site"})[0] == 403
     assert http("/api/reset-progress", data={}, headers={"Sec-Fetch-Site": "same-origin"})[0] == 200
+
+
+def test_card_preview_endpoint(serve):
+    http = serve().sign_in()
+    card = content.FLASHCARDS[0]["id"]
+    status, _, body = http(f"/api/card/preview?id={card}")
+    preview = json.loads(body)
+    assert status == 200 and preview["again"] == 0 and preview["hard"] <= preview["good"] <= preview["easy"]
+    assert http("/api/card/preview?id=nope")[0] == 404

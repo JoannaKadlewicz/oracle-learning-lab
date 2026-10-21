@@ -64,6 +64,11 @@ class StudyService:
     def record_card(self, data: dict) -> dict[str, Any]:
         return self._change(lambda state: recording.record_card(state, data, self.clock()))
 
+    def card_previews(self, card_id: str | None) -> dict[str, float]:
+        if card_id not in recording.CARD_IDS:
+            raise NotFoundError("Unknown card")
+        return engine.card_previews(self.store.load()["cards"].get(card_id), self.clock())
+
     def mark_solution_seen(self, lab_id: str | None) -> dict[str, Any]:
         if lab_id not in recording.LAB_IDS:
             raise NotFoundError("Unknown exercise")

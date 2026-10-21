@@ -77,3 +77,10 @@ def test_each_exam_track_only_sees_its_own_mock_exams():
     state["settings"]["exam"] = "1Z0-071"
     assert track_state(state)["mocks"] == []
     assert set(snapshot(state, time.time())["progress"]["objectives"]) == set(content.for_exam("1Z0-071").OBJECTIVES)
+
+
+def test_record_card_accepts_hard():
+    state = empty()
+    card = content.FLASHCARDS[0]["id"]
+    recording.record_card(state, {"id": card, "rating": "hard"}, 1.0)
+    assert state["cards"][card] == {"reviews": [[1.0, "hard"]]}

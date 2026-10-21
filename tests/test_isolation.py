@@ -12,7 +12,8 @@ from oracle_lab.services.context import UserContexts
 from oracle_lab.web.http import Request
 from oracle_lab.web.middleware import PUBLIC_PATHS
 
-PRIVATE = [("GET", "/api/state"), ("GET", "/api/progress"), ("GET", "/api/content"), ("GET", "/report"),
+PRIVATE = [("GET", "/api/state"), ("GET", "/api/card/preview"), ("GET", "/api/progress"), ("GET", "/api/content"),
+           ("GET", "/report"),
            ("POST", "/api/attempt"), ("POST", "/api/card"), ("POST", "/api/settings"), ("POST", "/api/pick"),
            ("POST", "/api/reset-progress"), ("GET", "/api/mock"), ("POST", "/api/mock/start"), ("GET", "/api/notes"),
            ("GET", "/api/note"), ("POST", "/api/notes/save"), ("POST", "/api/run"), ("POST", "/api/grade"),
