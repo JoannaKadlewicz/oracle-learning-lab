@@ -60,12 +60,12 @@ export async function promptDialog({ title, body = "", label, value = "", confir
 }
 
 /** Asks for a password before a dangerous step. Resolves the entered text, or null when cancelled. */
-export async function passwordDialog({ title, body = "", label = "Password", confirm = "Continue", danger = false }) {
+export async function passwordDialog({ title, body = "", label = "Password", confirm = "Continue", danger = false, autocomplete = "current-password" }) {
   let input;
   const result = await openDialog(`
     <h2>${esc(title)}</h2>
     ${body ? `<p>${esc(body)}</p>` : ""}
-    <label class="field"><span>${esc(label)}</span><input type="password" name="value" autocomplete="current-password" required></label>
+    <label class="field"><span>${esc(label)}</span><input type="password" name="value" autocomplete="${esc(autocomplete)}" required></label>
     <div class="row">
       <button type="button" class="btn secondary" data-close>Cancel</button>
       <button class="btn ${danger ? "danger solid" : ""}" value="ok">${esc(confirm)}</button>

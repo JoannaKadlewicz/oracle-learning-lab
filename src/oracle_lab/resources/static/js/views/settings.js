@@ -8,6 +8,7 @@ import { main } from "../core/router.js";
 import { toast, toastError, confirmDialog, passwordDialog } from "../ui/feedback.js";
 import { pageHead, section } from "../ui/widgets.js";
 import { applyTheme, refreshNav } from "../shell.js";
+import { clearUserStore } from "../core/store.js";
 import { loadSession, currentUser } from "../core/session.js";
 
 function render() {
@@ -91,8 +92,9 @@ export function deviceName(ua) {
 function ago(epochSeconds) {
   const s = Math.max(0, Date.now() / 1000 - epochSeconds);
   if (s < 90) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)} minutes ago`;
-  if (s < 86400) return `${Math.round(s / 3600)} hours ago`;
+  const unit = (n, word) => `${n} ${word}${n === 1 ? "" : "s"} ago`;
+  if (s < 3600) return unit(Math.max(2, Math.round(s / 60)), "minute");
+  if (s < 86400) return unit(Math.round(s / 3600), "hour");
   return new Date(epochSeconds * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
@@ -167,7 +169,7 @@ async function renderAccount() {
     </div>`;
 
   const refresh = async () => {
-    try { user = (await loadSession()).user; } catch { /* keep what we have */ }
+    try { await loadSession(); } catch { toastError("Your session changed. Reload the page to continue."); }
     await renderAccount();
   };
 
@@ -208,6 +210,7 @@ async function renderAccount() {
     } else if (!await confirmDialog(opts)) return;
     try {
       await api("/api/account/delete", { password });
+      clearUserStore();
       location.assign("/login");
     } catch (err) { toastError(err.message); }
   });
