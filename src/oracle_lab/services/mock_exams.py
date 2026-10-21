@@ -27,7 +27,7 @@ class MockExamService:
             mock = mocks.find_mock(self.store.load(), mock_id)
         except ValueError as exc:
             raise NotFoundError(str(exc)) from exc
-        return {"mock": mock, "report": _report(mock) if mock["submitted"] else None}
+        return {"mock": {**mock, "position": mock.get("position")}, "report": _report(mock) if mock["submitted"] else None}
 
     def start(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:

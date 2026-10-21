@@ -57,16 +57,26 @@ def record_time_on(mock: dict, time_on: dict | None) -> None:
         mock["time_on"] = {qid: float(v) for qid, v in time_on.items() if qid in mock["items"]}
 
 
+def valid_position(mock: dict, position: object) -> int:
+    """The 0-based index of the question the learner is on; booleans are not positions."""
+    if isinstance(position, bool) or not isinstance(position, int) or not 0 <= position < len(mock["items"]):
+        raise ValueError("position is not a question of this mock exam")
+    return position
+
+
 def answer_mock(state: State, data: dict, now: float) -> None:
     mock = find_mock(state, data.get("mock_id"))
     if not is_running(mock) or is_over(mock, now):
         raise ValueError("this mock exam is over")
-    record_time_on(mock, data.get("time_on"))
     qid = data.get("id")
+    if qid is not None and qid not in mock["items"]:
+        raise ValueError("question is not part of this mock exam")
+    position = valid_position(mock, data["position"]) if data.get("position") is not None else None
+    record_time_on(mock, data.get("time_on"))
+    if position is not None:
+        mock["position"] = position
     if qid is None:
         return
-    if qid not in mock["items"]:
-        raise ValueError("question is not part of this mock exam")
     answer = mock["answers"].setdefault(qid, {"chosen": [], "confidence": None, "flagged": False})
     if "chosen" in data:
         answer["chosen"] = valid_choices(QUESTIONS_BY_ID[qid], data["chosen"])

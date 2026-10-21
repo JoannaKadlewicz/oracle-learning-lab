@@ -775,4 +775,5 @@ def active_mock_summary(state, now):
     if not mock:
         return None
     return {"id": mock["id"], "deadline": mock_deadline(mock), "count": len(mock["items"]),
-            "answered": sum(1 for a in mock["answers"].values() if a.get("chosen"))}
+            "answered": sum(1 for a in mock["answers"].values() if a.get("chosen")),
+            "position": mock.get("position")}

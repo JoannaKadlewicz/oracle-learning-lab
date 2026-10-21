@@ -165,3 +165,44 @@ def test_expired_mocks_are_submitted_at_their_deadline():
 
 def content_answer(qid):
     return next(x for x in content.QUESTIONS if x["id"] == qid)["answer"]
+
+
+# ---------------------------------------------------------------- position
+
+def test_position_is_stored_and_validated():
+    state = empty()
+    mock = mocks.start_mock(state, {"count": 3, "minutes": 10}, NOW)
+    first = mock["items"][0]
+    mocks.answer_mock(state, {"mock_id": mock["id"], "id": first, "chosen": [0], "position": 2}, NOW + 5)
+    assert mock["position"] == 2
+    for bad in (-1, 3, True, False, "1", 1.5):
+        with pytest.raises(ValueError):
+            mocks.answer_mock(state, {"mock_id": mock["id"], "position": bad}, NOW + 6)
+    assert mock["position"] == 2
+
+
+def test_position_without_answer():
+    state = empty()
+    mock = mocks.start_mock(state, {"count": 3, "minutes": 10}, NOW)
+    mocks.answer_mock(state, {"mock_id": mock["id"], "position": 1, "time_on": {mock["items"][0]: 4}}, NOW + 5)
+    assert mock["position"] == 1 and mock["answers"] == {} and mock["time_on"] == {mock["items"][0]: 4.0}
+    assert engine.active_mock_summary(state, NOW + 6)["position"] == 1
+
+
+def test_old_mock_without_position_reports_none():
+    state = empty()
+    mock = mocks.start_mock(state, {"count": 3, "minutes": 10}, NOW)
+    assert "position" not in mock
+    assert engine.active_mock_summary(state, NOW + 1)["position"] is None
+
+
+def test_partial_answer_is_saved_and_graded_wrong():
+    qid = next(x["id"] for x in content.QUESTIONS if len(x["answer"]) >= 2)
+    state = empty()
+    mock = mocks.start_mock(state, {"ids": [qid], "minutes": 10}, NOW)
+    only = content_answer(qid)[0]
+    mocks.answer_mock(state, {"mock_id": mock["id"], "id": qid, "chosen": [only]}, NOW + 5)
+    assert mock["answers"][qid]["chosen"] == [only]
+    mocks.submit_mock(state, mock, NOW + 20)
+    assert engine.mock_report(content, mock)["score"] == [0, 1]
+    assert state["attempts"][qid][0]["correct"] is False
