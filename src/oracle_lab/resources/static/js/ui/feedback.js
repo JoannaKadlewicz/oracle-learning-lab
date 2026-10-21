@@ -14,6 +14,11 @@ export function toast(message, { error = false } = {}) {
   toastTimer = setTimeout(() => el.classList.remove("show"), error ? 5000 : 2800);
 }
 
+export function clearToast() {
+  clearTimeout(toastTimer);
+  $("#toast").classList.remove("show");
+}
+
 export const toastError = message => toast(message, { error: true });
 
 /** A modal with `inner` inside a method="dialog" form; resolves the returnValue of the button that closed it. */

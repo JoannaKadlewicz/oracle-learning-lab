@@ -6,7 +6,7 @@ import { api } from "../core/api.js";
 import { store } from "../core/store.js";
 import { C, S, P, Q, apply, topicLabel, blockedOn23ai } from "../core/state.js";
 import { main, go } from "../core/router.js";
-import { toast, toastError, confirmDialog } from "../ui/feedback.js";
+import { toast, clearToast, toastError, confirmDialog } from "../ui/feedback.js";
 import { meter, pageHead, section } from "../ui/widgets.js";
 import { readinessHtml } from "../ui/charts.js";
 import { refreshNav } from "../shell.js";
@@ -30,6 +30,15 @@ const QTYPES = {
 export function resetQuiz() { stopTimer(); quiz = null; }
 
 function stopTimer() { clearInterval(timerHandle); timerHandle = null; }
+
+/** How many options the question asks for, and whether a selection has exactly that many. */
+const requiredCount = q => q.answer.length;
+const isComplete = (q, chosen) => (chosen || []).length === requiredCount(q);
+
+/** "D", "D and E", "D, E and F". */
+function joinLetters(letters) {
+  return letters.length < 2 ? letters.join("") : `${letters.slice(0, -1).join(", ")} and ${letters.at(-1)}`;
+}
 
 function isCorrect(q, chosen) {
   return [...q.answer].sort().join(",") === [...(chosen || [])].sort().join(",");
@@ -243,7 +252,7 @@ function renderQuestion(i, reviewing) {
   } else {
     actions = `<div class="confidence" role="group" aria-label="Check your answer: how sure are you?">
       <span>Check: how sure are you?</span>
-      ${CONF.map(([k, label, key]) => `<button class="btn secondary" data-conf="${k}" ${chosen.length ? "" : "disabled"}>${label} <span class="kbd">${key}</span></button>`).join("")}
+      ${CONF.map(([k, label, key]) => `<button class="btn secondary" data-conf="${k}" ${isComplete(q, chosen) ? "" : "disabled"}>${label} <span class="kbd">${key}</span></button>`).join("")}
     </div>`;
   }
 
@@ -259,6 +268,7 @@ function renderQuestion(i, reviewing) {
     ${multi ? `<span class="q-choose">Choose ${q.answer.length}</span>` : ""}
     <p class="q-prompt" id="q-prompt">${inlineCode(q.prompt)}</p>
     ${q.code ? `<pre class="code"><code>${esc(q.code)}</code></pre>` : ""}
+    ${multi && !revealed ? `<p class="q-count small" id="q-count" aria-live="polite">${chosen.length} of ${requiredCount(q)} selected</p>` : ""}
     <ul class="options" role="${multi ? "group" : "radiogroup"}" aria-labelledby="q-prompt">
       ${order.map((orig, pos) => {
         let cls = "", mark = "";
@@ -290,8 +300,18 @@ function renderQuestion(i, reviewing) {
   `;
 
   $$("input[name=opt]", main).forEach(inp => inp.addEventListener("change", () => {
+    // Like the real exam: a tick beyond the number asked for is refused.
+    if (inp.checked && inp.type === "checkbox" && $$("input[name=opt]:checked", main).length > requiredCount(q)) {
+      inp.checked = false;
+      const count = $("#q-count");
+      if (count) { count.classList.remove("pulse"); void count.offsetWidth; count.classList.add("pulse"); }
+      return;
+    }
     quiz.answers[id] = $$("input[name=opt]:checked", main).map(x => Number(x.value));
-    $$("[data-conf]", main).forEach(b => { b.disabled = !quiz.answers[id].length; });
+    $$("[data-conf]", main).forEach(b => { b.disabled = !isComplete(q, quiz.answers[id]); });
+    if (isComplete(q, quiz.answers[id])) clearToast();
+    const count = $("#q-count");
+    if (count) count.textContent = `${quiz.answers[id].length} of ${requiredCount(q)} selected`;
     if (exam) {
       saveMockAnswer(id, { chosen: quiz.answers[id] });
       $$(".qgrid button")[i].classList.toggle("answered", quiz.answers[id].length > 0);
@@ -340,7 +360,7 @@ async function quit() {
 function verdictHtml(q, chosen) {
   const ok = isCorrect(q, chosen);
   const order = quiz.order[q.id];
-  const letters = q.answer.map(a => LETTERS[order.indexOf(a)]).sort().join(" and ");
+  const letters = joinLetters(q.answer.map(a => LETTERS[order.indexOf(a)]).sort());
   const conf = quiz.confidence[q.id];
   const note = ok && conf === "guess"
     ? `You guessed, so this stays on your mistakes list until you answer it confidently on ${P.proof_days} different days.`
@@ -356,7 +376,8 @@ function verdictHtml(q, chosen) {
 
 async function checkPractice(id, confidence) {
   const chosen = quiz.answers[id] || [];
-  if (!chosen.length) return;
+  if (!isComplete(Q[id], chosen)) return;
+  clearToast();
   quiz.checked[id] = true;
   quiz.confidence[id] = confidence;
   render();
@@ -544,24 +565,38 @@ function renderMockResults(r) {
 
 /* ---------------------------------------------------------------- keyboard */
 
+/* Keys: 1-8 and A-H toggle the options (by display position). S, T and G set the confidence,
+   but G is also option G: while the selection is incomplete (practice Check, or a mock question),
+   a letter that has an option is that option; once complete, S/T/G are the confidence keys.
+   S and T never collide, as options stop at H. Enter checks a complete practice answer as
+   "think" when no confidence was chosen. */
 function onKey(e) {
   if (!quiz || quiz.finished || quiz.reviewScreen) return;
+  const inputs = $$("input[name=opt]", main);
+  const toggle = pos => {
+    const inp = inputs[pos];
+    if (!inp || inp.disabled) return false;
+    inp.checked = inp.type === "checkbox" ? !inp.checked : true;
+    inp.dispatchEvent(new Event("change"));
+    return true;
+  };
+  const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
   const n = Number(e.key);
-  if (n >= 1 && n <= 8) {
-    const inp = $$("input[name=opt]", main)[n - 1];
-    if (inp && !inp.disabled) {
-      inp.checked = inp.type === "checkbox" ? !inp.checked : true;
-      inp.dispatchEvent(new Event("change"));
-    }
-  } else if (["s", "t", "g"].includes(e.key.toLowerCase())) {
-    const conf = CONF.find(c => c[2].toLowerCase() === e.key.toLowerCase())[0];
+  const q = Q[quiz.items[quiz.idx]];
+  const complete = !!q && isComplete(q, quiz.answers[q.id]);
+  if (n >= 1 && n <= 8) toggle(n - 1);
+  else if (key.length === 1 && "STG".includes(key) && (complete || !inputs[LETTERS.indexOf(key)])) {
+    const conf = CONF.find(c => c[2] === key)[0];
     $(`[data-conf="${conf}"]:not([disabled])`, main)?.click();
     $(`[data-exam-conf="${conf}"]`, main)?.click();
+  } else if (key.length === 1 && LETTERS.includes(key)) {
+    toggle(LETTERS.indexOf(key));
   } else if (e.key === "Enter" && e.target.tagName !== "BUTTON") {
     e.preventDefault();
     const next = $("#next") || $("#finish");
     if (next) next.click();
-    else if ($("[data-conf]:not([disabled])", main)) toast("Choose how sure you are: S, T or G.");
+    else if ($("[data-conf]:not([disabled])", main)) checkPractice(q.id, "think");
+    else if (q && $("[data-conf]", main)) toast(`Choose ${plural(requiredCount(q), "answer")} first.`);
   }
 }
 

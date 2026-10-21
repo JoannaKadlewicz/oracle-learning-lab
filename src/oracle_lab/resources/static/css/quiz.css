@@ -22,6 +22,10 @@
   font-size: var(--t-s);
   font-weight: 700;
 }
+.q-count { margin: 0 0 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.q-count.pulse { animation: q-pulse .35s var(--ease); }
+@keyframes q-pulse { 40% { color: var(--bad); transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .q-count.pulse { animation: none; color: var(--bad); } }
 .q-prompt { font-size: 21px; line-height: 1.45; font-weight: 500; margin: 0 0 18px; max-width: 70ch; }
 
 .options { display: grid; gap: 10px; margin: 0 0 22px; padding: 0; list-style: none; }
