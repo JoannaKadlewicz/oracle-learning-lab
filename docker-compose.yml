@@ -1,7 +1,7 @@
 # Oracle Learning Lab: Oracle Database 19c and the web app in one container.
 #
 #   make secrets            generate the passwords into ./secrets (once)
-#   make up                 build and start; open http://127.0.0.1:8071 (login: study / secrets/study_auth_password)
+#   make up                 build and start; open http://127.0.0.1:8071 (register the first account)
 #
 # The database files live on the host in ${DATA_DIR}/oradata, the app's progress and notes in
 # ${DATA_DIR}/app, so `docker compose down` (even with -v) never deletes them. See docs/docker.md.
@@ -34,7 +34,22 @@ services:
     shm_size: 1g               # Oracle's shared memory
     stop_grace_period: 3m      # time for SHUTDOWN IMMEDIATE before Docker kills the database
     environment:
-      STUDY_AUTH_PASSWORD_FILE: /run/secrets/study_auth_password
+      # Accounts: users sign up (or sign in with Google) and each gets a private practice schema.
+      STUDY_PUBLIC_URL: ${STUDY_PUBLIC_URL:-http://localhost:8071}
+      STUDY_ADMIN_EMAIL: ${STUDY_ADMIN_EMAIL:-}
+      STUDY_GOOGLE_CLIENT_ID: ${STUDY_GOOGLE_CLIENT_ID:-}
+      STUDY_GOOGLE_CLIENT_SECRET: ${STUDY_GOOGLE_CLIENT_SECRET:-}
+      STUDY_PROVISIONER_USER: oll_provisioner
+      STUDY_PROVISIONER_PASSWORD_FILE: /run/secrets/provisioner_password
+      STUDY_GATEWAY_USER: oll_gateway
+      STUDY_GATEWAY_PASSWORD_FILE: /run/secrets/gateway_password
+      STUDY_PRACTICE_TABLESPACE: USERS
+      # Same accounts on the optional 23ai database (used only when STUDY_DSN_23AI is set).
+      STUDY_PROVISIONER_USER_23AI: oll_provisioner
+      STUDY_PROVISIONER_PASSWORD_23AI_FILE: /run/secrets/provisioner_password
+      STUDY_GATEWAY_USER_23AI: oll_gateway
+      STUDY_GATEWAY_PASSWORD_23AI_FILE: /run/secrets/gateway_password
+      STUDY_PRACTICE_TABLESPACE_23AI: USERS
       STUDY_LOG_LEVEL: ${STUDY_LOG_LEVEL:-INFO}
       # Empty: both exam tracks use the 19c database. With --profile 23ai: oracle23:1521/FREEPDB1
       STUDY_DSN_23AI: ${STUDY_DSN_23AI:-}
@@ -44,7 +59,8 @@ services:
     secrets:
       - oracle_pwd
       - study_db_password
-      - study_auth_password
+      - provisioner_password
+      - gateway_password
     # Localhost only: the SQL lab runs any SQL you type. 1521 is for SQL Developer / SQLcl.
     ports:
       - "127.0.0.1:${LAB_PORT:-8071}:8071"
@@ -68,9 +84,12 @@ services:
     secrets:
       - oracle_pwd
       - study_db_password
+      - provisioner_password
+      - gateway_password
     volumes:
       - ${DATA_DIR:-./data}/oradata-23ai:/opt/oracle/oradata
       - ./docker/23ai:/container-entrypoint-initdb.d:ro
+      - ./docker/oracle/provision-practice-users.sh:/opt/provision-practice-users.sh:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh"]
       interval: 10s
@@ -85,5 +104,7 @@ secrets:
     file: ./secrets/oracle_pwd
   study_db_password:
     file: ./secrets/study_db_password
-  study_auth_password:
-    file: ./secrets/study_auth_password
+  provisioner_password:
+    file: ./secrets/provisioner_password
+  gateway_password:
+    file: ./secrets/gateway_password

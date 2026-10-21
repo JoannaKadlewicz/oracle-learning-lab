@@ -48,6 +48,7 @@ USER root
 COPY --from=build /opt/python /opt/python
 COPY --from=build /opt/oracle-lab/venv /opt/oracle-lab/venv
 COPY --chmod=0755 docker/oracle/entrypoint.sh docker/oracle/healthcheck.sh docker/oracle/provision-study-user.sh \
+     docker/oracle/provision-practice-users.sh \
      /opt/oracle-lab/bin/
 COPY --chmod=0644 docker/oracle/startup/ /opt/oracle/scripts/startup/
 # The app's data directory; a bind mount over it must be writable by uid 54321 (oracle).
@@ -57,7 +58,8 @@ USER oracle
 # Non-secret configuration only. Passwords come from Docker secrets mounted under /run/secrets:
 #   oracle_pwd            SYS/SYSTEM/PDBADMIN (read by the base image's runOracle.sh)
 #   study_db_password     the learning user ORASTUDY (read by provision-study-user.sh and the app)
-#   study_auth_password   web login (optional; an empty file turns the login off)
+#   provisioner_password  OLL_PROVISIONER, creates the practice schemas (provision-practice-users.sh and the app)
+#   gateway_password      OLL_GATEWAY, the proxy user the app connects through (same)
 ENV PATH=/opt/oracle-lab/venv/bin:${PATH} \
     PYTHONUNBUFFERED=1 \
     ORACLE_SID=ORCLCDB \

@@ -25,9 +25,25 @@ services:
         sync: false
       - key: STUDY_DSN_23AI        # optional: Oracle 23ai database for the 1Z0-171 track
         sync: false
-      - key: STUDY_AUTH_USER       # login for the web app (basic auth)
-        value: study
-      - key: STUDY_AUTH_PASSWORD   # generated; read it in the Render dashboard
-        generateValue: true
+      - key: STUDY_PUBLIC_URL      # the https address of this service; also the Google redirect URI base
+        sync: false
+      - key: STUDY_TRUST_PROXY     # Render's proxy sets X-Forwarded-For; rate limits then see the real client
+        value: "1"
+      - key: STUDY_ADMIN_EMAIL     # the account that becomes administrator when it signs up
+        sync: false
+      - key: STUDY_GOOGLE_CLIENT_ID      # optional: "Sign in with Google" (see docs/docker.md)
+        sync: false
+      - key: STUDY_GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: STUDY_PROVISIONER_USER      # creates and drops the private practice schemas; ADMIN on Autonomous
+        value: ADMIN
+      - key: STUDY_PROVISIONER_PASSWORD
+        sync: false
+      - key: STUDY_GATEWAY_USER          # proxy user the app connects through (CREATE SESSION only)
+        sync: false
+      - key: STUDY_GATEWAY_PASSWORD
+        sync: false
+      - key: STUDY_PRACTICE_TABLESPACE   # default tablespace of a practice schema (DATA on Autonomous)
+        value: DATA
       - key: STUDY_INIT_TIMEOUT    # seconds to wait for the database before the deploy fails;
         value: "300"               # an idle Always Free database can take a while to answer
