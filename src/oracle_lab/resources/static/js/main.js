@@ -1,7 +1,7 @@
 /* Entry point: load progress and content, wire the shell and the views, start routing. */
 
 import { esc } from "./core/dom.js";
-import { initI18n, preferredLanguage, rememberedLanguage, t } from "./core/i18n.js";
+import { initI18n, preferredLanguage, rememberedLanguage, setAccountSaver, t } from "./core/i18n.js";
 import { api } from "./core/api.js";
 import { loadSession, currentUser } from "./core/session.js";
 import { useUser } from "./core/store.js";
@@ -61,6 +61,7 @@ async function adoptRememberedLanguage() {
 }
 
 async function boot() {
+  setAccountSaver(async code => { apply(await api("/api/settings", { language: code })); });
   let languageReady = false;
   try {
     await loadSession();

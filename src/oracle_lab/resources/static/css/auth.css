@@ -242,3 +242,11 @@
   .stack-left { transform: translate(-3px, 8px) rotate(-2deg); }
   .stack-right { transform: translate(4px, 4px) rotate(1.5deg); }
 }
+
+/* ------------------------------------------------------------------ language switch */
+
+/* Hidden while a Polish page waits for its catalog (see the head script); the animation is a safety net. */
+html.i18n-pending body { visibility: hidden; animation: i18n-reveal 0s 2s forwards; }
+@keyframes i18n-reveal { to { visibility: visible; } }
+
+.auth-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }

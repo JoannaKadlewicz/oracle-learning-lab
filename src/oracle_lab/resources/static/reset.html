@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Reset password · Oracle Learning Lab</title>
+  <title data-i18n="Reset password · Oracle Learning Lab">Reset password · Oracle Learning Lab</title>
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#EDF1F6" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0E1522" media="(prefers-color-scheme: dark)">
@@ -13,6 +13,20 @@
     if (t === "light" || t === "dark") {
       document.documentElement.dataset.theme = t;
       for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = t === "dark" ? "#0E1522" : "#EDF1F6";
+    }
+    // Polish remembered (or the browser's language) until the catalog is loaded: hide the page, so English never flashes.
+    let l = null;
+    try { l = localStorage.getItem("study:lang"); } catch {}
+    if (l !== "en" && l !== "pl") {
+      l = "en";
+      for (const tag of navigator.languages || [navigator.language]) {
+        const base = String(tag).toLowerCase().split("-")[0];
+        if (base === "en" || base === "pl") { l = base; break; }
+      }
+    }
+    if (l === "pl") {
+      document.documentElement.lang = "pl";
+      document.documentElement.classList.add("i18n-pending");
     }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,38 +40,44 @@
 </head>
 <body>
   <main class="auth-page">
-    <a class="wordmark" href="/login" aria-label="Oracle Learning Lab, sign in">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span><strong>Oracle Learning Lab</strong><small>SQL certification prep</small></span>
-    </a>
+    <header class="auth-top">
+      <a class="wordmark" href="/login" aria-label="Oracle Learning Lab, sign in" data-i18n-aria-label="Oracle Learning Lab, sign in">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span><strong>Oracle Learning Lab</strong><small data-i18n="SQL certification prep">SQL certification prep</small></span>
+      </a>
+      <div class="lang-switch" role="group" aria-label="Language" data-i18n-aria-label="Language">
+        <button type="button" data-lang="en" lang="en">English</button>
+        <button type="button" data-lang="pl" lang="pl">Polski</button>
+      </div>
+    </header>
     <div class="auth-stack">
       <div class="stack-card stack-left" aria-hidden="true">
-        <p class="stack-topic">Basic SELECT</p>
+        <p class="stack-topic" data-i18n="Basic SELECT">Basic SELECT</p>
         <p class="stack-q">salary + NULL = ?</p>
       </div>
-      <div class="stack-card stack-right" aria-hidden="true"><span class="stack-box">Every 6 days</span></div>
+      <div class="stack-card stack-right" aria-hidden="true"><span class="stack-box" data-i18n="Every 6 days">Every 6 days</span></div>
     <section class="auth-card" aria-labelledby="auth-title">
-      <h1 id="auth-title">Choose a new password</h1>
-      <div id="done" class="notice good" role="status" hidden>Your password is set. <a href="/login">Sign in with it now.</a></div>
+      <h1 id="auth-title" data-i18n="Choose a new password">Choose a new password</h1>
+      <div id="done" class="notice good" role="status" hidden><span data-i18n="Your password is set.">Your password is set.</span> <a href="/login" data-i18n="Sign in with it now.">Sign in with it now.</a></div>
       <form id="reset-form" novalidate>
         <div id="form-error" class="form-error" role="alert" tabindex="-1" hidden></div>
         <div class="fields-set">
           <div class="field">
-            <label for="password">New password</label>
+            <label for="password" data-i18n="New password">New password</label>
             <div class="pw">
               <input id="password" name="password" type="password" autocomplete="new-password" required aria-describedby="password-hint password-problems">
-              <button type="button" class="pw-toggle" aria-pressed="false" aria-controls="password">Show</button>
+              <button type="button" class="pw-toggle" aria-pressed="false" aria-controls="password" data-i18n="Show">Show</button>
             </div>
-            <p class="hint-text" id="password-hint">At least 12 characters.</p>
+            <p class="hint-text" id="password-hint" data-i18n="At least 12 characters.">At least 12 characters.</p>
             <ul class="problems" id="password-problems" hidden></ul>
           </div>
         </div>
-        <button class="btn large auth-submit" type="submit">Set password</button>
+        <button class="btn large auth-submit" type="submit" data-i18n="Set password">Set password</button>
       </form>
-      <p class="auth-alt"><a href="/login">Back to sign in</a></p>
+      <p class="auth-alt"><a href="/login" data-i18n="Back to sign in">Back to sign in</a></p>
     </section>
     </div>
-    <p class="auth-about">Practice questions, flashcards and an SQL lab on your own Oracle schema, for the 1Z0-071 (Oracle 19c) and 1Z0-171 (Oracle 23ai) exams.</p>
+    <p class="auth-about" data-i18n="Practice questions, flashcards and an SQL lab on your own Oracle schema, for the 1Z0-071 (Oracle 19c) and 1Z0-171 (Oracle 23ai) exams.">Practice questions, flashcards and an SQL lab on your own Oracle schema, for the 1Z0-071 (Oracle 19c) and 1Z0-171 (Oracle 23ai) exams.</p>
   </main>
   <script type="module" src="/js/auth/reset.js"></script>
 </body>

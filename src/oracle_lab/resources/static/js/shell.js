@@ -4,6 +4,7 @@
 import { $, $$ } from "./core/dom.js";
 import { api } from "./core/api.js";
 import { store } from "./core/store.js";
+import { t, wireLanguageSwitch } from "./core/i18n.js";
 import { currentUser, signOut } from "./core/session.js";
 import { C, P, mistakes, apply, loadContent, setDatabase, sqlOff } from "./core/state.js";
 import { route, currentView, refresh, onRoute } from "./core/router.js";
@@ -112,5 +113,7 @@ export function initShell({ onExamChange: handler }) {
   $("#rail-account").title = user.email;
   $("#nav-admin").hidden = user.role !== "admin";
   $("#sign-out").addEventListener("click", signOut);
+  $("#rail-lang").setAttribute("aria-label", t("Language"));
+  wireLanguageSwitch($("#rail-lang"));
   onRoute(refreshNav);
 }

@@ -1,9 +1,40 @@
 /* Shared by the sign-in pages: JSON posts that never throw, password toggles and error display. */
 
 import { $, $$ } from "/js/core/dom.js";
-import { lang } from "/js/core/i18n.js";
+import {
+  initI18n, preferredLanguage, translatePage, wireLanguageSwitch, lang, t, tn,
+  explicitLanguage, rememberedLanguage, clearExplicitLanguage,
+} from "/js/core/i18n.js";
 
-const OFFLINE = "The study server is not responding.";
+/** Loads the page's language (remembered, else the browser's), fills the static texts and shows the page. */
+export async function initAuthPage() {
+  try {
+    await initI18n(preferredLanguage(null));
+    translatePage();
+    wireLanguageSwitch();
+  } finally {
+    document.documentElement.classList.remove("i18n-pending");
+  }
+}
+
+/** After sign-in: a language the learner clicked on this page replaces the account's. A remembered or
+    detected one never does. Failures are ignored; the app then shows the account's language. */
+export async function carryLanguage() {
+  if (!explicitLanguage()) return;
+  const code = rememberedLanguage() || lang();
+  try {
+    const me = await fetch("/api/auth/me", { credentials: "same-origin", headers: { "X-Language": lang() } });
+    if (!me.ok) return;
+    const { csrf_token: csrf } = await me.json();
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf, "X-Language": lang() },
+      body: JSON.stringify({ language: code }),
+    });
+    if (res.ok) clearExplicitLanguage();
+  } catch { /* the account keeps its language */ }
+}
 
 export async function postForm(path, data) {
   try {
@@ -19,12 +50,12 @@ export async function postForm(path, data) {
     return {
       ok: false,
       status: res.status,
-      error: body.error || "Something went wrong. Please try again.",
+      error: body.error || t("Something went wrong. Please try again."),
       problems: Array.isArray(body.problems) ? body.problems : [],
       retryAfter: Number.isFinite(retry) ? retry : null,
     };
   } catch {
-    return { ok: false, error: OFFLINE, problems: [], retryAfter: null };
+    return { ok: false, error: t("The study server is not responding."), problems: [], retryAfter: null };
   }
 }
 
@@ -41,15 +72,16 @@ export function fillAbout(config) {
   const el = document.querySelector(".auth-about");
   const exams = (config.exams || []).map(e => `${e.code} (${e.database})`);
   if (!el || !exams.length) return;
-  const list = exams.length > 1 ? `${exams.slice(0, -1).join(", ")} and ${exams[exams.length - 1]}` : exams[0];
-  el.textContent = `Practice questions, flashcards and an SQL lab on your own database, for the ${list} exams.`;
+  // en-GB lists "A, B and C" (no comma before "and"), as the English text always did.
+  const list = new Intl.ListFormat(lang() === "en" ? "en-GB" : lang(), { type: "conjunction" }).format(exams);
+  el.textContent = t("Practice questions, flashcards and an SQL lab on your own database, for the {exams} exams.", { exams: list });
 }
 
 /** "Try again in 3 minutes." from a Retry-After in seconds. */
 export function waitText(seconds) {
   if (!seconds) return "";
   const minutes = Math.max(1, Math.ceil(seconds / 60));
-  return `Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
+  return tn(minutes, "Try again in {n} minute.", "Try again in {n} minutes.");
 }
 
 export function showError(message, { focus = true } = {}) {
@@ -85,7 +117,7 @@ export function wirePasswordToggles() {
       const show = input.type === "password";
       input.type = show ? "text" : "password";
       toggle.setAttribute("aria-pressed", String(show));
-      toggle.textContent = show ? "Hide" : "Show";
+      toggle.textContent = show ? t("Hide") : t("Show");
     });
   }
 }

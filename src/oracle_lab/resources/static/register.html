@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Create account · Oracle Learning Lab</title>
+  <title data-i18n="Create account · Oracle Learning Lab">Create account · Oracle Learning Lab</title>
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#EDF1F6" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0E1522" media="(prefers-color-scheme: dark)">
@@ -13,6 +13,20 @@
     if (t === "light" || t === "dark") {
       document.documentElement.dataset.theme = t;
       for (const m of document.querySelectorAll('meta[name="theme-color"]')) m.content = t === "dark" ? "#0E1522" : "#EDF1F6";
+    }
+    // Polish remembered (or the browser's language) until the catalog is loaded: hide the page, so English never flashes.
+    let l = null;
+    try { l = localStorage.getItem("study:lang"); } catch {}
+    if (l !== "en" && l !== "pl") {
+      l = "en";
+      for (const tag of navigator.languages || [navigator.language]) {
+        const base = String(tag).toLowerCase().split("-")[0];
+        if (base === "en" || base === "pl") { l = base; break; }
+      }
+    }
+    if (l === "pl") {
+      document.documentElement.lang = "pl";
+      document.documentElement.classList.add("i18n-pending");
     }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,47 +40,53 @@
 </head>
 <body>
   <main class="auth-page">
-    <a class="wordmark" href="/login" aria-label="Oracle Learning Lab, sign in">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span><strong>Oracle Learning Lab</strong><small>SQL certification prep</small></span>
-    </a>
+    <header class="auth-top">
+      <a class="wordmark" href="/login" aria-label="Oracle Learning Lab, sign in" data-i18n-aria-label="Oracle Learning Lab, sign in">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span><strong>Oracle Learning Lab</strong><small data-i18n="SQL certification prep">SQL certification prep</small></span>
+      </a>
+      <div class="lang-switch" role="group" aria-label="Language" data-i18n-aria-label="Language">
+        <button type="button" data-lang="en" lang="en">English</button>
+        <button type="button" data-lang="pl" lang="pl">Polski</button>
+      </div>
+    </header>
     <div class="auth-stack">
       <div class="stack-card stack-left" aria-hidden="true">
-        <p class="stack-topic">Basic SELECT</p>
+        <p class="stack-topic" data-i18n="Basic SELECT">Basic SELECT</p>
         <p class="stack-q">salary + NULL = ?</p>
       </div>
-      <div class="stack-card stack-right" aria-hidden="true"><span class="stack-box">Every 6 days</span></div>
+      <div class="stack-card stack-right" aria-hidden="true"><span class="stack-box" data-i18n="Every 6 days">Every 6 days</span></div>
     <section class="auth-card" aria-labelledby="auth-title">
-      <h1 id="auth-title">Create your account</h1>
-      <div id="closed" class="notice" hidden>Registration is closed.</div>
+      <h1 id="auth-title" data-i18n="Create your account">Create your account</h1>
+      <div id="closed" class="notice" hidden data-i18n="Registration is closed.">Registration is closed.</div>
       <form id="register-form" novalidate>
         <div id="form-error" class="form-error" role="alert" tabindex="-1" hidden></div>
         <div class="fields-set">
           <div class="field">
-            <label for="email">Email</label>
+            <label for="email" data-i18n="Email">Email</label>
             <input id="email" name="email" type="email" autocomplete="username" required spellcheck="false" autocapitalize="none">
           </div>
           <div class="field">
-            <label for="password">Password</label>
+            <label for="password" data-i18n="Password">Password</label>
             <div class="pw">
               <input id="password" name="password" type="password" autocomplete="new-password" required aria-describedby="password-hint password-problems">
-              <button type="button" class="pw-toggle" aria-pressed="false" aria-controls="password">Show</button>
+              <button type="button" class="pw-toggle" aria-pressed="false" aria-controls="password" data-i18n="Show">Show</button>
             </div>
-            <p class="hint-text" id="password-hint">At least 12 characters.</p>
+            <p class="hint-text" id="password-hint" data-i18n="At least 12 characters.">At least 12 characters.</p>
             <ul class="problems" id="password-problems" hidden></ul>
           </div>
         </div>
-        <button class="btn large auth-submit" type="submit">Create account</button>
+        <button class="btn large auth-submit" type="submit" data-i18n="Create account">Create account</button>
       </form>
       <!-- intent=login on purpose: the server has no register intent; a first Google sign-in creates the account. -->
       <div id="google" hidden>
-        <p class="or" aria-hidden="true"><span>or</span></p>
-        <a id="google-link" class="btn secondary large auth-google" href="/auth/google/start?intent=login"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Sign up with Google</a>
+        <p class="or" aria-hidden="true"><span data-i18n="or">or</span></p>
+        <a id="google-link" class="btn secondary large auth-google" href="/auth/google/start?intent=login"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg><span data-i18n="Sign up with Google">Sign up with Google</span></a>
       </div>
-      <p class="auth-alt">Already have an account? <a id="alt-link" href="/login">Sign in</a></p>
+      <p class="auth-alt"><span data-i18n="Already have an account?">Already have an account?</span> <a id="alt-link" href="/login" data-i18n="Sign in">Sign in</a></p>
     </section>
     </div>
-    <p class="auth-about">Practice questions, flashcards and an SQL lab on your own Oracle schema, for the 1Z0-071 (Oracle 19c) and 1Z0-171 (Oracle 23ai) exams.</p>
+    <p class="auth-about" data-i18n="Practice questions, flashcards and an SQL lab on your own Oracle schema, for the 1Z0-071 (Oracle 19c) and 1Z0-171 (Oracle 23ai) exams.">Practice questions, flashcards and an SQL lab on your own Oracle schema, for the 1Z0-071 (Oracle 19c) and 1Z0-171 (Oracle 23ai) exams.</p>
   </main>
   <script type="module" src="/js/auth/register.js"></script>
 </body>

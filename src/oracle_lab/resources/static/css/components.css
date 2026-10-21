@@ -405,3 +405,18 @@ pre.code {
   line-height: 1.6;
 }
 pre.code code { font-size: inherit; background: none; border: 0; padding: 0; }
+
+/* Language switch: the names of the languages, side by side (sign-in pages and the sidebar) */
+.lang-switch { display: inline-flex; padding: 2px; gap: 2px; border-radius: calc(var(--r-s) + 2px); background: var(--paper-3); }
+.lang-switch button {
+  font: 500 var(--t-s)/1.2 var(--font);
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: var(--r-s);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.lang-switch button:hover { color: var(--ink); }
+.lang-switch button[aria-pressed="true"] { background: var(--paper); color: var(--ink); font-weight: 650; box-shadow: var(--shadow-s), 0 0 0 1px var(--rule); }

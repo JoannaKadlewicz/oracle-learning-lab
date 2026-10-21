@@ -2,7 +2,7 @@
 
 import { $, $$, esc } from "../core/dom.js";
 import { api } from "../core/api.js";
-import { lang } from "../core/i18n.js";
+import { lang, t, wireLanguageSwitch } from "../core/i18n.js";
 import { store } from "../core/store.js";
 import { C, P, apply } from "../core/state.js";
 import { main } from "../core/router.js";
@@ -34,7 +34,14 @@ function render() {
         <div class="setting">
           <div><h3 id="theme-label">Appearance</h3><p>Automatic follows your system setting.</p></div>
           <div class="seg" role="group" aria-labelledby="theme-label">
-            ${[["auto", "Automatic"], ["light", "Light"], ["dark", "Dark"]].map(([t, label]) => `<button data-theme="${t}" aria-pressed="${theme === t}">${label}</button>`).join("")}
+            ${[["auto", "Automatic"], ["light", "Light"], ["dark", "Dark"]].map(([key, label]) => `<button data-theme="${key}" aria-pressed="${theme === key}">${label}</button>`).join("")}
+          </div>
+        </div>
+        <div class="setting">
+          <div><h3 id="language-label">${esc(t("Language"))}</h3><p>${esc(t("The app and its questions switch to this language, and the page reloads."))}</p></div>
+          <div class="seg" role="group" aria-labelledby="language-label">
+            <button type="button" data-lang="en" lang="en">English</button>
+            <button type="button" data-lang="pl" lang="pl">Polski</button>
           </div>
         </div>
       </div>
@@ -69,6 +76,7 @@ function render() {
     applyTheme(b.dataset.theme);
     $$("[data-theme]", main).forEach(x => x.setAttribute("aria-pressed", x === b));
   }));
+  wireLanguageSwitch($('[aria-labelledby="language-label"]'));
   $("#reset-progress").addEventListener("click", async () => {
     if (!await confirmDialog({
       title: "Reset all progress?",

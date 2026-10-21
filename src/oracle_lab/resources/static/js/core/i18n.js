@@ -102,3 +102,44 @@ export function formatDate(date, options = {}) {
 export function formatNumber(n, options = {}) {
   return new Intl.NumberFormat(current, options).format(n);
 }
+
+/** Forgets that the learner clicked a language (it has been saved to the account). */
+export function clearExplicitLanguage() {
+  try { localStorage.removeItem(EXPLICIT_KEY); } catch { /* nothing to forget */ }
+}
+
+/** Fills the static texts of `root`: data-i18n="Text" replaces the element's text, and
+    data-i18n-aria-label="Text" its aria-label. English is the text already in the HTML. */
+export function translatePage(root = document) {
+  for (const el of root.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  for (const el of root.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel));
+}
+
+let saveToAccount = null;
+
+/** The app registers how a signed-in learner's language is saved (this module is public, so it cannot
+    reach the account itself): an async function of the language code. */
+export function setAccountSaver(save) { saveToAccount = save; }
+
+/** Switches the interface to `code`: remembered in this browser as the learner's own choice, saved to the
+    account when signed in, then the page reloads to render in it. */
+export async function changeLanguage(code) {
+  if (!supported(code)) return;
+  rememberLanguage(code, { explicit: true });
+  if (saveToAccount) {
+    try {
+      await saveToAccount(code);
+      clearExplicitLanguage();
+    } catch (err) { console.error(err); }  // still reload: this browser keeps the choice
+  }
+  location.reload();
+}
+
+/** Wires the buttons `[data-lang="en"|"pl"]` inside `root`: the current language is pressed, a click switches. */
+export function wireLanguageSwitch(root = document) {
+  for (const button of root.querySelectorAll("[data-lang]")) {
+    const code = button.dataset.lang;
+    button.setAttribute("aria-pressed", String(code === current));
+    button.addEventListener("click", () => { if (code !== current) changeLanguage(code); });
+  }
+}
