@@ -3,7 +3,7 @@
 import { esc } from "./core/dom.js";
 import {
   initI18n, preferredLanguage, rememberedLanguage, rememberLanguage, explicitLanguage, clearExplicitLanguage,
-  setAccountSaver, translatePage, lang, t,
+  setAccountSaver, translatePage, lang, t, DEFAULT_LANGUAGE,
 } from "./core/i18n.js";
 import { api } from "./core/api.js";
 import { loadSession, currentUser } from "./core/session.js";
@@ -91,6 +91,8 @@ async function boot() {
     languageReady = true;
     await adoptRememberedLanguage();
     rememberLanguage(lang());  // the head script's hint for the next load, so it never flashes the other language
+    // The first progress came before the language was known, so its texts (plan advice, badges) are English.
+    if (lang() !== DEFAULT_LANGUAGE) await loadProgress();
     await loadContent();
   } catch (err) {
     console.error(err);

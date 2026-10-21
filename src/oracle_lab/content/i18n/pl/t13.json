@@ -267,7 +267,7 @@
         "USER_SYS_PRIVS",
         "USER_TAB_PRIVS_RECD"
       ],
-      "explanation": "Nadania na poziomie kolumn są wymienione w widokach COL_PRIVS, po jednym wierszu na kolumnę; po wykonaniu w 19c USER_TAB_PRIVS_MADE nie miało wiersza dla INSERT na kolumnie. Twoje nadania na poziomie tabeli są w USER_TAB_PRIVS_MADE, a widoki _RECD pokazują nadania, które otrzymałeś. USER_SYS_PRIVS przechowuje tylko uprawnienia systemowe."
+      "explanation": "Nadania na poziomie kolumn są wymienione w widokach COL_PRIVS, po jednym wierszu na kolumnę; po wykonaniu w 19c USER_TAB_PRIVS_MADE nie miało wiersza dla INSERT na kolumnie. Twoje nadania na poziomie tabeli są w USER_TAB_PRIVS_MADE, a widoki _RECD pokazują nadania otrzymane przez ciebie. USER_SYS_PRIVS przechowuje tylko uprawnienia systemowe."
     },
     "q13-role-enable": {
       "prompt": "Gdy użytkownik U jest połączony, DBA nadaje mu rolę R i bezpośrednio uprawnienie obiektowe SELECT na tabeli A.T. Co jest prawdą dla bieżącej sesji U?",

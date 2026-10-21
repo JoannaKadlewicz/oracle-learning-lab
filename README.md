@@ -133,6 +133,15 @@ The full list, with validation, is in [src/oracle_lab/config.py](src/oracle_lab/
 - **Interface**: works on desktop and phone, light and dark themes, full keyboard use (option
   numbers, S/T/G, Enter, Space and 1/2/3 for flashcards), and no build step.
 
+- **English and Polish**: switch the whole app (interface, server messages, questions, exercises,
+  flashcards, notes, error explanations and the printable report) in Settings, in the sidebar, or on
+  the sign-in pages. The choice is saved to the account, and a browser in Polish starts in Polish.
+  SQL, ORA- error texts and exam names stay as they are. Translations live next to their source:
+  `content/i18n/<lang>/` overlays, `.pl.md`/`.pl.sql` note siblings, `analysis/i18n/pl.json` for
+  error explanations, and `i18n/pl.json` / `resources/static/i18n/pl.json` for the server and
+  interface texts. `oracle-lab validate --static --lang pl --complete` and
+  `tests/test_translation_coverage.py` fail on any gap; `content/AUTHORING.md` has the rules.
+
 ## Develop
 
     make check                                  # ruff + content structure + pytest (database tests skip if Oracle is down)

@@ -320,7 +320,9 @@ validator rejects them.
 - **No empty strings.** Leave a field out instead.
 - Keep every number, row count, column name and technical claim. Keep product and exam names,
   SQL keywords, function names and ORA- codes in English. Use the glossary below and the informal
-  "ty" form ("Wpisz…", "Sprawdź…"); plain sentence case, no exclamation marks.
+  "ty" form ("Wpisz…", "Sprawdź…"); plain sentence case, no exclamation marks. Keep it
+  gender-neutral: no past-tense or adjective forms that assume the learner's gender
+  ("widziałeś", "Gotowy"); rephrase instead ("pytania nowe dla ciebie", "Czas zapisać się na egzamin").
 
 ### Glossary (Polish)
 
