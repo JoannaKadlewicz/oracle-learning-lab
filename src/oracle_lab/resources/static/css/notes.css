@@ -35,3 +35,22 @@
   .note-body { padding: 20px 18px; font-size: 16px; }
   .setting { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Account panel */
+.setting-form { align-items: start; }
+.stack { display: grid; gap: 12px; min-width: min(320px, 100%); }
+.form-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.form-error { padding: 9px 12px; border-radius: var(--r-s); background: var(--bad-bg); color: var(--bad); font-size: var(--t-s); }
+.form-error ul { margin: 6px 0 0; padding-left: 18px; }
+.acct-email { overflow-wrap: anywhere; }
+.sessions { display: grid; gap: 10px; justify-items: stretch; min-width: min(380px, 100%); }
+.sessions > .btn { justify-self: start; }
+.session { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--r-s); background: var(--paper-2); }
+.session > div { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+.session-meta { color: var(--muted); font-size: var(--t-s); overflow-wrap: anywhere; }
+.tag-here { color: var(--good); background: var(--good-bg); box-shadow: none; justify-self: start; }
+.setting > .tag { justify-self: start; }
+
+@media (max-width: 600px) {
+  .stack, .sessions { min-width: 0; }
+}

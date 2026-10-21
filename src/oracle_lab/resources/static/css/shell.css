@@ -175,3 +175,10 @@ main.reading { max-width: calc(var(--reading-w) + 2 * 56px); }
   .section { margin-top: 40px; }
   table.data .hide-s { display: none; }
 }
+
+/* ---------------------------------------------------------------- account block in the rail */
+
+.account { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name out" "email out"; column-gap: 10px; align-items: center; padding: 8px 12px 10px; border-top: 1px solid var(--rule); }
+.account-name { grid-area: name; font-weight: 650; font-size: var(--t-s); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-email { grid-area: email; color: var(--muted); font-size: var(--t-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account .btn { grid-area: out; }

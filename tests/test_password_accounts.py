@@ -169,7 +169,7 @@ def test_session_listing_and_ending(app):
     assert app.sessions.resolve(stranger.token)
     app.settings.end_other_sessions(p)
     assert app.sessions.resolve(other.token) is None and app.sessions.resolve(r.token)
-    assert app.settings.profile(p) == {"email": "me@example.org", "display_name": "me", "role": "admin",
+    assert app.settings.profile(p) == {"id": p.user_id, "email": "me@example.org", "display_name": "me", "role": "admin",
                                        "methods": ["password"]}
 
 

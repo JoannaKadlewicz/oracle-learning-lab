@@ -128,7 +128,7 @@ class AccountSettings:
         if user is None:
             raise AuthError("This account no longer exists.")
         methods = sorted(i.provider for i in self._users.identities(user.id))
-        return {"email": user.email, "display_name": user.display_name, "role": user.role, "methods": methods}
+        return {"id": user.id, "email": user.email, "display_name": user.display_name, "role": user.role, "methods": methods}
 
     def _password_identity(self, user_id: str) -> Identity | None:
         return next((i for i in self._users.identities(user_id) if i.provider == "password"), None)

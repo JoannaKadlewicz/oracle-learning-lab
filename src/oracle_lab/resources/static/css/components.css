@@ -97,7 +97,7 @@
 .field > .seg, .field > .chips { justify-self: start; }
 .fields { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; }
 
-select, input[type="text"], input[type="search"], input[type="date"], input[type="number"] {
+select, input[type="text"], input[type="password"], input[type="search"], input[type="date"], input[type="number"] {
   font: inherit;
   font-size: 15px;
   min-height: 40px;

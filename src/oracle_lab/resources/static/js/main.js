@@ -1,6 +1,8 @@
 /* Entry point: load progress and content, wire the shell and the views, start routing. */
 
 import { esc } from "./core/dom.js";
+import { loadSession, currentUser } from "./core/session.js";
+import { useUser } from "./core/store.js";
 import { loadProgress, loadContent } from "./core/state.js";
 import { main, registerViews, startRouting, dispatchKey } from "./core/router.js";
 import { initShell, checkDatabase } from "./shell.js";
@@ -47,6 +49,8 @@ document.addEventListener("click", e => {
 
 async function boot() {
   try {
+    await loadSession();
+    useUser(currentUser().id);
     await loadProgress();
     await loadContent();
   } catch (err) {
