@@ -19,8 +19,7 @@ let deck = null;
 const narrow = matchMedia("(max-width: 1179.98px)");
 narrow.addEventListener("change", () => { if (deck?.queue.length && $("#card-try")) updateTry(currentCard()); });
 
-const RATINGS = [["again", "Again", "secondary"], ["hard", "Hard", "secondary"], ["good", "Good", ""], ["easy", "Easy", "secondary"]];
-const AGAIN_LABEL = "Again in this session";
+const RATINGS = [["again", "Again", "secondary"], ["hard", "Hard", "secondary"], ["good", "Medium", ""], ["easy", "Easy", "secondary"]];
 const RATING_KEYS_SEEN = "seen-rating-keys";
 
 /** The leading `--` comment block of a sample (what it shows) and the SQL after it. */
@@ -59,7 +58,7 @@ function renderSetup() {
   const queue = P.card_queue;
   const counts = t => P.card_topic_counts[t] || { due: 0, new: 0 };
   main.innerHTML = `
-    ${pageHead("Flashcards", `Flip a card, then rate how well you knew it. Good brings it back after 1 day, then 3, then longer; Hard grows the gap slowly, Easy stretches it faster; Again repeats it in this session. A card counts as learned once its gap reaches a week. You get up to ${esc(P.settings.new_cards_per_day ?? 15)} new cards a day; change it in <a href="/settings">Settings</a>.`)}
+    ${pageHead("Flashcards", `Flip a card, then rate how well you knew it: Again repeats it in this session, Hard brings it back soon, Medium a little later, Easy later still. A card counts as learned once its gap reaches a week. You get up to ${esc(P.settings.new_cards_per_day ?? 15)} new cards a day; change it in <a href="/settings">Settings</a>.`)}
     <div class="row">
       <button class="btn large" id="study-due" ${due.length ? "" : "disabled"}>${due.length ? `Study ${queue.due.length} due · ${queue.new.length} new` : "No cards due today"}</button>
       <button class="btn secondary large" id="study-weak" title="Cards from the three topics where your mastery is lowest, due and new cards first">Study my weakest topics</button>
@@ -138,13 +137,12 @@ function renderCard() {
             <p class="card-question">${inlineCode(card.front)}</p>
             <div class="card-text">${inlineCode(card.back)}</div>
             ${sample.sql && sample.notes.length ? `<p class="card-sample"><b>What the sample shows:</b> ${sample.notes.map(esc).join("<br>")}</p>` : ""}
-            <p class="card-hint">1 again, 2 hard, 3 good, 4 easy</p>
+            <p class="card-hint">1 again, 2 hard, 3 medium, 4 easy</p>
           </div>
         </button>
       </div>
       <div class="ratings" role="group" aria-label="How well did you know it?">
-        ${RATINGS.map(([rating, label, kind], n) => `<button class="btn ${kind}" data-rating="${rating}" aria-keyshortcuts="${n + 1}" ${deck.flipped ? "" : "disabled"}>
-          ${label} <small data-when="${rating}">${rating === "again" ? AGAIN_LABEL : ""}</small></button>`).join("")}
+        ${RATINGS.map(([rating, label, kind], n) => `<button class="btn ${kind}" data-rating="${rating}" aria-keyshortcuts="${n + 1}" ${deck.flipped ? "" : "disabled"}>${label}</button>`).join("")}
       </div>
     </div>
     <section class="card-try panel" id="card-try" aria-label="Try it in SQL"></section>
@@ -153,18 +151,6 @@ function renderCard() {
   $$("[data-rating]", main).forEach(b => b.addEventListener("click", () => rateCard(b.dataset.rating)));
   $("#deck-quit").addEventListener("click", () => { deck = null; render(); });
   updateTry(card);
-  if (deck.revealed) loadPreviews(card.id);
-}
-
-/** The next interval each rating would give, from the engine; the buttons stay plain if it fails. */
-async function loadPreviews(id) {
-  let days;
-  try { days = await api(`/api/card/preview?id=${encodeURIComponent(id)}`); } catch { return; }
-  if (!deck || deck.queue[0] !== id || !deck.revealed) return;
-  for (const [rating] of RATINGS.slice(1)) {
-    const el = $(`[data-when="${rating}"]`, main);
-    if (el && Number.isFinite(days[rating])) el.textContent = `${Math.max(1, Math.round(days[rating]))} d`;
-  }
 }
 
 /* ---------------------------------------------------------------- try it */
@@ -251,10 +237,9 @@ function flipCard() {
     // Once per learner: the rating keys changed from three ratings to four.
     if (!store(RATING_KEYS_SEEN)) {
       store(RATING_KEYS_SEEN, true);
-      toast("Rating keys: 1 Again · 2 Hard · 3 Good · 4 Easy");
+      toast("Rating keys: 1 Again · 2 Hard · 3 Medium · 4 Easy");
     }
     updateTry(currentCard());
-    loadPreviews(deck.queue[0]);
   }
 }
 

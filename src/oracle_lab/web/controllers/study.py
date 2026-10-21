@@ -26,7 +26,6 @@ class StudyController:
         router.get("/api/content", lambda r: Response.json(self.study(r).track_content()))
         router.get("/api/state", lambda r: Response.json(self.study(r).state()))
         router.get("/api/progress", lambda r: Response.json(self.study(r).progress()))
-        router.get("/api/card/preview", lambda r: respond(lambda: self.study(r).card_previews(r.query("id"))))
         router.get("/report", self.readiness_report)
         router.post("/api/attempt", lambda r: respond(lambda: self.study(r).record_attempt(r.json())))
         router.post("/api/card", lambda r: respond(lambda: self.study(r).record_card(r.json())))

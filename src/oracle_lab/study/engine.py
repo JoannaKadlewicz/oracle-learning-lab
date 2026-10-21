@@ -91,15 +91,6 @@ def card_schedule(entry):
     return sm2([(t, CARD_RATINGS[rating]) for t, rating in entry.get("reviews", [])])
 
 
-def card_previews(entry, now):
-    """Interval in days each rating would give the card now; "again" brings it back in this session."""
-    reviews = [(t, CARD_RATINGS[rating]) for t, rating in (entry or {}).get("reviews", [])]
-    previews = {"again": 0}
-    for rating in ("hard", "good", "easy"):
-        previews[rating] = sm2(reviews + [(now, CARD_RATINGS[rating])])["interval"]
-    return previews
-
-
 # --------------------------------------------------------------------------- mistakes
 
 def open_mistakes(attempts, questions_by_id):

@@ -204,15 +204,6 @@ def test_old_ratings_replay_unchanged():  # golden value from the code before Ha
     assert engine.sm2([(0, 4), (DAY, 4), (4 * DAY, 4)])["interval"] == 3.0 * 2.5
 
 
-def test_card_previews_order():
-    p = engine.card_previews({"reviews": [[0, "good"], [DAY, "good"]]}, 4 * DAY)
-    assert p["again"] == 0 and p["hard"] < p["good"] <= p["easy"]  # easy only differs from good through later ease
-
-
-def test_card_previews_of_a_new_card():
-    assert engine.card_previews(None, 0) == {"again": 0, "hard": 1.0, "good": 1.0, "easy": 1.0}
-
-
 # ---------------------------------------------------------------- new-card cap
 
 def many_cards(n, topic="t06"):
