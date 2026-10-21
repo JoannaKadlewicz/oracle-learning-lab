@@ -108,3 +108,21 @@ def test_static_files_refuse_dot_segments(tmp_path, path):
     with pytest.raises(HttpError) as err:
         StaticFiles(tmp_path)(Request("GET", path, {}))
     assert err.value.status == 404
+
+
+@pytest.mark.parametrize("path", ["/css/", "/css/nothing", "/js/auth/", "/js/auth/nothing", "/css/sub/x"])
+def test_missing_paths_under_public_prefixes_are_404_not_the_app_shell(tmp_path, path):
+    (tmp_path / "css").mkdir()
+    (tmp_path / "index.html").write_text("<html></html>")
+    with pytest.raises(HttpError) as err:
+        StaticFiles(tmp_path)(Request("GET", path, {}))
+    assert err.value.status == 404
+
+
+def test_app_routes_and_existing_public_files_still_resolve(tmp_path):
+    (tmp_path / "css").mkdir()
+    (tmp_path / "css" / "a.css").write_text("a{}")
+    (tmp_path / "index.html").write_text("<html></html>")
+    static = StaticFiles(tmp_path)
+    assert static(Request("GET", "/quiz", {})).status == 200
+    assert static(Request("GET", "/css/a.css", {})).status == 200

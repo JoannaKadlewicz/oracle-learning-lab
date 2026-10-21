@@ -3,6 +3,7 @@
 import base64
 import dataclasses
 import json
+import re
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -47,6 +48,22 @@ def test_auth_pages_have_their_forms(serve):
     for path, form in (("/login", "login-form"), ("/register", "register-form"), ("/reset", "reset-form")):
         status, headers, body = http(path)
         assert status == 200 and headers["Content-Type"].startswith("text/html") and f'id="{form}"'.encode() in body
+        page = body.decode()
+        assert "<main" in page and 'role="alert"' in page and "<title>" in page
+        srcs = re.findall(r'<script[^>]*\bsrc="([^"]+)"', page)
+        assert srcs and all(s.startswith("/js/auth/") or s == "/js/core/dom.js" for s in srcs)
+        hrefs = re.findall(r'<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"', page)
+        assert all(h.startswith(("/css/", "https://fonts.googleapis.com/")) for h in hrefs)
+        assert not re.search(r"\son[a-z]+=", page)  # the CSP forbids inline handlers
+
+
+def test_auth_assets_are_public_and_unknown_ones_404(serve):
+    http = serve()
+    for path in ("/css/auth.css", "/js/auth/form.js", "/js/auth/login.js", "/js/auth/register.js", "/js/auth/reset.js",
+                 "/js/core/dom.js"):
+        assert http(path)[0] == 200, path
+    for path in ("/css/", "/css/nothing", "/js/auth/", "/js/auth/nothing"):
+        assert http(path)[0] == 404, path
 
 
 def test_register_login_me_logout(serve):

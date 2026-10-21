@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 from oracle_lab.web.http import HttpError, Request, Response, is_clean_path
+from oracle_lab.web.middleware import PUBLIC_PREFIXES
 
 CONTENT_TYPES = {".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml"}
 
@@ -33,7 +34,8 @@ class StaticFiles:
         if path in ("", "/"):
             target = self.index
         elif self.root not in target.parents or not target.is_file():
-            if Path(path).suffix:  # a missing asset is a 404, not the app shell
+            # a missing asset (or anything missing under a public directory) is a 404, not the app shell
+            if Path(path).suffix or path.startswith(PUBLIC_PREFIXES):
                 raise HttpError(404, "Not found")
             target = self.index  # a client-side route such as /quiz
         content_type = CONTENT_TYPES.get(target.suffix, "application/octet-stream") + "; charset=utf-8"
