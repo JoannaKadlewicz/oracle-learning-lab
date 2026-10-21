@@ -18,6 +18,8 @@ import itertools
 import math
 import random
 
+from oracle_lab.i18n import Msg
+
 DAY = 86400
 CONFIDENCE = ("sure", "think", "guess")
 CARD_RATINGS = {"again": 1, "hard": 3, "good": 4, "easy": 5}  # SM-2 quality
@@ -332,10 +334,10 @@ def daily_plan(content, state, now, rng=random, sql_available=True):
     exams = [m["submitted"] for m in state.get("mocks", []) if m["submitted"]]
     advice = []
     if days_left is not None and days_left > 0 and unseen:
-        advice.append(f"{unseen} questions not seen yet: about {-(-unseen // days_left)} new questions a day "
-                      "to see them all before the exam.")
+        advice.append(Msg.of("{unseen} questions not seen yet: about {per_day} new questions a day "
+                             "to see them all before the exam.", unseen=unseen, per_day=-(-unseen // days_left)))
     if days_left is not None and days_left <= 21 and (not exams or now - max(exams) > 7 * DAY):
-        advice.append("Take a timed mock exam this week.")
+        advice.append(Msg.of("Take a timed mock exam this week."))
     return {
         "minutes": minutes,
         "days_left": days_left,
@@ -683,25 +685,29 @@ def badges(content, state, now, by_objective):
                 "progress": [min(current, target), target], "earned": earned}
 
     return [
-        badge("clean-run", "Clean run", "25 correct answers in a row, none of them guessed, spread over at least 3 days.",
+        badge("clean-run", Msg.of("Clean run"),
+              Msg.of("25 correct answers in a row, none of them guessed, spread over at least 3 days."),
               run, 25, run >= 25 and run_days >= 3),
-        badge("coverage", "Full coverage", "At least one correct answer for every official objective.",
+        badge("coverage", Msg.of("Full coverage"), Msg.of("At least one correct answer for every official objective."),
               len(covered), len(content.OBJECTIVES)),
-        badge("all-green", "All green", "Every official objective at the Strong mastery level.", strong, len(content.OBJECTIVES)),
-        badge("calibrated", "Calibrated", "At least 50 answers rated Sure, and 90% or more of them correct.",
+        badge("all-green", Msg.of("All green"), Msg.of("Every official objective at the Strong mastery level."),
+              strong, len(content.OBJECTIVES)),
+        badge("calibrated", Msg.of("Calibrated"), Msg.of("At least 50 answers rated Sure, and 90% or more of them correct."),
               cal["answers"] if sure_ok else min(cal["answers"], 49), 50, sure_ok),
-        badge("misconceptions", "Misconceptions fixed",
-              "10 questions you once got wrong while sure, now proven on two days.", fixed, 10),
-        badge("dml-first-try", "DML first try", "Every DML exercise passed on the first check.",
+        badge("misconceptions", Msg.of("Misconceptions fixed"),
+              Msg.of("10 questions you once got wrong while sure, now proven on two days."), fixed, 10),
+        badge("dml-first-try", Msg.of("DML first try"), Msg.of("Every DML exercise passed on the first check."),
               sum(1 for lab in dml if labs.get(lab["id"], {}).get("passed") and labs[lab["id"]]["tries"] == 1),
               len(dml)),
-        badge("ddl-own-work", "Schema builder", "Every DDL exercise passed without opening the solution.",
+        badge("ddl-own-work", Msg.of("Schema builder"), Msg.of("Every DDL exercise passed without opening the solution."),
               sum(1 for lab in ddl if labs.get(lab["id"], {}).get("passed") and not labs[lab["id"]].get("solution_seen")),
               len(ddl)),
-        badge("lab-master", "Lab master", "Every exercise passed.",
+        badge("lab-master", Msg.of("Lab master"), Msg.of("Every exercise passed."),
               sum(1 for lab in content.LABS if labs.get(lab["id"], {}).get("passed")), len(content.LABS)),
-        badge("long-memory", "Long memory", "100 flashcards with an interval of three weeks or more.", long_cards, 100),
-        badge("fresh-mocks", "Exam ready", "3 full mocks at 80% or more on questions new to you, at least 3 days apart.",
+        badge("long-memory", Msg.of("Long memory"),
+              Msg.of("100 flashcards with an interval of three weeks or more."), long_cards, 100),
+        badge("fresh-mocks", Msg.of("Exam ready"),
+              Msg.of("3 full mocks at 80% or more on questions new to you, at least 3 days apart."),
               fresh_mock_passes(content, state), 3),
     ]
 
@@ -719,14 +725,18 @@ def ready_to_book(content, state, by_objective):
     state_labs = sum(1 for lab in content.LABS if lab.get("kind", "query") != "query")
     sure_pct = round(100 * cal["correct"] / cal["answers"]) if cal["answers"] else None
     items = [
-        {"label": "Every official objective is Strong", "detail": f"{strong} of {len(by_objective)}",
+        {"label": Msg.of("Every official objective is Strong"),
+         "detail": Msg.of("{done} of {total}", done=strong, total=len(by_objective)),
          "done": strong == len(by_objective)},
-        {"label": "3 full mocks at 80%+ on new questions, 3+ days apart", "detail": f"{mocks} of 3", "done": mocks >= 3},
-        {"label": "Right at least 90% of the time when Sure (30+ answers)",
-         "detail": f"{sure_pct}% of {cal['answers']}" if sure_pct is not None else "no answers rated Sure yet",
+        {"label": Msg.of("3 full mocks at 80%+ on new questions, 3+ days apart"),
+         "detail": Msg.of("{done} of {total}", done=mocks, total=3), "done": mocks >= 3},
+        {"label": Msg.of("Right at least 90% of the time when Sure (30+ answers)"),
+         "detail": Msg.of("{pct}% of {answers}", pct=sure_pct, answers=cal["answers"]) if sure_pct is not None
+         else Msg.of("no answers rated Sure yet"),
          "done": cal["answers"] >= 30 and sure_pct >= 90},
-        {"label": "Every exercise passed; DML and DDL ones without the solution",
-         "detail": f"{passed} of {len(content.LABS)} passed, {own} of {state_labs} DML/DDL on your own",
+        {"label": Msg.of("Every exercise passed; DML and DDL ones without the solution"),
+         "detail": Msg.of("{passed} of {total} passed, {own} of {state_labs} DML/DDL on your own",
+                          passed=passed, total=len(content.LABS), own=own, state_labs=state_labs),
          "done": passed == len(content.LABS) and own == state_labs},
     ]
     return {"items": items, "done": all(i["done"] for i in items)}

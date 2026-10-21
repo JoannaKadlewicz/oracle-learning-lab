@@ -98,3 +98,12 @@ def test_content_payload_has_engine_and_exam_facts(serve):
     assert list(body["exams"]) == ["1Z0-071", "1Z0-171"]
     assert body["exam"]["code"] == "1Z0-071" and body["exam"]["product"] == "Oracle"
     assert [n["path"] for n in body["home_notes"]] == ["docs/exam-guide-2026.md", "docs/cheat-sheet.md"]
+
+
+def test_progress_comes_in_the_language_of_the_request(serve):
+    http = serve().sign_in()
+    english = json.loads(http("/api/progress")[2])["progress"]
+    polish = json.loads(http("/api/progress", headers={"X-Language": "pl"})[2])["progress"]
+    assert english["badges"][0]["title"] == "Clean run" and polish["badges"][0]["title"] != "Clean run"
+    changed = json.loads(http("/api/settings", data={"daily_minutes": 45}, headers={"X-Language": "pl"})[2])
+    assert changed["progress"]["ready"]["items"][0]["label"] == polish["ready"]["items"][0]["label"]

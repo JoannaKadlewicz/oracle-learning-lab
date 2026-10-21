@@ -11,7 +11,7 @@ from oracle_lab.engines import engine_for_exam
 from oracle_lab.services import Clock, NotFoundError
 from oracle_lab.study import engine, recording
 from oracle_lab.study.mocks import finalize_expired
-from oracle_lab.study.progress import snapshot
+from oracle_lab.study.progress import localized, snapshot
 from oracle_lab.study.state import State, StateStore
 from oracle_lab.study.tracks import track, track_state
 
@@ -30,11 +30,12 @@ class ReportContext:
 
 class StudyService:
     def __init__(self, store: StateStore, clock: Clock, track_databases: bool = False,
-                 sql_available: bool = True):
+                 sql_available: bool = True, lang: str = "en"):
         self.store = store
         self.clock = clock
         self.track_databases = track_databases
         self.sql_available = sql_available
+        self.lang = lang
 
     def track_content(self, lang: str = "en") -> dict[str, Any]:
         """The study material of the current exam track in `lang`, for the front end."""
@@ -60,7 +61,7 @@ class StudyService:
     def progress(self) -> dict[str, Any]:
         with self.store.transaction() as state:
             finalize_expired(state, self.clock())
-        return snapshot(state, self.clock(), self.sql_available)
+        return snapshot(state, self.clock(), self.sql_available, self.lang)
 
     def record_attempt(self, data: dict) -> dict[str, Any]:
         if data.get("id") not in recording.QUESTIONS_BY_ID:
@@ -89,10 +90,10 @@ class StudyService:
 
     def report_context(self) -> ReportContext:
         state = self.store.load()
-        view, seen, now = track(state), track_state(state), self.clock()
-        return ReportContext(view, seen, engine.progress(view, seen, now, self.sql_available), now)
+        view, seen, now = track(state, self.lang), track_state(state), self.clock()
+        return ReportContext(view, seen, localized(engine.progress(view, seen, now, self.sql_available), self.lang), now)
 
     def _change(self, mutate) -> dict[str, Any]:
         with self.store.transaction() as state:
             mutate(state)
-        return snapshot(state, self.clock(), self.sql_available)
+        return snapshot(state, self.clock(), self.sql_available, self.lang)

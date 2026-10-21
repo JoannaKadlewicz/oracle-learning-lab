@@ -4,18 +4,29 @@ Built from the same progress summary the dashboard uses (engine.progress), so th
 """
 
 import datetime
+from functools import partial
 from html import escape
 
+from oracle_lab.i18n import DEFAULT_LANGUAGE, Msg, ntranslate, translate
+
 LEVELS = {"strong": ("Strong", "✓"), "learning": ("Learning", "~"), "weak": ("Weak", "!"), "new": ("Not started", "·")}
+# Date formats per language; English keeps its month names, Polish uses numbers (no declension needed).
+DATE_FORMATS = {"en": ("%d %B %Y", "%d %b"), "pl": ("%d.%m.%Y", "%d.%m")}
+
+
+def _tr(lang, template, **params):
+    """`template` (formatted with `params`) in `lang`, through the server catalog."""
+    return translate(lang, Msg.of(template, **params))
 
 
 def _pct(part, whole):
     return f"{round(100 * part / whole)}%" if whole else "–"
 
 
-def _trend_svg(mocks, passing_pct):
+def _trend_svg(mocks, passing_pct, lang=DEFAULT_LANGUAGE):
+    tr = partial(_tr, lang)
     if not mocks:
-        return "<p class='muted'>No mock exams yet.</p>"
+        return f"<p class='muted'>{tr('No mock exams yet.')}</p>"
     W, H, L, R, T, B = 560, 180, 36, 150, 10, 26  # noqa: N806 - SVG width, height and margins
     n = len(mocks)
 
@@ -25,14 +36,14 @@ def _trend_svg(mocks, passing_pct):
     def y(v):
         return T + (100 - v) * (H - T - B) / 100
 
-    parts = [f"<svg viewBox='0 0 {W} {H}' class='trend' role='img' aria-label='Mock exam scores over time'>"]
+    parts = [f"<svg viewBox='0 0 {W} {H}' class='trend' role='img' aria-label='{escape(tr("Mock exam scores over time"))}'>"]
     for v in (0, 25, 50, 75, 100):
         parts.append(f"<line class='grid' x1='{L}' x2='{W - R}' y1='{y(v)}' y2='{y(v)}'/>"
                      f"<text class='axis' x='{L - 5}' y='{y(v) + 4}' text-anchor='end'>{v}%</text>")
     parts.append(f"<line class='pass' x1='{L}' x2='{W - R}' y1='{y(passing_pct)}' y2='{y(passing_pct)}'/>"
-                 f"<text class='axis' x='{W - R + 5}' y='{y(passing_pct) + 4}'>pass {passing_pct}%</text>")
-    series = [("s1", "Overall", lambda m: m["pct"]),
-              ("s2", "New questions", lambda m: round(100 * m["fresh"][0] / m["fresh"][1]) if m["fresh"][1] else None)]
+                 f"<text class='axis' x='{W - R + 5}' y='{y(passing_pct) + 4}'>{escape(tr("pass {pct}%", pct=passing_pct))}</text>")
+    series = [("s1", tr("Overall"), lambda m: m["pct"]),
+              ("s2", tr("New questions"), lambda m: round(100 * m["fresh"][0] / m["fresh"][1]) if m["fresh"][1] else None)]
     ends = []
     for cls, label, value in series:
         pts = [(x(i), value(m)) for i, m in enumerate(mocks) if value(m) is not None]
@@ -45,23 +56,27 @@ def _trend_svg(mocks, passing_pct):
     label_y = None
     for (lx, lv), cls, label in sorted(ends, key=lambda e: -e[0][1]):
         label_y = y(lv) + 4 if label_y is None else max(y(lv) + 4, label_y + 14)
-        parts.append(f"<text class='direct' x='{lx + 8}' y='{label_y}'><tspan class='{cls}-mark'>■</tspan> {label} {lv}%</text>")
+        parts.append(f"<text class='direct' x='{lx + 8}' y='{label_y}'><tspan class='{cls}-mark'>■</tspan> {escape(label)} {lv}%</text>")
     for i, m in enumerate(mocks):
         if n <= 8 or i % -(-n // 8) == 0:
-            day = datetime.date.fromtimestamp(m["started"]).strftime("%d %b")
+            day = datetime.date.fromtimestamp(m["started"]).strftime(DATE_FORMATS[lang][1])
             parts.append(f"<text class='axis' x='{x(i)}' y='{H - 6}' text-anchor='middle'>{day}</text>")
     parts.append("</svg>")
     return "".join(parts)
 
 
-def _mock_kind(m):
-    return "Full mock" if m["full"] else f"Timed set ({m['score'][1]} questions)"
+def _mock_kind(m, lang=DEFAULT_LANGUAGE):
+    if m["full"]:
+        return _tr(lang, "Full mock")
+    return ntranslate(lang, m["score"][1], "Timed set ({n} question)", "Timed set ({n} questions)", n=m["score"][1])
 
 
-def render(content, state, progress, now):
+def render(content, state, progress, now, lang=DEFAULT_LANGUAGE):
+    """The report in `lang`; `content` and `progress` are expected in that language already."""
+    tr = partial(_tr, lang)
     p = progress
     r = p["readiness"]
-    today = datetime.date.fromtimestamp(now).strftime("%d %B %Y")
+    today = datetime.date.fromtimestamp(now).strftime(DATE_FORMATS[lang][0])
     sure = p["calibration"]["sure"]
     labs_by_kind = {}
     for lab in content.LABS:
@@ -70,12 +85,13 @@ def render(content, state, progress, now):
             labs_by_kind[lab.get("kind", "query")][0] += 1
 
     if r["status"] == "ok":
-        headline = (f"<b class='hero'>{round(r['pass_probability'] * 100)}%</b><span>estimated chance to pass. "
-                    f"Expected score {r['expected_pct']}%, most likely {r['low_pct']}–{r['high_pct']}% "
-                    f"(passing score {r['passing_pct']}%).</span>")
+        headline = (f"<b class='hero'>{round(r['pass_probability'] * 100)}%</b><span>" + escape(tr(
+            "estimated chance to pass. Expected score {expected}%, most likely {low}–{high}% (passing score {passing}%).",
+            expected=r["expected_pct"], low=r["low_pct"], high=r["high_pct"], passing=r["passing_pct"])) + "</span>")
     else:
-        headline = (f"<b class='hero'>–</b><span>Not enough evidence yet for a readiness estimate "
-                    f"({r['evidence']} of about {r['needed']} first answers).</span>")
+        headline = ("<b class='hero'>–</b><span>" + escape(tr(
+            "Not enough evidence yet for a readiness estimate ({evidence} of about {needed} first answers).",
+            evidence=r["evidence"], needed=r["needed"])) + "</span>")
 
     checklist = "".join(
         f"<li class='{'done' if i['done'] else ''}'><span>{'✓' if i['done'] else '○'}</span> {escape(i['label'])} "
@@ -87,24 +103,25 @@ def render(content, state, progress, now):
         for o in [o for o in content.OBJECTIVES if o.split(".")[0] == sec]:
             m = p["objectives"][o]
             label, icon = LEVELS[m["level"]]
+            label = tr(label)
             cells.append(f"<span class='cell lvl-{m['level']}' title='{escape(content.OBJECTIVES[o])}: {label}'>{o} {icon}</span>")
         rows.append(f"<tr><td>{sec}. {escape(title)}</td><td>{''.join(cells)}</td></tr>")
 
     mock_rows = "".join(
         f"<tr><td>{datetime.date.fromtimestamp(m['started']).isoformat()}</td>"
-        f"<td>{_mock_kind(m)}</td>"
-        f"<td class='num'>{m['pct']}%</td><td class='num'>{_pct(*m['fresh'])} of {m['fresh'][1]}</td>"
-        f"<td>{'Pass' if m['passed'] else 'Below pass'}</td></tr>"
-        for m in reversed(p["mocks"])) or "<tr><td colspan='5' class='muted'>No mock exams yet.</td></tr>"
+        f"<td>{escape(_mock_kind(m, lang))}</td>"
+        f"<td class='num'>{m['pct']}%</td><td class='num'>{escape(tr('{pct} of {n}', pct=_pct(*m['fresh']), n=m['fresh'][1]))}</td>"
+        f"<td>{escape(tr('Pass') if m['passed'] else tr('Below pass'))}</td></tr>"
+        for m in reversed(p["mocks"])) or f"<tr><td colspan='5' class='muted'>{escape(tr('No mock exams yet.'))}</td></tr>"
 
     earned = [b for b in p["badges"] if b["earned"]]
     a = p["activity"]
-    lab_line = ", ".join(f"{labs_by_kind[k][0]} of {labs_by_kind[k][1]} {name}"
+    lab_line = ", ".join(tr("{passed} of {total} {kind}", passed=labs_by_kind[k][0], total=labs_by_kind[k][1], kind=tr(name))
                          for k, name in (("query", "query"), ("dml", "DML"), ("ddl", "DDL")) if k in labs_by_kind)
 
     return f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{content.EXAM['code']} readiness report</title>
+<html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{escape(tr("{code} readiness report", code=content.EXAM["code"]))}</title>
 <style>
   :root {{ --ink:#172338; --muted:#56667E; --rule:#C9D5E5; --paper:#fff; --s1:#2a78d6; --s2:#eb6834;
           --good:#0ca30c; --warn:#fab219; --bad:#d03b3b; color-scheme: light; }}
@@ -135,38 +152,39 @@ def render(content, state, progress, now):
     body {{ padding: 0; max-width: none; }} @page {{ margin: 14mm; }} h2 {{ break-after: avoid; }} table, svg {{ break-inside: avoid; }} }}
 </style></head>
 <body>
-<h1>{escape(content.EXAM['name'])} ({content.EXAM['code']}): readiness report</h1>
-<p class="muted">{today} · {len(content.QUESTIONS)} practice questions, {len(content.LABS)} graded SQL exercises, {content.EXAM['database']}</p>
+<h1>{escape(tr("{name} ({code}): readiness report", name=content.EXAM["name"], code=content.EXAM["code"]))}</h1>
+<p class="muted">{today} · {escape(tr("{questions} practice questions, {labs} graded SQL exercises, {database}",
+  questions=len(content.QUESTIONS), labs=len(content.LABS), database=content.EXAM["database"]))}</p>
 <div class="summary">{headline}</div>
 
-<h2>Ready to book the exam?</h2>
+<h2>{escape(tr("Ready to book the exam?"))}</h2>
 <ul class="check">{checklist}</ul>
 
-<h2>Study evidence</h2>
+<h2>{escape(tr("Study evidence"))}</h2>
 <div class="grid3">
-  <div><b>{a['active_days']}</b>study days</div>
-  <div><b>{a['hours']}</b>hours studied (estimated)</div>
-  <div><b>{_pct(sure['correct'], sure['answers'])}</b>right when sure ({sure['answers']} answers)</div>
-  <div><b>{len(earned)} of {len(p['badges'])}</b>badges earned</div>
+  <div><b>{a['active_days']}</b>{escape(tr("study days"))}</div>
+  <div><b>{a['hours']}</b>{escape(tr("hours studied (estimated)"))}</div>
+  <div><b>{_pct(sure['correct'], sure['answers'])}</b>{escape(tr("right when sure ({answers} answers)", answers=sure["answers"]))}</div>
+  <div><b>{escape(tr("{earned} of {total}", earned=len(earned), total=len(p["badges"])))}</b>{escape(tr("badges earned"))}</div>
 </div>
-<p class="muted">Exercises passed: {lab_line}.</p>
+<p class="muted">{escape(tr("Exercises passed: {labs}.", labs=lab_line))}</p>
 
-<h2>Mock exams</h2>
-<p class="legend"><i style="background:var(--s1)"></i>Overall score<i style="background:var(--s2)"></i>Score on questions new to the learner</p>
-{_trend_svg(p["mocks"], content.EXAM["passing_pct"])}
-<table><thead><tr><th>Date</th><th>Kind</th><th class="num">Score</th><th class="num">New questions</th><th>Result</th></tr></thead>
+<h2>{escape(tr("Mock exams"))}</h2>
+<p class="legend"><i style="background:var(--s1)"></i>{escape(tr("Overall score"))}<i style="background:var(--s2)"></i>{escape(tr("Score on questions new to the learner"))}</p>
+{_trend_svg(p["mocks"], content.EXAM["passing_pct"], lang)}
+<table><thead><tr><th>{escape(tr("Date"))}</th><th>{escape(tr("Kind"))}</th><th class="num">{escape(tr("Score"))}</th><th class="num">{escape(tr("New questions"))}</th><th>{escape(tr("Result"))}</th></tr></thead>
 <tbody>{mock_rows}</tbody></table>
 
-<h2>Mastery per official objective</h2>
-<p class="legend">✓ Strong · ~ Learning · ! Weak · · Not started</p>
+<h2>{escape(tr("Mastery per official objective"))}</h2>
+<p class="legend">{" · ".join(f"{icon} {escape(tr(label))}" for label, icon in LEVELS.values())}</p>
 <table><tbody>{''.join(rows)}</tbody></table>
 
-<h2>Badges earned</h2>
-<p>{escape(", ".join(b["title"] for b in earned)) or "None yet."}</p>
+<h2>{escape(tr("Badges earned"))}</h2>
+<p>{escape(", ".join(b["title"] for b in earned)) or escape(tr("None yet."))}</p>
 
-<footer>Generated by Oracle Learning Lab. Questions are original practice material, not exam items.
-The pass estimate uses only the first answer ever given to each question (mock answers count fully,
-practice answers 60%, older answers fade), so repeating questions cannot inflate it. Mastery levels
-combine quiz answers weighted by stated confidence, flashcards and graded SQL exercises.</footer>
+<footer>{escape(tr("Generated by Oracle Learning Lab. Questions are original practice material, not exam items. "
+  "The pass estimate uses only the first answer ever given to each question (mock answers count fully, "
+  "practice answers 60%, older answers fade), so repeating questions cannot inflate it. Mastery levels "
+  "combine quiz answers weighted by stated confidence, flashcards and graded SQL exercises."))}</footer>
 </body></html>
 """

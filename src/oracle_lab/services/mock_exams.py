@@ -35,7 +35,7 @@ class MockExamService:
     def start(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
             mock = mocks.start_mock(state, data, self.clock())
-        return {**snapshot(state, self.clock(), self.sql_available), "mock": mock}
+        return {**snapshot(state, self.clock(), self.sql_available, self.lang), "mock": mock}
 
     def answer(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
@@ -45,9 +45,9 @@ class MockExamService:
     def submit(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
             mock = mocks.submit_mock_by_id(state, data, self.clock())
-        return {**snapshot(state, self.clock(), self.sql_available), "report": _report(mock, self.lang)}
+        return {**snapshot(state, self.clock(), self.sql_available, self.lang), "report": _report(mock, self.lang)}
 
     def abandon(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
             mocks.abandon_mock(state, data.get("mock_id"), self.clock())
-        return snapshot(state, self.clock(), self.sql_available)
+        return snapshot(state, self.clock(), self.sql_available, self.lang)

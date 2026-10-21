@@ -1,8 +1,9 @@
 /* Quiz: setup, practice questions with confidence (kept in this browser, so a reload resumes
    them), timed mock exams (kept on the server, so a reload resumes them), results and mock reports. */
 
-import { $, $$, esc, inlineCode, plural, shuffle, icon, LETTERS } from "../core/dom.js";
+import { $, $$, esc, inlineCode, shuffle, icon, LETTERS } from "../core/dom.js";
 import { api } from "../core/api.js";
+import { t, tn } from "../core/i18n.js";
 import { store, forget } from "../core/store.js";
 import { C, S, P, Q, CARD, apply, topicLabel, needsNewerDb, mistakes, sqlOff, noSql, todayLeft } from "../core/state.js";
 import { main, go, currentView, setLeaveGuard } from "../core/router.js";
@@ -16,16 +17,17 @@ import { openDeck } from "./cards.js";
 let quiz = null;
 let timerHandle = null;
 
-const CONF = [["sure", "Sure", "S"], ["think", "Think so", "T"], ["guess", "Guessing", "G"]];
+/** Confidence levels: key, label, keyboard key (the keys stay S, T and G in every language). */
+const conf = () => [["sure", t("Sure"), "S"], ["think", t("Think so"), "T"], ["guess", t("Guessing"), "G"]];
 
 const QTYPES = {
-  all: ["All types", () => true],
-  multi: ["Choose two or three", q => q.answer.length > 1],
-  error: ["Which error?", q => !!q.try_error],
-  output: ["Predict the output", q => !!q.answer_sql],
-  equivalent: ["Equivalent queries", q => !!q.equivalent_sql],
-  code: ["Read the code", q => !!q.code],
-  concept: ["Concepts (no code)", q => !q.code],
+  all: [() => t("All types"), () => true],
+  multi: [() => t("Choose two or three"), q => q.answer.length > 1],
+  error: [() => t("Which error?"), q => !!q.try_error],
+  output: [() => t("Predict the output"), q => !!q.answer_sql],
+  equivalent: [() => t("Equivalent queries"), q => !!q.equivalent_sql],
+  code: [() => t("Read the code"), q => !!q.code],
+  concept: [() => t("Concepts (no code)"), q => !q.code],
 };
 
 /** Drops the quiz in memory. The practice session stored in this browser goes with it only when
@@ -45,7 +47,7 @@ const isComplete = (q, chosen) => (chosen || []).length === requiredCount(q);
 
 /** "D", "D and E", "D, E and F". */
 function joinLetters(letters) {
-  return letters.length < 2 ? letters.join("") : `${letters.slice(0, -1).join(", ")} and ${letters.at(-1)}`;
+  return letters.length < 2 ? letters.join("") : t("{list} and {last}", { list: letters.slice(0, -1).join(", "), last: letters.at(-1) });
 }
 
 function isCorrect(q, chosen) {
@@ -177,15 +179,15 @@ export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder, 
 
 export async function startMock({ topics, count, minutes, ids } = {}) {
   if (P.active_mock && !await confirmDialog({
-    title: "Abandon the running mock exam?",
-    body: "It will not be scored, and its questions count as seen.",
-    confirm: "Start a new mock", danger: true,
+    title: t("Abandon the running mock exam?"),
+    body: t("It will not be scored, and its questions count as seen."),
+    confirm: t("Start a new mock"), danger: true,
   })) return;
   try {
     const res = await api("/api/mock/start", { topics, count, minutes, ids });
     apply(res);
     openMock(res.mock);
-  } catch (err) { toastError(`Could not start the mock exam. ${err.message}`); }
+  } catch (err) { toastError(t("Could not start the mock exam. {error}", { error: err.message })); }
 }
 
 /** Today's "Resume your mock exam": /quiz reopens the running mock (the one in memory when it is
@@ -232,7 +234,7 @@ function trackTime(id) {
 function saveMockAnswer(id, change) {
   quiz.savedPosition = quiz.idx;
   api("/api/mock/answer", { mock_id: quiz.mockId, id, position: quiz.idx, time_on: quiz.timeOn, ...change })
-    .catch(() => toastError("Could not save your answer. Check that the server is running."));
+    .catch(() => toastError(t("Could not save your answer. Check that the server is running.")));
 }
 
 /* Moving between questions without answering saves the position too, at most once per
@@ -282,16 +284,16 @@ function setExamMode(on) {
   else window.removeEventListener("beforeunload", onBeforeUnload);
 }
 
-const LEAVE = {
-  title: "Leave the exam? The timer keeps running.",
-  body: "Your answers are saved. Resume it from Today.",
-  confirm: "Leave", cancel: "Stay in the exam", focus: "cancel",
-};
+const leaveQuestion = () => ({
+  title: t("Leave the exam? The timer keeps running."),
+  body: t("Your answers are saved. Resume it from Today."),
+  confirm: t("Leave"), cancel: t("Stay in the exam"), focus: "cancel",
+});
 
 /** The router's leave guard: true lets the navigation go on (leave() then turns exam mode off). */
 async function guardLeave() {
   if (quiz?.submitting) return false;  // the results are on their way
-  if (!await confirmDialog(LEAVE) || quiz?.submitting) return false;
+  if (!await confirmDialog(leaveQuestion()) || quiz?.submitting) return false;
   if (quiz?.mode === "exam" && !quiz.finished) { trackTime(null); await sendPosition(quiz, true); }
   return true;
 }
@@ -299,7 +301,7 @@ async function guardLeave() {
 /** The exam bar's Leave: the mock keeps running, and Today offers to resume it. */
 async function leaveExam() {
   if (quiz?.submitting) return;
-  if (!await confirmDialog(LEAVE)) return;
+  if (!await confirmDialog(leaveQuestion())) return;
   if (!quiz || quiz.finished || quiz.submitting) return;
   stopTimer();
   trackTime(null);
@@ -320,9 +322,9 @@ function openAnswers() {
 async function confirmSubmit() {
   const { unanswered, incomplete } = openAnswers();
   const body = unanswered.length || incomplete.length
-    ? `Unanswered: ${unanswered.length}. Incomplete (fewer options ticked than asked for): ${incomplete.length}. Both score zero, and answers cannot be changed after submitting.`
-    : "Every question has a complete answer. Answers cannot be changed after submitting.";
-  if (!await confirmDialog({ title: "Submit the exam?", body, confirm: "Submit exam", cancel: "Keep working", focus: "cancel" })) return;
+    ? t("Unanswered: {unanswered}. Incomplete (fewer options ticked than asked for): {incomplete}. Both score zero, and answers cannot be changed after submitting.", { unanswered: unanswered.length, incomplete: incomplete.length })
+    : t("Every question has a complete answer. Answers cannot be changed after submitting.");
+  if (!await confirmDialog({ title: t("Submit the exam?"), body, confirm: t("Submit exam"), cancel: t("Keep working"), focus: "cancel" })) return;
   if (currentView() !== "quiz") return;  // the learner left the exam while the question was open
   if (quiz?.mode === "exam" && !quiz.finished) finishQuiz();
 }
@@ -336,7 +338,7 @@ async function render() {
       const { mock } = await api("/api/mock?id=" + encodeURIComponent(P.active_mock.id));
       if (currentView() !== "quiz") return;  // the learner moved on while it loaded
       if (!quiz) quiz = mockQuiz(mock);
-    } catch { toastError("Could not load the running mock exam."); }
+    } catch { toastError(t("Could not load the running mock exam.")); }
   }
   if (!quiz && !P.active_mock) { const s = loadSession(); if (s) quiz = sessionQuiz(s); }
   setExamMode(quiz?.mode === "exam" && !quiz.finished);
@@ -351,41 +353,41 @@ function renderSetup() {
   const saved = store("quiz-setup") || { topics: Object.keys(C.topics), count: 10, mode: "practice" };
   const counts = [5, 10, 20, 30, C.exam.questions, 999];
   main.innerHTML = `
-    ${pageHead("Quiz", `Original practice questions written for these exams, not real exam items. Every answer was checked against ${esc(C.engine.label)}.`)}
+    ${pageHead(esc(t("Quiz")), esc(t("Original practice questions written for these exams, not real exam items. Every answer was checked against {engine}.", { engine: C.engine.label })))}
     <div class="panel">
       <div class="setup-grid">
-        <div class="field"><span class="label">Mode</span>
-          <div class="choices" role="group" aria-label="Mode">
-            <button class="choice" data-mode="practice"><strong>Practice</strong><span>See the explanation after each answer.</span></button>
-            <button class="choice" data-mode="exam"><strong>Exam, timed</strong><span>Like the real test: a time limit, results at the end.</span></button>
+        <div class="field"><span class="label">${esc(t("Mode"))}</span>
+          <div class="choices" role="group" aria-label="${esc(t("Mode"))}">
+            <button class="choice" data-mode="practice"><strong>${esc(t("Practice"))}</strong><span>${esc(t("See the explanation after each answer."))}</span></button>
+            <button class="choice" data-mode="exam"><strong>${esc(t("Exam, timed"))}</strong><span>${esc(t("Like the real test: a time limit, results at the end."))}</span></button>
           </div>
         </div>
-        <div class="field"><span class="label">Topics</span>
+        <div class="field"><span class="label">${esc(t("Topics"))}</span>
           <div class="chips" id="topic-chips">
-            ${Object.keys(C.topics).map(t => `<button class="chip" data-t="${t}">${esc(topicLabel(t))}</button>`).join("")}
+            ${Object.keys(C.topics).map(id => `<button class="chip" data-t="${id}">${esc(topicLabel(id))}</button>`).join("")}
           </div>
-          <div class="field-tools"><button class="link-btn" id="all-topics">Select all</button><button class="link-btn" id="no-topics">Clear</button></div>
+          <div class="field-tools"><button class="link-btn" id="all-topics">${esc(t("Select all"))}</button><button class="link-btn" id="no-topics">${esc(t("Clear"))}</button></div>
         </div>
-        <div class="field"><span class="label">Question type</span>
+        <div class="field"><span class="label">${esc(t("Question type"))}</span>
           <div class="chips" id="type-chips">
-            ${Object.entries(QTYPES).map(([k, [label]]) => `<button class="chip" data-qtype="${k}">${label}</button>`).join("")}
+            ${Object.entries(QTYPES).map(([k, [label]]) => `<button class="chip" data-qtype="${k}">${esc(label())}</button>`).join("")}
           </div>
-          <label class="check small" style="margin-top:6px"><input type="checkbox" id="unseen-only" ${saved.unseen ? "checked" : ""}> Only questions I have not answered yet</label>
+          <label class="check small" style="margin-top:6px"><input type="checkbox" id="unseen-only" ${saved.unseen ? "checked" : ""}> ${esc(t("Only questions I have not answered yet"))}</label>
         </div>
-        <div class="field"><span class="label" id="count-label">Number of questions</span>
+        <div class="field"><span class="label" id="count-label">${esc(t("Number of questions"))}</span>
           <div class="seg" role="group" aria-labelledby="count-label">
-            ${counts.map(n => `<button data-count="${n}">${n === 999 ? "All" : n}</button>`).join("")}
+            ${counts.map(n => `<button data-count="${n}">${n === 999 ? esc(t("All")) : n}</button>`).join("")}
           </div>
         </div>
       </div>
       <div class="panel-foot">
-        <button class="btn large" id="start-quiz">Start quiz</button>
+        <button class="btn large" id="start-quiz">${esc(t("Start quiz"))}</button>
         <p class="pool-info small" id="pool-info" aria-live="polite"></p>
       </div>
     </div>`;
 
   const state = { qtype: "all", unseen: false, ...saved };
-  state.topics = state.topics.filter(t => C.topics[t]);
+  state.topics = state.topics.filter(id => C.topics[id]);
   if (!state.topics.length) state.topics = Object.keys(C.topics);
   if (!counts.includes(state.count)) state.count = 10;
   const filtered = () => C.questions.filter(q => state.topics.includes(q.topic) && QTYPES[state.qtype][1](q)
@@ -399,18 +401,18 @@ function renderSetup() {
     const pool = filtered().length;
     const n = Math.min(pool, state.count);
     const minutes = Math.ceil(n * 1.9);
-    $("#pool-info").textContent = !pool ? "No questions match. Select at least one topic, or another question type."
-      : `${n} of ${pool} matching questions. ` + (state.mode === "exam"
-        ? (special ? `A timed drill of ${minutes} minutes on these questions. Full mock exams use every question type.`
-          : `${minutes} minutes, every objective covered where possible, questions you have not seen first.`)
-        : special ? "Picked at random from the matching questions." : "Open mistakes, due reviews and your weakest objectives come first.");
+    $("#pool-info").textContent = !pool ? t("No questions match. Select at least one topic, or another question type.")
+      : tn(pool, "{chosen} of {n} matching question.", "{chosen} of {n} matching questions.", { chosen: n }) + " " + (state.mode === "exam"
+        ? (special ? t("A timed drill of {minutes} minutes on these questions. Full mock exams use every question type.", { minutes })
+          : t("{minutes} minutes, every objective covered where possible, questions you have not seen first.", { minutes }))
+        : special ? t("Picked at random from the matching questions.") : t("Open mistakes, due reviews and your weakest objectives come first."));
     $("#start-quiz").disabled = !pool;
-    $("#start-quiz").textContent = state.mode === "exam" ? "Start timed exam" : "Start practice";
+    $("#start-quiz").textContent = state.mode === "exam" ? t("Start timed exam") : t("Start practice");
   };
   $$("[data-mode]", main).forEach(b => b.addEventListener("click", () => { state.mode = b.dataset.mode; sync(); }));
   $$("#topic-chips .chip").forEach(b => b.addEventListener("click", () => {
-    const t = b.dataset.t;
-    state.topics = state.topics.includes(t) ? state.topics.filter(x => x !== t) : [...state.topics, t];
+    const id = b.dataset.t;
+    state.topics = state.topics.includes(id) ? state.topics.filter(x => x !== id) : [...state.topics, id];
     sync();
   }));
   $("#all-topics").addEventListener("click", () => { state.topics = Object.keys(C.topics); sync(); });
@@ -444,15 +446,16 @@ const STATE_GLYPH = { complete: "✓", incomplete: "◐", open: "" };
 function qButton(qid, n, current) {
   const state = answerState(qid);
   const flag = !!quiz.flags[qid];
-  const label = `Question ${n + 1}${state === "complete" ? ", answered" : state === "incomplete" ? ", incomplete" : ""}${flag ? ", flagged" : ""}`;
+  const label = [t("Question {n}", { n: n + 1 }), state === "complete" ? t("answered") : state === "incomplete" ? t("incomplete") : "", flag ? t("flagged") : ""]
+    .filter(Boolean).join(", ");
   return `<button data-go="${n}" class="${n === current ? "current" : ""} ${state === "complete" ? "answered" : state === "incomplete" ? "incomplete" : ""} ${flag ? "flagged" : ""}"
-    aria-label="${label}"${n === current ? ` aria-current="true"` : ""}>${n + 1}<span class="qmark" aria-hidden="true">${STATE_GLYPH[state]}</span>${flag ? `<span class="qflag" aria-hidden="true">⚑</span>` : ""}</button>`;
+    aria-label="${esc(label)}"${n === current ? ` aria-current="true"` : ""}>${n + 1}<span class="qmark" aria-hidden="true">${STATE_GLYPH[state]}</span>${flag ? `<span class="qflag" aria-hidden="true">⚑</span>` : ""}</button>`;
 }
 
 function navigatorHtml(current) {
-  return `<section class="navigator" aria-label="Question navigator">
+  return `<section class="navigator" aria-label="${esc(t("Question navigator"))}">
     <div class="qgrid">${quiz.items.map((qid, n) => qButton(qid, n, current)).join("")}</div>
-    <p class="qgrid-legend"><span><b aria-hidden="true">✓</b>Answered</span><span><b aria-hidden="true">◐</b>Incomplete</span><span><b aria-hidden="true">⚑</b>Flagged</span><span><b aria-hidden="true">·</b>Not answered</span></p>
+    <p class="qgrid-legend"><span><b aria-hidden="true">✓</b>${esc(t("Answered"))}</span><span><b aria-hidden="true">◐</b>${esc(t("Incomplete"))}</span><span><b aria-hidden="true">⚑</b>${esc(t("Flagged"))}</span><span><b aria-hidden="true">·</b>${esc(t("Not answered"))}</span></p>
   </section>`;
 }
 
@@ -474,13 +477,13 @@ function examBar(i) {
   return `<div class="exam-bar">
     <span class="exam-code">${esc(C.exam.code)}</span>
     <span class="timer" id="timer" role="timer" aria-live="off">${icon("timer")}<span></span></span>
-    <span class="exam-where">${i === null ? "Review" : `Question ${i + 1} of ${quiz.items.length}`}</span>
+    <span class="exam-where">${esc(i === null ? t("Review") : t("Question {n} of {total}", { n: i + 1, total: quiz.items.length }))}</span>
     <span class="spacer"></span>
     <span class="exam-tools">
-      ${i === null ? "" : `<button class="btn ghost small" id="bar-flag" aria-pressed="${!!quiz.flags[id]}"><span aria-hidden="true">⚑</span> Flag</button>
-      <button class="btn ghost small" id="bar-review">Review</button>`}
-      <button class="btn ghost small" id="bar-leave">Leave</button>
-      <button class="btn small" id="bar-submit">Submit</button>
+      ${i === null ? "" : `<button class="btn ghost small" id="bar-flag" aria-pressed="${!!quiz.flags[id]}"><span aria-hidden="true">⚑</span> ${esc(t("Flag"))}</button>
+      <button class="btn ghost small" id="bar-review">${esc(t("Review"))}</button>`}
+      <button class="btn ghost small" id="bar-leave">${esc(t("Leave"))}</button>
+      <button class="btn small" id="bar-submit">${esc(t("Submit"))}</button>
     </span>
   </div>`;
 }
@@ -514,62 +517,62 @@ function renderQuestion(i, reviewing) {
 
   let actions;
   if (reviewing) {
-    actions = `<button class="btn secondary" id="back-results">Back to results</button>
-      ${i > 0 ? `<button class="btn ghost" id="prev">${icon("prev")}Previous</button>` : ""}
-      ${i < total - 1 ? `<button class="btn" id="next">Next${icon("next")}</button>` : ""}`;
+    actions = `<button class="btn secondary" id="back-results">${esc(t("Back to results"))}</button>
+      ${i > 0 ? `<button class="btn ghost" id="prev">${icon("prev")}${esc(t("Previous"))}</button>` : ""}
+      ${i < total - 1 ? `<button class="btn" id="next">${esc(t("Next"))}${icon("next")}</button>` : ""}`;
   } else if (exam) {
-    actions = `${i > 0 ? `<button class="btn ghost" id="prev">${icon("prev")}Previous</button>` : ""}
-      ${i < total - 1 ? `<button class="btn" id="next">Next <span class="kbd">Enter</span></button>` : `<button class="btn" id="finish">Review and submit</button>`}`;
+    actions = `${i > 0 ? `<button class="btn ghost" id="prev">${icon("prev")}${esc(t("Previous"))}</button>` : ""}
+      ${i < total - 1 ? `<button class="btn" id="next">${esc(t("Next"))} <span class="kbd">Enter</span></button>` : `<button class="btn" id="finish">${esc(t("Review and submit"))}</button>`}`;
   } else if (revealed) {
-    actions = `<button class="btn" id="next">${i < total - 1 ? "Next question" : "See results"} <span class="kbd">Enter</span></button>`;
+    actions = `<button class="btn" id="next">${esc(i < total - 1 ? t("Next question") : t("See results"))} <span class="kbd">Enter</span></button>`;
   } else {
-    actions = `<div class="confidence" role="group" aria-label="Check your answer: how sure are you?">
-      <span>Check: how sure are you?</span>
-      ${CONF.map(([k, label, key]) => `<button class="btn secondary" data-conf="${k}" ${isComplete(q, chosen) ? "" : "disabled"}>${label} <span class="kbd">${key}</span></button>`).join("")}
+    actions = `<div class="confidence" role="group" aria-label="${esc(t("Check your answer: how sure are you?"))}">
+      <span>${esc(t("Check: how sure are you?"))}</span>
+      ${conf().map(([k, label, key]) => `<button class="btn secondary" data-conf="${k}" ${isComplete(q, chosen) ? "" : "disabled"}>${esc(label)} <span class="kbd">${key}</span></button>`).join("")}
     </div>`;
   }
 
   main.innerHTML = `
     ${exam ? examBar(i) : ""}
     <div class="q-top">
-      ${exam ? "" : `<b>${second ? "Second try" : `Question ${placeOf(i)} of ${firsts}`}</b>`}
+      ${exam ? "" : `<b>${esc(second ? t("Second try") : t("Question {n} of {total}", { n: placeOf(i), total: firsts }))}</b>`}
       <span>${esc(topicLabel(q.topic))}</span>
       <span class="spacer"></span>
-      ${!reviewing && !exam ? `<button class="link-btn quiet small" id="quit">End quiz</button>` : ""}
+      ${!reviewing && !exam ? `<button class="link-btn quiet small" id="quit">${esc(t("End quiz"))}</button>` : ""}
     </div>
-    <div class="q-progress" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="${firsts}" aria-valuenow="${done}"><i style="width:${(done / firsts) * 100}%"></i></div>
-    ${multi ? `<span class="q-choose">Choose ${q.answer.length}</span>` : ""}
+    <div class="q-progress" role="progressbar" aria-label="${esc(t("Quiz progress"))}" aria-valuemin="0" aria-valuemax="${firsts}" aria-valuenow="${done}"><i style="width:${(done / firsts) * 100}%"></i></div>
+    ${multi ? `<span class="q-choose">${esc(t("Choose {n}", { n: q.answer.length }))}</span>` : ""}
     <p class="q-prompt" id="q-prompt">${inlineCode(q.prompt)}</p>
     ${q.code ? `<pre class="code"><code>${esc(q.code)}</code></pre>` : ""}
-    ${multi && !revealed ? `<p class="q-count small" id="q-count" aria-live="polite">${chosen.length} of ${requiredCount(q)} selected</p>` : ""}
+    ${multi && !revealed ? `<p class="q-count small" id="q-count" aria-live="polite">${esc(t("{chosen} of {n} selected", { chosen: chosen.length, n: requiredCount(q) }))}</p>` : ""}
     <ul class="options" role="${multi ? "group" : "radiogroup"}" aria-labelledby="q-prompt">
       ${order.map((orig, pos) => {
         let cls = "", mark = "";
         if (revealed) {
-          if (q.answer.includes(orig)) { cls = "correct"; mark = chosen.includes(orig) ? "Correct, your answer" : "Correct answer"; }
-          else if (chosen.includes(orig)) { cls = "wrong"; mark = "Your answer"; }
+          if (q.answer.includes(orig)) { cls = "correct"; mark = chosen.includes(orig) ? t("Correct, your answer") : t("Correct answer"); }
+          else if (chosen.includes(orig)) { cls = "wrong"; mark = t("Your answer"); }
         }
         return `<li><label class="option ${multi ? "multi" : ""} ${cls} ${revealed ? "locked" : ""}">
           <input type="${multi ? "checkbox" : "radio"}" name="opt" value="${orig}" ${chosen.includes(orig) ? "checked" : ""} ${revealed ? "disabled" : ""}>
           <span class="letter" aria-hidden="true">${LETTERS[pos]}</span>
           <span class="text">${inlineCode(q.options[orig])}</span>
-          ${mark ? `<span class="mark-label">${mark}</span>` : ""}
+          ${mark ? `<span class="mark-label">${esc(mark)}</span>` : ""}
         </label></li>`;
       }).join("")}
     </ul>
     ${revealed ? verdictHtml(q, chosen, order, confidence, second) : ""}
-    ${exam ? `<div class="confidence" role="group" aria-label="How sure are you? Optional" style="margin-bottom:18px">
-      <span>How sure are you? (optional)</span>
-      ${CONF.map(([k, label, key]) => `<button class="chip" data-exam-conf="${k}" aria-pressed="${quiz.confidence[id] === k}">${label} <span class="kbd">${key}</span></button>`).join("")}
+    ${exam ? `<div class="confidence" role="group" aria-label="${esc(t("How sure are you? Optional"))}" style="margin-bottom:18px">
+      <span>${esc(t("How sure are you? (optional)"))}</span>
+      ${conf().map(([k, label, key]) => `<button class="chip" data-exam-conf="${k}" aria-pressed="${quiz.confidence[id] === k}">${esc(label)} <span class="kbd">${key}</span></button>`).join("")}
     </div>` : ""}
     <div class="q-actions">
       ${actions}
       <span class="spacer"></span>
       ${canTry ? (sqlOff()
-        ? `<span class="small muted">${esc(noSql())}</span><button class="btn ghost" disabled>Run it in the SQL lab</button>`
+        ? `<span class="small muted">${esc(noSql())}</span><button class="btn ghost" disabled>${esc(t("Run it in the SQL lab"))}</button>`
         : needsNewerDb(q)
-        ? `<span class="small muted" title="${esc(C.exam.code)}'s SQL features need ${esc(q.needs.label)}, which this server does not provide.">Runs on ${esc(q.needs.label)} only</span>`
-        : `<button class="btn ghost" id="try">Run it in the SQL lab</button>`) : ""}
+        ? `<span class="small muted" title="${esc(t("{code}'s SQL features need {database}, which this server does not provide.", { code: C.exam.code, database: q.needs.label }))}">${esc(t("Runs on {database} only", { database: q.needs.label }))}</span>`
+        : `<button class="btn ghost" id="try">${esc(t("Run it in the SQL lab"))}</button>`) : ""}
     </div>
     ${exam ? navigatorHtml(i) : ""}
   `;
@@ -581,7 +584,7 @@ function renderQuestion(i, reviewing) {
       const count = $("#q-count");
       if (count) {
         // Said, not only shown: the live counter announces why the tick did not take.
-        count.textContent = `${requiredCount(q)} of ${requiredCount(q)} selected — untick one first`;
+        count.textContent = t("{n} of {n} selected — untick one first", { n: requiredCount(q) });
         count.classList.remove("pulse"); void count.offsetWidth; count.classList.add("pulse");
       }
       return;
@@ -591,7 +594,7 @@ function renderQuestion(i, reviewing) {
     $$("[data-conf]", main).forEach(b => { b.disabled = !isComplete(q, now); });
     if (isComplete(q, now)) clearToast(CHOOSE_TOAST);
     const count = $("#q-count");
-    if (count) count.textContent = `${now.length} of ${requiredCount(q)} selected`;
+    if (count) count.textContent = t("{chosen} of {n} selected", { chosen: now.length, n: requiredCount(q) });
     saveSession();
     if (exam) {
       saveMockAnswer(id, { chosen: quiz.answers[id] });
@@ -624,16 +627,16 @@ function renderQuestion(i, reviewing) {
 async function quit() {
   if (quiz.mode === "exam") {
     if (!await confirmDialog({
-      title: "Abandon this mock exam?",
-      body: "It will not be scored, and its questions count as seen.",
-      confirm: "Abandon exam", cancel: "Keep going", danger: true,
+      title: t("Abandon this mock exam?"),
+      body: t("It will not be scored, and its questions count as seen."),
+      confirm: t("Abandon exam"), cancel: t("Keep going"), danger: true,
     })) return;
     if (!quiz || quiz.finished) return;  // time ran out while the question was open
     stopTimer();
     trackTime(null);
     // Wait for the server, so the next render does not reopen the mock it still reports as running.
     try { apply(await api("/api/mock/abandon", { mock_id: quiz.mockId })); }
-    catch { toastError("Could not abandon the mock exam. Check that the server is running."); startTimer(); return; }
+    catch { toastError(t("Could not abandon the mock exam. Check that the server is running.")); startTimer(); return; }
   }
   if (quiz.mode === "practice" && Object.keys(quiz.checked).length) return finishQuiz();
   resetQuiz();
@@ -650,15 +653,15 @@ function verdictHtml(q, chosen, order, conf, second) {
   const secondTry = second && ok;
   const open = secondTry && openMistake(q.id);
   const note = ok && conf === "guess"
-    ? `You guessed, so this stays on your mistakes list until you answer it confidently on ${P.proof_days} different days.`
-    : !ok && conf === "sure" ? "You were sure: that makes this a misconception, the most valuable kind of mistake to fix." : "";
-  const title = ok ? (conf === "guess" ? "Correct, but a guess" : "Correct")
-    : chosen.length ? `Not quite. The answer is ${letters}.` : `Not answered. The answer is ${letters}.`;
+    ? t("You guessed, so this stays on your mistakes list until you answer it confidently on {days} different days.", { days: P.proof_days })
+    : !ok && conf === "sure" ? t("You were sure: that makes this a misconception, the most valuable kind of mistake to fix.") : "";
+  const title = ok ? (conf === "guess" ? t("Correct, but a guess") : t("Correct"))
+    : chosen.length ? t("Not quite. The answer is {letters}.", { letters }) : t("Not answered. The answer is {letters}.", { letters });
   return `<div class="verdict ${ok ? "good" : "bad"}" role="status">
-    <strong>${title}</strong>
+    <strong>${esc(title)}</strong>
     <p>${inlineCode(q.explanation)}</p>
-    ${note ? `<p class="small verdict-note" id="usual-note" ${open ? "hidden" : ""}>${note}</p>` : ""}
-    ${secondTry ? `<p class="small verdict-note" id="second-note" ${open ? "" : "hidden"}>Right this time. It stays in your mistakes until you get it right on another day.</p>` : ""}
+    ${note ? `<p class="small verdict-note" id="usual-note" ${open ? "hidden" : ""}>${esc(note)}</p>` : ""}
+    ${secondTry ? `<p class="small verdict-note" id="second-note" ${open ? "" : "hidden"}>${esc(t("Right this time. It stays in your mistakes until you get it right on another day."))}</p>` : ""}
   </div>`;
 }
 
@@ -679,7 +682,7 @@ async function checkPractice(i, confidence) {
   $("#next")?.focus({ preventScroll: true });
   // A second try is recorded like any other answer.
   try { apply(await api("/api/attempt", { id, chosen, confidence, mode: "practice" })); refreshNav(); }
-  catch { toastError("Could not save this answer. Check that the server is running."); return; }
+  catch { toastError(t("Could not save this answer. Check that the server is running.")); return; }
   const note = $("#second-note");
   if (note && quiz?.items[quiz.idx] === entry) {
     note.hidden = !openMistake(id);
@@ -703,23 +706,23 @@ function renderMockReview() {
   const complete = quiz.items.length - unanswered.length - incomplete.length;
   const list = (ids, label, note = "") => ids.length
     ? section(label, `<div class="qgrid">${ids.map(id => qButton(id, quiz.items.indexOf(id), -1)).join("")}</div>`, note ? { note } : {}) : "";
-  const counts = [`${complete} of ${quiz.items.length} answered`,
-    unanswered.length && `${unanswered.length} unanswered`,
-    incomplete.length && `${incomplete.length} incomplete`,
-    flagged.length && `${flagged.length} flagged for review`].filter(Boolean).join(", ");
+  const counts = [t("{done} of {total} answered", { done: complete, total: quiz.items.length }),
+    unanswered.length && t("{n} unanswered", { n: unanswered.length }),
+    incomplete.length && t("{n} incomplete", { n: incomplete.length }),
+    flagged.length && t("{n} flagged for review", { n: flagged.length })].filter(Boolean).join(", ");
   main.innerHTML = `
     ${examBar(null)}
-    ${pageHead("Review before submitting", `${counts}. ${unanswered.length || incomplete.length
-      ? "Unanswered and incomplete questions score zero, and there is no penalty for guessing." : "Every question has a complete answer."}`)}
+    ${pageHead(esc(t("Review before submitting")), `${esc(counts)}. ${esc(unanswered.length || incomplete.length
+      ? t("Unanswered and incomplete questions score zero, and there is no penalty for guessing.") : t("Every question has a complete answer."))}`)}
     <div class="row">
-      <button class="btn large" id="submit-now">Submit exam</button>
-      <button class="btn secondary large" id="back-to-questions">Back to the questions</button>
+      <button class="btn large" id="submit-now">${esc(t("Submit exam"))}</button>
+      <button class="btn secondary large" id="back-to-questions">${esc(t("Back to the questions"))}</button>
     </div>
-    ${list(unanswered, "Unanswered")}
-    ${list(incomplete, "Incomplete", "Fewer options ticked than the question asks for. They score zero as they are.")}
-    ${list(flagged, "Flagged")}
-    ${section("All questions", navigatorHtml(-1))}
-    <p class="abandon-line"><button class="link-btn quiet small" id="quit">Abandon exam</button></p>`;
+    ${list(unanswered, esc(t("Unanswered")))}
+    ${list(incomplete, esc(t("Incomplete")), esc(t("Fewer options ticked than the question asks for. They score zero as they are.")))}
+    ${list(flagged, esc(t("Flagged")))}
+    ${section(esc(t("All questions")), navigatorHtml(-1))}
+    <p class="abandon-line"><button class="link-btn quiet small" id="quit">${esc(t("Abandon exam"))}</button></p>`;
   bindGo();
   bindExamBar(null);
   $("#back-to-questions").addEventListener("click", () => { quiz.reviewScreen = false; render(); });
@@ -736,14 +739,14 @@ function startTimer() {
     if (el) {
       const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
       el.lastElementChild.textContent = `${m}:${String(s).padStart(2, "0")}`;
-      el.setAttribute("aria-label", `${m} minutes left`);
+      el.setAttribute("aria-label", tn(m, "{n} minute left", "{n} minutes left"));
       el.classList.toggle("warn", left < 5 * 60000);
     }
     if (left <= 0) {
       // A question still open (Leave, Submit, Abandon) no longer applies: time decides.
       stopTimer();
       closeDialogs();
-      toast("Time is up. Your exam was submitted.");
+      toast(t("Time is up. Your exam was submitted."));
       finishQuiz();
     }
   };
@@ -766,7 +769,7 @@ async function finishQuiz() {
       quiz.report = res.report;
     } catch {
       quiz.submitting = false;
-      toastError("Could not submit the exam. Your answers are saved; try again from Today.");
+      toastError(t("Could not submit the exam. Your answers are saved; try again from Today."));
       return;
     }
     refreshNav();
@@ -788,8 +791,8 @@ function reviewGrid(ok, show = e => !isSecond(e)) {
     if (!show(entry) || (quiz.mode === "practice" && !slot(entry).checked)) return "";
     const good = ok(idOf(entry), entry);
     const shown = placeOf(isSecond(entry) ? quiz.items.indexOf(entry.id) : n);
-    const label = isSecond(entry) ? `Second try at question ${shown}` : `Question ${shown}`;
-    return `<button data-review="${n}" class="${good ? "good" : "bad"}" aria-label="${label}, ${good ? "correct" : "incorrect"}">${shown}</button>`;
+    const label = isSecond(entry) ? t("Second try at question {n}", { n: shown }) : t("Question {n}", { n: shown });
+    return `<button data-review="${n}" class="${good ? "good" : "bad"}" aria-label="${esc(`${label}, ${good ? t("correct") : t("incorrect")}`)}">${shown}</button>`;
   }).join("")}</div>`;
 }
 
@@ -813,38 +816,38 @@ function renderResults() {
   const pct = items.length ? Math.round((right / items.length) * 100) : 0;
   const byTopic = {};
   for (const id of items) {
-    const t = Q[id].topic;
-    byTopic[t] = byTopic[t] || { n: 0, ok: 0 };
-    byTopic[t].n++;
-    if (isCorrect(Q[id], quiz.answers[id])) byTopic[t].ok++;
+    const topic = Q[id].topic;
+    byTopic[topic] = byTopic[topic] || { n: 0, ok: 0 };
+    byTopic[topic].n++;
+    if (isCorrect(Q[id], quiz.answers[id])) byTopic[topic].ok++;
   }
   const minutes = Math.max(1, Math.round(quiz.elapsed / 60000));
-  const byConfidence = CONF.map(([k, label]) => {
+  const byConfidence = conf().map(([k, label]) => {
     const ids = items.filter(id => quiz.confidence[id] === k);
-    return ids.length ? `<tr><td>${label}</td><td>${meter(ids.filter(id => isCorrect(Q[id], quiz.answers[id])).length, ids.length, "Correct")}</td></tr>` : "";
+    return ids.length ? `<tr><td>${esc(label)}</td><td>${meter(ids.filter(id => isCorrect(Q[id], quiz.answers[id])).length, ids.length, t("Correct"))}</td></tr>` : "";
   }).join("");
   const wrong = items.filter(id => !isCorrect(Q[id], quiz.answers[id]));
   // Started from Today: the next step of today's session comes first, completed steps skipped.
   const next = quiz.fromToday ? todayLeft() : { cards: [], lab: null };
-  const cont = next.cards.length ? `Continue: ${plural(next.cards.length, "flashcard")}` : next.lab ? "Continue: today's exercise" : "";
+  const cont = next.cards.length ? tn(next.cards.length, "Continue: {n} flashcard", "Continue: {n} flashcards") : next.lab ? t("Continue: today's exercise") : "";
   main.innerHTML = `
-    ${pageHead("Practice results")}
-    <div class="score"><b>${pct}%</b><div><strong>${right} of ${items.length} correct</strong><span>in about ${plural(minutes, "minute")}. Answers you missed or guessed are on your mistakes list.</span></div></div>
+    ${pageHead(esc(t("Practice results")))}
+    <div class="score"><b>${pct}%</b><div><strong>${esc(t("{right} of {total} correct", { right, total: items.length }))}</strong><span>${esc(tn(minutes, "in about {n} minute. Answers you missed or guessed are on your mistakes list.", "in about {n} minutes. Answers you missed or guessed are on your mistakes list."))}</span></div></div>
     <div class="row" style="margin-top:18px">
-      ${cont ? `<button class="btn" id="today-next">${cont}</button>` : ""}
-      ${wrong.length ? `<button class="btn ${cont ? "secondary" : ""}" id="retry-wrong">Retry the ${wrong.length} I missed</button>` : ""}
-      <button class="btn ${wrong.length || cont ? "secondary" : ""}" id="again">New quiz</button>
+      ${cont ? `<button class="btn" id="today-next">${esc(cont)}</button>` : ""}
+      ${wrong.length ? `<button class="btn ${cont ? "secondary" : ""}" id="retry-wrong">${esc(t("Retry the {n} I missed", { n: wrong.length }))}</button>` : ""}
+      <button class="btn ${wrong.length || cont ? "secondary" : ""}" id="again">${esc(t("New quiz"))}</button>
     </div>
     <div class="result-grid section">
-      <section><h2>By topic</h2><div class="table-wrap"><table class="data"><tbody>
-        ${Object.entries(byTopic).sort((a, b) => a[0].localeCompare(b[0])).map(([t, s]) =>
-          `<tr><td>${esc(topicLabel(t))}</td><td>${meter(s.ok, s.n, "Correct")}</td></tr>`).join("")}
+      <section><h2>${esc(t("By topic"))}</h2><div class="table-wrap"><table class="data"><tbody>
+        ${Object.entries(byTopic).sort((a, b) => a[0].localeCompare(b[0])).map(([topic, s]) =>
+          `<tr><td>${esc(topicLabel(topic))}</td><td>${meter(s.ok, s.n, t("Correct"))}</td></tr>`).join("")}
       </tbody></table></div></section>
-      ${byConfidence ? `<section><h2>By confidence</h2><div class="table-wrap"><table class="data"><tbody>${byConfidence}</tbody></table></div></section>` : ""}
+      ${byConfidence ? `<section><h2>${esc(t("By confidence"))}</h2><div class="table-wrap"><table class="data"><tbody>${byConfidence}</tbody></table></div></section>` : ""}
     </div>
-    ${section("Review answers", reviewGrid(id => isCorrect(Q[id], quiz.answers[id])), { aside: "Select a question to see its explanation." })}
-    ${seconds.length ? section("Second tries", `<p>Second tries: ${secondsRight} right of ${seconds.length}</p>
-      ${reviewGrid((id, e) => isCorrect(Q[id], slot(e).chosen), isSecond)}`, { aside: "Not part of the score above." }) : ""}`;
+    ${section(esc(t("Review answers")), reviewGrid(id => isCorrect(Q[id], quiz.answers[id])), { aside: esc(t("Select a question to see its explanation.")) })}
+    ${seconds.length ? section(esc(t("Second tries")), `<p>${esc(t("Second tries: {right} right of {total}", { right: secondsRight, total: seconds.length }))}</p>
+      ${reviewGrid((id, e) => isCorrect(Q[id], slot(e).chosen), isSecond)}`, { aside: esc(t("Not part of the score above.")) }) : ""}`;
   bindResults(wrong, next);
 }
 
@@ -854,54 +857,55 @@ function renderMockResults(r) {
   const changed = r.changes.right_to_wrong.length + r.changes.wrong_to_right.length + r.changes.wrong_to_wrong.length;
   const n = id => quiz.items.indexOf(id);
   const qButtons = ids => ids.map(id => `<button class="link-btn" data-review="${n(id)}">${n(id) + 1}</button>`).join(", ");
-  const duration = s => s >= 60 ? `${Math.floor(s / 60)} min ${Math.round(s % 60)} s` : `${Math.round(s)} s`;
+  const duration = s => s >= 60 ? t("{m} min {s} s", { m: Math.floor(s / 60), s: Math.round(s % 60) }) : t("{s} s", { s: Math.round(s) });
   const missed = quiz.items.filter(id => !r.right.includes(id));
   const table = rows => `<div class="table-wrap"><table class="data"><tbody>${rows}</tbody></table></div>`;
 
   main.innerHTML = `
-    ${pageHead(r.full ? "Mock exam results" : "Timed set results")}
+    ${pageHead(esc(r.full ? t("Mock exam results") : t("Timed set results")))}
     <div class="score ${r.passed ? "pass" : "fail"}"><b>${r.pct}%</b><div>
-      <strong>${r.passed ? `Passed: above the ${C.exam.passing_pct}% passing score` : `Below the ${C.exam.passing_pct}% passing score`}</strong>
-      <span>${r.score[0]} of ${r.score[1]} correct in ${r.minutes_used} minutes. These are original practice questions, not calibrated to the real exam.</span>
+      <strong>${esc(r.passed ? t("Passed: above the {pct}% passing score", { pct: C.exam.passing_pct }) : t("Below the {pct}% passing score", { pct: C.exam.passing_pct }))}</strong>
+      <span>${esc(tn(r.minutes_used, "{right} of {total} correct in {n} minute. These are original practice questions, not calibrated to the real exam.",
+        "{right} of {total} correct in {n} minutes. These are original practice questions, not calibrated to the real exam.", { right: r.score[0], total: r.score[1] }))}</span>
     </div></div>
     <p class="section-note">${seen
-      ? `${r.fresh[1]} of ${r.score[1]} questions were new to you${fresh !== null ? `, and you scored <b>${fresh}%</b> on those` : ""}. The ${seen} you had seen before make the overall score optimistic.`
-      : "Every question was new to you, so this score is a clean measurement."}</p>
+      ? `${esc(t("{fresh} of {total} questions were new to you", { fresh: r.fresh[1], total: r.score[1] }))}${fresh !== null ? esc(t(", and you scored {pct}% on those", { pct: fresh })).replace(`${fresh}%`, `<b>${fresh}%</b>`) : ""}. ${esc(t("The {n} you had seen before make the overall score optimistic.", { n: seen }))}`
+      : esc(t("Every question was new to you, so this score is a clean measurement."))}</p>
     <div class="row" style="margin-top:18px">
-      ${missed.length ? `<button class="btn" id="retry-wrong">Practise the ${missed.length} I missed</button>` : ""}
-      <button class="btn ${missed.length ? "secondary" : ""}" id="again">New quiz</button>
+      ${missed.length ? `<button class="btn" id="retry-wrong">${esc(t("Practise the {n} I missed", { n: missed.length }))}</button>` : ""}
+      <button class="btn ${missed.length ? "secondary" : ""}" id="again">${esc(t("New quiz"))}</button>
     </div>
 
     <div class="result-grid section">
-      <section><h2>By exam section</h2>${table(Object.entries(r.by_section).map(([sec, [ok, total]]) =>
-        `<tr><td>${sec}. ${esc(C.sections[sec])}</td><td>${meter(ok, total, "Correct")}</td></tr>`).join(""))}</section>
-      <section><h2>Question types</h2>${table(`
-        <tr><td>Single answer</td><td>${meter(r.single[0], r.single[1], "Correct")}</td></tr>
-        <tr><td>Multiple answers</td><td>${meter(r.multi[0], r.multi[1], "Correct")}</td></tr>`)}
+      <section><h2>${esc(t("By exam section"))}</h2>${table(Object.entries(r.by_section).map(([sec, [ok, total]]) =>
+        `<tr><td>${sec}. ${esc(C.sections[sec])}</td><td>${meter(ok, total, t("Correct"))}</td></tr>`).join(""))}</section>
+      <section><h2>${esc(t("Question types"))}</h2>${table(`
+        <tr><td>${esc(t("Single answer"))}</td><td>${meter(r.single[0], r.single[1], t("Correct"))}</td></tr>
+        <tr><td>${esc(t("Multiple answers"))}</td><td>${meter(r.multi[0], r.multi[1], t("Correct"))}</td></tr>`)}
         ${r.multi[1] && r.single[1] && r.multi[0] / r.multi[1] < r.single[0] / r.single[1] - 0.15
-          ? `<p class="section-note">Multiple-answer questions score all or nothing. Read every option before choosing, and check you picked exactly as many as asked.</p>` : ""}
-        ${Object.values(r.confidence).some(([, total]) => total) ? `<h2 style="margin-top:28px">By confidence</h2>${table(
-          CONF.map(([k, label]) => r.confidence[k][1] ? `<tr><td>${label}</td><td>${meter(r.confidence[k][0], r.confidence[k][1], "Correct", k !== "sure")}</td></tr>` : "").join(""))}` : ""}
+          ? `<p class="section-note">${esc(t("Multiple-answer questions score all or nothing. Read every option before choosing, and check you picked exactly as many as asked."))}</p>` : ""}
+        ${Object.values(r.confidence).some(([, total]) => total) ? `<h2 style="margin-top:28px">${esc(t("By confidence"))}</h2>${table(
+          conf().map(([k, label]) => r.confidence[k][1] ? `<tr><td>${esc(label)}</td><td>${meter(r.confidence[k][0], r.confidence[k][1], t("Correct"), k !== "sure")}</td></tr>` : "").join(""))}` : ""}
       </section>
     </div>
 
-    ${section("Changed answers", changed ? `${table(`
-      <tr><td>Right to wrong</td><td class="num">${r.changes.right_to_wrong.length}</td><td>${qButtons(r.changes.right_to_wrong)}</td></tr>
-      <tr><td>Wrong to right</td><td class="num">${r.changes.wrong_to_right.length}</td><td>${qButtons(r.changes.wrong_to_right)}</td></tr>
-      <tr><td>Wrong to wrong</td><td class="num">${r.changes.wrong_to_wrong.length}</td><td>${qButtons(r.changes.wrong_to_wrong)}</td></tr>`)}
-      <p class="section-note">${r.changes.right_to_wrong.length > r.changes.wrong_to_right.length
-        ? "Changing answers cost you points this time. Change an answer only when you find a concrete reason, not a feeling."
-        : "Your second thoughts helped or did no harm this time."}</p>`
-      : `<p class="muted">You did not change any answers.</p>`)}
+    ${section(esc(t("Changed answers")), changed ? `${table(`
+      <tr><td>${esc(t("Right to wrong"))}</td><td class="num">${r.changes.right_to_wrong.length}</td><td>${qButtons(r.changes.right_to_wrong)}</td></tr>
+      <tr><td>${esc(t("Wrong to right"))}</td><td class="num">${r.changes.wrong_to_right.length}</td><td>${qButtons(r.changes.wrong_to_right)}</td></tr>
+      <tr><td>${esc(t("Wrong to wrong"))}</td><td class="num">${r.changes.wrong_to_wrong.length}</td><td>${qButtons(r.changes.wrong_to_wrong)}</td></tr>`)}
+      <p class="section-note">${esc(r.changes.right_to_wrong.length > r.changes.wrong_to_right.length
+        ? t("Changing answers cost you points this time. Change an answer only when you find a concrete reason, not a feeling.")
+        : t("Your second thoughts helped or did no harm this time."))}</p>`
+      : `<p class="muted">${esc(t("You did not change any answers."))}</p>`)}
 
-    ${section("Time", `<p>${r.minutes_used} of ${r.minutes} minutes used. Target pace: ${duration(r.pace_seconds)} per question.</p>
-      ${r.slowest.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>Slowest questions</th><th class="num">Time</th><th>Result</th></tr></thead><tbody>
-        ${r.slowest.map(id => `<tr><td><button class="link-btn" data-review="${n(id)}">Question ${n(id) + 1}</button> <span class="muted small">${esc(C.objectives[Q[id].objective])}</span></td>
-          <td class="num">${duration(r.time_on[id])}</td><td>${r.right.includes(id) ? `<span class="level level-strong">Correct</span>` : `<span class="level level-weak">Wrong</span>`}</td></tr>`).join("")}
+    ${section(esc(t("Time")), `<p>${esc(t("{used} of {total} minutes used. Target pace: {pace} per question.", { used: r.minutes_used, total: r.minutes, pace: duration(r.pace_seconds) }))}</p>
+      ${r.slowest.length ? `<div class="table-wrap"><table class="data"><thead><tr><th>${esc(t("Slowest questions"))}</th><th class="num">${esc(t("Time"))}</th><th>${esc(t("Result"))}</th></tr></thead><tbody>
+        ${r.slowest.map(id => `<tr><td><button class="link-btn" data-review="${n(id)}">${esc(t("Question {n}", { n: n(id) + 1 }))}</button> <span class="muted small">${esc(C.objectives[Q[id].objective])}</span></td>
+          <td class="num">${esc(duration(r.time_on[id]))}</td><td>${r.right.includes(id) ? `<span class="level level-strong">${esc(t("Correct"))}</span>` : `<span class="level level-weak">${esc(t("Wrong"))}</span>`}</td></tr>`).join("")}
       </tbody></table></div>` : ""}`)}
 
-    ${section("Readiness after this exam", readinessHtml(P.readiness))}
-    ${section("Review answers", reviewGrid(id => r.right.includes(id)), { aside: "Select a question to see its explanation." })}`;
+    ${section(esc(t("Readiness after this exam")), readinessHtml(P.readiness))}
+    ${section(esc(t("Review answers")), reviewGrid(id => r.right.includes(id)), { aside: esc(t("Select a question to see its explanation.")) })}`;
   bindResults(missed);
 }
 
@@ -930,9 +934,9 @@ function onKey(e) {
   const complete = !!q && isComplete(q, slot(entry).chosen);
   if (n >= 1 && n <= 8) toggle(n - 1);
   else if (key.length === 1 && "STG".includes(key) && (complete || !inputs[LETTERS.indexOf(key)])) {
-    const conf = CONF.find(c => c[2] === key)[0];
-    $(`[data-conf="${conf}"]:not([disabled])`, main)?.click();
-    $(`[data-exam-conf="${conf}"]`, main)?.click();
+    const level = conf().find(c => c[2] === key)[0];
+    $(`[data-conf="${level}"]:not([disabled])`, main)?.click();
+    $(`[data-exam-conf="${level}"]`, main)?.click();
   } else if (key.length === 1 && LETTERS.includes(key)) {
     toggle(LETTERS.indexOf(key));
   } else if (e.key === "Enter" && e.target.tagName !== "BUTTON") {
@@ -940,12 +944,12 @@ function onKey(e) {
     const next = $("#next") || $("#finish");
     if (next) next.click();
     else if ($("[data-conf]:not([disabled])", main)) checkPractice(quiz.idx, "think");
-    else if (q && $("[data-conf]", main)) toast(`Choose ${plural(requiredCount(q), "answer")} first.`, { tag: CHOOSE_TOAST });
+    else if (q && $("[data-conf]", main)) toast(tn(requiredCount(q), "Choose {n} answer first.", "Choose {n} answers first."), { tag: CHOOSE_TOAST });
   }
 }
 
 export const quizView = {
-  title: "Quiz",
+  get title() { return t("Quiz"); },
   render,
   onKey,
   leave() {
@@ -958,7 +962,7 @@ export const quizView = {
 
 /** /mock/<id>: the report of a finished mock exam. */
 export const mockView = {
-  title: "Mock exam report",
+  get title() { return t("Mock exam report"); },
   async render(id) {
     const res = await api("/api/mock?id=" + encodeURIComponent(id));
     if (!res.report) return go("/progress");

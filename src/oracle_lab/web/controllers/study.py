@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from oracle_lab.i18n import LANGUAGES
 from oracle_lab.services import Clock
 from oracle_lab.services.context import UserContexts
 from oracle_lab.services.study import StudyService
@@ -17,10 +18,10 @@ class StudyController:
         self.clock = clock
         self.track_databases = track_databases
 
-    def study(self, request: Request) -> StudyService:
+    def study(self, request: Request, lang: str | None = None) -> StudyService:
         context = self.contexts(request)
         return StudyService(context.state, self.clock, track_databases=self.track_databases,
-                            sql_available=context.sql_available)
+                            sql_available=context.sql_available, lang=lang or request.language)
 
     def register(self, router: Router) -> None:
         router.get("/api/content", lambda r: Response.json(self.study(r).track_content(r.language)))
@@ -35,8 +36,10 @@ class StudyController:
         router.post("/api/reset-progress", lambda r: Response.json(self.study(r).reset_progress()))
 
     def readiness_report(self, request: Request) -> Response:
-        ctx = self.study(request).report_context()
-        return Response.html(report.render(ctx.content, ctx.state, ctx.progress, ctx.now))
+        # Opened in a new tab, so no X-Language header: the app's link names the language.
+        lang = request.query("lang") if request.query("lang") in LANGUAGES else request.language
+        ctx = self.study(request, lang).report_context()
+        return Response.html(report.render(ctx.content, ctx.state, ctx.progress, ctx.now, lang))
 
     def pick(self, request: Request) -> Response:
         data = request.json()

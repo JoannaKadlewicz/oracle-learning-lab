@@ -101,3 +101,20 @@ def test_record_card_accepts_hard():
     card = content.FLASHCARDS[0]["id"]
     recording.record_card(state, {"id": card, "rating": "hard"}, 1.0)
     assert state["cards"][card] == {"reviews": [[1.0, "hard"]]}
+
+
+def test_progress_texts_follow_the_language_and_english_stays_as_it_was():
+    state = empty()
+    state["settings"]["exam_date"] = time.strftime("%Y-%m-%d", time.localtime(time.time() + 10 * 86400))
+    english = snapshot(state, time.time())["progress"]
+    polish = snapshot(state, time.time(), lang="pl")["progress"]
+    assert english["badges"][0]["title"] == "Clean run"
+    assert english["ready"]["items"][0]["detail"].endswith(f"of {len(english['objectives'])}")
+    unseen = len(content.for_exam(content.DEFAULT_EXAM).QUESTIONS)
+    assert english["plan"]["advice"][0].startswith(f"{unseen} questions not seen yet")
+    for key in ("title", "description"):
+        assert all(p[key] != e[key] for p, e in zip(polish["badges"], english["badges"], strict=True)), key
+    assert all(p["label"] != e["label"] for p, e in zip(polish["ready"]["items"], english["ready"]["items"], strict=True))
+    assert polish["ready"]["items"][0]["detail"] == f"0 z {len(english['objectives'])}"
+    assert polish["plan"]["advice"] and polish["plan"]["advice"] != english["plan"]["advice"]
+    assert polish["objectives"] == english["objectives"]  # numbers and ids stay as they are

@@ -4,6 +4,7 @@
 import { $$, esc, plural, icon } from "../core/dom.js";
 import { C, P, L, CARD, DB, mistakes, topicStats, topicLabel } from "../core/state.js";
 import { currentUser } from "../core/session.js";
+import { t, tn, formatDate } from "../core/i18n.js";
 import { main, go } from "../core/router.js";
 import { levelBadge, meter, section } from "../ui/widgets.js";
 import { startQuiz, startMock, resumeMock, practiceSession, resumePractice } from "./quiz.js";
@@ -12,41 +13,47 @@ import { openNote } from "./notes.js";
 
 function trackWarning() {
   if (!DB || !(C.exam.versions[0] > DB.major)) return "";
-  const code = esc(C.exam.code);
   const ending = currentUser().role === "admin"
-    ? `Set <code>${esc(C.exam.database_env)}</code> to give ${code} its own database (see the README).`
-    : `This server does not provide ${esc(C.exam.database)}.`;
-  return `<div class="callout"><p>You are preparing for ${code}, but the SQL lab is connected to ${esc(DB.product)} ${esc(DB.version)}.
-    Quizzes and flashcards work as usual; SQL that needs ${esc(C.exam.database)} won't run. ${ending}</p></div>`;
+    ? esc(t("Set {env} to give {code} its own database (see the README).", { code: C.exam.code })).replace("{env}", `<code>${esc(C.exam.database_env)}</code>`)
+    : esc(t("This server does not provide {database}.", { database: C.exam.database }));
+  return `<div class="callout"><p>${esc(t("You are preparing for {code}, but the SQL lab is connected to {product} {version}.", { code: C.exam.code, product: DB.product, version: DB.version }))}
+    ${esc(t("Quizzes and flashcards work as usual; SQL that needs {database} won't run.", { database: C.exam.database }))} ${ending}</p></div>`;
 }
 
 function countdownFact(plan, examDate) {
-  const date = examDate ? new Date(examDate + "T12:00:00").toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }) : "";
+  const date = examDate ? formatDate(examDate + "T12:00:00", { weekday: "long", month: "long", day: "numeric" }) : "";
   if (plan.days_left === null) {
-    return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">No exam date yet</span>
-      <p>Set it to get a daily plan that fits the time you have.</p><a href="/settings">Set your exam date</a></div>`;
+    return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">${esc(t("No exam date yet"))}</span>
+      <p>${esc(t("Set it to get a daily plan that fits the time you have."))}</p><a href="/settings">${esc(t("Set your exam date"))}</a></div>`;
   }
   if (plan.days_left > 0) {
-    return `<div class="fact"><span class="fact-value">${plan.days_left}<small>${plan.days_left === 1 ? "day" : "days"}</small></span>
-      <span class="fact-label">until your ${esc(C.exam.code)} exam</span><p>${esc(date)}</p></div>`;
+    return `<div class="fact"><span class="fact-value">${plan.days_left}<small>${esc(tn(plan.days_left, "day", "days"))}</small></span>
+      <span class="fact-label">${esc(t("until your {code} exam", { code: C.exam.code }))}</span><p>${esc(date)}</p></div>`;
   }
   if (plan.days_left === 0) {
-    return `<div class="fact"><span class="fact-value">Today</span><span class="fact-label">is your exam</span>
-      <p>Skim your mistakes and flashcards, and trust your preparation.</p></div>`;
+    return `<div class="fact"><span class="fact-value">${esc(t("Today"))}</span><span class="fact-label">${esc(t("is your exam"))}</span>
+      <p>${esc(t("Skim your mistakes and flashcards, and trust your preparation."))}</p></div>`;
   }
-  return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">Your exam date has passed</span>
-    <p>Preparing for a retake?</p><a href="/settings">Set a new date</a></div>`;
+  return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">${esc(t("Your exam date has passed"))}</span>
+    <p>${esc(t("Preparing for a retake?"))}</p><a href="/settings">${esc(t("Set a new date"))}</a></div>`;
 }
 
 function passFact(r) {
   if (r.status !== "ok") {
-    return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">Chance to pass</span>
-      <p>Not enough data yet. Answer new questions or take a mock exam.</p><a href="/progress">How readiness works</a></div>`;
+    return `<div class="fact"><span class="fact-value">–</span><span class="fact-label">${esc(t("Chance to pass"))}</span>
+      <p>${esc(t("Not enough data yet. Answer new questions or take a mock exam."))}</p><a href="/progress">${esc(t("How readiness works"))}</a></div>`;
   }
   const pct = Math.round(r.pass_probability * 100);
   return `<div class="fact ${pct >= 80 ? "pass" : pct < 50 ? "risk" : ""}"><span class="fact-value">${pct}%</span>
-    <span class="fact-label">chance to pass</span>
-    <p>Expected score ${r.low_pct} to ${r.high_pct}%, from first answers only.</p><a href="/progress">See your progress</a></div>`;
+    <span class="fact-label">${esc(t("chance to pass"))}</span>
+    <p>${esc(t("Expected score {low} to {high}%, from first answers only.", { low: r.low_pct, high: r.high_pct }))}</p><a href="/progress">${esc(t("See your progress"))}</a></div>`;
+}
+
+/** `text` escaped, with its first `value` in bold ("<b>63</b> questions"). */
+function bold(text, value) {
+  const s = String(value);
+  const at = text.indexOf(s);
+  return at < 0 ? esc(text) : `${esc(text.slice(0, at))}<b>${esc(s)}</b>${esc(text.slice(at + s.length))}`;
 }
 
 function render() {
@@ -77,51 +84,56 @@ function render() {
   main.innerHTML = `
     <header class="page-head">
       <div>
-        <h1>Today</h1>
+        <h1>${esc(t("Today"))}</h1>
         <ul class="exam-line">
           <li><b>${esc(C.exam.code)}</b> ${esc(C.exam.name)}</li>
-          <li><b>${C.exam.questions}</b> questions</li>
-          <li><b>${C.exam.minutes}</b> minutes</li>
-          <li><b>${C.exam.passing_pct}%</b> to pass</li>
+          <li>${bold(tn(C.exam.questions, "{n} question", "{n} questions"), C.exam.questions)}</li>
+          <li>${bold(tn(C.exam.minutes, "{n} minute", "{n} minutes"), C.exam.minutes)}</li>
+          <li>${bold(t("{pct}% to pass", { pct: C.exam.passing_pct }), `${C.exam.passing_pct}%`)}</li>
         </ul>
       </div>
     </header>
     ${trackWarning()}
 
     ${mock ? `<a class="resume-bar primary" href="/quiz" data-start="resume">${icon("timer")}
-      <strong>Resume your mock exam</strong>
-      <span>${mock.answered} of ${mock.count} answered, ${plural(mockLeft, "minute")} left. The timer is running.</span></a>` : ""}
+      <strong>${esc(t("Resume your mock exam"))}</strong>
+      <span>${esc(tn(mockLeft, "{answered} of {count} answered, {n} minute left. The timer is running.", "{answered} of {count} answered, {n} minutes left. The timer is running.", { answered: mock.answered, count: mock.count }))}</span></a>` : ""}
     ${practice ? `<a class="resume-bar" href="/quiz" data-start="practice">${icon("quiz")}
-      <strong>Resume practice (${practice.answered} of ${practice.total})</strong>
-      <span>Pick up at the question you were on.</span></a>` : ""}
+      <strong>${esc(t("Resume practice ({answered} of {total})", { answered: practice.answered, total: practice.total }))}</strong>
+      <span>${esc(t("Pick up at the question you were on."))}</span></a>` : ""}
 
     <div class="today-hero">
       <article class="session-card ${plan.complete ? "complete" : ""}" aria-labelledby="session-title">
-        <div class="session-head"><h2 id="session-title">Today's session</h2>
-          <span>${plan.complete ? "All done" : finished ? `${finished} of ${total} done, about ${plural(minutesLeft, "minute")} left` : `About ${plan.estimate} minutes`}</span></div>
-        <div class="session-progress" role="progressbar" aria-label="Today's session" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${finished}"
+        <div class="session-head"><h2 id="session-title">${esc(t("Today's session"))}</h2>
+          <span>${esc(plan.complete ? t("All done") : finished
+            ? tn(minutesLeft, "{finished} of {total} done, about {n} minute left", "{finished} of {total} done, about {n} minutes left", { finished, total })
+            : tn(plan.estimate, "About {n} minute", "About {n} minutes"))}</span></div>
+        <div class="session-progress" role="progressbar" aria-label="${esc(t("Today's session"))}" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${finished}"
           style="--done: ${total ? finished / total : 0}"></div>
         <ol class="session-steps">
           <li><a href="/quiz" data-start="questions" class="${questionsDone ? "done" : ""}">
-            <strong>Answer ${plural(plan.questions.length, "question")}</strong>
-            <small>${questionsDone ? "All answered" : done.questions.length ? `${done.questions.length} of ${plan.questions.length} answered` : "Open mistakes, due reviews and your weakest objectives"}</small>
-            <span class="minutes">${questionsDone ? "" : `${questionMinutes} min`}</span></a></li>
+            <strong>${esc(tn(plan.questions.length, "Answer {n} question", "Answer {n} questions"))}</strong>
+            <small>${esc(questionsDone ? t("All answered") : done.questions.length
+              ? t("{done} of {total} answered", { done: done.questions.length, total: plan.questions.length })
+              : t("Open mistakes, due reviews and your weakest objectives"))}</small>
+            <span class="minutes">${questionsDone ? "" : esc(t("{n} min", { n: questionMinutes }))}</span></a></li>
           <li><a href="/cards" data-start="cards" class="${cardsDone ? "done" : ""}" ${plan.cards.length ? "" : `aria-disabled="true" tabindex="-1"`}>
-            <strong>${cardsLeft.length ? `Review ${cardsDue} due · ${cardsNew} new` : plan.cards.length ? `Review ${plural(plan.cards.length, "flashcard")}` : "No flashcards due today"}</strong>
-            <small>${cardsDone ? "All reviewed" : done.cards.length ? `${done.cards.length} of ${plan.cards.length} reviewed`
-              : plan.cards.length ? "Spaced by how well you know them" : "Come back tomorrow, or study a topic deck"}</small>
-            <span class="minutes">${cardsLeft.length ? `${cardMinutes} min` : ""}</span></a></li>
+            <strong>${esc(cardsLeft.length ? t("Review {due} due · {fresh} new", { due: cardsDue, fresh: cardsNew })
+              : plan.cards.length ? tn(plan.cards.length, "Review {n} flashcard", "Review {n} flashcards") : t("No flashcards due today"))}</strong>
+            <small>${esc(cardsDone ? t("All reviewed") : done.cards.length ? t("{done} of {total} reviewed", { done: done.cards.length, total: plan.cards.length })
+              : plan.cards.length ? t("Spaced by how well you know them") : t("Come back tomorrow, or study a topic deck"))}</small>
+            <span class="minutes">${cardsLeft.length ? esc(t("{n} min", { n: cardMinutes })) : ""}</span></a></li>
           ${lab ? `<li><a href="/exercises/${esc(lab.id)}" class="${done.lab ? "done" : ""}">
-            <strong>Exercise: ${esc(lab.title)}</strong>
-            <small>${done.lab ? "Passed" : `${esc(topicLabel(lab.topic))}, one of your weakest objectives`}</small>
-            <span class="minutes">${done.lab ? "" : "8 min"}</span></a></li>` : ""}
+            <strong>${esc(t("Exercise: {title}", { title: lab.title }))}</strong>
+            <small>${esc(done.lab ? t("Passed") : t("{topic}, one of your weakest objectives", { topic: topicLabel(lab.topic) }))}</small>
+            <span class="minutes">${done.lab ? "" : esc(t("{n} min", { n: 8 }))}</span></a></li>` : ""}
         </ol>
         <div class="session-foot">
           ${plan.complete
-            ? `<span class="session-stamp">Done for today</span>
-               <button class="btn" data-start="more">Practise 10 more</button>`
-            : `<span>${plan.minutes} minutes a day planned</span>
-               <button class="btn" data-start="next">${finished ? "Continue the session" : "Start the session"}</button>`}
+            ? `<span class="session-stamp">${esc(t("Done for today"))}</span>
+               <button class="btn" data-start="more">${esc(t("Practise 10 more"))}</button>`
+            : `<span>${esc(tn(plan.minutes, "{n} minute a day planned", "{n} minutes a day planned"))}</span>
+               <button class="btn" data-start="next">${esc(finished ? t("Continue the session") : t("Start the session"))}</button>`}
         </div>
       </article>
 
@@ -133,33 +145,33 @@ function render() {
 
     ${plan.advice.length ? `<ul class="advice">${plan.advice.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
 
-    ${section("Also open", `<div class="next-list">
-      <a href="/review">${icon("mistakes")}<strong>${miss ? plural(miss, "open mistake") : "No open mistakes"}</strong>
-        <span>${miss ? `Cleared after confident correct answers on ${P.proof_days} different days.` : "Missed questions and lucky guesses collect here."}</span></a>
-      ${mock ? `<button data-start="resume">${icon("timer")}<strong>Resume your mock exam</strong>
-          <span>${mock.answered} of ${mock.count} answered, ${plural(mockLeft, "minute")} left.</span></button>`
-        : `<button data-start="mock">${icon("timer")}<strong>Take a mock exam</strong>
-          <span>${C.exam.questions} questions in ${C.exam.minutes} minutes, questions you have not seen first.</span></button>`}
+    ${section(esc(t("Also open")), `<div class="next-list">
+      <a href="/review">${icon("mistakes")}<strong>${esc(miss ? plural(miss, "open mistake") : t("No open mistakes"))}</strong>
+        <span>${esc(miss ? t("Cleared after confident correct answers on {days} different days.", { days: P.proof_days }) : t("Missed questions and lucky guesses collect here."))}</span></a>
+      ${mock ? `<button data-start="resume">${icon("timer")}<strong>${esc(t("Resume your mock exam"))}</strong>
+          <span>${esc(tn(mockLeft, "{answered} of {count} answered, {n} minute left.", "{answered} of {count} answered, {n} minutes left.", { answered: mock.answered, count: mock.count }))}</span></button>`
+        : `<button data-start="mock">${icon("timer")}<strong>${esc(t("Take a mock exam"))}</strong>
+          <span>${esc(t("{questions} questions in {minutes} minutes, questions you have not seen first.", { questions: C.exam.questions, minutes: C.exam.minutes }))}</span></button>`}
       ${C.home_notes.map((n, i) => `<button data-note="${esc(n.path)}">${icon(i ? "notes" : "doc")}<strong>${esc(n.title)}</strong>
         <span>${esc(n.blurb)}</span></button>`).join("\n      ")}
     </div>`)}
 
-    ${section("Topics", `<div class="table-wrap"><table class="data">
-      <thead><tr><th>Topic</th><th>Mastery</th>
-        <th class="hide-s" title="Questions whose most recent answer was correct. Mastery uses all your recent answers, so retrying a question until it is right does not hide earlier misses.">Questions correct</th>
-        <th class="hide-s">Cards learned</th><th class="hide-s">Exercises passed</th><th><span class="sr-only">Actions</span></th></tr></thead>
-      <tbody>${Object.keys(C.topics).map(t => {
-        const s = topicStats(t);
+    ${section(esc(t("Topics")), `<div class="table-wrap"><table class="data">
+      <thead><tr><th>${esc(t("Topic"))}</th><th>${esc(t("Mastery"))}</th>
+        <th class="hide-s" title="${esc(t("Questions whose most recent answer was correct. Mastery uses all your recent answers, so retrying a question until it is right does not hide earlier misses."))}">${esc(t("Questions correct"))}</th>
+        <th class="hide-s">${esc(t("Cards learned"))}</th><th class="hide-s">${esc(t("Exercises passed"))}</th><th><span class="sr-only">${esc(t("Actions"))}</span></th></tr></thead>
+      <tbody>${Object.keys(C.topics).map(id => {
+        const s = topicStats(id);
         return `<tr>
-          <td>${esc(topicLabel(t))}</td>
-          <td>${levelBadge(P.topics[t])}</td>
-          <td class="hide-s">${meter(s.correct, s.total, "Questions correct")}</td>
-          <td class="hide-s">${meter(s.learned, s.cards, "Cards learned")}</td>
-          <td class="hide-s">${meter(s.passed, s.labs, "Exercises passed")}</td>
-          <td class="actions"><button class="btn secondary small" data-topic="${t}">Practise</button></td>
+          <td>${esc(topicLabel(id))}</td>
+          <td>${levelBadge(P.topics[id])}</td>
+          <td class="hide-s">${meter(s.correct, s.total, t("Questions correct"))}</td>
+          <td class="hide-s">${meter(s.learned, s.cards, t("Cards learned"))}</td>
+          <td class="hide-s">${meter(s.passed, s.labs, t("Exercises passed"))}</td>
+          <td class="actions"><button class="btn secondary small" data-topic="${id}">${esc(t("Practise"))}</button></td>
         </tr>`;
       }).join("")}</tbody>
-    </table></div>`, { note: `Mastery combines quiz answers, flashcards and exercises per official objective, weighted by how recent they are and how sure you were. <a href="/progress">See every objective</a>.` })}
+    </table></div>`, { note: `${esc(t("Mastery combines quiz answers, flashcards and exercises per official objective, weighted by how recent they are and how sure you were."))} <a href="/progress">${esc(t("See every objective"))}</a>.` })}
   `;
 
   $$("[data-start]", main).forEach(a => a.addEventListener("click", e => {
@@ -182,4 +194,4 @@ function render() {
   $$("[data-note]", main).forEach(b => b.addEventListener("click", () => openNote(b.dataset.note)));
 }
 
-export const homeView = { title: "Today", render };
+export const homeView = { get title() { return t("Today"); }, render };

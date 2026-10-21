@@ -100,6 +100,12 @@ def _message_args(node: ast.Call, rel: str) -> list[ast.expr]:
         return args[:1]
     if name == "HttpError" or (name == "fail" and rel == "auth/google.py"):  # fail(): a GoogleOutcome's message
         return args[1:2]
+    if name == "tr" and rel == "web/report.py":  # the printable report's texts
+        return args[:1]
+    if name == "_tr" and rel == "web/report.py":
+        return args[1:2]
+    if name == "ntranslate":  # the catalog key of a plural is its `many` form
+        return args[3:4]
     if name in _SHOWN or (name == "ValueError" and rel in _VALUE_ERRORS_SHOWN):
         return args[:1]
     return []
