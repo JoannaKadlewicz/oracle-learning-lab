@@ -174,6 +174,10 @@ def practice_schemas_round_trip(stores: AppStores) -> None:
     assert stores.schemas.get("u1", "19c") == rec
     assert stores.schemas.for_user("u1") == [rec]
     assert stores.schemas.all() == [rec]
+    other = PracticeSchema("u1", "23ai", "LAB_U1B", "failed", 2.0, "ORA-1")
+    stores.schemas.put(other)
+    stores.schemas.delete("u1", "19c")
+    assert stores.schemas.for_user("u1") == [other]
     stores.schemas.delete_for_user("u1")
     assert stores.schemas.get("u1", "19c") is None
 

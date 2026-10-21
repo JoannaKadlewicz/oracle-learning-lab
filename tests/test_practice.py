@@ -334,3 +334,130 @@ def test_practice_databases_are_built_only_when_used():
     ctx = contexts(Request("GET", "/api/state", {}, principal=principal()))
     assert built == [] and ctx.state is not None
     assert ctx.practice == "practice" and ctx.practice == "practice" and built == [principal()]
+
+
+def _join_provisioning_threads():
+    for thread in threading.enumerate():
+        if thread.name.startswith("provision-"):
+            thread.join(5)
+
+
+def _learner(stores, user_id="u1"):
+    user = User(user_id, f"{user_id}@x.org", "A", "learner", "active", NOW, None, None)
+    stores.users.add(user, Identity("password", user_id, user_id, "h"))
+    return user
+
+
+def _deletion(stores, provisioners):
+    return AccountDeletion(stores, SessionManager(stores.sessions, lambda: NOW), AuditLog(stores.audit, lambda: NOW),
+                           lambda user_id: drop_user_schemas(user_id, stores.schemas, provisioners))
+
+
+def test_account_deleted_while_its_schema_is_created_leaves_nothing():
+    stores = memory_stores()
+    user = _learner(stores)
+    provisioner = FakeProvisioner()
+    provisioner.release = threading.Event()
+    created = {}
+    original_create, original_drop = provisioner.create, provisioner.drop
+    provisioner.create = lambda name: (created.__setitem__(name, True), original_create(name))[1]
+    provisioner.drop = lambda name: (created.pop(name, None), original_drop(name))[1]
+    exists = lambda uid: stores.users.get(uid) is not None  # noqa: E731
+    provisioning_hook({"default": provisioner}, stores.schemas, lambda: NOW, None, exists)(user)
+    while not provisioner.calls:
+        threading.Event().wait(0.01)
+    deleter = threading.Thread(target=_deletion(stores, {"default": provisioner}).delete, args=("u1", "admin"))
+    deleter.start()  # waits for the provisioning lock, then drops the new schema
+    threading.Event().wait(0.1)
+    provisioner.release.set()
+    deleter.join(5)
+    _join_provisioning_threads()
+    assert created == {} and stores.schemas.for_user("u1") == [] and stores.users.get("u1") is None
+
+
+def test_schema_finished_after_the_account_is_gone_is_dropped_without_a_record():
+    stores = memory_stores()
+    user = _learner(stores)
+    provisioner = FakeProvisioner()
+    provisioner.release = threading.Event()
+    provisioning_hook({"default": provisioner}, stores.schemas, lambda: NOW, None,
+                      lambda uid: stores.users.get(uid) is not None)(user)
+    while not provisioner.calls:
+        threading.Event().wait(0.01)
+    stores.users.delete("u1")  # gone without waiting for the lock
+    provisioner.release.set()
+    _join_provisioning_threads()
+    (create, name), drop = provisioner.calls
+    assert create == "create" and drop == ("drop", name) and stores.schemas.get("u1", "default") is None
+
+
+def test_sign_up_thread_started_after_deletion_creates_nothing():
+    stores = memory_stores()
+    user = _learner(stores)
+    provisioner = FakeProvisioner()
+    _deletion(stores, {"default": provisioner}).delete("u1", "admin")
+    provisioning_hook({"default": provisioner}, stores.schemas, lambda: NOW, None,
+                      lambda uid: stores.users.get(uid) is not None)(user)
+    _join_provisioning_threads()
+    assert provisioner.calls == [] and stores.schemas.for_user("u1") == []
+
+
+def test_deletion_ends_sessions_before_dropping_schemas():
+    stores = memory_stores()
+    _learner(stores)
+    sessions = SessionManager(stores.sessions, lambda: NOW)
+    token, _ = sessions.start("u1", "ip", "ua")
+    seen = []
+    AccountDeletion(stores, sessions, AuditLog(stores.audit, lambda: NOW),
+                    lambda uid: seen.append(sessions.resolve(token))).delete("u1", "admin")
+    assert seen == [None]
+
+
+def test_failed_drop_of_the_old_schema_is_audited():
+    stores = memory_stores()
+    stores.schemas.put(PracticeSchema("u1", "default", "OLL_UABCDEFGHIJ", "failed", NOW, "ORA-1"))
+    provisioner = FakeProvisioner()
+    provisioner.drop = lambda name: (_ for _ in ()).throw(OraError("ORA-03113: end-of-file"))
+    practice(stores, {"default": provisioner}).provision("default")
+    (event,) = stores.audit.recent(event="schema_drop_failed")
+    assert event.detail["schema_name"] == "OLL_UABCDEFGHIJ" and event.outcome == "fail"
+
+
+def test_failed_drop_on_deletion_keeps_that_record():
+    stores = memory_stores()
+    stores.schemas.put(PracticeSchema("u1", "default", "OLL_UAAAAAAAAAA", "ready", NOW))
+    stores.schemas.put(PracticeSchema("u1", "23ai", "OLL_UBBBBBBBBBB", "ready", NOW))
+    broken = FakeProvisioner()
+    broken.drop = lambda name: (_ for _ in ()).throw(OraError("ORA-03113"))
+    with pytest.raises(OraError):
+        drop_user_schemas("u1", stores.schemas, {"default": FakeProvisioner(), "23ai": broken})
+    assert [r.database_key for r in stores.schemas.for_user("u1")] == ["23ai"]
+
+
+def test_request_provisioning_is_capped_app_wide():
+    from oracle_lab.provisioning import practice as module
+
+    stores = memory_stores()
+    held = [module._request_slots.acquire(blocking=False) for _ in range(2)]
+    try:
+        assert held == [True, True]
+        provisioner = FakeProvisioner()
+        with pytest.raises(PracticeUnavailable, match="being prepared"):
+            practice(stores, {"default": provisioner, "23ai": provisioner}).for_exam(EXAM_23AI)
+        assert provisioner.calls == []
+    finally:
+        for _ in held:
+            module._request_slots.release()
+    assert practice(stores, {"default": FakeProvisioner(), "23ai": FakeProvisioner()}).for_exam(EXAM_23AI)
+
+
+def test_each_hook_runs_even_when_one_fails(caplog):
+    from oracle_lab.bootstrap import each_hook
+
+    ran = []
+
+    def broken(user):
+        raise RuntimeError("legacy store down")
+
+    each_hook(broken, ran.append)(User("u1", "a@x.org", "A", "learner", "active", NOW, None, None))
+    assert [u.id for u in ran] == ["u1"] and "legacy store down" in caplog.text

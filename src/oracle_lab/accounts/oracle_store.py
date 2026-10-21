@@ -544,6 +544,11 @@ class OracleSchemas:
     def for_user(self, user_id: str) -> list[PracticeSchema]:
         return self._list("WHERE user_id = :u ", u=user_id)
 
+    def delete(self, user_id: str, database_key: str) -> None:
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM app_practice_schemas WHERE user_id = :u AND database_key = :k", u=user_id, k=database_key)
+            conn.commit()
+
     def delete_for_user(self, user_id: str) -> None:
         with session(self._db) as conn, conn.cursor() as cur:
             cur.execute("DELETE FROM app_practice_schemas WHERE user_id = :u", u=user_id)

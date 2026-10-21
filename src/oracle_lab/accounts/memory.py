@@ -261,6 +261,10 @@ class MemorySchemas:
         with self._lock:
             return [r for r in self._recs.values() if r.user_id == user_id]
 
+    def delete(self, user_id: str, database_key: str) -> None:
+        with self._lock:
+            self._recs.pop((user_id, database_key), None)
+
     def delete_for_user(self, user_id: str) -> None:
         with self._lock:
             self._recs = {k: r for k, r in self._recs.items() if r.user_id != user_id}

@@ -105,7 +105,6 @@ def test_sql_lab_runs_in_the_users_own_schema(provisioner_database, serve, tmp_p
     import time
 
     from conftest import settings_for
-
     from oracle_lab.accounts.memory import memory_stores
     from oracle_lab.bootstrap import build_provisioner
 

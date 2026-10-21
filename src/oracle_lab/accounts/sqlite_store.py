@@ -446,6 +446,9 @@ class SqliteSchemas:
         rows = self._db.conn.execute(f"SELECT {_SCHEMA_COLS} FROM practice_schemas WHERE user_id = ? ORDER BY rowid", (user_id,))
         return [PracticeSchema(*r) for r in rows]
 
+    def delete(self, user_id: str, database_key: str) -> None:
+        self._db.conn.execute("DELETE FROM practice_schemas WHERE user_id = ? AND database_key = ?", (user_id, database_key))
+
     def delete_for_user(self, user_id: str) -> None:
         self._db.conn.execute("DELETE FROM practice_schemas WHERE user_id = ?", (user_id,))
 

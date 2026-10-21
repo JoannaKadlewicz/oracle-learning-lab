@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.first_admin import Sources, ensure_first_admin, first_user_is_admin, legacy_hook, retry_legacy_import
@@ -55,6 +56,8 @@ from oracle_lab.web.pages import Pages
 from oracle_lab.web.routing import Router
 from oracle_lab.web.static import StaticFiles, inline_script_hashes
 
+log = logging.getLogger(__name__)
+
 
 def build_catalog(settings: Settings) -> DatabaseCatalog:
     default = OracleDatabase(settings.database, settings.call_timeout_ms)
@@ -62,6 +65,18 @@ def build_catalog(settings: Settings) -> DatabaseCatalog:
     if settings.database_23ai is not None:
         by_exam[EXAM_23AI] = OracleDatabase(settings.database_23ai, settings.call_timeout_ms)
     return DatabaseCatalog(default, by_exam)
+
+
+def each_hook(*hooks: Callable[[User], None]) -> Callable[[User], None]:
+    """One on_user_created hook running `hooks` in order, each on its own: a failing one is logged and can neither
+    skip the others nor break the sign-up."""
+    def on_user_created(user: User) -> None:
+        for hook in hooks:
+            try:
+                hook(user)
+            except Exception:  # noqa: BLE001
+                log.exception("on_user_created hook %s failed for %s", getattr(hook, "__qualname__", hook), user.id)
+    return on_user_created
 
 
 PROVISIONER_CALL_TIMEOUT_MS = 120_000  # DROP USER ... CASCADE and loading the sample tables can be slow
@@ -110,9 +125,12 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
     provisioners = {key: build_provisioner(target) for key, target in settings.practice.items()}
     gateways = {key: target.gateway for key, target in settings.practice.items()}
 
+    def user_exists(user_id: str) -> bool:
+        return stores.users.get(user_id) is not None
+
     def practice(principal: Principal) -> PracticeDatabases:
         return PracticeDatabases(principal, stores.schemas, provisioners, gateways, catalog, settings.call_timeout_ms,
-                                 clock, audit)
+                                 clock, audit, user_exists)
     contexts = UserContexts(stores, practice)
 
     cookies = CookiePolicy(settings.secure_cookies)
@@ -127,13 +145,10 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
             raise ConfigurationError("STUDY_ADMIN_PASSWORD is too weak: " + " ".join(problems))
     sources = legacy_sources(settings, pool)
     import_legacy_data = legacy_hook(stores, sources, audit)
-    start_provisioning = provisioning_hook(provisioners, stores.schemas, clock, audit)
-
-    def on_user_created(user: User) -> None:  # neither hook raises
-        import_legacy_data(user)
-        start_provisioning(user)
+    start_provisioning = provisioning_hook(provisioners, stores.schemas, clock, audit, user_exists)
+    on_user_created = each_hook(import_legacy_data, start_provisioning)
     if first_user_is_admin(settings):
-        logging.getLogger(__name__).warning(
+        log.warning(
             "STUDY_ADMIN_EMAIL is not set: the first account to register becomes the admin.")
     registration = Registration(stores, policy, registration_policy, sessions, throttle, audit, clock,
                                 on_user_created, first_user_is_admin=first_user_is_admin(settings))

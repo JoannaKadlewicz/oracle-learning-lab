@@ -22,8 +22,8 @@ class AccountDeletion:
         user = self._stores.users.get(user_id)
         if user is not None and user.role == "admin" and sum(u.role == "admin" for u in self._stores.users.all()) <= 1:
             raise AuthError("You can't delete the only admin account.")
-        self._drop_schemas(user_id)  # first: the records say what exists in the practice databases
-        self._sessions.end_all(user_id)
+        self._sessions.end_all(user_id)  # first: no request of the user can provision a schema meanwhile
+        self._drop_schemas(user_id)  # before the records go: they say what exists in the practice databases
         self._stores.schemas.delete_for_user(user_id)
         self._stores.states.delete(user_id)
         self._stores.notes.delete(user_id)
