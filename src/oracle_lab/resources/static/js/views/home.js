@@ -3,6 +3,7 @@
 
 import { $$, esc, plural, icon } from "../core/dom.js";
 import { C, P, L, CARD, DB, mistakes, topicStats, topicLabel } from "../core/state.js";
+import { currentUser } from "../core/session.js";
 import { main, go } from "../core/router.js";
 import { levelBadge, meter, section } from "../ui/widgets.js";
 import { startQuiz, startMock, resumeMock, practiceSession, resumePractice } from "./quiz.js";
@@ -13,7 +14,7 @@ function trackWarning() {
   if (!DB || C.exam.code !== "1Z0-171" || DB.major >= 23) return "";
   return `<div class="callout"><p>You are preparing for 1Z0-171, but the SQL lab is connected to Oracle ${esc(DB.version)}.
     Quizzes and flashcards work as usual; the SQL of topic 15 (23ai features) only runs on Oracle 23ai.
-    Start Oracle 23ai Free and set <code>STUDY_DSN_23AI</code> to switch databases with the exam (see the README).</p></div>`;
+    ${currentUser().role === "admin" ? "Start Oracle 23ai Free and set <code>STUDY_DSN_23AI</code> to switch databases with the exam (see the README)." : "The 1Z0-171 SQL features need Oracle 23ai, which this server does not provide."}</p></div>`;
 }
 
 function countdownFact(plan, examDate) {

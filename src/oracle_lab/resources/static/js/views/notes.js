@@ -25,7 +25,7 @@ function describe(note) {
 }
 
 async function render() {
-  main.innerHTML = `${pageHead("Notes", "Lesson notes for every topic, the exam guide and the cheat sheet. Notes are Markdown files in <code>app/notes</code>; edit them and reload to see changes.")}${loading("Loading notes")}`;
+  main.innerHTML = `${pageHead("Notes", "Lesson notes for every topic, and your saved SQL notes.")}${loading("Loading notes")}`;
   const list = await api("/api/notes");
   if (!list.some(n => n.path === currentNote)) currentNote = (list.find(n => n.path.includes("notes.md")) || list[0])?.path;
   const groups = {};
@@ -37,7 +37,7 @@ async function render() {
     `<option value="${esc(n.path)}" ${n.path === currentNote ? "selected" : ""}>${esc(n.label)}</option>`).join("")}</optgroup>`).join("");
 
   main.innerHTML = `
-    ${pageHead("Notes", "Lesson notes for every topic, the exam guide and the cheat sheet. Notes are Markdown files in <code>app/notes</code>; edit them and reload to see changes.")}
+    ${pageHead("Notes", "Lesson notes for every topic, and your saved SQL notes.")}
     <label class="list-picker field"><span>Note</span><select id="note-picker">${options}</select></label>
     <div class="split">
       <nav class="split-list" aria-label="Notes">

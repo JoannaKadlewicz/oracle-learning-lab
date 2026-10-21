@@ -4,6 +4,13 @@
 import { esc, inlineCode, plural } from "../core/dom.js";
 import { topicName } from "../core/state.js";
 
+/** The statement without its leading `--` comment lines (the original if nothing else is left). */
+export function displaySql(sql) {
+  const lines = String(sql).split("\n");
+  const at = lines.findIndex(l => l.trim() && !l.trim().startsWith("--"));
+  return at < 0 ? String(sql) : lines.slice(at).join("\n").trim();
+}
+
 export function cellHtml(v) {
   if (v === null) return `<td class="null">null</td>`;
   const isNum = typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v);
@@ -60,7 +67,7 @@ export function resultsHtml(res) {
   if (!res.ok) return errorBox(`Cannot connect to the database.\n${res.connect_error}\n\nCheck that the Oracle container is running.`);
   if (!res.results.length) return `<div class="empty"><strong>Nothing to run</strong><p>Type a statement ending with a semicolon.</p></div>`;
   const out = res.results.map(r => {
-    const sql = `<div class="result-sql">${esc(r.sql)}</div>`;
+    const sql = `<div class="result-sql">${esc(displaySql(r.sql))}</div>`;
     if (r.type === "rows") {
       const foot = `${plural(r.rows.length, "row")}${r.truncated ? " shown (limit reached)" : ""} in ${r.ms} ms`;
       return `<div class="result">${sql}${r.rows.length ? gridHtml(r.columns, r.rows) : `<div class="result-msg">No rows selected.</div>`}<div class="result-foot">${foot}</div></div>`;

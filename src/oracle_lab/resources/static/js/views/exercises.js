@@ -6,6 +6,7 @@ import { api } from "../core/api.js";
 import { store } from "../core/store.js";
 import { C, S, P, L, DB, apply, loadProgress, topicLabel, blockedOn23ai, sqlOff, NO_SQL } from "../core/state.js";
 import { main, go, setTitle } from "../core/router.js";
+import { currentUser } from "../core/session.js";
 import { confirmDialog } from "../ui/feedback.js";
 import { pageHead, loading } from "../ui/widgets.js";
 import { makeEditor } from "../ui/editor.js";
@@ -104,7 +105,7 @@ function render(arg) {
           ${st?.passed ? `<span class="level level-strong">Passed</span>` : ""}
         </p>
         ${lab.starter ? `<p class="small muted">The editor starts with a statement that has a mistake in it. Find it, fix it, and check.</p>` : ""}
-        ${blockedOn23ai(lab) ? `<p class="callout">This exercise uses Oracle 23ai syntax, and your database is Oracle ${esc(DB.version)}. Run the app with <code>STUDY_DSN_23AI</code> set (see the README) to check it.</p>` : ""}
+        ${blockedOn23ai(lab) ? `<p class="callout">This exercise uses Oracle 23ai syntax, and your database is Oracle ${esc(DB.version)}. ${currentUser().role === "admin" ? "Run the app with <code>STUDY_DSN_23AI</code> set (see the README) to check it." : "The 1Z0-171 SQL features need Oracle 23ai, which this server does not provide."}</p>` : ""}
         <p class="task">${inlineCode(lab.task)}</p>
         <p class="cols">${howGraded}</p>
         <div id="hint-box"></div>
@@ -167,7 +168,8 @@ function render(arg) {
   });
   $("#show-hint")?.addEventListener("click", e => {
     const strong = $("#hint-box .hint") && lab.hint2;
-    $("#hint-box").innerHTML = `<div class="hint"><p>${inlineCode(lab.hint)}</p></div>` + (strong ? `<div class="hint"><p>${inlineCode(lab.hint2)}</p></div>` : "");
+    $$("#hint-box .hint").forEach(h => h.remove());
+    $("#hint-box").insertAdjacentHTML("afterbegin", `<div class="hint"><p>${inlineCode(lab.hint)}</p></div>` + (strong ? `<div class="hint"><p>${inlineCode(lab.hint2)}</p></div>` : ""));
     if (!lab.hint2 || strong) e.target.remove();
     else e.target.textContent = "Show a stronger hint";
   });
@@ -178,7 +180,8 @@ function render(arg) {
       confirm: "Show solution", cancel: "Keep trying",
     })) return;
     api("/api/lab-solution", { id: lab.id }).then(apply).catch(() => {});
-    $("#hint-box").innerHTML = `<p class="small muted">Reference solution. Other correct queries are just as valid.</p><pre class="code"><code>${esc(lab.solution)}</code></pre>`;
+    $("#solution-box")?.remove();
+    $("#hint-box").insertAdjacentHTML("beforeend", `<div id="solution-box"><p class="small muted">Reference solution. Other correct queries are just as valid.</p><pre class="code"><code>${esc(lab.solution)}</code></pre></div>`);
   });
   $("#reset-starter")?.addEventListener("click", () => { editor.set(lab.starter); store("ex:" + lab.id, lab.starter); editor.focus(); });
   $("#ex-prev").addEventListener("click", () => go("/exercises/" + prev.id));

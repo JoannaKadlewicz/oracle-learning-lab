@@ -48,6 +48,17 @@ def test_badges_show_progress_and_need_real_evidence():
     assert not {b["id"]: b for b in engine.badges(content, guessed, NOW, by_objective)}["clean-run"]["earned"]
 
 
+def test_calibrated_badge_progress_is_capped_until_both_criteria_hold():
+    def calibrated(wrong):
+        state = {"attempts": {QIDS[i]: [answer(NOW - i, i >= wrong)] for i in range(60)}}
+        by_objective, _ = engine.mastery(content, state, NOW)
+        return {b["id"]: b for b in engine.badges(content, state, NOW, by_objective)}["calibrated"]
+    weak = calibrated(wrong=20)  # 60 sure answers, only 67% correct
+    assert not weak["earned"] and weak["progress"] == [49, 50]
+    strong = calibrated(wrong=2)
+    assert strong["earned"] and strong["progress"] == [50, 50]
+
+
 def test_opening_the_solution_blocks_the_schema_builder_badge():
     ddl = [lab["id"] for lab in content.LABS if lab.get("kind") == "ddl"]
     state = {"labs": {lid: {"tries": 1, "passed": True, "t": NOW} for lid in ddl}}

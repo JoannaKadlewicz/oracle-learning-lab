@@ -557,7 +557,7 @@ function renderQuestion(i, reviewing) {
       ${canTry ? (sqlOff()
         ? `<span class="small muted">${NO_SQL}</span><button class="btn ghost" disabled>Run it in the SQL lab</button>`
         : blockedOn23ai(q)
-        ? `<span class="small muted" title="Set STUDY_DSN_23AI to run 23ai SQL in the lab">Runs on Oracle 23ai only</span>`
+        ? `<span class="small muted" title="The 1Z0-171 SQL features need Oracle 23ai, which this server does not provide.">Runs on Oracle 23ai only</span>`
         : `<button class="btn ghost" id="try">Run it in the SQL lab</button>`) : ""}
     </div>
     ${exam ? navigatorHtml(i) : ""}

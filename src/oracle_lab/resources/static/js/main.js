@@ -57,7 +57,7 @@ async function boot() {
     await loadContent();
   } catch (err) {
     main.innerHTML = `<div class="empty"><strong>The study server is not responding</strong>
-      <p>${esc(err.message)} Start it with <code>.venv/bin/python app/server.py</code>, then reload this page.</p>
+      <p>The app could not load. Reload, or try again in a minute.</p>
       <button class="btn" id="reload-app">Reload</button></div>`;
     document.getElementById("reload-app").addEventListener("click", () => location.reload());
     return;

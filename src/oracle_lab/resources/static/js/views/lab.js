@@ -9,7 +9,7 @@ import { main } from "../core/router.js";
 import { toast, toastError, confirmDialog, promptDialog } from "../ui/feedback.js";
 import { pageHead, loading } from "../ui/widgets.js";
 import { makeEditor, schemaHtml, invalidateSchema } from "../ui/editor.js";
-import { resultsHtml, vizHtml, bindViz, errorBox } from "../ui/sql.js";
+import { displaySql, resultsHtml, vizHtml, bindViz, errorBox } from "../ui/sql.js";
 import { openNote } from "./notes.js";
 
 const DEFAULT_SQL = "SELECT e.employee_id, e.last_name, e.salary\nFROM   employees e\nORDER  BY e.salary DESC;";
@@ -64,7 +64,7 @@ async function render() {
   const showHistory = list => {
     const items = [...(list || [])].reverse().slice(0, 20);
     $("#history").innerHTML = items.length ? `<ul class="history">${items.map((h, n) =>
-      `<li><button class="link-btn" data-history="${n}" title="${esc(h.sql)}">${esc(h.sql.trim().split("\n")[0].slice(0, 60))}</button>
+      `<li><button class="link-btn" data-history="${n}" title="${esc(h.sql)}">${esc(displaySql(h.sql).split("\n")[0].slice(0, 60))}</button>
         <span class="xsmall muted">${new Date(h.t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${h.errors ? `, ${plural(h.errors, "error")}` : ""}</span></li>`).join("")}</ul>`
       : `<p class="small muted">Statements you run appear here.</p>`;
     $$("[data-history]", main).forEach(b => b.addEventListener("click", () => { editor.set(items[Number(b.dataset.history)].sql); editor.focus(); }));

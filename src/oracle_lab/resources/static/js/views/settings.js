@@ -44,7 +44,7 @@ function render() {
 
       <div class="panel danger-zone">
         <div class="setting">
-          <div><h3>Reset progress</h3><p>Deletes every quiz answer, flashcard review, exercise result and mock exam of both exams. Your settings and SQL history are kept. Progress is saved in <code>app/state/progress.json</code>.</p></div>
+          <div><h3>Reset progress</h3><p>Deletes every quiz answer, flashcard review, exercise result and mock exam of both exams. Your settings and SQL history are kept. Your progress is saved to your account.</p></div>
           <button class="btn danger" id="reset-progress">Reset progress</button>
         </div>
       </div>

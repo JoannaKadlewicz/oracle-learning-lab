@@ -698,7 +698,7 @@ def badges(content, state, now, by_objective):
               len(covered), len(content.OBJECTIVES)),
         badge("all-green", "All green", "Every official objective at the Strong mastery level.", strong, len(content.OBJECTIVES)),
         badge("calibrated", "Calibrated", "At least 50 answers rated Sure, and 90% or more of them correct.",
-              cal["answers"], 50, sure_ok),
+              cal["answers"] if sure_ok else min(cal["answers"], 49), 50, sure_ok),
         badge("misconceptions", "Misconceptions fixed",
               "10 questions you once got wrong while sure, now proven on two days.", fixed, 10),
         badge("dml-first-try", "DML first try", "Every DML exercise passed on the first check.",
