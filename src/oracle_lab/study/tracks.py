@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from oracle_lab import content
+from oracle_lab import content, exams
 from oracle_lab.study.state import State
 
 
 def exam_code(state: State) -> str:
+    """The saved exam, if the registry knows it now, else the default exam."""
     code = state.get("settings", {}).get("exam")
-    return code if isinstance(code, str) and code in content.EXAMS else content.DEFAULT_EXAM
+    return code if isinstance(code, str) and code in exams.EXAMS else exams.DEFAULT_EXAM
 
 
 def track(state: State) -> SimpleNamespace:

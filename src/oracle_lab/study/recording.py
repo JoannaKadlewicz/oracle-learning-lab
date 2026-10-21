@@ -9,7 +9,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from oracle_lab import content
+from oracle_lab import content, exams
 from oracle_lab.study import engine
 from oracle_lab.study.state import State
 
@@ -94,8 +94,8 @@ def record_settings(state: State, data: dict) -> None:
             raise ValueError(f"new_cards_per_day must be between {low} and {high}")
         settings["new_cards_per_day"] = count
     if "exam" in data:
-        if data["exam"] not in content.EXAMS:
-            raise ValueError("exam must be one of " + ", ".join(content.EXAMS))
+        if data["exam"] not in exams.EXAMS:
+            raise ValueError("exam must be one of " + ", ".join(exams.EXAMS))
         settings["exam"] = data["exam"]
 
 

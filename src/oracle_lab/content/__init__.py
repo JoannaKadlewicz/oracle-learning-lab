@@ -45,7 +45,8 @@ from . import (
 )
 from .objectives import OBJECTIVES, SECTION_EXAMS, SECTIONS  # noqa: F401
 
-# The exam facts live in the registry; content keeps the public dicts under the old names.
+# The exam facts live in the registry; content keeps the public dicts under the old names, a snapshot
+# taken at import (code that must see exams registered later reads exams.EXAMS).
 EXAMS = {code: exam.public() for code, exam in exams.EXAMS.items()}
 DEFAULT_EXAM = exams.DEFAULT_EXAM
 EXAM = EXAMS[DEFAULT_EXAM]
@@ -179,7 +180,7 @@ def for_exam(code):
     sections = {s: t for s, t in pack.sections.items() if code in pack.section_exams.get(s, pack_exams(pack))}
     return SimpleNamespace(
         CODE=code,
-        EXAM=EXAMS.get(code) or exam.public(),
+        EXAM=exam.public(),
         PACK=pack,
         HOME_NOTES=list(pack.home_notes),
         TOPICS={t: n for t, n in pack.topics.items() if code in pack.topic_exams.get(t, pack_exams(pack))},

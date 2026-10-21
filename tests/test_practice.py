@@ -128,13 +128,14 @@ def test_learner_reaches_the_schema_of_the_exams_database_key_else_its_fallback(
 
 
 def test_exam_whose_database_key_is_not_configured_is_not_set_up(monkeypatch):
+    from conftest import FakeEngine
     from oracle_lab import engines, exams
 
     fake = exams.Exam(code="PG-1", name="PG", product="PostgreSQL", engine="fake", database="pg16",
                       database_label="PostgreSQL 16", fallback=None, versions=(16, None), pack="oracle-sql",
                       questions=1, minutes=1, passing_pct=1, about="")
     monkeypatch.setitem(exams.EXAMS, "PG-1", fake)
-    monkeypatch.setitem(engines.ENGINES, "fake", engines.ENGINES["oracle"])
+    monkeypatch.setitem(engines.ENGINES, "fake", FakeEngine())
     stores = memory_stores()
     stores.schemas.put(PracticeSchema("u1", "default", "OLL_UDEFAULTAAA", "ready", NOW))
     shared = DatabaseCatalog({"default": FakeDatabase()})

@@ -67,6 +67,47 @@ def provisioner_database():
     return PracticeTarget(provisioner=users["PROVISIONER"], gateway=users["GATEWAY"], tablespace="USERS", quota_mb=50)
 
 
+# --- a second database engine, registered by a test through the registries alone ---
+
+
+class FakeEngine:
+    """An engines.Engine for a product the app does not ship; only the facts the UI shows are real."""
+
+    name = "fake"
+    label = "Fake SQL"
+    editor_mode = "text/x-sql"
+
+    def database(self, target, call_timeout_ms):
+        raise NotImplementedError
+
+    def proxy_database(self, gateway, schema, call_timeout_ms):
+        raise NotImplementedError
+
+    def provisioner(self, target, call_timeout_ms):
+        raise NotImplementedError
+
+    def run_script(self, database, script, *, keep_changes=False, inspect=False):
+        raise NotImplementedError
+
+    def run_cleanup(self, database, item):
+        raise NotImplementedError
+
+    def grade(self, database, lab, sql):
+        raise NotImplementedError
+
+    def visualize(self, database, sql):
+        raise NotImplementedError
+
+    def describe(self, database):
+        raise NotImplementedError
+
+    def reset_sample(self, database):
+        raise NotImplementedError
+
+    def ensure_sample(self, database, timeout):
+        raise NotImplementedError
+
+
 # --- the web app over a real socket (test_web.py, test_auth_web.py) ---
 
 NOW = 1_800_000_000

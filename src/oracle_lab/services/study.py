@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
 
-from oracle_lab import content
+from oracle_lab import exams
 from oracle_lab.engines import engine_for_exam
 from oracle_lab.services import Clock, NotFoundError
 from oracle_lab.study import engine, recording
@@ -45,7 +45,7 @@ class StudyService:
             "sections": view.SECTIONS,
             "objectives": view.OBJECTIVES,
             "exam": view.EXAM,
-            "exams": content.EXAMS,
+            "exams": {code: exam.public() for code, exam in exams.EXAMS.items()},
             "engine": {"name": db.name, "label": db.label, "editor_mode": db.editor_mode},
             "home_notes": list(view.HOME_NOTES),
             "dual_database": self.track_databases,
