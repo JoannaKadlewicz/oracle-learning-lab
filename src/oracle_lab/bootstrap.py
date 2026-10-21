@@ -139,7 +139,7 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
     def practice_of(user: User) -> PracticeDatabases:
         """Another user's practice databases (the admin page): same locks and checks as the user's own."""
         return practice(Principal(user.id, user.email, user.role, "", "", 0.0))
-    contexts = UserContexts(stores, practice)
+    contexts = UserContexts(stores, practice, bool(settings.practice))
 
     cookies = CookiePolicy(settings.secure_cookies)
     sessions = SessionManager(stores.sessions, clock)

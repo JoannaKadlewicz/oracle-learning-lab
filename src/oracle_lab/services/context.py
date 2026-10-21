@@ -23,6 +23,7 @@ class UserContext:
     state: StateStore
     notes: PersonalNotes
     practice_factory: Callable[[Principal], PracticeDatabases] | None = field(default=None, repr=False)
+    sql_available: bool = True  # whether the plan may include SQL exercises
 
     @cached_property
     def practice(self) -> PracticeDatabases | None:
@@ -34,13 +35,16 @@ class UserContexts:
     """request -> UserContext of its principal; a request without one is LoginRequired, a 401 (Authenticate normally stops it)."""
 
     def __init__(self, stores: AppStores,
-                 practice_factory: Callable[[Principal], PracticeDatabases] | None = None):
+                 practice_factory: Callable[[Principal], PracticeDatabases] | None = None,
+                 learners_get_sql: bool = True):
         self.stores = stores
         self.practice_factory = practice_factory
+        self.learners_get_sql = learners_get_sql
 
     def __call__(self, request: Request) -> UserContext:
         principal = request.principal
         if principal is None:
             raise LoginRequired("Login required")  # error_boundary: 401 {"error": "Login required"}
         return UserContext(principal, self.stores.states.for_user(principal.user_id),
-                           self.stores.notes.for_user(principal.user_id), self.practice_factory)
+                           self.stores.notes.for_user(principal.user_id), self.practice_factory,
+                           self.learners_get_sql or principal.role == "admin")

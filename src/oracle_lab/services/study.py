@@ -28,10 +28,12 @@ class ReportContext:
 
 
 class StudyService:
-    def __init__(self, store: StateStore, clock: Clock, track_databases: bool = False):
+    def __init__(self, store: StateStore, clock: Clock, track_databases: bool = False,
+                 sql_available: bool = True):
         self.store = store
         self.clock = clock
         self.track_databases = track_databases
+        self.sql_available = sql_available
 
     def track_content(self) -> dict[str, Any]:
         """The study material of the current exam track, for the front end."""
@@ -54,7 +56,7 @@ class StudyService:
     def progress(self) -> dict[str, Any]:
         with self.store.transaction() as state:
             finalize_expired(state, self.clock())
-        return snapshot(state, self.clock())
+        return snapshot(state, self.clock(), self.sql_available)
 
     def record_attempt(self, data: dict) -> dict[str, Any]:
         if data.get("id") not in recording.QUESTIONS_BY_ID:
@@ -89,9 +91,9 @@ class StudyService:
     def report_context(self) -> ReportContext:
         state = self.store.load()
         view, seen, now = track(state), track_state(state), self.clock()
-        return ReportContext(view, seen, engine.progress(view, seen, now), now)
+        return ReportContext(view, seen, engine.progress(view, seen, now, self.sql_available), now)
 
     def _change(self, mutate) -> dict[str, Any]:
         with self.store.transaction() as state:
             mutate(state)
-        return snapshot(state, self.clock())
+        return snapshot(state, self.clock(), self.sql_available)

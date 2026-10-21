@@ -18,7 +18,9 @@ class StudyController:
         self.track_databases = track_databases
 
     def study(self, request: Request) -> StudyService:
-        return StudyService(self.contexts(request).state, self.clock, track_databases=self.track_databases)
+        context = self.contexts(request)
+        return StudyService(context.state, self.clock, track_databases=self.track_databases,
+                            sql_available=context.sql_available)
 
     def register(self, router: Router) -> None:
         router.get("/api/content", lambda r: Response.json(self.study(r).track_content()))

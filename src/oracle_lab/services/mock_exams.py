@@ -17,9 +17,10 @@ def _report(mock: dict) -> dict[str, Any]:
 
 
 class MockExamService:
-    def __init__(self, store: StateStore, clock: Clock):
+    def __init__(self, store: StateStore, clock: Clock, sql_available: bool = True):
         self.store = store
         self.clock = clock
+        self.sql_available = sql_available
 
     def get(self, mock_id: str) -> dict[str, Any]:
         try:
@@ -31,7 +32,7 @@ class MockExamService:
     def start(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
             mock = mocks.start_mock(state, data, self.clock())
-        return {**snapshot(state, self.clock()), "mock": mock}
+        return {**snapshot(state, self.clock(), self.sql_available), "mock": mock}
 
     def answer(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
@@ -41,9 +42,9 @@ class MockExamService:
     def submit(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
             mock = mocks.submit_mock_by_id(state, data, self.clock())
-        return {**snapshot(state, self.clock()), "report": _report(mock)}
+        return {**snapshot(state, self.clock(), self.sql_available), "report": _report(mock)}
 
     def abandon(self, data: dict) -> dict[str, Any]:
         with self.store.transaction() as state:
             mocks.abandon_mock(state, data.get("mock_id"), self.clock())
-        return snapshot(state, self.clock())
+        return snapshot(state, self.clock(), self.sql_available)

@@ -159,6 +159,15 @@ def test_daily_plan_skips_the_lab_when_time_is_short():
     assert plan["lab"] is None and plan["days_left"] is None
 
 
+def test_plan_without_sql_has_no_exercise():
+    state = {"settings": {"daily_minutes": 30}}
+    with_sql = engine.daily_plan(CONTENT, state, NOW, rng=random.Random(1))
+    without = engine.daily_plan(CONTENT, state, NOW, rng=random.Random(1), sql_available=False)
+    assert with_sql["lab"] and without["lab"] is None
+    assert engine.todays_plan(CONTENT, state, NOW, sql_available=False)["lab"] is None
+    assert engine.progress(CONTENT, state, NOW, sql_available=False)["plan"]["lab"] is None
+
+
 def test_todays_plan_ticks_items_off_instead_of_replacing_them():
     state = {"settings": {"daily_minutes": 30}, "attempts": {}, "cards": {}, "labs": {}}
     before = engine.todays_plan(CONTENT, state, NOW)

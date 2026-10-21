@@ -312,9 +312,9 @@ def due_reviews(content, state, now):
 
 # --------------------------------------------------------------------------- daily plan
 
-def daily_plan(content, state, now, rng=random):
+def daily_plan(content, state, now, rng=random, sql_available=True):
     """Today's session, sized to the daily minutes: due flashcards (a quarter of the time),
-    one lab from the weakest objective when there is time, and the rest as practice questions."""
+    one lab from the weakest objective when there is time (none without SQL practice), and the rest as practice questions."""
     settings = state.get("settings", {})
     minutes = settings.get("daily_minutes") or DEFAULT_DAILY_MINUTES
     today = local_day(now)
@@ -328,7 +328,7 @@ def daily_plan(content, state, now, rng=random):
 
     left = minutes - len(cards) * MINUTES["card"]
     lab = None
-    if left >= 20:
+    if left >= 20 and sql_available:
         by_objective, _ = mastery(content, state, now)
         open_labs = [lab for lab in content.LABS if not state.get("labs", {}).get(lab["id"], {}).get("passed")]
         if open_labs:
@@ -372,14 +372,15 @@ def as_of(state, t):
     return {**state, "attempts": attempts, "cards": cards, "labs": labs}
 
 
-def todays_plan(content, state, now):
+def todays_plan(content, state, now, sql_available=True):
     """The daily plan as set at the start of the day, with what is done since.
 
     The plan is built from the progress at midnight, so finishing an item ticks it off instead of
     replacing it with the next one. Everything due by the end of the day is part of it."""
     start = day_start(now)
     end = day_start(start + 1.5 * DAY)
-    plan = daily_plan(content, as_of(state, start), end - 1, rng=random.Random(local_day(now).toordinal()))
+    plan = daily_plan(content, as_of(state, start), end - 1, rng=random.Random(local_day(now).toordinal()),
+                      sql_available=sql_available)
     attempts, cards, labs = state.get("attempts", {}), state.get("cards", {}), state.get("labs", {})
     questions = [qid for qid in plan["questions"] if any(a["t"] >= start for a in attempts.get(qid, []))]
     reviewed = [cid for cid in plan["cards"] if any(r[0] >= start for r in cards.get(cid, {}).get("reviews", []))]
@@ -742,7 +743,7 @@ def ready_to_book(content, state, by_objective):
 
 # --------------------------------------------------------------------------- summary for the front end
 
-def progress(content, state, now):
+def progress(content, state, now, sql_available=True):
     by_objective, by_topic = mastery(content, state, now)
     questions = {q["id"]: q for q in content.QUESTIONS}
     cards = {cid: card_schedule(entry) for cid, entry in state.get("cards", {}).items()}
@@ -757,7 +758,7 @@ def progress(content, state, now):
         "due_reviews": len(due_reviews(content, state, now)),
         "cards": {cid: {"interval": round(s["interval"], 1), "due": s["due"], "reps": s["reps"]} for cid, s in cards.items()},
         "calibration": calibration(state.get("attempts", {})),
-        "plan": todays_plan(content, state, now),
+        "plan": todays_plan(content, state, now, sql_available),
         "settings": state.get("settings", {}),
         "proof_days": PROOF_DAYS,
         "readiness": readiness(content, state, now),

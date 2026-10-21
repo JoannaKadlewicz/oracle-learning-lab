@@ -19,7 +19,8 @@ class MockExamController:
         self.clock = clock
 
     def mocks(self, request: Request) -> MockExamService:
-        return MockExamService(self.contexts(request).state, self.clock)
+        context = self.contexts(request)
+        return MockExamService(context.state, self.clock, context.sql_available)
 
     def register(self, router: Router) -> None:
         router.get("/api/mock", lambda r: respond(lambda: self.mocks(r).get(r.query("id"))))

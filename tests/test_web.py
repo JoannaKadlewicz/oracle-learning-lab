@@ -3,7 +3,7 @@ Every test signs in first (conftest.Client.sign_in); the login itself is covered
 
 import json
 
-from conftest import settings_for
+from conftest import Client, settings_for
 from oracle_lab import content
 from oracle_lab.accounts.memory import memory_stores
 
@@ -90,3 +90,11 @@ def test_card_preview_endpoint(serve):
     preview = json.loads(body)
     assert status == 200 and preview["again"] == 0 and preview["hard"] <= preview["good"] <= preview["easy"]
     assert http("/api/card/preview?id=nope")[0] == 404
+
+
+def test_progress_reports_sql_available_for_learners_and_admins(serve):
+    http = serve()
+    admin = http.sign_in("admin@example.org")  # the first account is the admin
+    learner = Client(http.port).sign_in("learner@example.org")
+    assert json.loads(admin("/api/progress")[2])["sql_available"] is True
+    assert json.loads(learner("/api/progress")[2])["sql_available"] is False
