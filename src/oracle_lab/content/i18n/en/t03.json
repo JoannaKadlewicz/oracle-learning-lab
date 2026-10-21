@@ -1,0 +1,129 @@
+{
+  "flashcards": {
+    "c011": {
+      "front": "How do ROUND and TRUNC work with a negative precision?",
+      "back": "A negative number works to the left of the decimal point. ROUND rounds: ROUND(1234.5, -2) = 1200. TRUNC only cuts: TRUNC(1789, -2) = 1700. They work on dates too: ROUND/TRUNC(d, 'MM'), 'YYYY', 'DD'... TRUNC(d) alone removes the time (midnight remains).",
+      "try_sql": "-- Compare: ROUND rounds, TRUNC cuts (on dates too)\nSELECT ROUND(1234.5, -2) AS r, TRUNC(1789, -2) AS t FROM dual;\nSELECT SYSDATE AS teraz, TRUNC(SYSDATE) AS polnoc, TRUNC(SYSDATE, 'MM') AS pocz_miesiaca, ROUND(SYSDATE, 'YYYY') AS rok FROM dual;"
+    },
+    "c012": {
+      "front": "What does SUBSTR do with a negative start position?",
+      "back": "It counts from the end of the string: SUBSTR('ORACLE', -3) = 'CLE'. If you give no length, it takes everything to the end.",
+      "try_sql": "-- A negative start counts from the end\nSELECT SUBSTR('ORACLE', -3) AS a, SUBSTR('ORACLE', -3, 2) AS b FROM dual;"
+    },
+    "c013": {
+      "front": "What arguments does INSTR take?",
+      "back": "INSTR(str, search, start_pos, occurrence): what you search in, what you search for, from which position, and which occurrence. When it finds nothing, it returns 0. A negative start searches backwards from the end.",
+      "try_sql": "-- First and second occurrence, no match, and searching from the end\nSELECT INSTR('BANANA', 'A') AS pierwsze, INSTR('BANANA', 'A', 1, 2) AS drugie,\n       INSTR('BANANA', 'X') AS brak, INSTR('BANANA', 'A', -1) AS od_konca\nFROM dual;"
+    },
+    "c014": {
+      "front": "What sign does MONTHS_BETWEEN(d1, d2) have?",
+      "back": "Positive when d1 is later than d2 (negative when earlier). The result is a whole number when both dates are the same day of the month or both are last days of a month. Otherwise you get a fraction, calculated as if a month had 31 days.",
+      "try_sql": "-- The sign depends on the order; the same day of the month -> a whole number\nSELECT MONTHS_BETWEEN(DATE '2024-03-15', DATE '2024-01-15') AS a,\n       MONTHS_BETWEEN(DATE '2024-01-15', DATE '2024-03-15') AS b,\n       MONTHS_BETWEEN(DATE '2024-03-20', DATE '2024-01-15') AS c\nFROM dual;"
+    },
+    "c015": {
+      "front": "What do NEXT_DAY and LAST_DAY do?",
+      "back": "NEXT_DAY(d, 'FRIDAY'): the first Friday after date d, always later than d (the day name depends on the session language). LAST_DAY(d): the last day of d's month; the time stays the same.",
+      "try_sql": "-- 2024-03-01 is a Friday: NEXT_DAY gives the next Friday; LAST_DAY keeps the time\nSELECT NEXT_DAY(DATE '2024-03-01', 'FRIDAY') AS nast_piatek,\n       LAST_DAY(TO_DATE('2024-02-10 14:30', 'YYYY-MM-DD HH24:MI')) AS koniec_lutego\nFROM dual;"
+    },
+    "c016": {
+      "front": "How do TRIM, LTRIM, RTRIM and LPAD differ?",
+      "back": "TRIM([LEADING|TRAILING|BOTH] 'x' FROM s) removes only one character (from the start, the end or both sides). LTRIM/RTRIM remove any characters from the given set, on the left or the right. LPAD(s, n, 'x') pads on the left to length n, and cuts a string that is too long to n.",
+      "try_sql": "-- TRIM removes one character, LTRIM/RTRIM a set of characters, LPAD pads or cuts\nSELECT TRIM(BOTH 'x' FROM 'xxabcxx') AS t, LTRIM('xyxabc', 'xy') AS l,\n       RTRIM('abc123', '0123456789') AS r, LPAD('abc', 6, '*') AS p, LPAD('abcdef', 3) AS p2\nFROM dual;"
+    },
+    "c017": {
+      "front": "What is MOD(-7, 3)?",
+      "back": "-1. In Oracle the result of MOD has the same sign as the dividend (the first number). Python would give 2 here; Oracle does not.",
+      "try_sql": "-- The result has the sign of the dividend\nSELECT MOD(-7, 3) AS a, MOD(7, 3) AS b FROM dual;"
+    },
+    "c200": {
+      "front": "What types do operations on DATE give?",
+      "back": "DATE + n and DATE - n give a DATE (n is days and may be a fraction, for example 0.5 = 12 hours). DATE - DATE gives a NUMBER, the number of days. DATE + DATE is error ORA-00975.",
+      "try_sql": "-- DATE +/- n is a DATE, DATE - DATE is a number of days...\nSELECT hire_date + 0.5 AS plus_12h, hire_date - 1 AS dzien_wczesniej, SYSDATE - hire_date AS dni FROM employees;\n-- ...and DATE + DATE is an error\nSELECT SYSDATE + hire_date FROM employees;"
+    },
+    "c201": {
+      "front": "How do you add 90 minutes to a DATE, and how do you count the hours between two dates?",
+      "back": "A day has 1440 minutes, so: d + 90/1440 or d + 1.5/24. Hours between dates: (d2 - d1) * 24, minutes: (d2 - d1) * 1440.",
+      "try_sql": "-- +90 minutes two ways, and the hours between dates\nSELECT DATE '2024-01-01' + 90/1440 AS a, DATE '2024-01-01' + 1.5/24 AS b,\n       (DATE '2024-01-02' - DATE '2024-01-01') * 24 AS godziny\nFROM dual;"
+    },
+    "c202": {
+      "front": "What is ADD_MONTHS(DATE '2023-02-28', 1)?",
+      "back": "2023-03-31. When the start date is the last day of a month, the result is the last day of the target month. In 2024 (a leap year) 28 February is not the end of the month, so ADD_MONTHS gives 2024-03-28.",
+      "try_sql": "-- A month end moves to a month end (2023), but not in 2024\nSELECT ADD_MONTHS(DATE '2023-02-28', 1) AS r2023, ADD_MONTHS(DATE '2024-02-28', 1) AS r2024 FROM dual;"
+    },
+    "c203": {
+      "front": "When do ROUND(d, 'MM') and ROUND(d, 'YYYY') round up?",
+      "back": "'MM': from the 16th day of the month (giving the 1st of the next month). 'YYYY': from 1 July. TRUNC with the same format always goes back to the first day.",
+      "try_sql": "-- 'MM' rounds up from the 16th, 'YYYY' from 1 July; TRUNC always rounds down\nSELECT ROUND(DATE '2024-05-15', 'MM') AS m15, ROUND(DATE '2024-05-16', 'MM') AS m16,\n       ROUND(DATE '2024-06-30', 'YYYY') AS y_cze, ROUND(DATE '2024-07-01', 'YYYY') AS y_lip,\n       TRUNC(DATE '2024-07-01', 'YYYY') AS t_lip\nFROM dual;"
+    },
+    "c204": {
+      "front": "What are ROUND(-2.5), TRUNC(-2.7) and MOD(10, 0)?",
+      "back": "-3 (halves go away from zero), -2 (TRUNC cuts toward zero), 10 (MOD with a divisor of 0 returns the dividend, without an error).",
+      "try_sql": "-- Predict: -3, -2, 10\nSELECT ROUND(-2.5) AS r, TRUNC(-2.7) AS t, MOD(10, 0) AS m FROM dual;"
+    },
+    "c205": {
+      "front": "Traps of CONCAT, LENGTH('') and INITCAP?",
+      "back": "In 19c CONCAT takes exactly 2 arguments (3 raise ORA-00909); in 23ai it accepts more. LENGTH('') is NULL, because in Oracle '' is NULL. INITCAP starts a new word after every character that is not a letter or digit: O'Neil Mc-Donald.",
+      "try_sql": "-- '' is NULL; INITCAP starts a new word after an apostrophe and a hyphen\nSELECT CONCAT('ab', 'cd') AS c, LENGTH('') AS len, INITCAP('o''neil mc-donald') AS i FROM dual;"
+    },
+    "c1200": {
+      "front": "What is INSTR('MISSISSIPPI', 'SS', -1)?",
+      "back": "6. A negative start makes it search backwards from the end, so INSTR finds the last SS. The position is still counted from the left.",
+      "try_sql": "-- The last SS, but the position is counted from the left\nSELECT INSTR('MISSISSIPPI', 'SS', -1) AS ostatnie, INSTR('MISSISSIPPI', 'SS') AS pierwsze FROM dual;"
+    },
+    "c1201": {
+      "front": "What does LPAD('Oracle', 10, 'xy') return?",
+      "back": "xyxyOracle. 10 is the length of the whole result. The padding string is repeated from its start and cut when there is no more room: LPAD('Oracle', 9, 'xy') = xyxOracle.",
+      "try_sql": "-- The padding is repeated and cut\nSELECT LPAD('Oracle', 10, 'xy') AS a, LPAD('Oracle', 9, 'xy') AS b FROM dual;"
+    },
+    "c1202": {
+      "front": "What do TRIM('   '), RPAD('abc', 0) and SUBSTR('abc', 4) return?",
+      "back": "All NULL. An empty string remains, and Oracle treats '' as NULL. But REPLACE('abc', NULL, 'x') and CONCAT('abc', NULL) return abc.",
+      "try_sql": "-- An empty result is NULL; REPLACE and CONCAT with NULL return abc\nSELECT TRIM('   ') AS t, RPAD('abc', 0) AS r, SUBSTR('abc', 4) AS s,\n       REPLACE('abc', NULL, 'x') AS rep, CONCAT('abc', NULL) AS c\nFROM dual;"
+    },
+    "c1203": {
+      "front": "What is wrong with LOWER(e.last_name) LIKE 'K%'?",
+      "back": "The column is turned into lowercase, but the pattern has an uppercase K, so nothing matches. Both sides must have the same case: LOWER(...) LIKE 'k%' or UPPER(...) LIKE 'K%'.",
+      "try_sql": "-- The first returns nothing, the second finds King and Kochhar\nSELECT last_name FROM employees e WHERE LOWER(e.last_name) LIKE 'K%';\nSELECT last_name FROM employees e WHERE LOWER(e.last_name) LIKE 'k%';"
+    },
+    "c1204": {
+      "front": "Which arithmetic operators can be used with DATE?",
+      "back": "Only + and -: DATE +/- number (days) = DATE, DATE - DATE = NUMBER. DATE * 2 or 1 - DATE raise ORA-00932, and DATE + DATE raises ORA-00975.",
+      "try_sql": "-- DATE - number works, DATE * 2 does not\nSELECT hire_date - 7 AS tydzien_wczesniej FROM employees;\nSELECT hire_date * 2 FROM employees;"
+    },
+    "c1205": {
+      "front": "What does DATE '2024-03-02' - TIMESTAMP '2024-03-01 00:00:00' return?",
+      "back": "An INTERVAL DAY TO SECOND (+01 00:00:00), not a NUMBER. When a TIMESTAMP takes part, Oracle calculates as with timestamps and the result is an interval.",
+      "try_sql": "-- The result is an INTERVAL DAY TO SECOND, not a number\nSELECT DATE '2024-03-02' - TIMESTAMP '2024-03-01 00:00:00' AS roznica,\n       DATE '2024-03-02' - DATE '2024-03-01' AS dni\nFROM dual;"
+    },
+    "c1206": {
+      "front": "How do you count the minutes since midnight for a date d?",
+      "back": "(d - TRUNC(d)) * 1440. TRUNC(d) is midnight of the same day, so the difference is a fraction of a day. For 23:30, for example, you get 1410; * 24 gives hours (23.5).",
+      "try_sql": "-- For 23:30: 1410 minutes, 23.5 hours\nWITH t AS (SELECT TO_DATE('2024-05-10 23:30', 'YYYY-MM-DD HH24:MI') AS d FROM dual)\nSELECT (d - TRUNC(d)) * 1440 AS minuty, (d - TRUNC(d)) * 24 AS godziny FROM t;"
+    },
+    "c1207": {
+      "front": "What are ROUND(15.5, -1), TRUNC(-15.5, -1) and ROUND(1499.99, -3)?",
+      "back": "20, -10, 1000. A negative precision works to the left of the decimal point. TRUNC cuts toward zero. ROUND looks at the original digits and does not round step by step (1499.99 does not become 1500 first).",
+      "try_sql": "-- Predict: 20, -10, 1000\nSELECT ROUND(15.5, -1) AS a, TRUNC(-15.5, -1) AS b, ROUND(1499.99, -3) AS c FROM dual;"
+    },
+    "c1208": {
+      "front": "What are MOD(7, -3) and MOD(5.5, 2)?",
+      "back": "1 and 1.5. MOD(m, n) = m - n * TRUNC(m / n): the result has the sign of the dividend, and numbers with fractions work too.",
+      "try_sql": "-- Predict: 1 and 1.5\nSELECT MOD(7, -3) AS a, MOD(5.5, 2) AS b, 7 - (-3) * TRUNC(7 / -3) AS wzor FROM dual;"
+    },
+    "c1209": {
+      "front": "How does ROUND(2.5) differ from ROUND(TO_BINARY_DOUBLE(2.5))?",
+      "back": "3 and 2. For NUMBER, halves go away from zero. For BINARY_FLOAT/BINARY_DOUBLE, halves go to the nearest even number. A precision with a fraction is truncated: ROUND(15.193, 1.9) = 15.2.",
+      "try_sql": "-- NUMBER: away from zero; BINARY_DOUBLE: to even; precision 1.9 truncated to 1\nSELECT ROUND(2.5) AS num, ROUND(TO_BINARY_DOUBLE(2.5)) AS bin, ROUND(15.193, 1.9) AS prec FROM dual;"
+    },
+    "c1210": {
+      "front": "From when does ROUND(d, 'Q') round up?",
+      "back": "From the 16th day of the quarter's second month: ROUND(DATE '2024-02-16', 'Q') = 2024-04-01, while 15 February gives 2024-01-01. ROUND(d) without a format rounds up from 12:00.",
+      "try_sql": "-- 16 February -> April, 15 February -> January; ROUND(d) from noon\nSELECT ROUND(DATE '2024-02-16', 'Q') AS q16, ROUND(DATE '2024-02-15', 'Q') AS q15,\n       ROUND(TO_DATE('2024-02-15 12:00', 'YYYY-MM-DD HH24:MI')) AS poludnie\nFROM dual;"
+    },
+    "c1211": {
+      "front": "What do ADD_MONTHS(DATE '2024-02-29', 12) and ADD_MONTHS(d, 1.9) return?",
+      "back": "2025-02-28 (a month end moves to a month end, never an error) and d plus 1 month (the number of months is truncated, not rounded).",
+      "try_sql": "-- End of February -> end of February; 1.9 months truncated to 1\nSELECT ADD_MONTHS(DATE '2024-02-29', 12) AS a, ADD_MONTHS(DATE '2024-01-15', 1.9) AS b FROM dual;"
+    }
+  }
+}

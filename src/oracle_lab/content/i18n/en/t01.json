@@ -1,0 +1,117 @@
+{
+  "flashcards": {
+    "c000": {
+      "front": "How do you put an apostrophe (') in a string in SQL?",
+      "back": "Type it twice: 'It''s'. Or use q'[It's]', where an apostrophe inside breaks nothing. Instead of [] you can use {}, (), <> or any character repeated at the end, for example q'!It's!'.",
+      "try_sql": "-- Three ways to put an apostrophe in a string, same result\nSELECT 'It''s' AS a, q'[It's]' AS b, q'!It's!' AS c FROM dual;"
+    },
+    "c001": {
+      "front": "What is DUAL?",
+      "back": "A small table with one row and one column (DUMMY), owned by SYS. You use it to compute something without a real table: SELECT SYSDATE FROM dual. In 19c FROM is required; in 23ai you can leave it out.",
+      "try_sql": "-- DUAL: one row, one column DUMMY\nSELECT * FROM dual;\nSELECT SYSDATE AS teraz FROM dual;"
+    },
+    "c002": {
+      "front": "salary + NULL = ?   'A' || NULL = ?",
+      "back": "salary + NULL gives NULL (arithmetic with NULL always gives NULL). 'A' || NULL gives 'A', because when joining strings || treats NULL as an empty string.",
+      "try_sql": "-- Predict: arithmetic with NULL gives NULL, while || skips NULL\nSELECT 1000 + NULL AS suma, 'A' || NULL AS tekst FROM dual;"
+    },
+    "c003": {
+      "front": "Where can you use a column alias?",
+      "back": "In ORDER BY: yes. In WHERE, HAVING and GROUP BY (in 19c) of the same query: no, because those clauses run before the alias exists. A quoted alias (\"Annual Pay\") keeps its case and spaces.",
+      "try_sql": "-- The alias works in ORDER BY...\nSELECT salary * 12 AS \"Annual Pay\" FROM employees ORDER BY \"Annual Pay\";\n-- ...but not in WHERE (ORA-00904)\nSELECT salary * 12 AS annual FROM employees WHERE annual > 100000;"
+    },
+    "c004": {
+      "front": "What does DISTINCT apply to?",
+      "back": "To the whole row, not just the first column. SELECT DISTINCT a, b removes only rows where the pair (a, b) repeats. DISTINCT goes right after SELECT.",
+      "try_sql": "-- DISTINCT applies to the whole row: compare the row counts\nSELECT DISTINCT department_id FROM employees;\nSELECT DISTINCT department_id, job_title FROM employees ORDER BY 1, 2;"
+    },
+    "c100": {
+      "front": "Primary key vs foreign key: what is the difference?",
+      "back": "A primary key identifies exactly one row: its values are unique and cannot be NULL (UNIQUE + NOT NULL). A table has at most one. A foreign key must match an existing value in the parent table or be NULL. If the parent is missing, you get ORA-02291.",
+      "try_sql": "-- Foreign key: department 99 is not in DEPARTMENTS -> ORA-02291\nINSERT INTO employees (employee_id, last_name, hire_date, department_id)\nVALUES (300, 'Test', SYSDATE, 99);"
+    },
+    "c101": {
+      "front": "How do relationships from an ERD become tables?",
+      "back": "1:M (one to many): the foreign key goes in the table on the \"many\" side. M:N (many to many): a separate junction table with foreign keys to both tables. \"May\" (optional): the foreign key can be NULL. \"Must\" (mandatory): the foreign key is NOT NULL."
+    },
+    "c102": {
+      "front": "Projection, selection, join: which clause does what?",
+      "back": "Projection (choosing columns): the SELECT list. Selection (choosing rows): WHERE. Join (following a relationship between tables): FROM with several tables and a join condition.",
+      "try_sql": "-- Projection (SELECT list), selection (WHERE), join (FROM + ON)\nSELECT e.last_name, d.department_name\nFROM   employees e JOIN departments d ON e.department_id = d.department_id\nWHERE  e.salary > 10000;"
+    },
+    "c103": {
+      "front": "What are the groups of SQL statements?",
+      "back": "DML (working with data): SELECT, INSERT, UPDATE, DELETE, MERGE. DDL (defining objects): CREATE, ALTER, DROP, RENAME, TRUNCATE, COMMENT. DCL (privileges): GRANT, REVOKE. Transaction control: COMMIT, ROLLBACK, SAVEPOINT."
+    },
+    "c104": {
+      "front": "What is case-sensitive in Oracle SQL?",
+      "back": "Data ('King' is not 'KING') and quoted names (\"Name\"). Keywords and unquoted names are not case-sensitive: Oracle stores them in UPPERCASE.",
+      "try_sql": "-- Keywords and names: case does not matter; data: case matters\nselect LAST_NAME from EMPLOYEES where last_name = 'KING';\nSELECT last_name AS \"Name\" FROM employees WHERE last_name = 'King';"
+    },
+    "c105": {
+      "front": "What is the order of arithmetic operations?",
+      "back": "First * and /, then + and -. Operators of equal precedence go from left to right. Example: salary + 100 * 12 = salary + 1200. Dividing by 0 raises ORA-01476, while dividing by NULL simply gives NULL.",
+      "try_sql": "-- First *, then +: compare both columns\nSELECT salary, salary + 100 * 12 AS bez_nawiasow, (salary + 100) * 12 AS z_nawiasami\nFROM employees WHERE employee_id = 100;"
+    },
+    "c1050": {
+      "front": "What are the rules for an unquoted column alias?",
+      "back": "It must start with a letter. It may contain only letters, digits, _, $ and #. It cannot be a reserved word. 2024_pay, annual-pay and 'pay' raise ORA-00923. If you want anything else, put the alias in double quotes: \"2024 pay\".",
+      "try_sql": "-- A quoted alias may start with a digit...\nSELECT salary AS \"2024 pay\" FROM employees;\n-- ...an unquoted one may not\nSELECT salary AS 2024_pay FROM employees;"
+    },
+    "c1051": {
+      "front": "SELECT -e.salary AS salary ... ORDER BY salary: what does it sort by?",
+      "back": "By the alias, that is, by the expression -e.salary. In ORDER BY an unprefixed name matches a SELECT-list alias first. To sort by the table column, write ORDER BY e.salary.",
+      "try_sql": "-- ORDER BY salary is the alias (-e.salary), ORDER BY e.salary is the column\nSELECT e.last_name, -e.salary AS salary FROM employees e ORDER BY salary;\nSELECT e.last_name, -e.salary AS salary FROM employees e ORDER BY e.salary;"
+    },
+    "c1052": {
+      "front": "employees.manager_id points to employees.employee_id. What is this?",
+      "back": "A recursive relationship (the table points to itself), one to many: one manager has many employees. manager_id can repeat, can be NULL for the person at the very top (King), and is still checked: a manager that does not exist raises ORA-02291.",
+      "try_sql": "-- Recursive relationship: an employee's manager is in the same table (King has no manager)\nSELECT e.last_name, e.manager_id, m.last_name AS manager\nFROM   employees e LEFT JOIN employees m ON e.manager_id = m.employee_id\nORDER  BY e.employee_id;"
+    },
+    "c1053": {
+      "front": "What does SELECT e.last_name first_name FROM employees e return?",
+      "back": "One column headed FIRST_NAME, but filled with last names. The comma is missing, so the second word becomes an alias. There is no error, which is why it is easy to miss.",
+      "try_sql": "-- Missing comma: the heading is FIRST_NAME, but it holds last names\nSELECT e.last_name first_name FROM employees e;"
+    },
+    "c1054": {
+      "front": "The most common causes of ORA-00923 (FROM keyword not found where expected)?",
+      "back": "A bad SELECT list: *, col; an alias in single quotes or starting with a digit; a hyphen in an alias; or no FROM in 19c (SELECT 1). In 23ai SELECT without FROM works.",
+      "try_sql": "-- An alias in single quotes is not an alias -> ORA-00923\nSELECT salary 'pay' FROM employees;"
+    },
+    "c1055": {
+      "front": "In what order are the SELECT clauses written?",
+      "back": "SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY, and OFFSET/FETCH last. WHERE after ORDER BY raises ORA-00933 (ORA-03048 in 23ai).",
+      "try_sql": "-- WHERE after ORDER BY: wrong clause order\nSELECT last_name FROM employees ORDER BY last_name WHERE salary > 5000;"
+    },
+    "c1056": {
+      "front": "SELECT e.department_id, DISTINCT e.job_title ...: what happens?",
+      "back": "Error ORA-00936: missing expression (ORA-03045 in 23ai). DISTINCT is written only once, right after SELECT, and always applies to the whole row.",
+      "try_sql": "-- DISTINCT in the middle of the SELECT list\nSELECT e.department_id, DISTINCT e.job_title FROM employees e;"
+    },
+    "c1057": {
+      "front": "DATE + n, DATE - DATE, DATE + DATE, DATE * 2: what do you get?",
+      "back": "DATE + n: a date n days later. DATE - DATE: the number of days between the dates (NUMBER). DATE + DATE: error ORA-00975. DATE * 2: error ORA-00932.",
+      "try_sql": "-- DATE + n and DATE - DATE work...\nSELECT hire_date + 30 AS plus_30, SYSDATE - hire_date AS dni FROM employees;\n-- ...DATE + DATE does not\nSELECT hire_date + hire_date FROM employees;"
+    },
+    "c1058": {
+      "front": "What is NULL / 0?",
+      "back": "NULL. If NULL takes part in an operation, the result is NULL and nothing is really divided. Only an ordinary number / 0 raises ORA-01476.",
+      "try_sql": "-- NULL / 0 is simply NULL...\nSELECT NULL / 0 AS wynik FROM dual;\n-- ...while a number / 0 is an error\nSELECT salary / 0 FROM employees;"
+    },
+    "c1059": {
+      "front": "What does SELECT q'[x]y]' FROM dual return?",
+      "back": "x]y. The string q'[...]' ends only where ] is followed by an apostrophe (]'). A ] followed by anything else is an ordinary character in the string.",
+      "try_sql": "-- ] without an apostrophe after it is an ordinary character\nSELECT q'[x]y]' AS t FROM dual;"
+    },
+    "c1060": {
+      "front": "Composite primary key (order_id, line_no): what must be unique?",
+      "back": "The pair of values together. order_id or line_no alone may repeat. A repeated pair raises ORA-00001, and NULL in either column raises ORA-01400.",
+      "try_sql": "-- A new pair (1001, 3) goes in, a repeated one (1001, 1) raises ORA-00001\nINSERT INTO order_items (order_id, line_no, product_id, quantity, unit_price) VALUES (1001, 3, 11, 1, 10);\nINSERT INTO order_items (order_id, line_no, product_id, quantity, unit_price) VALUES (1001, 1, 11, 1, 10);"
+    },
+    "c1061": {
+      "front": "Can a UNIQUE column hold NULL in several rows?",
+      "back": "Yes. NULL is never equal to another NULL, so they do not clash. Only repeated ordinary values raise ORA-00001. To forbid NULL, add NOT NULL (or use a primary key).",
+      "try_sql": "-- A second NULL in a UNIQUE column (email) goes in...\nINSERT INTO employees (employee_id, last_name, hire_date) VALUES (301, 'Nowy', SYSDATE);\nSELECT employee_id, last_name, email FROM employees WHERE email IS NULL;\n-- ...but a repeated value does not\nINSERT INTO employees (employee_id, last_name, email, hire_date) VALUES (302, 'Kopia', 'SKING', SYSDATE);"
+    }
+  }
+}

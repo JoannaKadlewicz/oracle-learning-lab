@@ -1,0 +1,116 @@
+{
+  "flashcards": {
+    "c043": {
+      "front": "UNION vs UNION ALL: how do they differ?",
+      "back": "UNION removes duplicates (it used to sort along the way). UNION ALL keeps all rows and is cheaper, because it does not look for duplicates.",
+      "try_sql": "-- UNION removes duplicates, UNION ALL keeps all rows\nSELECT\n  (SELECT COUNT(*) FROM (SELECT department_id FROM employees UNION SELECT department_id FROM departments)) AS u,\n  (SELECT COUNT(*) FROM (SELECT department_id FROM employees UNION ALL SELECT department_id FROM departments)) AS u_all\nFROM dual;"
+    },
+    "c044": {
+      "front": "ORDER BY in a compound query (for example with UNION)?",
+      "back": "Only once, at the very end. Use column names or aliases from the first SELECT, or position numbers, for example ORDER BY 1.",
+      "try_sql": "-- One ORDER BY at the very end: an alias from the first SELECT or a position number\nSELECT last_name AS name FROM employees\nUNION\nSELECT customer_name FROM customers\nORDER BY 1;"
+    },
+    "c045": {
+      "front": "Where do the column names of a compound query's result come from?",
+      "back": "From the first SELECT.",
+      "try_sql": "-- The result column is called NAME (from the first SELECT), not CUSTOMER\nSELECT last_name AS name FROM employees\nUNION\nSELECT customer_name AS customer FROM customers;"
+    },
+    "c046": {
+      "front": "Set operators and NULL?",
+      "back": "When comparing rows, NULL is treated as equal to another NULL (unlike with =). For example UNION keeps only one NULL.",
+      "try_sql": "-- Grant has department NULL, dual adds a second NULL: the result has only one\nSELECT department_id FROM employees\nUNION\nSELECT NULL FROM dual\nORDER BY 1;"
+    },
+    "c047": {
+      "front": "In what order do the set operators work?",
+      "back": "They all have the same precedence and run in order, from left to right. Parentheses let you change the order.",
+      "try_sql": "-- Left to right: (1 UNION ALL 1) MINUS 2 gives one row. With parentheses: two\nSELECT 1 AS x FROM dual UNION ALL SELECT 1 FROM dual MINUS SELECT 2 FROM dual;\nSELECT 1 AS x FROM dual UNION ALL (SELECT 1 FROM dual MINUS SELECT 2 FROM dual);"
+    },
+    "c406": {
+      "front": "INTERSECT vs IN / a join?",
+      "back": "INTERSECT returns rows without duplicates and matches NULL to NULL. IN and a join use =, so NULL never matches, and a join can repeat rows.",
+      "try_sql": "-- Customers 1 (US) and 5 (NULL): INTERSECT gives US and NULL without repeats, IN gives US twice\nSELECT country_code FROM customers\nINTERSECT\nSELECT country_code FROM customers WHERE customer_id IN (1, 5);\nSELECT c.country_code FROM customers c\nWHERE c.country_code IN (SELECT country_code FROM customers WHERE customer_id IN (1, 5));"
+    },
+    "c407": {
+      "front": "A UNION B INTERSECT C in Oracle 19c?",
+      "back": "It is evaluated as (A UNION B) INTERSECT C: the same precedence, left to right. Standard SQL would evaluate INTERSECT first.",
+      "try_sql": "-- (1 UNION 2) INTERSECT 2 gives only 2. With parentheses around INTERSECT: 1 and 2\nSELECT 1 AS x FROM dual UNION SELECT 2 FROM dual INTERSECT SELECT 2 FROM dual;\nSELECT 1 AS x FROM dual UNION (SELECT 2 FROM dual INTERSECT SELECT 2 FROM dual);"
+    },
+    "c408": {
+      "front": "MINUS: direction, duplicates, NULL?",
+      "back": "A MINUS B ≠ B MINUS A: the order matters. The result has no duplicates. A NULL in B removes only the rows with NULL in A; it does not wipe the whole result, as NOT IN does.",
+      "try_sql": "-- The direction matters: departments MINUS employees gives 40, the reverse gives NULL (Grant)\nSELECT department_id FROM departments MINUS SELECT department_id FROM employees;\nSELECT department_id FROM employees MINUS SELECT department_id FROM departments;"
+    },
+    "c409": {
+      "front": "EXCEPT, MINUS ALL, INTERSECT ALL in 19c?",
+      "back": "19c does not have them: there are only UNION, UNION ALL, INTERSECT and MINUS. EXCEPT and the ALL versions arrived in 21c."
+    },
+    "c410": {
+      "front": "ORDER BY with an alias from the second SELECT, or with a table alias (e.col)?",
+      "back": "Both fail with ORA-00904. Use a name or alias from the first SELECT, or a position number.",
+      "try_sql": "-- An alias from the second SELECT in ORDER BY: error\nSELECT last_name AS name FROM employees\nUNION\nSELECT customer_name AS cust FROM customers\nORDER BY cust;"
+    },
+    "c411": {
+      "front": "ORA-01789 vs ORA-01790?",
+      "back": "01789: the SELECTs return different numbers of columns. 01790: you mix type groups in the same position (for example NUMBER and VARCHAR2). Fix: add NULL as the missing column, or use TO_CHAR.",
+      "try_sql": "-- First: different numbers of columns (01789). Second: DATE and text (01790)\nSELECT employee_id, last_name FROM employees UNION SELECT department_id FROM departments;\nSELECT hire_date FROM employees UNION SELECT last_name FROM employees;"
+    },
+    "c1450": {
+      "front": "INTERSECT on two columns: when does a row get through?",
+      "back": "When the whole row (both values together) is in both parts. (20, Sales Rep) from Russell and from Partners matches, although they are different people: rows are compared, not people.",
+      "try_sql": "-- Russell (105) and Partners (106) are different people, but the row (20, Sales Rep) is the same\nSELECT department_id, job_title FROM employees WHERE employee_id = 105\nINTERSECT\nSELECT department_id, job_title FROM employees WHERE employee_id = 106;"
+    },
+    "c1451": {
+      "front": "INTERSECT vs IN when the column has NULLs?",
+      "back": "INTERSECT treats NULL as equal to NULL and can return a row with NULL. IN uses =, so NULL never matches. Example: country_code INTERSECT ... returns US and NULL, while IN returns only US.",
+      "try_sql": "-- INTERSECT returns US and NULL, IN only US (NULL = NULL is UNKNOWN)\nSELECT country_code FROM customers\nINTERSECT\nSELECT country_code FROM customers WHERE customer_id IN (3, 5);\nSELECT DISTINCT c.country_code FROM customers c\nWHERE c.country_code IN (SELECT country_code FROM customers WHERE customer_id IN (3, 5));"
+    },
+    "c1452": {
+      "front": "order_date INTERSECT DATE '2024-03-31', when the order was placed at 23:30?",
+      "back": "No row: set operators compare the whole date together with the time, and 23:30 is not midnight. Use TRUNC(order_date) in that part of the query.",
+      "try_sql": "-- Order 1006 has the time 23:30: without TRUNC there is no row, with TRUNC there is\nSELECT order_date FROM orders INTERSECT SELECT DATE '2024-03-31' FROM dual;\nSELECT TRUNC(order_date) FROM orders INTERSECT SELECT DATE '2024-03-31' FROM dual;"
+    },
+    "c1453": {
+      "front": "Does A UNION B INTERSECT C in Oracle mean A UNION (B INTERSECT C)?",
+      "back": "No. All set operators have the same precedence and run from top to bottom: (A UNION B) INTERSECT C, in 19c and still in 23ai. Force another order with parentheses.",
+      "try_sql": "-- Without parentheses: (A UNION B) INTERSECT C = 10, 20, 30. With parentheses, 40 appears too\nSELECT department_id FROM departments\nUNION SELECT department_id FROM employees\nINTERSECT SELECT department_id FROM employees WHERE salary > 10000;\nSELECT department_id FROM departments\nUNION (SELECT department_id FROM employees\n       INTERSECT SELECT department_id FROM employees WHERE salary > 10000);"
+    },
+    "c1454": {
+      "front": "MINUS ALL / INTERSECT ALL: 19c vs 23ai?",
+      "back": "19c: ORA-00928 missing SELECT keyword. 21c and 23ai: they work. MINUS ALL subtracts occurrences (1,1,1 MINUS ALL 1 = 1,1). INTERSECT ALL keeps the smaller of the two occurrence counts."
+    },
+    "c1455": {
+      "front": "EXCEPT in Oracle 19c and 23ai?",
+      "back": "19c: ORA-00933 SQL command not properly ended (use MINUS). 21c and 23ai: EXCEPT is a synonym for MINUS, and EXCEPT ALL for MINUS ALL."
+    },
+    "c1456": {
+      "front": "A MINUS (SELECT with NULL) vs NOT IN (SELECT with NULL)?",
+      "back": "MINUS: the NULL removes only the row with NULL from A, the rest stays. NOT IN: returns nothing, because a comparison with NULL gives UNKNOWN.",
+      "try_sql": "-- B has a NULL (Grant). MINUS: department 40 remains. NOT IN: nothing\nSELECT department_id FROM departments MINUS SELECT department_id FROM employees;\nSELECT department_id FROM departments\nWHERE department_id NOT IN (SELECT department_id FROM employees);"
+    },
+    "c1457": {
+      "front": "ORA-01789 in (id, name) MINUS (id): is adding NULL in the second part a fix?",
+      "back": "The query runs, but (id, name) never equals (id, NULL), so nothing is subtracted. Use the same columns in both parts (join the name in), or do the MINUS on the key alone in an IN subquery.",
+      "try_sql": "-- With NULL the query runs but subtracts nothing (5 customers). MINUS on the key: only Umbrella\nSELECT customer_id, customer_name FROM customers\nMINUS SELECT customer_id, NULL FROM orders;\nSELECT customer_id, customer_name FROM customers\nWHERE customer_id IN (SELECT customer_id FROM customers MINUS SELECT customer_id FROM orders);"
+    },
+    "c1458": {
+      "front": "A UNION ALL B UNION C: do the duplicates from A and B stay?",
+      "back": "No. In order: (A UNION ALL B) UNION C, and the final UNION removes duplicates from the whole result so far. On the other hand, A UNION B UNION ALL C keeps all rows from C.",
+      "try_sql": "-- A final UNION removes duplicates from the whole: 1, 2. A final UNION ALL keeps the repeat: 1, 1\nSELECT 1 AS x FROM dual UNION ALL SELECT 1 FROM dual UNION SELECT 2 FROM dual;\nSELECT 1 AS x FROM dual UNION SELECT 1 FROM dual UNION ALL SELECT 1 FROM dual;"
+    },
+    "c1459": {
+      "front": "Which pairs of column types match in a compound query?",
+      "back": "Those from the same type group: NUMBER/BINARY_DOUBLE, CHAR/VARCHAR2, DATE/TIMESTAMP, and NULL matches everything. NUMBER or DATE with a string literal: ORA-01790 (no automatic conversion).",
+      "try_sql": "-- NUMBER with NULL works; DATE with a string literal raises ORA-01790\nSELECT salary FROM employees UNION SELECT NULL FROM dual;\nSELECT hire_date FROM employees UNION SELECT '2024-01-01' FROM dual;"
+    },
+    "c1460": {
+      "front": "ORDER BY UPPER(name) at the end of a UNION?",
+      "back": "ORA-01785: ORDER BY item must be the number of a SELECT-list expression. Only result column names/aliases or positions are allowed. To sort by an expression, wrap the whole compound query in an inline view.",
+      "try_sql": "-- An expression in a compound query's ORDER BY: error. An inline view: works\nSELECT last_name AS name FROM employees UNION SELECT customer_name FROM customers ORDER BY UPPER(name);\nSELECT name FROM (SELECT last_name AS name FROM employees UNION SELECT customer_name FROM customers)\nORDER BY UPPER(name);"
+    },
+    "c1461": {
+      "front": "(SELECT ... ORDER BY x) UNION SELECT ...: is that allowed?",
+      "back": "No: ORA-00907 missing right parenthesis. ORDER BY is allowed in an inline view in FROM, but the result of a compound query has no order without a final ORDER BY anyway.",
+      "try_sql": "-- ORDER BY in parentheses in a part of a compound query: error\nSELECT customer_name FROM customers\nUNION\n(SELECT last_name FROM employees ORDER BY last_name);"
+    }
+  }
+}

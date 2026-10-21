@@ -1,0 +1,129 @@
+{
+  "flashcards": {
+    "c018": {
+      "front": "How do NVL, NVL2, COALESCE and NULLIF differ?",
+      "back": "NVL(a,b): b when a is NULL. NVL2(a,x,y): x when a is NOT NULL, otherwise y. COALESCE: the first value that is not NULL; the arguments must be of the same type family, and evaluation stops at the first one found. NULLIF(a,b): NULL when a=b, otherwise a.",
+      "try_sql": "-- Predict each column: NVL, NVL2, COALESCE, NULLIF\nSELECT NVL(NULL, 'b') AS nvl_r,\n       NVL2(1, 'x', 'y') AS nvl2_r,\n       COALESCE(NULL, NULL, 'c') AS coalesce_r,\n       NULLIF(5, 5) AS nullif_r\nFROM   dual;"
+    },
+    "c019": {
+      "front": "How do DECODE and CASE treat NULL?",
+      "back": "DECODE considers NULL and NULL equal, so they match. A simple CASE compares with =, so WHEN NULL never matches. Use CASE WHEN x IS NULL.",
+      "try_sql": "-- Employee 108 has no department: DECODE matches the NULL, a simple CASE does not\nSELECT e.employee_id,\n       DECODE(e.department_id, NULL, 'brak', 'jest') AS by_decode,\n       CASE e.department_id WHEN NULL THEN 'brak' ELSE 'jest' END AS by_case,\n       CASE WHEN e.department_id IS NULL THEN 'brak' ELSE 'jest' END AS by_is_null\nFROM   employees e\nWHERE  e.employee_id IN (107, 108);"
+    },
+    "c020": {
+      "front": "What does fm do in a format?",
+      "back": "Fill mode: it removes leading zeros and padding spaces (for example with names from Month and Day). It works as a toggle: a second fm turns it off again.",
+      "try_sql": "-- Compare the brackets: without fm, with fm, and with fm a second time (turns it off)\nSELECT '[' || TO_CHAR(DATE '2024-03-05', 'DD Month YYYY') || ']' AS bez_fm,\n       '[' || TO_CHAR(DATE '2024-03-05', 'fmDD Month YYYY') || ']' AS z_fm,\n       '[' || TO_CHAR(DATE '2024-03-05', 'fmDD fmMonth YYYY') || ']' AS fm_dwa_razy\nFROM   dual;"
+    },
+    "c021": {
+      "front": "What does TO_CHAR(1234.5, '999.99') return?",
+      "back": "####### (7 characters, no error): the mask is too small for the number. A number mask also has one leading place for the sign, so the width is the mask length plus one.",
+      "try_sql": "-- The mask is too narrow: only # instead of an error\nSELECT TO_CHAR(1234.5, '999.99') AS za_mala,\n       TO_CHAR(1234.5, '9999.99') AS pasuje\nFROM   dual;"
+    },
+    "c022": {
+      "front": "Why is it better to avoid WHERE d > '31/03/2024'?",
+      "back": "Because the string is converted to a date with the session's NLS_DATE_FORMAT. Another session may have a different format, and you get an error. Use DATE '2024-03-31' or TO_DATE('31/03/2024', 'DD/MM/YYYY').",
+      "try_sql": "-- The string literal is converted with the session's NLS_DATE_FORMAT (here YYYY-MM-DD ...), so this is an error\nSELECT COUNT(*) FROM orders o WHERE o.order_date > TO_DATE('31/03/2024', 'DD/MM/YYYY');\nSELECT COUNT(*) FROM orders o WHERE o.order_date > '31/03/2024';"
+    },
+    "c023": {
+      "front": "Does case matter in a format?",
+      "back": "Yes. The case of the element sets the case of the result: MONTH → MARCH, Month → March, month → march. The th suffix: DDth → 05TH. sp spells the number out: DDSP → FIVE.",
+      "try_sql": "-- Case of the element = case of the result; th and sp\nSELECT TO_CHAR(DATE '2024-03-05', 'MONTH') AS up,\n       TO_CHAR(DATE '2024-03-05', 'Month') AS cap,\n       TO_CHAR(DATE '2024-03-05', 'month') AS low,\n       TO_CHAR(DATE '2024-03-05', 'DDth') AS th,\n       TO_CHAR(DATE '2024-03-05', 'DDSP') AS sp\nFROM   dual;"
+    },
+    "c024": {
+      "front": "How does RR differ from YY in a year format?",
+      "back": "For a 2-digit year, RR picks the century depending on the current year (the 00–49 and 50–99 rule). YY always takes the current century.",
+      "try_sql": "-- Year '99': RR picks the previous century, YY takes the current one\nSELECT TO_CHAR(TO_DATE('99', 'RR'), 'YYYY') AS rr,\n       TO_CHAR(TO_DATE('99', 'YY'), 'YYYY') AS yy\nFROM   dual;"
+    },
+    "c210": {
+      "front": "In what order are nested functions evaluated, and how deep can they be nested?",
+      "back": "From the inside out: each function gets the result of the function inside it. Single-row functions can be nested to any depth, group functions only to two levels.",
+      "try_sql": "-- From the inside out: SUBSTR, then UPPER, then LPAD\nSELECT LPAD(UPPER(SUBSTR(e.last_name, 1, 3)), 5, '*') AS nested\nFROM   employees e\nWHERE  e.employee_id = 100;\n-- Group functions: at most two levels (MAX of AVG per department)\nSELECT MAX(AVG(e.salary)) AS max_avg FROM employees e GROUP BY e.department_id;"
+    },
+    "c211": {
+      "front": "How do you show 'No manager' when the NUMBER column manager_id is NULL?",
+      "back": "NVL(TO_CHAR(e.manager_id), 'No manager'). The inner TO_CHAR makes both arguments text. NVL(e.manager_id, 'No manager') raises ORA-01722.",
+      "try_sql": "-- The first query works (TO_CHAR inside), the second raises an error\nSELECT e.employee_id, NVL(TO_CHAR(e.manager_id), 'No manager') AS manager\nFROM   employees e\nWHERE  e.employee_id IN (100, 101);\nSELECT NVL(e.manager_id, 'No manager') AS manager\nFROM   employees e\nWHERE  e.employee_id = 100;"
+    },
+    "c212": {
+      "front": "A VARCHAR2 column compared with a number: which side is converted?",
+      "back": "The text side is converted to NUMBER: WHERE email = 100 converts every email and raises ORA-01722 when it hits text that is not a number. The operator decides the direction: '10' + 5 = 15, '10' || 5 = '105'.",
+      "try_sql": "-- The operator decides the direction: + gives a number, || gives text\nSELECT '10' + 5 AS plus, '10' || 5 AS concat FROM dual;\n-- Every email is converted to NUMBER: error\nSELECT COUNT(*) FROM employees e WHERE e.email = 100;"
+    },
+    "c213": {
+      "front": "TO_CHAR(1234.5, 'fm9,999.99') vs 'fm9,999.00': what comes out?",
+      "back": "'1,234.5' and '1,234.50'. In number masks, fm removes the sign space and the trailing zeros in 9 positions. 0 positions are always printed.",
+      "try_sql": "-- fm with 9 cuts the trailing zero, 0 is always printed\nSELECT TO_CHAR(1234.5, 'fm9,999.99') AS z_9,\n       TO_CHAR(1234.5, 'fm9,999.00') AS z_0\nFROM   dual;"
+    },
+    "c214": {
+      "front": "DECODE without a default value, and result types in CASE?",
+      "back": "DECODE returns NULL when nothing matches and there is no default. The result type of DECODE comes from the first result. All results of a CASE must be of the same type family, otherwise ORA-00932.",
+      "try_sql": "-- DECODE without a default gives NULL outside department 10\nSELECT e.employee_id, DECODE(e.department_id, 10, 'Admin') AS dept\nFROM   employees e\nWHERE  e.employee_id IN (100, 101);\n-- CASE with NUMBER and text in its results: error\nSELECT CASE WHEN 1 = 1 THEN 1 ELSE 'x' END AS r FROM dual;"
+    },
+    "c215": {
+      "front": "When does TO_DATE reject a string?",
+      "back": "When the date does not exist (TO_DATE('2024-02-30', 'YYYY-MM-DD'): ORA-01839) and, with the fx modifier, when the string does not match exactly ('2024-3-5' with fxYYYY-MM-DD). Without fx it accepts other separators and missing leading zeros.",
+      "try_sql": "-- Without fx: other separators and missing leading zeros are fine\nSELECT TO_DATE('2024/3/5', 'YYYY-MM-DD') AS ok FROM dual;\n-- 30 February does not exist: error\nSELECT TO_DATE('2024-02-30', 'YYYY-MM-DD') AS bad FROM dual;"
+    },
+    "c1250": {
+      "front": "COALESCE(1, 1/0) vs NVL(1, 1/0): what comes out?",
+      "back": "1, and error ORA-01476. COALESCE stops at the first argument that is not NULL and evaluates no further. NVL always evaluates both arguments.",
+      "try_sql": "-- COALESCE stops at 1, while NVL also evaluates 1/0\nSELECT COALESCE(1, 1/0) AS c FROM dual;\nSELECT NVL(1, 1/0) AS n FROM dual;"
+    },
+    "c1251": {
+      "front": "What does DECODE(e.department_id, 10, 100, 'n/a') give?",
+      "back": "ORA-01722 for rows outside department 10. The result type of DECODE is the type of the first result (NUMBER), so 'n/a' must become a number, and it cannot. A CASE with different types raises ORA-00932 instead.",
+      "try_sql": "-- Result type = NUMBER (the first result), so 'n/a' raises an error\nSELECT e.employee_id, DECODE(e.department_id, 10, 100, 'n/a') AS r\nFROM   employees e;"
+    },
+    "c1252": {
+      "front": "DATE '2024-03-01' + '1' vs '2024-03-01' + 1: what comes out?",
+      "back": "2024-03-02, and ORA-01722. With +, text is converted to NUMBER, never to DATE.",
+      "try_sql": "-- With +, text becomes NUMBER: the first works, the second does not\nSELECT DATE '2024-03-01' + '1' AS d FROM dual;\nSELECT '2024-03-01' + 1 AS d FROM dual;"
+    },
+    "c1253": {
+      "front": "Do e.salary LIKE '6%' and e.hire_date LIKE '%-01-%' work (salary NUMBER, hire_date DATE)?",
+      "back": "Both work, because Oracle converts the value to text itself: the number becomes '6000', and the date is written with NLS_DATE_FORMAT. That is why the second result depends on the session settings.",
+      "try_sql": "-- LIKE on NUMBER and DATE: implicit conversion to text (the date with NLS_DATE_FORMAT)\nSELECT e.last_name, e.salary FROM employees e WHERE e.salary LIKE '6%';\nSELECT e.last_name, e.hire_date FROM employees e WHERE e.hire_date LIKE '%-01-%';"
+    },
+    "c1254": {
+      "front": "What does WHERE e.employee_id IN ('100', 'abc') give?",
+      "back": "ORA-01722: every value in the list is converted to NUMBER, and 'abc' cannot be. Oracle does not skip bad values.",
+      "try_sql": "-- 'abc' cannot be converted to NUMBER: an error for the whole query\nSELECT e.employee_id FROM employees e WHERE e.employee_id IN ('100', 'abc');"
+    },
+    "c1255": {
+      "front": "What do the number format elements MI, PR, S, L, C, G, D mean?",
+      "back": "MI: a trailing minus (1,234.50-). PR: negative numbers in angle brackets <1,234.50>. S: a + or - sign. L: the local currency (NLS_CURRENCY), C: the ISO code (USD). G/D: the group and decimal separators from NLS; do not mix them with , and . (ORA-01481).",
+      "try_sql": "-- Predict each result; at the end, mixing G with . raises an error\nSELECT TO_CHAR(-1234.5, '9,999.00MI') AS mi,\n       TO_CHAR(-1234.5, '9,999.00PR') AS pr,\n       TO_CHAR(1234.5, 'S9,999.00') AS s,\n       TO_CHAR(1234.5, 'fmL9,999.00') AS l,\n       TO_CHAR(1234.5, 'fmC9,999.00') AS c,\n       TO_CHAR(1234.5, '9G999D00') AS gd\nFROM   dual;\nSELECT TO_CHAR(1234.5, '9G999.00') AS mix FROM dual;"
+    },
+    "c1256": {
+      "front": "TO_CHAR(1234.5, 'L9,999.00') vs 'fmL9,999.00': what comes out?",
+      "back": "'          $1,234.50' (L pads with spaces to a fixed width) and '$1,234.50'. fm removes those spaces.",
+      "try_sql": "-- L pads with spaces to a fixed width, fm removes them\nSELECT '[' || TO_CHAR(1234.5, 'L9,999.00') || ']' AS l,\n       '[' || TO_CHAR(1234.5, 'fmL9,999.00') || ']' AS fm_l\nFROM   dual;"
+    },
+    "c1257": {
+      "front": "What does TO_DATE('2024', 'YYYY') return?",
+      "back": "The 1st day of the CURRENT month in 2024, at midnight. Missing elements get default values: the current year and month, day 1 and time 00:00:00.",
+      "try_sql": "-- Missing elements: the current month, day 1, midnight\nSELECT TO_DATE('2024', 'YYYY') AS d, SYSDATE AS teraz FROM dual;"
+    },
+    "c1258": {
+      "front": "RR for 49, 50 and a four-digit year (current year 2000-2049)?",
+      "back": "'49' -> 2049, '50' -> 1950, '1950' stays 1950. YY always takes the current century: '99' -> 2099.",
+      "try_sql": "-- RR: 49 -> 20xx, 50 -> 19xx, 4 digits unchanged; YY: the current century\nSELECT TO_CHAR(TO_DATE('49', 'RR'), 'YYYY') AS rr49,\n       TO_CHAR(TO_DATE('50', 'RR'), 'YYYY') AS rr50,\n       TO_CHAR(TO_DATE('1950', 'RR'), 'YYYY') AS rr1950,\n       TO_CHAR(TO_DATE('99', 'YY'), 'YYYY') AS yy99\nFROM   dual;"
+    },
+    "c1259": {
+      "front": "What does TO_DATE('2024-03-05 10:30', 'YYYY-MM-DD') give?",
+      "back": "ORA-01830: the format ends before the whole string is read. The other way round is fine: a format longer than the string (with HH24:MI) works and gives midnight.",
+      "try_sql": "-- A format longer than the string works (midnight), a shorter one raises an error\nSELECT TO_DATE('2024-03-05', 'YYYY-MM-DD HH24:MI') AS ok FROM dual;\nSELECT TO_DATE('2024-03-05 10:30', 'YYYY-MM-DD') AS bad FROM dual;"
+    },
+    "c1260": {
+      "front": "What does NVL(TO_CHAR(NULL) || '%', 'none') return?",
+      "back": "'%'. Joining with || skips NULL, so NVL never gets a NULL. Test the column itself: NVL2(col, TO_CHAR(col) || '%', 'none').",
+      "try_sql": "-- || skips NULL, so NVL never sees NULL; NVL2 tests the column itself\nSELECT e.employee_id,\n       NVL(TO_CHAR(e.commission_pct) || '%', 'none') AS zle,\n       NVL2(e.commission_pct, TO_CHAR(e.commission_pct) || '%', 'none') AS dobrze\nFROM   employees e\nWHERE  e.employee_id IN (100, 101);"
+    },
+    "c1261": {
+      "front": "LENGTH(TO_CHAR(DATE '2024-05-05', 'Month')) vs the same with fmMonth?",
+      "back": "9 and 3. Month is padded with spaces to 9 characters (September), and fm removes those spaces. The inner function is evaluated first, then LENGTH.",
+      "try_sql": "-- Month has 9 characters with spaces, fmMonth only 3\nSELECT LENGTH(TO_CHAR(DATE '2024-05-05', 'Month')) AS month_len,\n       LENGTH(TO_CHAR(DATE '2024-05-05', 'fmMonth')) AS fm_len\nFROM   dual;"
+    }
+  }
+}

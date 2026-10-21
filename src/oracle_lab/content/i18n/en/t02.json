@@ -1,0 +1,116 @@
+{
+  "flashcards": {
+    "c005": {
+      "front": "In what order do the logical operators work?",
+      "back": "First NOT, then AND, OR last. Comparisons (=, >, LIKE…) are evaluated even earlier. a OR b AND c means a OR (b AND c). When in doubt, add parentheses.",
+      "try_sql": "-- AND binds tighter than OR: compare the results\nSELECT last_name, job_title, salary FROM employees\nWHERE  job_title = 'Programmer' OR job_title = 'Sales Rep' AND salary > 5000;\nSELECT last_name, job_title, salary FROM employees\nWHERE  (job_title = 'Programmer' OR job_title = 'Sales Rep') AND salary > 5000;"
+    },
+    "c006": {
+      "front": "Where do NULLs go by default when sorting?",
+      "back": "Oracle treats NULL as the largest value. With ASC the NULLs come last, with DESC first. You can change this: NULLS FIRST or NULLS LAST.",
+      "try_sql": "-- Where are the NULLs in commission_pct?\nSELECT last_name, commission_pct FROM employees ORDER BY commission_pct;\nSELECT last_name, commission_pct FROM employees ORDER BY commission_pct DESC;\nSELECT last_name, commission_pct FROM employees ORDER BY commission_pct DESC NULLS LAST;"
+    },
+    "c007": {
+      "front": "What does the row-limiting clause look like (since 12c)?",
+      "back": "ORDER BY ... OFFSET n ROWS FETCH {FIRST|NEXT} m [PERCENT] ROWS {ONLY|WITH TIES}. OFFSET skips n rows, FETCH takes the next m. WITH TIES needs ORDER BY.",
+      "try_sql": "-- Skip 1 row, take the next 3\nSELECT last_name, salary FROM employees ORDER BY salary DESC\nOFFSET 1 ROWS FETCH NEXT 3 ROWS ONLY;\n-- WITH TIES: 5 rows + the tie at 6000\nSELECT last_name, salary FROM employees ORDER BY salary DESC\nFETCH FIRST 5 ROWS WITH TIES;"
+    },
+    "c008": {
+      "front": "How do you search for a real % or _ with LIKE?",
+      "back": "Declare an escape character with ESCAPE: name LIKE '%\\_%' ESCAPE '\\'. Then \\_ means an ordinary underscore, not \"any single character\".",
+      "try_sql": "-- Without ESCAPE, _ is any character; with ESCAPE it is a real underscore\nWITH t AS (SELECT 'job_code' AS name FROM dual UNION ALL SELECT 'jobcode' FROM dual)\nSELECT name FROM t WHERE name LIKE '%_%';\nWITH t AS (SELECT 'job_code' AS name FROM dual UNION ALL SELECT 'jobcode' FROM dual)\nSELECT name FROM t WHERE name LIKE '%\\_%' ESCAPE '\\';"
+    },
+    "c009": {
+      "front": "& vs && in substitution variables: what is the difference?",
+      "back": "&var asks for a value at every use (unless the variable is already defined) and does not remember it. &&var asks once and keeps the value until the end of the session (or until UNDEFINE). SET VERIFY ON shows the old/new lines."
+    },
+    "c010": {
+      "front": "What is x BETWEEN a AND b equal to?",
+      "back": "x >= a AND x <= b. Both limits are included. If a > b (for example BETWEEN 10 AND 5), nothing matches.",
+      "try_sql": "-- Both limits are included...\nSELECT last_name, salary FROM employees WHERE salary BETWEEN 4800 AND 6000;\n-- ...and reversed limits match nothing\nSELECT last_name, salary FROM employees WHERE salary BETWEEN 6000 AND 4800;"
+    },
+    "c106": {
+      "front": "Why do you write '&name' for text, not &name?",
+      "back": "SQL*Plus only pastes the text in before sending the statement. Without the quotes King becomes a column name and you get ORA-00904. Numbers need no quotes.",
+      "try_sql": "-- This is the statement after substituting &name without quotes\nSELECT last_name FROM employees WHERE last_name = King;"
+    },
+    "c107": {
+      "front": "How do you stop SQL*Plus from prompting for a value at the & in 'R&D'?",
+      "back": "SET DEFINE OFF (turn it back on with SET DEFINE ON). SET VERIFY OFF does not help: it only hides the old/new lines."
+    },
+    "c108": {
+      "front": "DEFINE, DEFINE x, DEFINE x = v, UNDEFINE x: what do they do?",
+      "back": "DEFINE shows all variables. DEFINE x shows one. DEFINE x = v creates a CHAR variable that is used without prompting. UNDEFINE x removes it, so &x prompts again."
+    },
+    "c109": {
+      "front": "What does SET VERIFY ON / OFF do?",
+      "back": "ON (the default): SQL*Plus prints old N: and new N: lines, that is, each line with a variable before and after substitution. OFF hides them, but substitution still works."
+    },
+    "c110": {
+      "front": "What can ORDER BY refer to?",
+      "back": "A column (even one not selected), an expression, an alias or a position number in the SELECT list. With DISTINCT or set operators (UNION…) only to what is in the SELECT list (otherwise ORA-01791). A bad position number: ORA-01785.",
+      "try_sql": "-- Sorting by a column not in SELECT works...\nSELECT last_name FROM employees ORDER BY salary;\n-- ...but not with DISTINCT (ORA-01791)\nSELECT DISTINCT job_title FROM employees ORDER BY salary;"
+    },
+    "c111": {
+      "front": "What does col NOT IN (1, 2, NULL) return?",
+      "back": "No rows. It means col <> 1 AND col <> 2 AND col <> NULL, and the last test always gives UNKNOWN. IN (1, 2, NULL) works normally.",
+      "try_sql": "-- IN with NULL works, NOT IN with NULL returns nothing\nSELECT last_name, department_id FROM employees WHERE department_id IN (10, 20, NULL);\nSELECT last_name, department_id FROM employees WHERE department_id NOT IN (10, 20, NULL);"
+    },
+    "c1100": {
+      "front": "What does 'Total: ' || 10 + 5 return?",
+      "back": "Error ORA-01722. ||, + and - have the same precedence and work from left to right, so 'Total: 10' is built first and then 'Total: 10' + 5 fails. Write 'Total: ' || (10 + 5). On the other hand, 5 + 10 || ' total' gives 15 total.",
+      "try_sql": "-- Left to right: (5 + 10) || ' total' works...\nSELECT 5 + 10 || ' total' AS ok FROM dual;\n-- ...but ('Total: ' || 10) + 5 does not\nSELECT 'Total: ' || 10 + 5 AS zle FROM dual;"
+    },
+    "c1101": {
+      "front": "What is NOT (a OR b) equal to? And NOT (a AND b)?",
+      "back": "NOT (a OR b) = NOT a AND NOT b. NOT (a AND b) = NOT a OR NOT b (De Morgan's laws). NOT without parentheses negates only the nearest condition.",
+      "try_sql": "-- De Morgan: both queries return the same rows\nSELECT last_name FROM employees WHERE NOT (department_id = 30 OR salary > 10000);\nSELECT last_name FROM employees WHERE department_id <> 30 AND salary <= 10000;"
+    },
+    "c1102": {
+      "front": "FETCH FIRST 2.7 ROWS ONLY, FETCH FIRST 0 ROWS ONLY, OFFSET 20 ROWS with 9 rows?",
+      "back": "2 rows (the fraction is truncated), 0 rows, 0 rows. None of them raises an error.",
+      "try_sql": "-- Predict: 2 rows, 0 rows, 0 rows, no errors\nSELECT last_name FROM employees ORDER BY salary FETCH FIRST 2.7 ROWS ONLY;\nSELECT last_name FROM employees ORDER BY salary FETCH FIRST 0 ROWS ONLY;\nSELECT last_name FROM employees ORDER BY salary OFFSET 20 ROWS;"
+    },
+    "c1103": {
+      "front": "How many rows does FETCH FIRST n PERCENT ROWS return?",
+      "back": "CEIL(n / 100 * number of rows), that is, rounded up. Example: 25 PERCENT of 9 rows is 2.25, so you get 3. WITH TIES may add rows tied with the last one.",
+      "try_sql": "-- 25% of 9 rows = 2.25 -> rounded up to 3\nSELECT COUNT(*) AS wszystkie FROM employees;\nSELECT last_name, salary FROM employees ORDER BY salary FETCH FIRST 25 PERCENT ROWS ONLY;"
+    },
+    "c1104": {
+      "front": "In what order do you write ORDER BY, OFFSET and FETCH?",
+      "back": "ORDER BY ... OFFSET n ROWS FETCH NEXT m ROWS ONLY. FETCH before OFFSET raises ORA-00933 (ORA-03049 in 23ai). Oracle has no LIMIT.",
+      "try_sql": "-- The right order: OFFSET, then FETCH...\nSELECT last_name FROM employees ORDER BY salary OFFSET 1 ROWS FETCH NEXT 2 ROWS ONLY;\n-- ...the reverse raises an error\nSELECT last_name FROM employees ORDER BY salary FETCH NEXT 2 ROWS ONLY OFFSET 1 ROWS;"
+    },
+    "c1105": {
+      "front": "What does WHERE ROWNUM <= 3 ORDER BY salary return?",
+      "back": "Three arbitrary rows, sorted only afterwards: ROWNUM is assigned before ORDER BY. Sort in a subquery and filter ROWNUM outside, or use ORDER BY ... FETCH FIRST 3 ROWS ONLY.",
+      "try_sql": "-- ROWNUM before ORDER BY: these are not the 3 lowest salaries\nSELECT last_name, salary FROM employees WHERE ROWNUM <= 3 ORDER BY salary;\n-- Correct: sort first, then cut\nSELECT last_name, salary FROM employees ORDER BY salary FETCH FIRST 3 ROWS ONLY;"
+    },
+    "c1106": {
+      "front": "Does NULL match NOT BETWEEN 20 AND 30?",
+      "back": "No. NOT BETWEEN is col < 20 OR col > 30, and for NULL the result is UNKNOWN. A row with NULL drops out with BETWEEN, NOT BETWEEN, IN and NOT IN.",
+      "try_sql": "-- Grant (department_id NULL) matches neither BETWEEN nor NOT BETWEEN\nSELECT last_name, department_id FROM employees WHERE department_id BETWEEN 20 AND 30;\nSELECT last_name, department_id FROM employees WHERE department_id NOT BETWEEN 20 AND 30;"
+    },
+    "c1107": {
+      "front": "An undefined &id appears twice in one statement. How many times does SQL*Plus prompt?",
+      "back": "Twice, and you can give different values. &&id (or an earlier DEFINE id) prompts once and uses that value everywhere."
+    },
+    "c1108": {
+      "front": "After DEFINE pre = emp, what does FROM &pre.loyees become?",
+      "back": "FROM employees. The period ends the variable name and disappears. If you want a real period after a variable, write two: .."
+    },
+    "c1109": {
+      "front": "What does DEFINE job = Sales Rep store?",
+      "back": "Only Sales (DEFINE JOB = \"Sales\" (CHAR)). An unquoted value ends at the first space. Write DEFINE job = 'Sales Rep'."
+    },
+    "c1110": {
+      "front": "dept is defined; SET DEFINE OFF; then &dept is used. What happens?",
+      "back": "&dept is not substituted and the statement fails (SP2-0552). The variable still exists: after SET DEFINE ON, &dept turns into its value again without prompting."
+    },
+    "c1111": {
+      "front": "ORDER BY w for 'apple', 'Banana', 'cherry' (NLS_SORT = BINARY)?",
+      "back": "Banana, apple, cherry. A binary sort puts all uppercase letters before lowercase ones. To sort regardless of case, use ORDER BY UPPER(w).",
+      "try_sql": "-- BINARY: uppercase before lowercase; UPPER sorts regardless of case\nWITH t AS (SELECT 'apple' AS w FROM dual UNION ALL SELECT 'Banana' FROM dual UNION ALL SELECT 'cherry' FROM dual)\nSELECT w FROM t ORDER BY w;\nWITH t AS (SELECT 'apple' AS w FROM dual UNION ALL SELECT 'Banana' FROM dual UNION ALL SELECT 'cherry' FROM dual)\nSELECT w FROM t ORDER BY UPPER(w);"
+    }
+  }
+}

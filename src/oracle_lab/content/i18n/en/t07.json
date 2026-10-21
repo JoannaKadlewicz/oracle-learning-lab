@@ -1,0 +1,124 @@
+{
+  "flashcards": {
+    "c037": {
+      "front": "What happens when a NOT IN list contains NULL?",
+      "back": "The query returns no rows. x NOT IN (1, NULL) is never TRUE, because a comparison with NULL gives UNKNOWN. Use NOT EXISTS or filter the NULLs out in the subquery (WHERE ... IS NOT NULL).",
+      "try_sql": "-- manager_id contains a NULL (King): NOT IN returns nothing, NOT EXISTS works\nSELECT e.last_name FROM employees e\nWHERE e.employee_id NOT IN (SELECT m.manager_id FROM employees m);\nSELECT e.last_name FROM employees e\nWHERE NOT EXISTS (SELECT 1 FROM employees m WHERE m.manager_id = e.employee_id);"
+    },
+    "c038": {
+      "front": "> ALL and > ANY when the subquery returns no rows?",
+      "back": "> ALL (empty set) is TRUE for every row: there is nothing to \"lose\" against. > ANY (empty set) is FALSE: there is nothing to \"win\" against, so 0 rows.",
+      "try_sql": "-- Empty set: > ALL lets all 9 rows through, > ANY none\nSELECT\n  (SELECT COUNT(*) FROM employees e WHERE e.salary > ALL (SELECT salary FROM employees WHERE 1 = 0)) AS all_cnt,\n  (SELECT COUNT(*) FROM employees e WHERE e.salary > ANY (SELECT salary FROM employees WHERE 1 = 0)) AS any_cnt\nFROM dual;"
+    },
+    "c039": {
+      "front": "What do ANY and ALL correspond to?",
+      "back": "= ANY is the same as IN. <> ALL is the same as NOT IN. > ALL means: greater than the MAX. < ANY means: less than the MAX.",
+      "try_sql": "-- > ALL gives the same as > MAX: compare both results\nSELECT e.last_name, e.salary FROM employees e\nWHERE e.salary > ALL (SELECT salary FROM employees WHERE department_id = 20);\nSELECT e.last_name, e.salary FROM employees e\nWHERE e.salary > (SELECT MAX(salary) FROM employees WHERE department_id = 20);"
+    },
+    "c040": {
+      "front": "A scalar subquery returns 0 rows, or 2 or more. What then?",
+      "back": "0 rows → the result is NULL. 2 or more rows → error ORA-01427.",
+      "try_sql": "-- Department 40 has no employees: NULL. Department 30 has four: ORA-01427\nSELECT (SELECT last_name FROM employees WHERE department_id = 40) AS zero_wierszy FROM dual;\nSELECT (SELECT last_name FROM employees WHERE department_id = 30) AS wiele_wierszy FROM dual;"
+    },
+    "c041": {
+      "front": "What is a correlated subquery?",
+      "back": "A subquery that uses a column of the outer query, for example WHERE e2.department_id = e.department_id. Logically it is evaluated again for each row of the outer query.",
+      "try_sql": "-- The subquery uses e.department_id: the average is computed for each employee's department\nSELECT e.last_name, e.department_id, e.salary\nFROM employees e\nWHERE e.salary > (SELECT AVG(e2.salary) FROM employees e2\n                  WHERE e2.department_id = e.department_id);"
+    },
+    "c042": {
+      "front": "Where can you put a subquery?",
+      "back": "In the SELECT list (scalar), in FROM (an inline view), in WHERE and in HAVING. In DML: INSERT ... SELECT, UPDATE SET column = (subquery), and also as the target of a DML statement.",
+      "try_sql": "-- Subqueries in SELECT (scalar), in FROM (inline view) and in WHERE\nSELECT d.department_name,\n       (SELECT COUNT(*) FROM employees e WHERE e.department_id = d.department_id) AS cnt\nFROM (SELECT department_id, department_name FROM departments) d\nWHERE d.department_id IN (SELECT department_id FROM employees);"
+    },
+    "c400": {
+      "front": "A correlated UPDATE without WHERE: what about the rows for which the subquery finds nothing?",
+      "back": "They are changed too: they get NULL (or 0 when the subquery uses COUNT). To change only the matching rows, add WHERE EXISTS with the same correlation condition.",
+      "try_sql": "-- Umbrella (4) has no orders: without WHERE EXISTS it is changed too (NULL)\nUPDATE customers c\nSET c.credit_limit = (SELECT MAX(o.order_id) FROM orders o WHERE o.customer_id = c.customer_id);\nSELECT customer_id, customer_name, credit_limit FROM customers ORDER BY customer_id;"
+    },
+    "c401": {
+      "front": "Does a correlated UPDATE/DELETE see its own earlier changes in the subquery?",
+      "back": "No. Each run of the subquery sees the data as it was at the start of the statement (statement-level read consistency).",
+      "try_sql": "-- If the subquery saw the changes, the salaries would keep growing. Everyone gets 24001\nUPDATE employees e SET e.salary = (SELECT MAX(e2.salary) + 1 FROM employees e2);\nSELECT DISTINCT salary FROM employees;"
+    },
+    "c402": {
+      "front": "How do you set two columns with one correlated subquery?",
+      "back": "UPDATE t a SET (a.c1, a.c2) = (SELECT b.x, b.y FROM s b WHERE b.id = a.id). The parentheses around the column list are required, and the number of columns must match (otherwise ORA-00947 or ORA-00913).",
+      "try_sql": "-- Two columns from one correlated subquery (parentheses around the list!)\nUPDATE employees e\nSET (e.salary, e.commission_pct) = (SELECT MAX(e2.salary), MAX(e2.commission_pct)\n                                    FROM employees e2 WHERE e2.department_id = e.department_id)\nWHERE e.department_id = 20;\nSELECT last_name, salary, commission_pct FROM employees WHERE department_id = 20;"
+    },
+    "c403": {
+      "front": "Correlated DELETE: how do you delete rows that have no match in another table?",
+      "back": "DELETE FROM t a WHERE NOT EXISTS (SELECT 1 FROM s b WHERE b.id = a.id). NOT IN works only when the subquery returns no NULL.",
+      "try_sql": "-- Delete the customers without orders (only Umbrella is deleted)\nDELETE FROM customers c\nWHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id);\nSELECT customer_id, customer_name FROM customers ORDER BY customer_id;"
+    },
+    "c404": {
+      "front": "Can a subquery in WHERE have ORDER BY?",
+      "back": "No: you get ORA-00907 missing right parenthesis. ORDER BY is allowed in an inline view (in FROM) and at the end of the outer query.",
+      "try_sql": "-- ORDER BY in a subquery in WHERE: error\nSELECT last_name FROM employees\nWHERE department_id IN (SELECT department_id FROM departments ORDER BY 1);"
+    },
+    "c405": {
+      "front": "Which operators work with a subquery that returns many rows?",
+      "back": "IN, NOT IN, EXISTS, NOT EXISTS, and any comparison operator followed by ANY (SOME) or ALL, for example > ALL. The plain = < > LIKE BETWEEN need one row.",
+      "try_sql": "-- IN and = ANY work with many rows, a plain = does not (ORA-01427)\nSELECT last_name, salary FROM employees\nWHERE salary = ANY (SELECT salary FROM employees WHERE job_title = 'Programmer');\nSELECT last_name, salary FROM employees\nWHERE salary = (SELECT salary FROM employees WHERE job_title = 'Programmer');"
+    },
+    "c1400": {
+      "front": "A scalar subquery in SELECT finds two rows for one outer row. What happens?",
+      "back": "The whole query fails with ORA-01427. Oracle does not duplicate the row (a join does that) and does not pick one of the two. Only an empty result turns into NULL.",
+      "try_sql": "-- Departments 20 and 30 have several employees each: the whole query fails\nSELECT d.department_name,\n       (SELECT e.last_name FROM employees e WHERE e.department_id = d.department_id) AS emp\nFROM departments d;"
+    },
+    "c1401": {
+      "front": "The WITH clause (subquery factoring): what can you do with a named query?",
+      "back": "Use it several times in the main query (in FROM and in subqueries). A later named query in the same list can use it too: WITH a AS (...), b AS (SELECT ... FROM a).",
+      "try_sql": "-- avg_sal uses dept_sal, and the main query uses both\nWITH dept_sal AS (SELECT department_id, SUM(salary) AS total\n                  FROM employees GROUP BY department_id),\n     avg_sal AS (SELECT AVG(total) AS avg_total FROM dept_sal)\nSELECT d.department_id, d.total\nFROM dept_sal d\nWHERE d.total > (SELECT avg_total FROM avg_sal);"
+    },
+    "c1402": {
+      "front": "Inline view (SELECT order_id, SUM(qty) FROM ... GROUP BY order_id) v: can the outer query use v.total?",
+      "back": "No: ORA-00904 \"V\".\"TOTAL\": invalid identifier. There is simply no such column. Give the expression an alias inside the view: SUM(qty) AS total.",
+      "try_sql": "-- The expression SUM(quantity) has no alias, so there is no column v.total\nSELECT v.order_id, v.total\nFROM (SELECT order_id, SUM(quantity) FROM order_items GROUP BY order_id) v;"
+    },
+    "c1403": {
+      "front": "Does DISTINCT in a subquery fix ORA-01427?",
+      "back": "Only when one value remains. The programmers' salaries 9000, 6000, 4800 are still three rows. Use IN / = ANY, or an aggregate function if you really mean one value.",
+      "try_sql": "-- DISTINCT leaves 9000, 6000, 4800: still three rows\nSELECT last_name FROM employees\nWHERE salary = (SELECT DISTINCT salary FROM employees WHERE job_title = 'Programmer');"
+    },
+    "c1404": {
+      "front": "x NOT IN (a subquery without NULLs), and x itself is NULL?",
+      "back": "The result is UNKNOWN, so the row does not come back. department_id NOT IN (20) skips Grant (department NULL): 5 rows, not 6.",
+      "try_sql": "-- Grant (department NULL) does not come back: 5 rows, not 6\nSELECT last_name, department_id FROM employees\nWHERE department_id NOT IN (SELECT department_id FROM departments\n                            WHERE department_name = 'Sales');"
+    },
+    "c1405": {
+      "front": "What does <> ANY (20, 30) mean?",
+      "back": "\"Different from at least one value\". When the list has two different values, it is TRUE for every value that is not NULL. NOT IN is <> ALL, not <> ANY.",
+      "try_sql": "-- <> ANY (20, 30): everyone with a department (8). NOT IN (20, 30): only King\nSELECT COUNT(*) FROM employees WHERE department_id <> ANY (20, 30);\nSELECT last_name FROM employees WHERE department_id NOT IN (20, 30);"
+    },
+    "c1406": {
+      "front": "> ALL and > ANY when the subquery returns NULL next to other values?",
+      "back": "> ALL: never TRUE (it is an AND with UNKNOWN), so 0 rows. > ANY: one TRUE is enough, so the NULL does not get in the way.",
+      "try_sql": "-- commission_pct has NULLs: > ALL gives 0 rows, > ANY all 9\nSELECT\n  (SELECT COUNT(*) FROM employees e WHERE e.salary > ALL (SELECT commission_pct FROM employees)) AS all_cnt,\n  (SELECT COUNT(*) FROM employees e WHERE e.salary > ANY (SELECT commission_pct FROM employees)) AS any_cnt\nFROM dual;"
+    },
+    "c1407": {
+      "front": "Pairwise vs non-pairwise comparison?",
+      "back": "Pairwise: (a, b) IN (SELECT x, y ...): the pair must match together. Non-pairwise: a IN (...) AND b IN (...): each column is checked separately, so extra rows may come out (\"crosswise\" matches).",
+      "try_sql": "-- Pairs (6000, 30) and (4800, 20): pairwise 2 rows, separately 4 (Russell and Lorentz \"crosswise\")\nSELECT last_name, salary, department_id FROM employees\nWHERE (salary, department_id) IN (SELECT salary, department_id FROM employees WHERE employee_id IN (104, 106));\nSELECT last_name, salary, department_id FROM employees\nWHERE salary IN (SELECT salary FROM employees WHERE employee_id IN (104, 106))\n  AND department_id IN (SELECT department_id FROM employees WHERE employee_id IN (104, 106));"
+    },
+    "c1408": {
+      "front": "EXISTS with a subquery that does not refer to the outer query?",
+      "back": "The result is the same for every row: all rows if the subquery finds anything, or none. Usually it is a sign that the correlation condition was forgotten.",
+      "try_sql": "-- No correlation: EXISTS is always true, so all 4 departments come back\nSELECT d.department_name FROM departments d\nWHERE EXISTS (SELECT 1 FROM employees e WHERE e.salary > 20000);\nSELECT d.department_name FROM departments d\nWHERE EXISTS (SELECT 1 FROM employees e WHERE e.salary > 20000\n              AND e.department_id = d.department_id);"
+    },
+    "c1409": {
+      "front": "SET (a, b) = (SELECT x ...) and SET (a) = (SELECT x, y ...): which errors?",
+      "back": "Too few columns in the subquery: ORA-00947 not enough values. Too many: ORA-00913 too many values. Oracle does not fill the gaps with NULLs.",
+      "try_sql": "-- Two columns, one value: ORA-00947\nUPDATE employees e\nSET (e.salary, e.commission_pct) = (SELECT MAX(salary) FROM employees)\nWHERE e.employee_id = 108;"
+    },
+    "c1410": {
+      "front": "UPDATE ... SET col = (SELECT val ...) WHERE EXISTS (SELECT ...): can col still get NULL?",
+      "back": "Yes. EXISTS only checks that a matching row exists, not that the value is not NULL (for example product 15 has list_price NULL). Add a val IS NOT NULL condition or use NVL.",
+      "try_sql": "-- Product 15 exists but has list_price NULL: line 1004/2 gets NULL\nUPDATE order_items oi\nSET oi.unit_price = (SELECT p.list_price FROM products p WHERE p.product_id = oi.product_id)\nWHERE EXISTS (SELECT 1 FROM products p WHERE p.product_id = oi.product_id);\nSELECT order_id, line_no, product_id, unit_price FROM order_items WHERE unit_price IS NULL;"
+    },
+    "c1411": {
+      "front": "A correlated DELETE should delete three rows, but one of them still has child rows. What happens?",
+      "back": "Error ORA-02292 (child record found), and the whole statement is rolled back: nothing is deleted. Oracle does not skip the \"troublesome\" row.",
+      "try_sql": "-- Umbrella and Hooli have no NEW orders, but Hooli has another order: ORA-02292, nothing disappears\nDELETE FROM customers c\nWHERE NOT EXISTS (SELECT 1 FROM orders o\n                  WHERE o.customer_id = c.customer_id AND o.status = 'NEW');\nSELECT COUNT(*) FROM customers;"
+    }
+  }
+}

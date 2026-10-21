@@ -1,0 +1,124 @@
+{
+  "flashcards": {
+    "c031": {
+      "front": "What is the rule for NATURAL JOIN and USING?",
+      "back": "They join tables on columns with the same name. Such a column must not be prefixed with a table alias anywhere in the query (for example e.department_id), or you get an error (ORA-25155 with NATURAL JOIN, ORA-25154 with USING).",
+      "try_sql": "-- Without an alias on the shared column it works; with an alias (e.department_id) it is an error\nSELECT department_id, e.last_name, d.department_name\nFROM   employees e JOIN departments d USING (department_id)\nWHERE  department_id = 10;\nSELECT e.department_id, e.last_name\nFROM   employees e NATURAL JOIN departments d;"
+    },
+    "c032": {
+      "front": "A filter in an outer join: in ON or in WHERE?",
+      "back": "A condition on the outer-joined table written in ON keeps the rows without a match. The same condition in WHERE removes them, and the join turns into an ordinary (inner) one.",
+      "try_sql": "-- The same condition: in ON the unmatched department stays, in WHERE it disappears (inner join)\nSELECT d.department_name, e.last_name\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id AND e.salary > 10000\nORDER  BY d.department_name;\nSELECT d.department_name, e.last_name\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id\nWHERE  e.salary > 10000\nORDER  BY d.department_name;"
+    },
+    "c033": {
+      "front": "What is a non-equijoin?",
+      "back": "A join with a condition other than =, for example e.salary BETWEEN g.min_salary AND g.max_salary (the salary falls within a range).",
+      "try_sql": "-- The salary falls within the grade's range: a BETWEEN condition instead of =\nSELECT e.last_name, e.salary, g.grade\nFROM   employees e\nJOIN   salary_grades g ON e.salary BETWEEN g.min_salary AND g.max_salary\nORDER  BY e.salary DESC;"
+    },
+    "c034": {
+      "front": "How does the (+) operator work in Oracle?",
+      "back": "You put (+) on the side whose rows may be missing. You cannot write a FULL OUTER JOIN with it. In 19c it also cannot be combined with OR or IN in a join condition (23ai accepts OR when every term has (+)).",
+      "try_sql": "-- (+) on the employees side (may be missing): Research stays with NULL\nSELECT d.department_name, e.last_name\nFROM   departments d, employees e\nWHERE  d.department_id = e.department_id(+)\nORDER  BY d.department_name;"
+    },
+    "c035": {
+      "front": "How many rows does a CROSS JOIN give?",
+      "back": "Rows of A × rows of B, for example 4 × 4 = 16. You cannot add ON.",
+      "try_sql": "-- 4 departments × 4 salary grades\nSELECT COUNT(*) AS cnt FROM departments d CROSS JOIN salary_grades g;"
+    },
+    "c036": {
+      "front": "What does a self-join (joining a table with itself) need?",
+      "back": "Two different aliases of the same table: employees e JOIN employees m ON e.manager_id = m.employee_id.",
+      "try_sql": "-- Two aliases of the same table: e is the employee, m is the manager\nSELECT e.last_name AS employee, m.last_name AS manager\nFROM   employees e\nJOIN   employees m ON e.manager_id = m.employee_id\nORDER  BY e.employee_id;"
+    },
+    "c310": {
+      "front": "ON vs USING vs NATURAL JOIN: how do they differ?",
+      "back": "ON: any condition; the columns of both tables stay separate, so a column with a shared name must be prefixed with an alias (otherwise ORA-00918). USING (col): equality on the listed columns with the same name; one copy without an alias remains (an alias raises ORA-25154). NATURAL: equality on all columns with the same name; you add neither ON nor USING.",
+      "try_sql": "-- USING: one copy without an alias; ON: a column without an alias is ambiguous (error)\nSELECT department_id, d.department_name FROM employees e JOIN departments d USING (department_id) WHERE e.employee_id = 100;\nSELECT department_id, d.department_name FROM employees e JOIN departments d ON e.department_id = d.department_id;"
+    },
+    "c311": {
+      "front": "Four ways to get a Cartesian product?",
+      "back": "1) CROSS JOIN. 2) A comma join without a join condition. 3) JOIN ... ON with an always-true condition (for example ON 1 = 1). 4) A NATURAL JOIN of tables that share no column name.",
+      "try_sql": "-- Each way gives 4 × 4 = 16 (departments and salary_grades share no column names)\nSELECT (SELECT COUNT(*) FROM departments d CROSS JOIN salary_grades g) AS cross_j,\n       (SELECT COUNT(*) FROM departments d, salary_grades g) AS comma_j,\n       (SELECT COUNT(*) FROM departments d JOIN salary_grades g ON 1 = 1) AS on_true,\n       (SELECT COUNT(*) FROM departments d NATURAL JOIN salary_grades g) AS natural_j\nFROM   dual;"
+    },
+    "c312": {
+      "front": "Self-join: which alias is the manager?",
+      "back": "The join condition decides. e.manager_id = m.employee_id: m is e's manager. e.employee_id = m.manager_id: m is e's subordinate.",
+      "try_sql": "-- The same employee 101: first their manager, then their subordinates\nSELECT e.last_name, m.last_name AS manager\nFROM   employees e JOIN employees m ON e.manager_id = m.employee_id\nWHERE  e.employee_id = 101;\nSELECT e.last_name, m.last_name AS subordinate\nFROM   employees e JOIN employees m ON e.employee_id = m.manager_id\nWHERE  e.employee_id = 101;"
+    },
+    "c313": {
+      "front": "How many rows does a join on a range (non-equijoin) give?",
+      "back": "A row appears once for each matching range. A gap between ranges makes the row disappear. Overlapping ranges make the row repeat. A one-sided condition (>=) can match many ranges.",
+      "try_sql": "-- A one-sided condition (>=): a high salary matches several grades at once\nSELECT e.last_name, e.salary, g.grade\nFROM   employees e\nJOIN   salary_grades g ON e.salary >= g.min_salary\nWHERE  e.employee_id IN (100, 108)\nORDER  BY e.last_name, g.grade;"
+    },
+    "c314": {
+      "front": "How do you find rows without a match with an outer join (anti-join)?",
+      "back": "a LEFT JOIN b ON ... WHERE b.<NOT NULL column> IS NULL: only the rows of a that have no match in b remain.",
+      "try_sql": "-- Only the departments without employees remain\nSELECT d.department_name\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id\nWHERE  e.employee_id IS NULL;"
+    },
+    "c315": {
+      "front": "Can you mix (+) with ANSI JOIN syntax?",
+      "back": "Not in WHERE: (+) in the WHERE clause of a query that uses ANSI JOIN raises ORA-25156. (19c accepts (+) inside an ANSI ON, but better not to write it.) (+) on both sides of one condition is ORA-01468, so a full join needs FULL OUTER JOIN.",
+      "try_sql": "-- (+) in the WHERE of a query with ANSI JOIN: ORA-25156; (+) on both sides: ORA-01468\nSELECT e.last_name, d.department_name, g.grade\nFROM   employees e JOIN departments d ON e.department_id = d.department_id,\n       salary_grades g\nWHERE  e.salary = g.min_salary(+);\nSELECT e.last_name, d.department_name\nFROM   employees e, departments d\nWHERE  e.department_id(+) = d.department_id(+);"
+    },
+    "c1350": {
+      "front": "What happens with SELECT e.* and JOIN ... USING (department_id)?",
+      "back": "Error ORA-25154, because e.* includes the USING column prefixed with an alias. Use SELECT * (the USING column appears once, first) or list the columns yourself.",
+      "try_sql": "-- SELECT * works (department_id once, first), e.* raises an error\nSELECT * FROM employees e JOIN departments d USING (department_id) WHERE e.employee_id = 100;\nSELECT e.* FROM employees e JOIN departments d USING (department_id);"
+    },
+    "c1351": {
+      "front": "Which value is in the USING column in a FULL OUTER JOIN?",
+      "back": "The one from the side that exists, like COALESCE(e.col, d.col). For example the Research department without employees shows 40. NULL appears only where the value is missing on both sides (for example Grant, an employee without a department).",
+      "try_sql": "-- Research has 40 (from departments), Grant has NULL (missing on both sides)\nSELECT department_id, e.last_name, d.department_name\nFROM   employees e\nFULL OUTER JOIN departments d USING (department_id)\nORDER  BY department_id, e.last_name;"
+    },
+    "c1352": {
+      "front": "Which tables can an ON clause refer to?",
+      "back": "Only the tables joined before it (to its left). A reference to a table joined later raises ORA-00904 invalid identifier.",
+      "try_sql": "-- The first JOIN's ON refers to c, which is joined later: error\nSELECT o.order_id, e.last_name, c.customer_name\nFROM   orders o\nJOIN   employees e ON e.employee_id = o.sales_rep_id AND c.country_code = 'US'\nJOIN   customers c ON c.customer_id = o.customer_id;"
+    },
+    "c1353": {
+      "front": "Self-join: how do you list each pair of employees with the same salary once?",
+      "back": "ON a.salary = b.salary AND a.employee_id < b.employee_id. With <, each pair comes out once; with <>, twice. Without a condition on the id, every row also joins with itself.",
+      "try_sql": "-- < gives each pair once; <> gives each pair twice\nSELECT a.employee_id AS a_id, b.employee_id AS b_id, a.salary\nFROM   employees a JOIN employees b ON a.salary = b.salary AND a.employee_id < b.employee_id;\nSELECT a.employee_id AS a_id, b.employee_id AS b_id, a.salary\nFROM   employees a JOIN employees b ON a.salary = b.salary AND a.employee_id <> b.employee_id;"
+    },
+    "c1354": {
+      "front": "How do you show an employee, their manager and the manager's manager?",
+      "back": "Join employees three times: e JOIN m ON e.manager_id = m.employee_id JOIN g ON m.manager_id = g.employee_id. A plain JOIN loses everyone who lacks a level; to keep them, use LEFT JOIN.",
+      "try_sql": "-- Three levels; LEFT JOIN keeps King, Kochhar and De Haan, who lack a level\nSELECT e.last_name AS employee, m.last_name AS manager, g.last_name AS grand_manager\nFROM   employees e\nLEFT JOIN employees m ON e.manager_id = m.employee_id\nLEFT JOIN employees g ON m.manager_id = g.employee_id\nORDER  BY e.employee_id;"
+    },
+    "c1355": {
+      "front": "Old syntax: an outer self-join with a filter on the manager?",
+      "back": "Every condition on the optional alias needs (+): AND m.salary(+) > 13000 keeps all employees. AND m.salary > 13000 (without (+)) turns it into an ordinary join and loses rows.",
+      "try_sql": "-- With (+) on m.salary: all employees; without (+): only those with a manager > 13000\nSELECT e.last_name, m.last_name AS manager\nFROM   employees e, employees m\nWHERE  e.manager_id = m.employee_id(+) AND m.salary(+) > 13000\nORDER  BY e.employee_id;\nSELECT e.last_name, m.last_name AS manager\nFROM   employees e, employees m\nWHERE  e.manager_id = m.employee_id(+) AND m.salary > 13000\nORDER  BY e.employee_id;"
+    },
+    "c1356": {
+      "front": "Can a non-equijoin be an outer join?",
+      "back": "Yes: salary_grades g LEFT JOIN employees e ON e.salary BETWEEN g.min_salary AND g.max_salary, or in the old syntax with (+) on both limits. A range without a match comes back once, with NULL on the other side.",
+      "try_sql": "-- An outer non-equijoin: grade D has nobody from department 30 and comes back once with NULL\nSELECT g.grade, e.last_name\nFROM   salary_grades g\nLEFT JOIN employees e ON e.salary BETWEEN g.min_salary AND g.max_salary\n                     AND e.department_id = 30\nORDER  BY g.grade, e.last_name;"
+    },
+    "c1357": {
+      "front": "NULL in a join condition with a range or with <?",
+      "back": "Every comparison with NULL is \"unknown\", so such a row matches nothing. For example an order line for a product with list_price = NULL never satisfies unit_price < list_price.",
+      "try_sql": "-- Product 15 has list_price NULL: its line (1004/2) matches neither < nor >=\nSELECT oi.order_id, oi.line_no, oi.product_id, oi.unit_price, p.list_price\nFROM   order_items oi JOIN products p ON p.product_id = oi.product_id AND oi.unit_price < p.list_price;\nSELECT oi.order_id, oi.line_no, oi.product_id, oi.unit_price, p.list_price\nFROM   order_items oi JOIN products p ON p.product_id = oi.product_id AND oi.unit_price >= p.list_price;"
+    },
+    "c1358": {
+      "front": "a LEFT JOIN b ... JOIN c ON c.x = b.x: what happens?",
+      "back": "The plain JOIN to c throws out the b rows filled with NULLs, so the effect of the LEFT JOIN is gone. For every table joined after an optional one, write LEFT JOIN too.",
+      "try_sql": "-- A plain JOIN after a LEFT JOIN loses Research (and King without a manager); a second LEFT JOIN keeps them\nSELECT d.department_name, e.last_name, m.last_name AS manager\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id\nJOIN   employees m ON m.employee_id = e.manager_id\nORDER  BY d.department_name, e.last_name;\nSELECT d.department_name, e.last_name, m.last_name AS manager\nFROM   departments d\nLEFT JOIN employees e ON e.department_id = d.department_id\nLEFT JOIN employees m ON m.employee_id = e.manager_id\nORDER  BY d.department_name, e.last_name;"
+    },
+    "c1359": {
+      "front": "(+) together with OR (19c)?",
+      "back": "ORA-01719: outer join operator (+) not allowed in operand of OR or IN. Use LEFT JOIN ... ON (a = b OR ...). (Oracle 23ai accepts OR when every term has (+).)",
+      "try_sql": "-- 19c: (+) in an OR term raises an error\nSELECT e.last_name, d.department_name\nFROM   employees e, departments d\nWHERE  e.department_id = d.department_id(+) OR e.manager_id = d.department_id(+);"
+    },
+    "c1360": {
+      "front": "A Cartesian product with an empty table?",
+      "back": "0 rows, because rows(A) × rows(B) × 0 = 0. CROSS JOIN never adds rows with NULL: only outer joins do that.",
+      "try_sql": "-- promotions is empty: 9 × 0 = 0 rows\nSELECT COUNT(*) AS cnt FROM employees e CROSS JOIN promotions p;"
+    },
+    "c1361": {
+      "front": "Three tables but only one join condition?",
+      "back": "The joined pair is multiplied by the table without a condition: employees ⋈ departments (8 rows) × 4 salary grades = 32. N tables need at least N − 1 join conditions.",
+      "try_sql": "-- Three tables, one condition: 8 employee-department pairs × 4 grades = 32\nSELECT COUNT(*) AS cnt\nFROM   employees e, departments d, salary_grades g\nWHERE  e.department_id = d.department_id;"
+    }
+  }
+}

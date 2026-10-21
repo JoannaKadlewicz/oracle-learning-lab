@@ -1,0 +1,119 @@
+{
+  "flashcards": {
+    "c025": {
+      "front": "How do COUNT(*), COUNT(col) and COUNT(DISTINCT col) differ?",
+      "back": "COUNT(*) counts all rows. COUNT(col) counts only values that are not NULL. COUNT(DISTINCT col) counts distinct values, also without NULL. All group functions except COUNT(*) skip NULL.",
+      "try_sql": "-- Three different counts on the same column with NULLs\nSELECT COUNT(*) AS all_rows,\n       COUNT(e.commission_pct) AS not_null,\n       COUNT(DISTINCT e.commission_pct) AS distinct_vals\nFROM   employees e;"
+    },
+    "c026": {
+      "front": "Can a group function (such as COUNT or AVG) be used in WHERE?",
+      "back": "No, you get ORA-00934. WHERE tests single rows before the groups exist. Put a condition on a group in HAVING, or compute the aggregate in a subquery.",
+      "try_sql": "-- A condition on a group works in HAVING, but raises an error in WHERE\nSELECT e.department_id, AVG(e.salary) AS avg_sal\nFROM   employees e\nGROUP  BY e.department_id\nHAVING AVG(e.salary) > 8000;\nSELECT e.department_id FROM employees e WHERE AVG(e.salary) > 8000 GROUP BY e.department_id;"
+    },
+    "c027": {
+      "front": "What is the rule for the SELECT list with GROUP BY?",
+      "back": "Every column or expression in SELECT that is not inside a group function must be in GROUP BY. The reverse is not required: a GROUP BY column need not be in SELECT.",
+      "try_sql": "-- A GROUP BY column need not be in SELECT (OK), but a SELECT column must be in GROUP BY (error)\nSELECT COUNT(*) AS cnt FROM employees e GROUP BY e.department_id;\nSELECT e.department_id, e.job_title, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id;"
+    },
+    "c028": {
+      "front": "How does nesting group functions work?",
+      "back": "At most two levels, for example MAX(AVG(sal)). GROUP BY is required, and then SELECT may contain no plain column: SELECT MAX(AVG(sal)) ... GROUP BY dept.",
+      "try_sql": "-- Two levels work; a plain column next to MAX(AVG(...)) raises an error\nSELECT MAX(AVG(e.salary)) AS max_avg FROM employees e GROUP BY e.department_id;\nSELECT e.department_id, MAX(AVG(e.salary)) FROM employees e GROUP BY e.department_id;"
+    },
+    "c029": {
+      "front": "What does GROUP BY do with NULL values?",
+      "back": "All NULLs in the GROUP BY column go into one shared group.",
+      "try_sql": "-- Employee 108 (no department) forms its own NULL group\nSELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id\nORDER  BY e.department_id;"
+    },
+    "c030": {
+      "front": "What is the LISTAGG syntax?",
+      "back": "LISTAGG(col, ', ') WITHIN GROUP (ORDER BY col). It joins the group's values into one string, separated by ', '. Since 19c you can write LISTAGG(DISTINCT ...) to remove repeats.",
+      "try_sql": "-- A plain LISTAGG keeps repeats, LISTAGG(DISTINCT ...) removes them\nSELECT e.department_id,\n       LISTAGG(e.job_title, ', ') WITHIN GROUP (ORDER BY e.job_title) AS jobs,\n       LISTAGG(DISTINCT e.job_title, ', ') WITHIN GROUP (ORDER BY e.job_title) AS distinct_jobs\nFROM   employees e\nGROUP  BY e.department_id;"
+    },
+    "c300": {
+      "front": "In what order does Oracle logically run a query with grouping?",
+      "back": "FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY. That is why WHERE knows no group functions, and a SELECT alias works only in ORDER BY.",
+      "try_sql": "-- A SELECT alias works in ORDER BY, but WHERE runs earlier and does not know it\nSELECT e.last_name, e.salary * 12 AS annual FROM employees e ORDER BY annual DESC;\nSELECT e.last_name, e.salary * 12 AS annual FROM employees e WHERE annual > 100000;"
+    },
+    "c301": {
+      "front": "Can HAVING be used without GROUP BY?",
+      "back": "Yes. The whole table is then one group, so the result is one row or none. For example SELECT COUNT(*) FROM employees HAVING COUNT(*) > 5.",
+      "try_sql": "-- Without GROUP BY the whole table is one group: one row or none\nSELECT COUNT(*) AS cnt FROM employees e HAVING COUNT(*) > 5;\nSELECT COUNT(*) AS cnt FROM employees e HAVING COUNT(*) > 50;"
+    },
+    "c302": {
+      "front": "What do group functions return on an empty table?",
+      "back": "Without GROUP BY: one row, COUNT = 0, and SUM/AVG/MIN/MAX = NULL. With GROUP BY: zero rows, because there is no group.",
+      "try_sql": "-- promotions is empty: one row without GROUP BY, zero rows with GROUP BY\nSELECT COUNT(*) AS cnt, SUM(p.discount_pct) AS s, MAX(p.discount_pct) AS mx FROM promotions p;\nSELECT COUNT(*) AS cnt FROM promotions p GROUP BY p.promo_name;"
+    },
+    "c303": {
+      "front": "GROUP BY with a SELECT alias or a column number (19c)?",
+      "back": "An alias raises ORA-00904. GROUP BY 1 does not mean \"the first column\": it groups by the constant 1. Write the whole expression. (23ai allows aliases.)",
+      "try_sql": "-- GROUP BY 1 groups by a constant: one group with all the rows\nSELECT COUNT(*) AS cnt FROM employees e GROUP BY 1;\n-- The safe way: the whole expression in GROUP BY\nSELECT EXTRACT(YEAR FROM e.hire_date) AS yr, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY EXTRACT(YEAR FROM e.hire_date)\nORDER  BY yr;"
+    },
+    "c304": {
+      "front": "What can ORDER BY use in a query with grouping?",
+      "back": "GROUP BY expressions, group functions (even ones not in SELECT), constants, and SELECT aliases and column numbers. A plain column outside GROUP BY raises ORA-00979.",
+      "try_sql": "-- ORDER BY an aggregate not in SELECT works; by a plain column outside GROUP BY it does not\nSELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id\nORDER  BY MAX(e.salary) DESC;\nSELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY e.department_id\nORDER  BY e.last_name;"
+    },
+    "c1300": {
+      "front": "How does AVG(DISTINCT salary) differ from AVG(salary)?",
+      "back": "DISTINCT first removes repeated values and then computes the average. Example: 73300 / 7 = 10471.43 instead of 84100 / 9 = 9344.44. DISTINCT works in every group function.",
+      "try_sql": "-- DISTINCT removes repeated salaries before the average is computed\nSELECT AVG(DISTINCT e.salary) AS avg_distinct,\n       AVG(e.salary) AS avg_all,\n       SUM(DISTINCT e.salary) AS sum_distinct,\n       SUM(e.salary) AS sum_all\nFROM   employees e;"
+    },
+    "c1301": {
+      "front": "What does SUM(salary + salary * commission_pct) give when most commission_pct values are NULL?",
+      "back": "When commission_pct is NULL, the whole expression in that row is NULL, and SUM simply skips the row (34945 instead of 90745). To include everyone, put NVL(commission_pct, 0) inside.",
+      "try_sql": "-- Rows with NULL in commission_pct drop out of the first sum\nSELECT SUM(e.salary + e.salary * e.commission_pct) AS bez_nvl,\n       SUM(e.salary + e.salary * NVL(e.commission_pct, 0)) AS z_nvl\nFROM   employees e;"
+    },
+    "c1302": {
+      "front": "What does LISTAGG do with NULL?",
+      "back": "It skips them: no value and no extra separator. For example the codes US, GB, US, PL and NULL give 'GB,PL,US,US'. Repeats stay unless you write LISTAGG(DISTINCT ...).",
+      "try_sql": "-- The NULL (Hooli) disappears without a trace, repeats stay without DISTINCT\nSELECT LISTAGG(c.country_code, ',') WITHIN GROUP (ORDER BY c.country_code) AS codes,\n       LISTAGG(DISTINCT c.country_code, ',') WITHIN GROUP (ORDER BY c.country_code) AS distinct_codes\nFROM   customers c;"
+    },
+    "c1303": {
+      "front": "Can you write COUNT(DISTINCT col1, col2)?",
+      "back": "No: ORA-00909: invalid number of arguments. COUNT takes one argument. Instead, count the rows of a subquery SELECT DISTINCT col1, col2.",
+      "try_sql": "-- The workaround works, COUNT with two arguments raises an error\nSELECT COUNT(*) AS pairs\nFROM   (SELECT DISTINCT e.department_id, e.job_title FROM employees e);\nSELECT COUNT(DISTINCT e.department_id, e.job_title) FROM employees e;"
+    },
+    "c1304": {
+      "front": "What do COUNT(1), COUNT('x') and COUNT(NULL) give?",
+      "back": "COUNT(1) and COUNT('x') give the same as COUNT(*), because such a constant is never NULL. COUNT(NULL) = 0. The 1 is an ordinary value, not a column number.",
+      "try_sql": "-- A constant is never NULL, and NULL always is\nSELECT COUNT(*) AS star, COUNT(1) AS one, COUNT('x') AS x, COUNT(NULL) AS nul\nFROM   employees e;"
+    },
+    "c1305": {
+      "front": "What does COUNT(COUNT(*)) ... GROUP BY dept return?",
+      "back": "The number of groups. The inner function is computed separately for each group, the outer one over the group results. For example employees by department_id gives 4 (the NULL group counts too).",
+      "try_sql": "-- The outer COUNT counts the groups (including the NULL group)\nSELECT COUNT(COUNT(*)) AS groups_cnt FROM employees e GROUP BY e.department_id;"
+    },
+    "c1306": {
+      "front": "ORA-00937 or ORA-00979: when is which?",
+      "back": "ORA-00937: there is no GROUP BY, and a plain column stands next to a group function (or a nested one). ORA-00979: there is a GROUP BY, but it lacks a column used in SELECT, HAVING or ORDER BY.",
+      "try_sql": "-- Without GROUP BY: ORA-00937; with GROUP BY but no job_title: ORA-00979\nSELECT e.department_id, COUNT(*) FROM employees e;\nSELECT e.department_id, e.job_title, COUNT(*) FROM employees e GROUP BY e.department_id;"
+    },
+    "c1307": {
+      "front": "What can be in GROUP BY?",
+      "back": "Columns and row-level expressions, for example EXTRACT(YEAR FROM hire_date) or UPPER(job). Not allowed: group functions (ORA-00934), scalar subqueries (ORA-22818), and in 19c also SELECT aliases (ORA-00904) and column numbers.",
+      "try_sql": "-- A row-level expression is OK, a group function in GROUP BY is an error\nSELECT UPPER(e.job_title) AS job, COUNT(*) AS cnt FROM employees e GROUP BY UPPER(e.job_title);\nSELECT COUNT(*) FROM employees e GROUP BY COUNT(*);"
+    },
+    "c1308": {
+      "front": "HAVING AVG(commission_pct) > .1, and in the group every commission_pct is NULL?",
+      "back": "AVG returns NULL, and NULL > .1 is \"unknown\", so the group drops out. Find a group with only NULLs with COUNT(col) = 0 or MAX(col) IS NULL. SUM(col) = 0 never matches, because SUM gives NULL.",
+      "try_sql": "-- Departments without commission: AVG and SUM are NULL, COUNT(col) = 0\nSELECT e.department_id, AVG(e.commission_pct) AS avg_c,\n       SUM(e.commission_pct) AS sum_c, COUNT(e.commission_pct) AS cnt_c\nFROM   employees e\nGROUP  BY e.department_id;\nSELECT e.department_id\nFROM   employees e\nGROUP  BY e.department_id\nHAVING COUNT(e.commission_pct) = 0;"
+    },
+    "c1309": {
+      "front": "How do you find groups whose average is higher than the whole table's average?",
+      "back": "HAVING AVG(e.salary) > (SELECT AVG(salary) FROM employees). The subquery is computed once, for the whole table. AVG cannot be used directly in WHERE.",
+      "try_sql": "-- The subquery in HAVING computes the whole table's average once\nSELECT e.department_id, AVG(e.salary) AS avg_sal\nFROM   employees e\nGROUP  BY e.department_id\nHAVING AVG(e.salary) > (SELECT AVG(salary) FROM employees);"
+    },
+    "c1311": {
+      "front": "Should the condition go in WHERE or in HAVING?",
+      "back": "A condition on a single row (salary > 5000) goes in WHERE: it runs before grouping and changes the counts. A condition on a group (COUNT(*) >= 2) goes in HAVING. A condition on a GROUP BY column works in both places, but WHERE is cheaper.",
+      "try_sql": "-- WHERE drops rows before grouping (changes the counts), HAVING drops groups\nSELECT e.department_id, COUNT(*) AS cnt\nFROM   employees e\nWHERE  e.salary > 5000\nGROUP  BY e.department_id\nHAVING COUNT(*) >= 2;"
+    },
+    "c1310": {
+      "front": "GROUP BY / HAVING with aliases and column numbers in Oracle 23ai?",
+      "back": "In 23ai GROUP BY dept and HAVING cnt > 1 can use SELECT aliases. GROUP BY ALL groups by all SELECT expressions that are not aggregates. GROUP BY 1 works as a column number only with group_by_position_enabled = TRUE, otherwise it is ORA-03162. WHERE still knows no aliases.",
+      "try_sql": "-- 23ai: aliases in GROUP BY and HAVING, and GROUP BY ALL\nSELECT e.department_id AS dept, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY dept\nHAVING cnt > 1;\nSELECT e.department_id, e.job_title, COUNT(*) AS cnt\nFROM   employees e\nGROUP  BY ALL;"
+    }
+  }
+}
