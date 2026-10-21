@@ -44,14 +44,14 @@ def test_defaults_and_derived_paths(tmp_path):
     assert str(settings.database) == "orastudy@localhost:1521/ORAPDB1"
     assert settings.state_file == tmp_path / "progress.json"
     assert settings.personal_notes_dir == tmp_path / "notes"
-    assert settings.database_23ai is None and settings.state_database is None
+    assert set(settings.databases) == {"default"} and settings.state_database is None
 
 
 def test_the_23ai_database_reuses_the_main_password_unless_it_has_its_own():
     shared = Settings.from_env({"STUDY_PASSWORD": "main", "STUDY_DSN_23AI": "db23:1521/FREEPDB1"})
-    assert shared.database_23ai.password.reveal() == "main"
+    assert shared.databases["23ai"].password.reveal() == "main"
     own = Settings.from_env({"STUDY_PASSWORD": "main", "STUDY_DSN_23AI": "db23", "STUDY_PASSWORD_23AI": "other"})
-    assert own.database_23ai.password.reveal() == "other"
+    assert own.databases["23ai"].password.reveal() == "other"
 
 
 def test_the_state_user_shares_the_study_database_unless_it_has_its_own():
@@ -184,3 +184,20 @@ def test_an_empty_admin_password_file_counts_as_unset(tmp_path):
     empty.write_text("a fine long passphrase\n")
     s = Settings.from_env({"STUDY_ADMIN_EMAIL": "boss@example.org", "STUDY_ADMIN_PASSWORD_FILE": str(empty)})
     assert s.admin_password.reveal() == "a fine long passphrase"
+
+
+def test_databases_by_registry_key():
+    s = Settings.from_env({"STUDY_DSN": "h:1/A", "STUDY_DSN_23AI": "h:2/B", "STUDY_USER_23AI": "u23"})
+    assert set(s.databases) == {"default", "23ai"}
+    assert s.databases["default"] == s.database
+    assert (s.databases["23ai"].dsn, s.databases["23ai"].user) == ("h:2/B", "u23")
+    assert set(Settings.from_env({"STUDY_DSN": "h:1/A"}).databases) == {"default"}
+
+
+def test_practice_targets_keep_their_env_names():
+    env = {"STUDY_DSN": "h:1/A", "STUDY_DSN_23AI": "h:2/B",
+           "STUDY_PROVISIONER_USER": "p", "STUDY_GATEWAY_USER": "g",
+           "STUDY_PROVISIONER_USER_23AI": "p2", "STUDY_GATEWAY_USER_23AI": "g2"}
+    s = Settings.from_env(env)
+    assert set(s.practice) == {"default", "23ai"}
+    assert s.practice["23ai"].provisioner.user == "p2" and s.practice["23ai"].gateway.dsn == "h:2/B"

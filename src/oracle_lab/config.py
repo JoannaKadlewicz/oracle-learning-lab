@@ -47,9 +47,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from oracle_lab import exams
 from oracle_lab.credentials import Secret, SecretNotFoundError, resolve_secret
 
-EXAM_23AI = "1Z0-171"
 LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
 
@@ -92,7 +92,7 @@ class Settings:
     data_dir: Path
     state_file: Path
     database: DatabaseTarget
-    database_23ai: DatabaseTarget | None
+    databases: dict[str, DatabaseTarget]
     state_database: DatabaseTarget | None
     legacy_basic_auth: bool
     public_url: str
@@ -121,11 +121,14 @@ class Settings:
         user = env.get("STUDY_USER", "orastudy")
         password = (resolve_secret("STUDY_PASSWORD", env, fallback_file=Path.home() / ".orastudy_pwd")
                     or Secret.missing("STUDY_PASSWORD"))
-        dsn_23ai = env.get("STUDY_DSN_23AI")
         database = DatabaseTarget(user, env.get("STUDY_DSN", "localhost:1521/ORAPDB1"), password)
+        problems = exams.problems(exams.EXAMS, {"oracle"})
+        if problems:
+            raise ConfigurationError("exam registry is inconsistent: " + "; ".join(problems))
+        databases = _databases(env, database)
         host = env.get("STUDY_HOST", "127.0.0.1")
         port = _integer(env, "STUDY_PORT", 8071, minimum=1, maximum=65535)
-        practice = _practice_targets(env, database.dsn, dsn_23ai)
+        practice = _practice_targets(env, databases)
         public_url = _public_url(env, f"http://{host}:{port}")
         trust_proxy = env.get("STUDY_TRUST_PROXY", "").lower() in ("1", "true", "yes")
         if trust_proxy and not public_url.startswith("https://"):
@@ -144,10 +147,7 @@ class Settings:
             data_dir=data_dir,
             state_file=Path(env.get("STUDY_STATE_FILE") or data_dir / "progress.json").expanduser(),
             database=database,
-            database_23ai=DatabaseTarget(
-                env.get("STUDY_USER_23AI", user), dsn_23ai,
-                resolve_secret("STUDY_PASSWORD_23AI", env) or password,
-            ) if dsn_23ai else None,
+            databases=databases,
             state_database=_state_database(env, database, shared_schema=not practice),
             legacy_basic_auth=bool(env.get("STUDY_AUTH_PASSWORD") or env.get("STUDY_AUTH_PASSWORD_FILE")),
             public_url=public_url,
@@ -248,8 +248,20 @@ def _registration_open(env: Mapping[str, str]) -> bool:
     return mode == "open"
 
 
-def _practice_targets(env: Mapping[str, str], dsn: str, dsn_23ai: str | None) -> dict[str, PracticeTarget]:
-    targets = {"default": _practice(env, "", dsn), "23ai": _practice(env, "_23AI", dsn_23ai)}
+def _databases(env: Mapping[str, str], default: DatabaseTarget) -> dict[str, DatabaseTarget]:
+    """The default database plus every other registry key whose STUDY_DSN{suffix} is set."""
+    found = {exams.DEFAULT_DATABASE: default}
+    for key in exams.database_keys():
+        suffix = exams.env_suffix(key)
+        dsn = env.get(f"STUDY_DSN{suffix}")
+        if key != exams.DEFAULT_DATABASE and dsn:
+            found[key] = DatabaseTarget(env.get(f"STUDY_USER{suffix}", default.user), dsn,
+                                        resolve_secret(f"STUDY_PASSWORD{suffix}", env) or default.password)
+    return found
+
+
+def _practice_targets(env: Mapping[str, str], databases: Mapping[str, DatabaseTarget]) -> dict[str, PracticeTarget]:
+    targets = {key: _practice(env, exams.env_suffix(key), target.dsn) for key, target in databases.items()}
     return {key: target for key, target in targets.items() if target}
 
 

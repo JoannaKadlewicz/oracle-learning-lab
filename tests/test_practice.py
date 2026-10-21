@@ -10,7 +10,7 @@ from oracle_lab.accounts.memory import memory_stores
 from oracle_lab.auth.audit import AuditLog
 from oracle_lab.auth.models import Identity, PracticeSchema, Principal, User
 from oracle_lab.auth.sessions import SessionManager
-from oracle_lab.config import EXAM_23AI, DatabaseTarget
+from oracle_lab.config import DatabaseTarget
 from oracle_lab.credentials import Secret
 from oracle_lab.database.connection import DatabaseCatalog
 from oracle_lab.provisioning.guards import RunGuard
@@ -27,6 +27,7 @@ from oracle_lab.provisioning.proxy import ProxyDatabase
 from oracle_lab.provisioning.schemas import SCHEMA_NAME
 from oracle_lab.web.http import HttpError
 
+EXAM_23AI = "1Z0-171"
 NOW = 1_800_000_000.0
 
 

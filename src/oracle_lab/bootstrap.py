@@ -6,6 +6,7 @@ import logging
 import time
 from collections.abc import Callable
 
+from oracle_lab import exams
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.first_admin import Sources, ensure_first_admin, first_user_is_admin, legacy_hook, retry_legacy_import
 from oracle_lab.accounts.maintenance import Maintenance
@@ -20,7 +21,7 @@ from oracle_lab.auth.passwords import PasswordPolicy, load_common_passwords
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.auth.throttle import Throttle
-from oracle_lab.config import EXAM_23AI, ConfigurationError, PracticeTarget, Settings
+from oracle_lab.config import ConfigurationError, PracticeTarget, Settings
 from oracle_lab.database.connection import DatabaseCatalog, OracleDatabase
 from oracle_lab.database.sample_schema import SampleSchema
 from oracle_lab.provisioning.guards import RunGuard
@@ -65,8 +66,10 @@ log = logging.getLogger(__name__)
 def build_catalog(settings: Settings) -> DatabaseCatalog:
     default = OracleDatabase(settings.database, settings.call_timeout_ms)
     by_exam = {}
-    if settings.database_23ai is not None:
-        by_exam[EXAM_23AI] = OracleDatabase(settings.database_23ai, settings.call_timeout_ms)
+    for key, target in settings.databases.items():
+        if key != exams.DEFAULT_DATABASE:
+            database = OracleDatabase(target, settings.call_timeout_ms)
+            by_exam.update({exam.code: database for exam in exams.EXAMS.values() if exam.database == key})
     return DatabaseCatalog(default, by_exam)
 
 

@@ -15,9 +15,10 @@ import threading
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING
 
+from oracle_lab import exams
 from oracle_lab.accounts.repositories import PracticeSchemaRepository
 from oracle_lab.auth.models import PracticeSchema, Principal, User
-from oracle_lab.config import EXAM_23AI, DatabaseTarget
+from oracle_lab.config import DatabaseTarget
 from oracle_lab.database.connection import Database, DatabaseCatalog
 from oracle_lab.provisioning.proxy import ProxyDatabase
 from oracle_lab.provisioning.schemas import schema_name
@@ -198,8 +199,9 @@ class PracticeDatabases:
 
     def for_exam(self, exam_code: str) -> Database:
         """The database for the exam track `exam_code`; PracticeUnavailable while it cannot be used."""
-        key = "23ai" if exam_code == EXAM_23AI and "23ai" in self.provisioners else "default"
-        if key not in self.provisioners:
+        exam = exams.get(exam_code)
+        key = next((k for k in (exam.database, exam.fallback) if k in self.provisioners), None)
+        if key is None:
             if self.principal.role == "admin":
                 return self.shared.for_exam(exam_code)
             raise PracticeUnavailable(NOT_SET_UP)
