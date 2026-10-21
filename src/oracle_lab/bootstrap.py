@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.first_admin import Sources, ensure_first_admin, first_user_is_admin, legacy_hook, retry_legacy_import
+from oracle_lab.accounts.maintenance import Maintenance
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.accounts.sqlite_store import sqlite_stores
 from oracle_lab.auth.account_settings import AccountSettings
@@ -114,8 +115,10 @@ def legacy_sources(settings: Settings, pool=None) -> Sources:
 
 
 def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, stores: AppStores | None = None,
-              google_endpoint: TokenEndpoint | None = None, clock: Clock = time.time) -> WebApplication:
-    """The web application. `catalog`, `stores`, `google_endpoint` and `clock` can be replaced, e.g. in tests."""
+              google_endpoint: TokenEndpoint | None = None, clock: Clock = time.time,
+              maintenance: bool = True) -> WebApplication:
+    """The web application. `catalog`, `stores`, `google_endpoint` and `clock` can be replaced, e.g. in tests;
+    `maintenance=False` skips the hourly purge thread."""
     catalog = catalog or build_catalog(settings)
     pool = None
     if settings.state_database is not None:
@@ -169,6 +172,9 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         endpoint = google_endpoint or HttpTokenEndpoint(settings.google.client_id, settings.google.client_secret)
         google = GoogleSignIn(settings.google, settings.public_url, endpoint, stores, sessions, throttle, audit,
                               clock, registration)
+
+    if maintenance:
+        Maintenance(stores, audit, clock).start()
 
     guard = RunGuard()
     router = Router(fallback=StaticFiles(STATIC_DIR))

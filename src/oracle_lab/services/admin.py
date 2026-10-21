@@ -4,7 +4,6 @@ schemas, open or close sign-up, and read the security events. Every change is au
 from __future__ import annotations
 
 import logging
-import threading
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -21,6 +20,7 @@ log = logging.getLogger(__name__)
 
 RESET_LINK_SECONDS = 24 * 3600
 MAX_EVENTS = 500
+DENIALS_PER_HOUR = 10
 ROLES = ("learner", "admin")
 SELF = "You can't do that to your own account."
 ONLY_ADMIN = "You can't remove the only admin."
@@ -61,9 +61,7 @@ class AdminService:
         self._audit = audit
         self._clock = clock
         self._public_url = public_url.rstrip("/")
-        # The app is one process: this makes "count the active admins + change one" atomic, so two admins
-        # demoting, locking or deleting each other at once cannot leave none.
-        self._admins_lock = threading.Lock()
+        self._guard = deletion.guard  # shared with self-service deletion: one lock for every way to lose an admin
 
     # --- reading -------------------------------------------------------------------------------------------------
 
@@ -118,7 +116,7 @@ class AdminService:
 
     def lock(self, actor: Principal, user_id: str, *, ip: str = "", user_agent: str = "") -> None:
         meta = {"ip": ip, "user_agent": user_agent}
-        with self._admins_lock:
+        with self._guard:
             user = self._other(actor, user_id, "user_locked", meta)
             self._keep_an_admin(actor, user, "user_locked", meta)
             self._users.set_status(user.id, "locked")
@@ -134,7 +132,7 @@ class AdminService:
         if role not in ROLES:
             raise ValueError("Unknown role.")
         meta = {"ip": ip, "user_agent": user_agent}
-        with self._admins_lock:
+        with self._guard:
             user = self._other(actor, user_id, "role_changed", meta)
             if user.role == role:
                 return
@@ -145,7 +143,7 @@ class AdminService:
 
     def delete(self, actor: Principal, user_id: str, *, ip: str = "", user_agent: str = "") -> None:
         meta = {"ip": ip, "user_agent": user_agent}
-        with self._admins_lock:
+        with self._guard:
             user = self._other(actor, user_id, "account_deleted", meta)
             self._keep_an_admin(actor, user, "account_deleted", meta)
             self._deletion.delete(user.id, actor.user_id, **meta)  # audits account_deleted
@@ -177,7 +175,7 @@ class AdminService:
             if (user.last_login_at if user.last_login_at is not None else user.created_at) >= cutoff:
                 continue
             try:
-                with self._admins_lock:
+                with self._guard:
                     current = self._users.get(user.id)
                     if current is None or current.role == "admin":  # deleted or promoted meanwhile
                         continue
@@ -207,7 +205,13 @@ class AdminService:
         return self.settings()
 
     def denied(self, principal: Principal | None, path: str, *, ip: str = "", user_agent: str = "") -> None:
-        """Records a signed-in non-admin reaching for the admin API."""
+        """Records a signed-in non-admin reaching for the admin API, at most DENIALS_PER_HOUR times per account
+        an hour (the rest still get 404, unrecorded), so probing cannot flood the audit trail."""
+        key = f"admin_denied:{principal.user_id if principal else ip}"
+        now = self._clock()
+        if self._stores.throttle.count_since(key, now - 3600) >= DENIALS_PER_HOUR:
+            return
+        self._stores.throttle.record(key, now)
         self._audit.record("admin_denied", "denied", user_id=principal.user_id if principal else None, ip=ip,
                            user_agent=user_agent, path=path[:200])
 
@@ -228,9 +232,7 @@ class AdminService:
         return self._user(user_id)
 
     def _keep_an_admin(self, actor: Principal, user: User, event: str, meta: dict) -> None:
-        """Call with _admins_lock held: refuses (and audits) taking away the last active admin."""
-        if user.role != "admin" or user.status != "active":
-            return
-        if sum(u.role == "admin" and u.status == "active" for u in self._users.all()) <= 1:
+        """Call inside `with self._guard:`: refuses (and audits) taking away the last active admin."""
+        if self._guard.is_last_active_admin(user):
             self._audit.record(event, "denied", user_id=actor.user_id, target=user.id, reason="last_admin", **meta)
             raise AuthError(ONLY_ADMIN)

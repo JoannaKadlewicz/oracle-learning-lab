@@ -88,3 +88,52 @@ def test_the_only_admin_cannot_be_deleted():
     with pytest.raises(AuthError, match="only admin"):
         deletion.delete("a2", "a2")
     assert stores.users.get("a2")
+
+
+def test_a_locked_admin_does_not_keep_the_only_active_admin_deletable():
+    stores = memory_stores()
+    sessions = SessionManager(stores.sessions, lambda: 1.0)
+    for uid, status in (("a1", "active"), ("a2", "locked")):
+        stores.users.add(User(uid, f"{uid}@example.org", uid, "admin", status, 1.0, None, None),
+                         Identity("password", uid, uid, "h"))
+    deletion = AccountDeletion(stores, sessions, AuditLog(stores.audit, lambda: 1.0))
+    with pytest.raises(AuthError, match="You can't delete the only admin account."):
+        deletion.delete("a1", "a1")  # self-service: a1 is the only ACTIVE admin
+    assert stores.users.get("a1")
+    deletion.delete("a2", "a1")  # the locked admin can go
+
+
+def test_two_admins_deleting_themselves_at_once_leave_one():
+    import threading
+
+    stores = memory_stores()
+    sessions = SessionManager(stores.sessions, lambda: 1.0)
+    for uid in ("a1", "a2"):
+        stores.users.add(User(uid, f"{uid}@example.org", uid, "admin", "active", 1.0, None, None),
+                         Identity("password", uid, uid, "h"))
+    both_checked = threading.Barrier(2, timeout=1)
+
+    def slow_drop(user_id):  # inside the guard: without it, both would pass the check before either deletes
+        try:
+            both_checked.wait()
+        except threading.BrokenBarrierError:
+            pass
+
+    deletion = AccountDeletion(stores, sessions, AuditLog(stores.audit, lambda: 1.0), slow_drop)
+    outcomes = []
+
+    def delete_self(uid):
+        try:
+            deletion.delete(uid, uid)
+            outcomes.append("ok")
+        except AuthError:
+            outcomes.append("refused")
+
+    threads = [threading.Thread(target=delete_self, args=(uid,)) for uid in ("a1", "a2")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(10)
+    assert sorted(outcomes) == ["ok", "refused"]
+    assert len([u for u in stores.users.all() if u.role == "admin"]) == 1
+

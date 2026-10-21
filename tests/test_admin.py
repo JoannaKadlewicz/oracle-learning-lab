@@ -389,3 +389,26 @@ def test_admin_actions_over_http_record_the_client(serve):
     for name in ("user_locked", "account_deleted"):
         (event,) = stores.audit.recent(event=name)
         assert (event.ip, event.user_agent) == ("127.0.0.1", "Owner/3"), name
+
+
+def test_the_admin_page_uses_the_deletion_guard(admin):
+    assert admin._guard is admin._deletion.guard  # one lock with self-service deletion
+
+
+def test_admin_denied_is_recorded_at_most_ten_times_an_hour(admin):
+    learner = Principal("u1", "u1@example.org", "learner", "h", "c", 0.0)
+    for _ in range(15):
+        admin.denied(learner, "/api/admin/users", ip="1.2.3.4", user_agent="ua")
+    assert len(admin.stores.audit.recent(event="admin_denied")) == 10
+    other = Principal("u2", "u2@example.org", "learner", "h", "c", 0.0)
+    admin.denied(other, "/api/admin/users")  # counted per account
+    assert len(admin.stores.audit.recent(event="admin_denied", user_id="u2")) == 1
+
+
+def test_admin_denied_cap_over_http_still_answers_404(serve):
+    stores = memory_stores()
+    server = serve(stores=stores)
+    server.sign_in("owner@example.org")
+    learner = Client(server.port).sign_in("learner@example.org")
+    statuses = [learner("/api/admin/users")[0] for _ in range(12)]
+    assert statuses == [404] * 12 and len(stores.audit.recent(event="admin_denied")) == 10
