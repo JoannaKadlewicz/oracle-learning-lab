@@ -73,7 +73,11 @@ def _validate(settings: Settings, args: argparse.Namespace) -> int:
     from oracle_lab.bootstrap import build_catalog
     from oracle_lab.tools import validate_content
 
-    return validate_content.run(args, build_catalog(settings).default)
+    catalog = build_catalog(settings)
+    if args.static:
+        return validate_content.run(args, catalog.default)
+    database, engine = validate_content.database_to_check(catalog, args.exam)
+    return validate_content.run(args, database, engine)
 
 
 def _demo(settings: Settings, args: argparse.Namespace) -> int:

@@ -42,7 +42,7 @@ export function examPicker(host, { exams, current, onPick }) {
     document.addEventListener("pointerdown", onOutside, true);
     // Capture: scroll does not bubble, and the rail (not the window) is what usually scrolls.
     document.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", close);
+    window.addEventListener("resize", onResize);
   }
 
   function close({ focus = true } = {}) {
@@ -53,7 +53,7 @@ export function examPicker(host, { exams, current, onPick }) {
     button.removeAttribute("aria-activedescendant");
     document.removeEventListener("pointerdown", onOutside, true);
     document.removeEventListener("scroll", onScroll, true);
-    window.removeEventListener("resize", close);
+    window.removeEventListener("resize", onResize);
     if (focus) button.focus();
   }
 
@@ -90,6 +90,10 @@ export function examPicker(host, { exams, current, onPick }) {
 
   function onScroll(e) {
     if (e.target !== list) close({ focus: false });
+  }
+
+  function onResize() {
+    close({ focus: false });
   }
 
   /** Moves to the next option whose code or name starts with what was typed in the last 500 ms. */

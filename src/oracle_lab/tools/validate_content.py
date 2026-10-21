@@ -5,10 +5,11 @@
     oracle-lab validate --reset       # reset the sample data first
     oracle-lab validate --topic t08   # database checks for one topic only
 
-Structure checks: unique IDs, valid topics and objectives, valid answer indexes,
-"Which two/three" prompts matching the number of answers, known fields only,
-try_sql (questions and flashcards) without DDL or COMMIT, lab cleanup that only drops LAB_ objects,
-flashcard samples whose DDL only touches the card's own LAB_C<id>_ objects, dropped by its cleanup.
+Structure checks: unique IDs (topic, section, objective and item IDs also across content packs),
+valid topics and objectives, valid answer indexes, "Which two/three" prompts matching the number of
+answers, known fields only, try_sql (questions and flashcards) without DDL or COMMIT, lab cleanup that
+only drops LAB_ objects, flashcard samples whose DDL only touches the card's own LAB_C<id>_ objects,
+dropped by its cleanup.
 Database checks:
   - every try_sql of a question or flashcard runs, or raises exactly its try_error
   - a flashcard sample with DDL leaves the schema and the sample data as it found them
@@ -19,7 +20,8 @@ Database checks:
   - labs with a starter (a "fix the bug" exercise): the starter does not already pass
 Items are checked on the database of their exam track, chosen through the exam registry: Oracle 23ai or
 later checks the 1Z0-171 items, older versions the 1Z0-071 items (an item's "exams" field, else its topic's,
-else both). --exam CODE checks one exam's items only.
+else both). --exam CODE checks one exam's items only, on that exam's own database (else its fallback's),
+with a warning when the database's version is outside the exam's.
 Changes are rolled back. --reset drops and recreates the ORASTUDY sample tables.
 Exits with status 1 if any check fails.
 """
@@ -28,8 +30,8 @@ import argparse
 import re
 from collections import Counter
 
-from oracle_lab import content, exams
-from oracle_lab.database.connection import Database
+from oracle_lab import content, engines, exams
+from oracle_lab.database.connection import Database, DatabaseCatalog
 from oracle_lab.database.executor import ScriptRunner
 from oracle_lab.database.query import first_line, format_error, single_query
 from oracle_lab.database.sample_schema import SampleSchema
@@ -202,8 +204,26 @@ def duplicate_ids(kind, items):
     return [f"{kind} id {i!r} is used {n} times" for i, n in counts.items() if n > 1]
 
 
-def static_errors():
+def cross_pack_duplicates(packs):
+    """Ids used by two packs: the app's id lookups span every pack, so one would hide the other."""
     errors = []
+    kinds = {"topic": lambda p: p.topics, "section": lambda p: p.sections, "objective": lambda p: p.objectives,
+             "question": lambda p: [q["id"] for q in p.questions],
+             "flashcard": lambda p: [c["id"] for c in p.flashcards],
+             "lab": lambda p: [lab["id"] for lab in p.labs]}
+    for kind, ids_of in kinds.items():
+        owner = {}
+        for pack in packs.values():
+            for item_id in dict.fromkeys(ids_of(pack)):  # repeats within a pack are duplicate_ids' report
+                if item_id in owner:
+                    errors.append(f"{kind} {item_id} is in two packs: {owner[item_id]} and {pack.id}")
+                else:
+                    owner[item_id] = pack.id
+    return errors
+
+
+def static_errors():
+    errors = cross_pack_duplicates(content.PACKS)
     errors += duplicate_ids("question", content.QUESTIONS)
     errors += duplicate_ids("flashcard", content.FLASHCARDS)
     errors += duplicate_ids("lab", content.LABS)
@@ -381,23 +401,45 @@ def lab_db_errors(conn, lab):
     return errors
 
 
-def exams_to_check(version: str, only: str | None = None) -> list[str]:
-    """The exam codes to check on a database of this version: those the registry matches, or just `only`."""
+def exams_to_check(version: str, only: str | None = None, *, engine: str) -> list[str]:
+    """The exam codes to check on an `engine` database of this version: those the registry matches, or just `only`."""
     if only is not None:
         if only not in exams.EXAMS:
             raise SystemExit(f"unknown exam: {only}")
         return [only]
-    return [e.code for e in exams.matching("oracle", int(version.split(".")[0]))]
+    return [e.code for e in exams.matching(engine, int(version.split(".")[0]))]
 
 
-def db_errors(database: Database, topic=None, only=None):
+def database_to_check(catalog: DatabaseCatalog, only: str | None) -> tuple[Database, str]:
+    """The database to check and its engine name: exam `only`'s own (else its fallback's), or the default one."""
+    if only is None:
+        return catalog.default, exams.engine_of_key(exams.DEFAULT_DATABASE)
+    if only not in exams.EXAMS:
+        raise SystemExit(f"unknown exam: {only}")
+    exam = exams.EXAMS[only]
+    database = catalog.for_exam(only)
+    if database is None:
+        raise SystemExit(f"{only} has no database configured: set {exam.database_env}")
+    return database, exam.engine
+
+
+def db_errors(database: Database, topic=None, only=None, engine: str | None = None):
+    """The problems found on `database`, whose engine is `engine` (default: the default database's)."""
+    engine = engine or exams.engine_of_key(exams.DEFAULT_DATABASE)
+    label = engines.engine(engine).label
     try:
         conn = database.connect()
     except Exception as exc:  # noqa: BLE001
         return [f"cannot connect: {first_line(format_error(exc))}"]
+    major = int(conn.version.split(".")[0])
+    codes = exams_to_check(conn.version, only, engine=engine)
+    if not codes:
+        conn.close()
+        return [f"no exam is checked on {label} {major}"]
+    if only is not None and exams.EXAMS[only] not in exams.matching(engine, major):
+        print(f"Warning: {only} is not matched to {label} {major}; its items are checked anyway.")
     errors = []
-    codes = exams_to_check(conn.version, only)
-    print(f"Database: Oracle {conn.version}, checking the {' and '.join(codes)} items"
+    print(f"Database: {label} {conn.version}, checking the {' and '.join(codes)} items"
           + (f" of topic {topic}" if topic else "") + ".")
 
     def wanted(item):
@@ -416,7 +458,7 @@ def db_errors(database: Database, topic=None, only=None):
     return errors
 
 
-def run(args: argparse.Namespace, database: Database) -> int:
+def run(args: argparse.Namespace, database: Database, engine: str | None = None) -> int:
     """Print the problems found; returns the exit status (1 if there are any)."""
     errors = static_errors()
     print(f"Structure: {len(content.QUESTIONS)} questions, {len(content.FLASHCARDS)} flashcards, "
@@ -428,7 +470,7 @@ def run(args: argparse.Namespace, database: Database) -> int:
             if not reset["ok"]:
                 print(f"Reset failed: {reset['error']}")
                 return 1
-        db = db_errors(database, args.topic, getattr(args, "exam", None))
+        db = db_errors(database, args.topic, getattr(args, "exam", None), engine)
         print(f"Database: {len(db)} problem(s).")
         errors += db
 

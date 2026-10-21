@@ -23,7 +23,7 @@ export function labDraft(sql) {
 
 async function render() {
   const off = sqlOff();
-  const where = DB ? `${esc(DB.product)} ${esc(DB.version)}` : "your database";
+  const where = DB ? `${esc(DB.product)} ${esc(DB.version.split(".").slice(0, 2).join("."))}` : "your database";
   main.innerHTML = `
     ${pageHead("SQL lab", `Run any SQL against the learning schema on ${where}. Separate statements with semicolons, end PL/SQL blocks with a line holding only <code>/</code>, and select text to run only that part.`)}
     <div class="lab">

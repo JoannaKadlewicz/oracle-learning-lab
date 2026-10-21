@@ -494,3 +494,30 @@ def test_each_hook_runs_even_when_one_fails(caplog):
 
     each_hook(broken, ran.append)(User("u1", "a@x.org", "A", "learner", "active", NOW, None, None))
     assert [u.id for u in ran] == ["u1"] and "legacy store down" in caplog.text
+
+
+def test_lab_service_reads_the_exam_once_for_database_and_engine(monkeypatch):
+    """An exam switch between the two lookups must not pair one exam's database with the other's engine."""
+    from oracle_lab.services import sql_lab
+    from oracle_lab.study.state import MemoryStateStore
+
+    class Switching(MemoryStateStore):
+        """Each load returns the other exam, like a switch in another tab between two reads."""
+
+        def __init__(self):
+            super().__init__()
+            self.codes = ["1Z0-071", EXAM_23AI]
+
+        def load(self):
+            self.codes.reverse()
+            return {**super().load(), "settings": {"exam": self.codes[0]}}
+
+    class ByCode(FakePractice):
+        def for_exam(self, code):
+            return code
+
+    monkeypatch.setattr(sql_lab.engines, "engine_for_exam", lambda code: code)
+    lab = sql_lab.SqlLabService(Switching(), ByCode(), RunGuard(), lambda: NOW)
+    for _ in range(2):
+        database, engine = lab.current()
+        assert database == engine
