@@ -100,7 +100,7 @@ def _healthcheck(settings: Settings, args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="oracle-lab", description="Oracle Learning Lab (1Z0-071 / 1Z0-171)")
+    parser = argparse.ArgumentParser(prog="oracle-lab", description="Oracle Learning Lab: SQL certification exam practice")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
 

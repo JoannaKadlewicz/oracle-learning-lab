@@ -10,6 +10,7 @@ from oracle_lab.auth.login import PasswordLogin
 from oracle_lab.auth.models import AuthError, LoginResult, Principal, Throttled
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
+from oracle_lab.exams import EXAMS
 from oracle_lab.web.cookies import CookiePolicy
 from oracle_lab.web.http import HttpError, Request, Response
 from oracle_lab.web.middleware import auth_error_response, safe_next
@@ -108,7 +109,9 @@ class AuthController:
         return Response.json({"user": self.account.profile(principal), "csrf_token": principal.csrf_token})
 
     def config(self, _: Request) -> Response:
-        return Response.json({"google": self.google is not None, "registration_open": self.policy.is_open()})
+        exams = [{"code": e.code, "database": e.database_label} for e in EXAMS.values()]
+        return Response.json({"google": self.google is not None, "registration_open": self.policy.is_open(),
+                              "exams": exams})
 
     def reset(self, request: Request) -> Response:
         data = request.json()

@@ -159,9 +159,11 @@ def test_throttled_login_returns_429_with_retry_after(serve):
 
 
 def test_auth_config(serve, tmp_path):
-    assert json.loads(serve()("/api/auth/config")[2]) == {"google": False, "registration_open": True}
+    assert json.loads(serve()("/api/auth/config")[2]) | {"exams": None} == {
+        "google": False, "registration_open": True, "exams": None}
     closed = serve(settings_for(tmp_path, STUDY_REGISTRATION="closed", **GOOGLE_ENV), stores=memory_stores())
-    assert json.loads(closed("/api/auth/config")[2]) == {"google": True, "registration_open": False}
+    config = json.loads(closed("/api/auth/config")[2])
+    assert config["google"] is True and config["registration_open"] is False
     assert register(closed)[0] == 403
 
 
@@ -417,3 +419,8 @@ def test_throttled_password_change_is_audited(serve):
     assert http("/api/account/password", {"current": "wrong password!", "new": "another long passphrase"})[0] == 429
     (event,) = stores.audit.recent(event="throttled")
     assert event.detail == {"kind": "login_account"} and event.ip == "127.0.0.1"
+
+
+def test_auth_config_lists_exams(serve):
+    body = json.loads(serve()("/api/auth/config")[2])
+    assert body["exams"][0] == {"code": "1Z0-071", "database": "Oracle Database 19c"}

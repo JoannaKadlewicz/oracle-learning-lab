@@ -89,3 +89,12 @@ def test_progress_reports_sql_available_for_learners_and_admins(serve):
     learner = Client(http.port).sign_in("learner@example.org")
     assert json.loads(admin("/api/progress")[2])["sql_available"] is True
     assert json.loads(learner("/api/progress")[2])["sql_available"] is False
+
+
+def test_content_payload_has_engine_and_exam_facts(serve):
+    http = serve().sign_in()
+    body = json.loads(http("/api/content")[2])
+    assert body["engine"] == {"name": "oracle", "label": "Oracle", "editor_mode": "text/x-plsql"}
+    assert list(body["exams"]) == ["1Z0-071", "1Z0-171"]
+    assert body["exam"]["code"] == "1Z0-071" and body["exam"]["product"] == "Oracle"
+    assert [n["path"] for n in body["home_notes"]] == ["docs/exam-guide-2026.md", "docs/cheat-sheet.md"]

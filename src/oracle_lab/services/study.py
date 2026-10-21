@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from oracle_lab import content
+from oracle_lab.engines import engine_for_exam
 from oracle_lab.services import Clock, NotFoundError
 from oracle_lab.study import engine, recording
 from oracle_lab.study.mocks import finalize_expired
@@ -38,12 +39,15 @@ class StudyService:
     def track_content(self) -> dict[str, Any]:
         """The study material of the current exam track, for the front end."""
         view = track(self.store.load())
+        db = engine_for_exam(view.CODE)
         return {
             "topics": view.TOPICS,
             "sections": view.SECTIONS,
             "objectives": view.OBJECTIVES,
             "exam": view.EXAM,
             "exams": content.EXAMS,
+            "engine": {"name": db.name, "label": db.label, "editor_mode": db.editor_mode},
+            "home_notes": list(view.HOME_NOTES),
             "dual_database": self.track_databases,
             "questions": view.QUESTIONS,
             "flashcards": view.FLASHCARDS,
