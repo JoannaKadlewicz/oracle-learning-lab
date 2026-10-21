@@ -269,14 +269,41 @@ KIND_LABELS = {"questions": "question", "labs": "lab", "flashcards": "flashcard"
 PACK_LABELS = {"topics": "topic", "sections": "section", "objectives": "objective"}
 # An option that is SQL (shown as code): it starts with a statement keyword, or matches the front end's
 # inlineCode pattern. A translation must keep it byte-identical.
-SQL_OPTION = re.compile(r"(?:SELECT|WITH|INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|"
-                        r"COMMIT|ROLLBACK|SAVEPOINT|RENAME|COMMENT|FLASHBACK|PURGE)\b|col |employees ")
-# Comments, and the literals and quoted identifiers that may contain "--" or "/*" without starting one.
-SQL_PIECES = re.compile(r"""[nN]?[qQ]'\[.*?\]'|[nN]?[qQ]'\{.*?\}'|[nN]?[qQ]'\(.*?\)'|[nN]?[qQ]'<.*?>'"""
-                        r"""|[nN]?[qQ]'([^\s\[{(<])(?:.*?)\1'|'(?:[^']|'')*'|"[^"]*"|(--[^\n]*|/\*.*?\*/)""", re.DOTALL)
+SQL_START = re.compile(r"(?:SELECT|WITH|INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|"
+                       r"COMMIT|ROLLBACK|SAVEPOINT|RENAME|COMMENT|FLASHBACK|PURGE)\b|col |employees ")
+# Lowercase English words that never appear in this content's SQL (keywords are uppercase, identifiers are
+# table, column and alias names): an option starting with a keyword but holding one of them is a sentence
+# about SQL ("MERGE is DDL and commits implicitly."), which is translated.
+PROSE_WORD = re.compile(
+    r"\b(?:is|are|was|were|be|must|can|cannot|will|does|do|did|fails|succeeds|which|because|also|only|raises|"
+    r"inserts|removes|moves|commits|keeps|waits|stores|drops|releases|tests|accepts|truncates|erases|copies|"
+    r"works|resets|fires|remain|remains|returns|the|an|when|if|without|with|but|both|never|always|until|after|"
+    r"before|every|row|rows|its|their|it|into|than|other|same|more|once|twice|then)\b")
+LITERALS = re.compile(r"'(?:[^']|'')*'|\"[^\"]*\"")
+# Comments, and the literals and quoted identifiers that may contain "--" or "/*" without starting one. A
+# SQL*Plus PROMPT line is code: its text is printed as it is, so it is never a translatable comment.
+SQL_PIECES = re.compile(r"""^[ \t]*[Pp][Rr][Oo][Mm][Pp][Tt]\b[^\n]*"""
+                        r"""|[nN]?[qQ]'\[.*?\]'|[nN]?[qQ]'\{.*?\}'|[nN]?[qQ]'\(.*?\)'|[nN]?[qQ]'<.*?>'"""
+                        r"""|[nN]?[qQ]'([^\s\[{(<])(?:.*?)\1'|'(?:[^']|'')*'|"[^"]*"|(--[^\n]*|/\*.*?\*/)""",
+                        re.DOTALL | re.MULTILINE)
 PLACEHOLDER = re.compile(r"\{\w+\}")
 CODE_SPAN = re.compile(r"`[^`\n]+`")
-FENCE = re.compile(r"^```[^\n]*\n(.*?)^```", re.DOTALL | re.MULTILINE)
+FENCE = re.compile(r"^[ \t]*```[^\n]*\n(.*?)^[ \t]*```", re.DOTALL | re.MULTILINE)  # indented ones too
+
+
+def is_sql_option(text: str) -> bool:
+    """Whether a question option is SQL (shown as code, never translated): it starts like a statement or like
+    the front end's inlineCode pattern, and is not a sentence (no trailing period, no English prose word)."""
+    if not SQL_START.match(text):
+        return False
+    stripped = text.rstrip()
+    if stripped.endswith(".") and not stripped.endswith("..."):
+        return False
+    return not PROSE_WORD.search(LITERALS.sub("''", text))
+
+
+def has_comments(sql: str) -> bool:
+    return any(m.group(2) for m in SQL_PIECES.finditer(sql))
 
 
 def sql_without_comments(sql: str) -> str:
@@ -306,7 +333,7 @@ def _field_problems(kind: str, name: str, value, source) -> list[str]:  # noqa: 
         for n, (option, original) in enumerate(zip(value, source, strict=True), 1):
             if not option.strip():
                 problems.append(f"option {n} is empty")
-            elif SQL_OPTION.match(original) and option != original:
+            elif is_sql_option(original) and option != original:
                 problems.append(f"option {n} is SQL and must stay identical")
             else:
                 problems += _text_problems(f"option {n}", option, original)
@@ -331,7 +358,8 @@ def _topic_files(lang: str, topic: str | None) -> list[str]:
 
 def _overlay_problems(lang: str, topic: str | None, complete: bool) -> list[str]:  # noqa: C901
     overlay = overlays.load(lang)
-    problems = []
+    problems = [f"{lang}/{stem}.json: {error}" for stem, error in sorted(overlay.errors.items())
+                if stem != overlays.PACK_FILE and (topic is None or stem == topic)]
     for stem in _topic_files(lang, topic):
         data = overlay.files[stem]
         label = f"{lang}/{stem}.json"
@@ -389,15 +417,28 @@ def _missing_items(lang: str, topic: str | None) -> list[str]:
             if not found:
                 problems.append(f"{where}: missing")
                 continue
-            problems += [f"{where}: missing {name}" for name in overlays.FIELDS[kind] if name in item and name not in found]
+            problems += [f"{where}: missing {name}" for name in overlays.FIELDS[kind]
+                         if name not in found and needs_translation(kind, name, item)]
     return problems
+
+
+def needs_translation(kind: str, name: str, item: dict) -> bool:
+    """Whether --complete expects field `name` of an item translated: a field the item has, except a SQL
+    field without comments (nothing to translate) and options that are all SQL (copied as they are)."""
+    if name not in item:
+        return False
+    if name in overlays.SQL_FIELDS:
+        return has_comments(item[name])
+    if kind == "questions" and name == "options":
+        return not all(is_sql_option(o) for o in item[name])
+    return True
 
 
 def _pack_problems(lang: str, complete: bool) -> list[str]:
     overlay = overlays.load(lang)
     label = f"{lang}/{overlays.PACK_FILE}.json"
     data = overlay.files.get(overlays.PACK_FILE, {})
-    problems = []
+    problems = [f"{label}: {overlay.errors[overlays.PACK_FILE]}"] if overlays.PACK_FILE in overlay.errors else []
     if not isinstance(data, dict):
         return [f"{label}: must be a JSON object"]
     for pack in content.PACKS.values():
@@ -703,8 +744,8 @@ def run(args: argparse.Namespace, database: Database, engine: str | None = None)
     if getattr(args, "lang", None):
         try:
             translations = translation_problems(args.lang, args.topic, getattr(args, "complete", False))
-        except json.JSONDecodeError as exc:
-            translations = [f"{args.lang}: an overlay file is not valid JSON: {exc}"]
+        except (json.JSONDecodeError, OSError) as exc:
+            translations = [f"{args.lang}: an overlay file cannot be read: {exc}"]
         print(f"Translations ({args.lang}): {len(translations)} problem(s).")
         errors += translations
 

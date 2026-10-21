@@ -10,6 +10,7 @@ Hints are best effort: when the query cannot be analysed, only the general text 
 
 import difflib
 import json
+import logging
 import re
 from functools import cache
 from pathlib import Path
@@ -18,6 +19,7 @@ from oracle_lab.i18n import DEFAULT_LANGUAGE, Msg, ntranslate, translate
 from oracle_lab.sqltext import clauses as sqltext
 
 OVERLAY_DIR = Path(__file__).with_name("i18n")
+log = logging.getLogger(__name__)
 
 # code: (title, explanation, topic of the study notes)
 ERRORS = {
@@ -202,7 +204,12 @@ def overlay(lang):
     file = OVERLAY_DIR / f"{lang}.json"
     if lang == DEFAULT_LANGUAGE or not file.is_file():
         return {}
-    return json.loads(file.read_text("utf-8"))
+    try:
+        data = json.loads(file.read_text("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        log.error("error explanation overlay %s left out: %s", file, exc)
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _and(names, lang):
@@ -408,7 +415,8 @@ def explain(error_text, sql, ctx, lang="en"):
         return None
     code = m.group(0)
     title, text, topic = ERRORS[code]
-    translated = overlay(lang).get(code) or {}
+    translated = overlay(lang).get(code)
+    translated = translated if isinstance(translated, dict) else {}
     title, text = translated.get("title") or title, translated.get("explanation") or text
     hint = None
     try:

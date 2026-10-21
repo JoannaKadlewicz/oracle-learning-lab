@@ -14,9 +14,12 @@ See AUTHORING.md, "Translations".
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 OVERLAY_DIR = Path(__file__).parent
 PACK_FILE = "_pack"
@@ -34,12 +37,14 @@ PACK_KINDS = ("topics", "sections", "objectives")
 @dataclass(frozen=True)
 class Overlay:
     """The translations of one language: per kind, item id -> {field: text}; per pack kind, id -> name.
-    `files` keeps every topic file as read, by file stem, for the validator."""
+    `files` keeps every file as read, by file stem, for the validator; `errors` the files that could not be
+    read (they count as empty)."""
 
     lang: str
     items: dict[str, dict[str, dict]] = field(default_factory=dict)
     names: dict[str, dict[str, str]] = field(default_factory=dict)
     files: dict[str, dict] = field(default_factory=dict)
+    errors: dict[str, str] = field(default_factory=dict)
 
     def item(self, kind: str, item_id: str) -> dict:
         return self.items.get(kind, {}).get(item_id, {})
@@ -49,10 +54,16 @@ class Overlay:
 
 
 def read(lang: str, root: Path) -> Overlay:
-    """The overlay of `lang` under `root` (empty when it has no directory)."""
+    """The overlay of `lang` under `root` (empty when it has no directory). A file that is not valid JSON is
+    logged and left out, so a broken translation never breaks a page."""
     directory = root / lang
-    files = {f.stem: json.loads(f.read_text("utf-8")) for f in sorted(directory.glob("*.json"))} \
-        if directory.is_dir() else {}
+    files, errors = {}, {}
+    for file in sorted(directory.glob("*.json")) if directory.is_dir() else []:
+        try:
+            files[file.stem] = json.loads(file.read_text("utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            errors[file.stem] = f"not valid JSON: {exc}"
+            log.error("translation overlay %s left out: %s", file, exc)
     items: dict[str, dict[str, dict]] = {kind: {} for kind in KINDS}
     for stem, data in files.items():
         if stem == PACK_FILE or not isinstance(data, dict):
@@ -62,8 +73,9 @@ def read(lang: str, root: Path) -> Overlay:
             if isinstance(entries, dict):
                 items[kind].update({k: e for k, e in entries.items() if isinstance(e, dict)})
     pack = files.get(PACK_FILE)
-    names = {kind: dict(pack.get(kind) or {}) for kind in PACK_KINDS} if isinstance(pack, dict) else {}
-    return Overlay(lang, items, names, files)
+    names = {kind: {k: n for k, n in pack[kind].items() if isinstance(n, str)}
+             for kind in PACK_KINDS if isinstance(pack, dict) and isinstance(pack.get(kind), dict)}
+    return Overlay(lang, items, names, files, errors)
 
 
 @cache

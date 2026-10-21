@@ -301,18 +301,85 @@ validator rejects them.
 - **SQL fields** (`code`, `try_sql`, `starter`, `solution`) are SQL: translate only the comments
   (`-- ...` and `/* ... */`). Once comments are removed and whitespace is normalised, the
   translation must equal the source exactly: same statements, identifiers, literals and sample
-  data. You may add, drop or move comment lines. Leave a SQL field out when it has no comments.
+  data. You may add, drop or move comment lines. A SQL*Plus `PROMPT` line is code, not a comment:
+  copy it unchanged, even when its text starts with `--`.
 - **Options** keep their count and order; `answer` indexes point into them, so never reorder,
-  merge or split options. An option that is SQL (it starts with a statement keyword such as
-  `SELECT`, `WITH`, `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `CREATE`, `ALTER`, `DROP`, `GRANT`, or
-  with `col ` / `employees `) must be copied **byte-identical**. Options that are values or output
+  merge or split options. When you give `options`, give the **full list**, with every SQL option
+  copied **byte-identical**. An option counts as SQL when it starts like a statement (`SELECT`,
+  `WITH`, `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `CREATE`, `ALTER`, `DROP`, `TRUNCATE`, `GRANT`,
+  `REVOKE`, `COMMIT`, `ROLLBACK`, `SAVEPOINT`, `RENAME`, `COMMENT`, `FLASHBACK`, `PURGE`, or `col ` /
+  `employees `) and is not a sentence: no trailing period, no English prose words such as is, are,
+  must, can, fails, succeeds, the, then. `MERGE is DDL and commits implicitly.` is a sentence, so
+  translate it, keeping its SQL part (`MERGE`) exactly as written. Options that are values or output
   (`King!`, `NULL`, `ORA-01427`) stay as they are; translate only prose ("An error" -> "Błąd").
+- **What a complete entry needs** (what `--complete` asks for): every prose field the item has;
+  a SQL field **only when its source has comments** (leave a comment-free SQL field out); and
+  `options` **only when at least one option is prose** (leave an all-SQL option list out).
 - **Placeholders and code spans**: every `{name}` and every backtick span (`` `NVL(a, b)` ``)
   of the source appears in the translation unchanged, the same number of times.
 - **No empty strings.** Leave a field out instead.
 - Keep every number, row count, column name and technical claim. Keep product and exam names,
-  SQL keywords, function names and ORA- codes in English. Use the glossary in the i18n plan's
-  global constraints and the informal "ty" form ("Wpisz…", "Sprawdź…"); no exclamation marks.
+  SQL keywords, function names and ORA- codes in English. Use the glossary below and the informal
+  "ty" form ("Wpisz…", "Sprawdź…"); plain sentence case, no exclamation marks.
+
+### Glossary (Polish)
+
+| English | Polish |
+|---|---|
+| query | zapytanie |
+| subquery | podzapytanie |
+| row / column / table | wiersz / kolumna / tabela |
+| view | widok |
+| inline view | widok inline |
+| index | indeks |
+| sequence | sekwencja |
+| transaction | transakcja |
+| constraint | ograniczenie (constraint) |
+| join | złączenie (JOIN) on first use in an item, then JOIN |
+| data dictionary | słownik danych |
+| privilege | uprawnienie |
+| role | rola |
+| schema | schemat |
+| statement (SQL) | polecenie SQL |
+| practice database | baza danych do ćwiczeń |
+| SQL lab | laboratorium SQL |
+| flashcard | fiszka |
+| mock exam | egzamin próbny |
+| exercise | ćwiczenie |
+| mistakes | błędy |
+| settings | ustawienia |
+| sign in / sign out | zaloguj się / wyloguj się |
+| readiness | gotowość |
+| due (cards) | do powtórki |
+| learned | opanowane |
+
+Kept in English (in code style where the source uses it): SQL keywords and function names
+(SELECT, NULL, NVL, TO_CHAR, …), ORA- codes, product names (Oracle Database 19c, Oracle AI
+Database 23ai) and official exam names ("Oracle Database SQL", "Oracle AI Database SQL Associate").
+
+### The server catalog (`src/oracle_lab/i18n/pl.json`)
+
+Messages the server writes, plus the exam `about` texts, the home-note titles and blurbs and the
+`needs` label, are translated in the server catalog. It is one JSON object, and **the English text
+is the key**, character for character:
+
+```json
+{
+  "Not found": "Nie znaleziono",
+  "Use at least {count} characters.": "Użyj co najmniej {count} znaków.",
+  "This DDL statement committed {n} pending row changes first.": [
+    "To polecenie DDL najpierw zatwierdziło {n} oczekującą zmianę wiersza.",
+    "To polecenie DDL najpierw zatwierdziło {n} oczekujące zmiany wierszy.",
+    "To polecenie DDL najpierw zatwierdziło {n} oczekujących zmian wierszy."
+  ]
+}
+```
+
+- A plain value translates the key. A text with a count is keyed by its English **plural ("many")
+  form**, and its value is a list of the **3 Polish forms**: for 1 (1 zmiana), for 2-4, 22-24, …
+  (2 zmiany), and for 0, 5-21, 25, … (5 zmian).
+- Every `{placeholder}` of the key appears in each translation (a test checks it). A missing
+  entry shows English. Keep existing keys unchanged; add entries, write the file atomically.
 
 ### Notes
 
@@ -320,10 +387,11 @@ A note is translated by a sibling file next to it: `notes.md` -> `notes.pl.md`,
 `examples.sql` -> `examples.pl.sql`. The app serves the sibling under the English path and lists
 only the English file (its title comes from the English file name or heading).
 
-- In a `.pl.md` translate the prose freely, but keep **every fenced code block** (```` ```sql ````)
-  in the same order and count: inside a block translate only the comments; the SQL, and any
-  SQL*Plus output, stays identical once comments are removed.
-- A `.pl.sql` file is the English file with translated comments only.
+- In a `.pl.md` translate the prose freely, but keep **every fenced code block** (```` ```sql ````),
+  including fences indented inside a list, in the same order and count: inside a block translate
+  only the comments; the SQL, and any SQL*Plus output, stays identical once comments are removed.
+- A `.pl.sql` file is the English file with translated comments only. `PROMPT` lines stay as
+  they are.
 
 ### Checking
 

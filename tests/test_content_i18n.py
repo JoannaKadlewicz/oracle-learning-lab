@@ -245,7 +245,7 @@ def test_grading_feedback_in_polish_and_unchanged_english():
     pl = compare_results(lab, ["ID", "NAME"], rows[:1], ["ID", "NAME"], rows, lang="pl")["feedback"]
     assert pl == ["Liczba wierszy: 1, oczekiwana: 2."]
     pl = compare_results(lab, ["ID", "NAME"], rows[::-1], ["ID", "NAME"], rows, lang="pl")["feedback"]
-    assert pl == ["Właściwe wiersze, ale w złej kolejności. Sprawdź ORDER BY i rozstrzyganie remisów."]
+    assert pl == ["Właściwe wiersze, ale w złej kolejności. Sprawdź ORDER BY i kolumny rozstrzygające przy równych wartościach."]
     alias = compare_results(lab, ["X", "Y"], rows, ["ID", "NAME"], rows, lang="pl")["feedback"][0]
     assert "id, name" in alias and alias != compare_results(lab, ["X", "Y"], rows, ["ID", "NAME"], rows)["feedback"][0]
 
@@ -284,7 +284,7 @@ def test_visualizer_and_lab_messages_follow_the_language():
     assert tx.after("CREATE TABLE lab_x (a NUMBER)", 0)["note"] == "This DDL statement committed 1 pending row change first."
     [stmt] = split_statements("SET SERVEROUTPUT ON")
     assert client_command_result(stmt)["message"] == "SQL*Plus command ignored by the lab."
-    assert client_command_result(stmt, "pl")["message"] == "Polecenie SQL*Plus pominięte w laboratorium."
+    assert client_command_result(stmt, "pl")["message"] == "Polecenie SQL*Plus pominięte w laboratorium SQL."
 
 
 # --------------------------------------------------------------------------- delivery
@@ -303,3 +303,68 @@ def test_content_and_notes_follow_the_request_language(serve, overlay_dir, notes
     assert note["text"].startswith("# Ściąga")
     listed = json.loads(http("/api/notes", headers={"X-Language": "pl"})[2])
     assert not any(".pl." in n["path"] for n in listed)
+
+
+# --------------------------------------------------------------------------- review round 1
+
+
+def test_sql_options_are_code_and_sentences_about_sql_are_prose():
+    options = {o for q in content.QUESTIONS for o in q["options"]}
+    for prose in ("MERGE must include both WHEN MATCHED and WHEN NOT MATCHED clauses.",
+                  "MERGE is DDL and commits implicitly.",
+                  "MERGE can insert the unmatched rows into a table other than the INTO target.",
+                  "SELECT is revoked and INSERT is silently ignored.",
+                  "SELECT is revoked and a warning is returned for INSERT.",
+                  "ALTER TABLE t MODIFY (name VARCHAR2(40)) succeeds.",
+                  "REVOKE SELECT ON lab_t FROM PUBLIC, then GRANT SELECT ON lab_t TO PUBLIC"):
+        assert prose in options and not v.is_sql_option(prose), prose
+    for sql in ("SELECT q'[It's done]' FROM dual;", "MERGE", "col LIKE '%_%'",
+                "employees e LEFT OUTER JOIN departments d ON ...", "GRANT SELECT ON employees TO lead WITH GRANT OPTION;",
+                "SELECT e.salary AS select FROM employees e", "INSERT INTO departments VALUES (60, 'Legal');"):
+        assert sql in options and v.is_sql_option(sql), sql
+
+
+def test_complete_skips_sql_fields_without_comments_and_all_sql_options(overlay_dir):
+    quotes = v.translation_problems("pl", "t01", complete=True)
+    assert "pl/t01.json: question q01-quotes: missing" in quotes
+    overlay_dir("pl", "t01", {"questions": {
+        "q01-quotes": {"prompt": "Które dwa zapytania zwracają tekst It's done?", "explanation": "Apostrof podwajasz."},
+        "q01-alias-where": {"prompt": "Które stwierdzenie jest prawdziwe?", "explanation": "WHERE jest przed SELECT.",
+                            "options": ["Działa.", "Błąd: alias w WHERE.", "Błąd: alias w ORDER BY.", "Błąd: AS."]},
+    }})
+    problems = [p for p in v.translation_problems("pl", "t01", complete=True)
+                if "q01-quotes" in p or "q01-alias-where" in p]
+    assert problems == []  # all-SQL options and comment-free code/try_sql need no entry
+    card = _by_id(content.FLASHCARDS, "c000")  # its try_sql has a comment
+    overlay_dir("en", "t01", {"flashcards": {"c000": {"front": "Apostrophe?", "back": "Double it."}}})
+    assert "en/t01.json: flashcard c000: missing try_sql" in v.translation_problems("en", "t01", complete=True)
+    assert v.has_comments(card["try_sql"]) and not v.has_comments(QUOTES["try_sql"])
+
+
+def test_indented_code_blocks_are_checked(notes_dir, monkeypatch, overlay_dir):
+    monkeypatch.setattr(v, "NOTES_DIR", notes_dir)
+    topic = notes_dir / "topics" / "01-basic-select"
+    (topic / "notes.md").write_text("# Notes\n\n- Step:\n\n  ```sql\n  GRANT SELECT ON t TO u;\n  ```\n", "utf-8")
+    (topic / "notes.pl.md").write_text("# Notatki\n\n- Krok:\n\n  ```sql\n  -- nadaj\n  GRANT SELECT ON t TO u;\n  ```\n",
+                                       "utf-8")
+    assert v.translation_problems("pl", "t01") == []
+    (topic / "notes.pl.md").write_text("# Notatki\n\n- Krok:\n\n  ```sql\n  DROP USER x CASCADE;\n  ```\n", "utf-8")
+    assert ("notes/topics/01-basic-select/notes.pl.md: code block 1 differs from the English one outside comments"
+            in v.translation_problems("pl", "t01"))
+
+
+def test_prompt_lines_are_code_not_comments():
+    assert v.sql_without_comments("PROMPT --- Fixed: one\nSELECT 1 FROM dual;") != v.sql_without_comments(
+        "PROMPT --- Poprawione: jeden\nSELECT 1 FROM dual;")
+    assert not v.has_comments("prompt -- shown as it is\nSELECT 1 FROM dual;")
+
+
+def test_a_broken_overlay_file_is_left_out_and_reported(overlay_dir, caplog):
+    overlay_dir("pl", "t02", {"questions": {}})
+    overlay_dir("pl", "t01", {"questions": {"q01-alias-where": {"prompt": "Które stwierdzenie jest prawdziwe?"}}})
+    (overlays.OVERLAY_DIR / "pl" / "t01.json").write_text('{"questions": {', "utf-8")
+    overlays.load.cache_clear()
+    with caplog.at_level("ERROR"):
+        q = _by_id(content.for_exam("1Z0-071", "pl").QUESTIONS, "q01-alias-where")
+    assert q["prompt"] == ALIAS_WHERE["prompt"] and "t01.json" in caplog.text
+    assert any(p.startswith("pl/t01.json: not valid JSON") for p in v.translation_problems("pl", "t01"))
