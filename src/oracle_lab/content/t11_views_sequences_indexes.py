@@ -429,7 +429,7 @@ QUESTIONS = [
         "objective": "11.2",
         "prompt": "DICT is a public synonym for the DICTIONARY view. What does this query return?",
         "code": "SELECT owner\nFROM   all_synonyms\nWHERE  synonym_name = 'DICT';",
-        "options": ["PUBLIC", "SYS", "SYSTEM", "ORASTUDY"],
+        "options": ["PUBLIC", "SYS", "SYSTEM", "HR"],
         "answer": [0],
         "explanation": "Public synonyms belong to the special user group PUBLIC, whoever created them, so ALL_SYNONYMS shows OWNER 'PUBLIC'. SYS owns the DICTIONARY view the synonym points to (TABLE_OWNER), not the synonym. Your user owns no synonyms here: USER_SYNONYMS only lists private synonyms in your own schema and returns no row for DICT.",
         "answer_sql": "SELECT owner FROM all_synonyms WHERE synonym_name = 'DICT'",
@@ -568,7 +568,7 @@ QUESTIONS = [
             "Inserts the row with the last value the sequence issued",
         ],
         "answer": [1],
-        "explanation": "A column default is evaluated at every insert that omits the column. USER_TAB_COLUMNS.DATA_DEFAULT still holds \"ORASTUDY\".\"LAB_INV_SEQ\".\"NEXTVAL\", but that sequence is gone, so the insert fails with ORA-02289. The default does not silently become NULL, and no value is remembered. Identity columns avoid this because their sequence is tied to the table.",
+        "explanation": "A column default is evaluated at every insert that omits the column. USER_TAB_COLUMNS.DATA_DEFAULT still holds \"<your schema>\".\"LAB_INV_SEQ\".\"NEXTVAL\" (you will see your own schema name there), but that sequence is gone, so the insert fails with ORA-02289. The default does not silently become NULL, and no value is remembered. Identity columns avoid this because their sequence is tied to the table.",
     },
     {
         "id": "q11-sequence-gaps",
