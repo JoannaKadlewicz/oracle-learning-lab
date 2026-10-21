@@ -288,3 +288,25 @@ def test_no_fetch_elsewhere_skips_the_language():
         rel = path.relative_to(STATIC).as_posix()
         if rel not in unchecked:
             assert not re.search(r"(?<![\w$.])fetch\(", strip_comments(path.read_text(encoding="utf-8"))), rel
+
+
+# --- nothing left untranslated ----------------------------------------------------------------------------------
+
+# Texts that stay as they are in every language: key names and each language's name in itself.
+UNTRANSLATED = {"Enter", "English", "Polski"}
+_LITERAL_UI_TEXT = (
+    re.compile(r">\s*([A-Z][a-z]{2,}(?:[ ,][A-Za-z]+)*[.?]?)\s*<"),  # a text node in template HTML
+    re.compile(r'\b(?:aria-label|title|placeholder)="([A-Z][a-z]+[^"$]*)"'),  # an attribute shown or read aloud
+    re.compile(r'\b(?:title|body|confirm|cancel|label|textContent)\s*[:=]\s*"([A-Z][a-z]+ [^"]*)"'),  # dialog options
+    re.compile(r'\b(?:toast|toastError)\(\s*["`]([^"`]+)'),  # a toast built from a literal
+)
+
+
+def test_no_english_text_is_left_outside_the_catalog_calls():
+    found = []
+    for path in sorted((STATIC / "js").rglob("*.js")):
+        code = strip_comments(path.read_text(encoding="utf-8"))
+        for pattern in _LITERAL_UI_TEXT:
+            found += [f"{path.relative_to(STATIC)}: {m.group(1)}" for m in pattern.finditer(code)
+                      if m.group(1) not in UNTRANSLATED]
+    assert found == [], "wrap these in t()/tn(): " + "; ".join(found)

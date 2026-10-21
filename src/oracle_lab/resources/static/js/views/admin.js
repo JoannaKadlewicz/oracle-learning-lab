@@ -3,12 +3,13 @@
 
 import { $, $$, esc, plural } from "../core/dom.js";
 import { api } from "../core/api.js";
+import { t, tn, formatDate } from "../core/i18n.js";
 import { main } from "../core/router.js";
 import { currentUser } from "../core/session.js";
 import { toast, toastError, confirmDialog, openDialog } from "../ui/feedback.js";
 import { pageHead, section, empty, loading } from "../ui/widgets.js";
 
-const METHOD_NAMES = { password: "Password", google: "Google" };
+const methodName = method => ({ password: t("Password"), google: "Google" }[method] ?? method);
 const EVENTS = [
   "login", "logout", "register", "password_changed", "password_set", "password_reset", "session_ended",
   "other_sessions_ended", "google_login", "google_link", "google_linked", "google_reauth", "google_unlinked",
@@ -23,44 +24,44 @@ let filters = { event: "", user_id: "" };
 let inactiveDays = 180;
 let eventsRequest = 0;  // only the newest events request may fill the table
 
-const when = t => t ? new Date(t * 1000).toLocaleString(undefined,
-  { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Never";
+const when = time => time ? formatDate(time * 1000,
+  { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : t("Never");
 const emailOf = id => users.find(u => u.id === id)?.email;
 
 async function render() {
   if (currentUser()?.role !== "admin") {
-    main.innerHTML = empty("Page not found", "There is nothing here.", `<a class="btn secondary" href="/">Go to Today</a>`);
+    main.innerHTML = empty(esc(t("Page not found")), esc(t("There is nothing here.")), `<a class="btn secondary" href="/">${esc(t("Go to Today"))}</a>`);
     return;
   }
-  main.innerHTML = loading("Loading accounts…");
+  main.innerHTML = loading(t("Loading accounts…"));
   let list, settings;
   try {
     [list, settings] = await Promise.all([api("/api/admin/users"), api("/api/admin/settings")]);
   } catch (err) {
-    main.innerHTML = empty("The admin page could not be loaded", esc(err.message),
-      `<button class="btn secondary" type="button" id="admin-retry">Try again</button>`);
+    main.innerHTML = empty(esc(t("The admin page could not be loaded")), esc(err.message),
+      `<button class="btn secondary" type="button" id="admin-retry">${esc(t("Try again"))}</button>`);
     $("#admin-retry").addEventListener("click", render);
     return;
   }
   users = list.users;
   main.innerHTML = `
-    ${pageHead("Admin", "Accounts, sign-up and the security events of this lab.")}
+    ${pageHead(esc(t("Admin")), esc(t("Accounts, sign-up and the security events of this lab.")))}
     <div class="admin">
-      ${section("Accounts", `<div class="table-wrap" id="admin-users"></div>`, { aside: esc(plural(users.length, "account")) })}
+      ${section(esc(t("Accounts")), `<div class="table-wrap" id="admin-users"></div>`, { aside: esc(plural(users.length, "account")) })}
       <div class="admin-panels">
-        ${section("Sign-up", `<div class="panel" id="admin-registration"></div>`)}
-        ${section("Inactive accounts", `<div class="panel danger-zone" id="admin-inactive"></div>`)}
+        ${section(esc(t("Sign-up")), `<div class="panel" id="admin-registration"></div>`)}
+        ${section(esc(t("Inactive accounts")), `<div class="panel danger-zone" id="admin-inactive"></div>`)}
       </div>
-      ${section("Security events", `
+      ${section(esc(t("Security events")), `
         <div class="admin-filters fields">
-          <label class="field"><span>Event</span><select id="ev-event">
-            <option value="">All events</option>
+          <label class="field"><span>${esc(t("Event"))}</span><select id="ev-event">
+            <option value="">${esc(t("All events"))}</option>
             ${EVENTS.map(e => `<option value="${esc(e)}">${esc(e.replaceAll("_", " "))}</option>`).join("")}
           </select></label>
-          <label class="field"><span>Account</span><select id="ev-user"></select></label>
-          <button class="btn secondary" type="button" id="ev-refresh">Refresh</button>
+          <label class="field"><span>${esc(t("Account"))}</span><select id="ev-user"></select></label>
+          <button class="btn secondary" type="button" id="ev-refresh">${esc(t("Refresh"))}</button>
         </div>
-        <div class="table-wrap" id="admin-events">${loading("Loading events…")}</div>`, { aside: "Newest first, up to 200" })}
+        <div class="table-wrap" id="admin-events">${loading(t("Loading events…"))}</div>`, { aside: esc(t("Newest first, up to 200")) })}
     </div>`;
   renderUsers();
   renderRegistration(settings);
@@ -96,17 +97,17 @@ function renderUsers() {
   const me = currentUser().id;
   $("#admin-users").innerHTML = `
     <table class="data admin-users">
-      <thead><tr><th>Account</th><th>Role</th><th>Status</th><th>Last sign-in</th><th class="num">Sessions</th><th>Practice schemas</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+      <thead><tr><th>${esc(t("Account"))}</th><th>${esc(t("Role"))}</th><th>${esc(t("Status"))}</th><th>${esc(t("Last sign-in"))}</th><th class="num">${esc(t("Sessions"))}</th><th>${esc(t("Practice schemas"))}</th><th class="actions"><span class="sr-only">${esc(t("Actions"))}</span></th></tr></thead>
       <tbody>${users.map(u => `
         <tr>
-          <td><div class="acct-cell"><strong>${esc(u.email)}</strong>${u.id === me ? ` <span class="tag tag-here">You</span>` : ""}
-            <span class="muted small">${esc(u.methods.map(m => METHOD_NAMES[m] || m).join(", ") || "No sign-in method")}, joined ${esc(when(u.created_at))}</span></div></td>
-          <td><span class="tag ${u.role === "admin" ? "tag-admin" : ""}">${u.role === "admin" ? "Admin" : "Learner"}</span></td>
-          <td><span class="tag ${u.status === "locked" ? "tag-fix" : "tag-ok"}">${u.status === "locked" ? "Locked" : "Active"}</span></td>
+          <td><div class="acct-cell"><strong>${esc(u.email)}</strong>${u.id === me ? ` <span class="tag tag-here">${esc(t("You"))}</span>` : ""}
+            <span class="muted small">${esc(t("{methods}, joined {date}", { methods: u.methods.map(methodName).join(", ") || t("No sign-in method"), date: when(u.created_at) }))}</span></div></td>
+          <td><span class="tag ${u.role === "admin" ? "tag-admin" : ""}">${esc(u.role === "admin" ? t("Administrator") : t("Learner"))}</span></td>
+          <td><span class="tag ${u.status === "locked" ? "tag-fix" : "tag-ok"}">${esc(u.status === "locked" ? t("Locked") : t("Active"))}</span></td>
           <td class="nowrap">${esc(when(u.last_login_at))}</td>
           <td class="num">${esc(u.sessions)}</td>
-          <td>${u.schemas.length ? `<div class="schemas">${u.schemas.map(schemaText).join("")}</div>` : `<span class="muted small">None</span>`}</td>
-          <td class="actions"><button class="btn secondary small" type="button" data-manage="${esc(u.id)}" aria-label="Manage ${esc(u.email)}">Manage</button></td>
+          <td>${u.schemas.length ? `<div class="schemas">${u.schemas.map(schemaText).join("")}</div>` : `<span class="muted small">${esc(t("None"))}</span>`}</td>
+          <td class="actions"><button class="btn secondary small" type="button" data-manage="${esc(u.id)}" aria-label="${esc(t("Manage {email}", { email: u.email }))}">${esc(t("Manage"))}</button></td>
         </tr>`).join("")}
       </tbody>
     </table>`;
@@ -116,20 +117,21 @@ function renderUsers() {
 async function manage(user) {
   if (!user) return;
   const self = user.id === currentUser().id;
-  const items = [["reset", "Create a password reset link", ""]];
+  const items = [["reset", t("Create a password reset link"), ""]];
   if (!self) {
-    items.push(user.status === "locked" ? ["unlock", "Unlock the account", ""] : ["lock", "Lock the account", ""]);
-    items.push(user.role === "admin" ? ["learner", "Remove admin rights", ""] : ["admin", "Make admin", ""]);
+    items.push(user.status === "locked" ? ["unlock", t("Unlock the account"), ""] : ["lock", t("Lock the account"), ""]);
+    items.push(user.role === "admin" ? ["learner", t("Remove admin rights"), ""] : ["admin", t("Make admin"), ""]);
   }
-  user.schemas.forEach(s => items.push([`schema:${s.key}`, `Recreate the ${s.key} practice schema`, ""]));
-  if (!self) items.push(["delete", "Delete the account", "danger"]);
+  user.schemas.forEach(s => items.push([`schema:${s.key}`, t("Recreate the {key} practice schema", { key: s.key }), ""]));
+  if (!self) items.push(["delete", t("Delete the account"), "danger"]);
   const choice = await openDialog(`
     <h2>${esc(user.email)}</h2>
-    <p>${user.role === "admin" ? "Admin" : "Learner"}, ${user.status === "locked" ? "locked" : "active"}. Last sign-in: ${esc(when(user.last_login_at))}.</p>
+    <p>${esc(t("{role}, {status}. Last sign-in: {date}.", { role: user.role === "admin" ? t("Administrator") : t("Learner"),
+      status: user.status === "locked" ? t("locked") : t("active"), date: when(user.last_login_at) }))}</p>
     <div class="action-list">
       ${items.map(([value, label, cls]) => `<button class="btn ${cls || "secondary"}" value="${esc(value)}">${esc(label)}</button>`).join("")}
     </div>
-    <div class="row"><button type="button" class="btn ghost" data-close>Close</button></div>`);
+    <div class="row"><button type="button" class="btn ghost" data-close>${esc(t("Close"))}</button></div>`);
   if (!choice || choice === "cancel") return;
   try {
     await act(user, choice);
@@ -139,39 +141,39 @@ async function manage(user) {
 async function act(user, choice) {
   const who = user.email;
   if (choice === "reset") {
-    if (!await confirmDialog({ title: "Create a reset link?", confirm: "Create link",
-      body: `Anyone with the link can set a new password for ${who} within 24 hours. It works once. Send it to them privately.` })) return;
+    if (!await confirmDialog({ title: t("Create a reset link?"), confirm: t("Create link"),
+      body: t("Anyone with the link can set a new password for {who} within 24 hours. It works once. Send it to them privately.", { who }) })) return;
     const { link } = await api("/api/admin/reset-link", { user_id: user.id });
     await showLink(link, who);
   } else if (choice === "lock") {
-    if (!await confirmDialog({ title: `Lock ${who}?`, confirm: "Lock account", danger: true,
-      body: "They are signed out everywhere and cannot sign in until you unlock the account." })) return;
+    if (!await confirmDialog({ title: t("Lock {who}?", { who }), confirm: t("Lock account"), danger: true,
+      body: t("They are signed out everywhere and cannot sign in until you unlock the account.") })) return;
     await api("/api/admin/lock", { user_id: user.id });
-    toast("Account locked.");
+    toast(t("Account locked."));
   } else if (choice === "unlock") {
-    if (!await confirmDialog({ title: `Unlock ${who}?`, confirm: "Unlock", body: "They can sign in again." })) return;
+    if (!await confirmDialog({ title: t("Unlock {who}?", { who }), confirm: t("Unlock"), body: t("They can sign in again.") })) return;
     await api("/api/admin/unlock", { user_id: user.id });
-    toast("Account unlocked.");
+    toast(t("Account unlocked."));
   } else if (choice === "admin" || choice === "learner") {
     const promote = choice === "admin";
-    if (!await confirmDialog({ title: promote ? `Make ${who} an admin?` : `Remove admin rights from ${who}?`,
-      confirm: promote ? "Make admin" : "Remove admin rights", danger: promote,
-      body: promote ? "Admins can see every account, lock and delete them, and change sign-up settings." : "They keep their progress and become a learner." })) return;
+    if (!await confirmDialog({ title: promote ? t("Make {who} an admin?", { who }) : t("Remove admin rights from {who}?", { who }),
+      confirm: promote ? t("Make admin") : t("Remove admin rights"), danger: promote,
+      body: promote ? t("Admins can see every account, lock and delete them, and change sign-up settings.") : t("They keep their progress and become a learner.") })) return;
     await api("/api/admin/role", { user_id: user.id, role: choice });
-    toast(promote ? "Admin rights granted." : "Admin rights removed.");
+    toast(promote ? t("Admin rights granted.") : t("Admin rights removed."));
   } else if (choice.startsWith("schema:")) {
     const key = choice.slice(7);
-    if (!await confirmDialog({ title: `Recreate the ${key} practice schema?`, confirm: "Recreate", danger: true,
-      body: `Every table and row ${who} created in it is dropped, and a fresh schema with the sample data is created. This can take a minute.` })) return;
-    toast("Recreating the practice schema…");
+    if (!await confirmDialog({ title: t("Recreate the {key} practice schema?", { key }), confirm: t("Recreate"), danger: true,
+      body: t("Every table and row {who} created in it is dropped, and a fresh schema with the sample data is created. This can take a minute.", { who }) })) return;
+    toast(t("Recreating the practice schema…"));
     const { schema } = await api("/api/admin/recreate-schema", { user_id: user.id, key });
-    if (schema.status === "ready") toast("Practice schema recreated.");
-    else toastError(`The practice schema could not be created. ${schema.error || ""}`);
+    if (schema.status === "ready") toast(t("Practice schema recreated."));
+    else toastError(t("The practice schema could not be created. {error}", { error: schema.error || "" }));
   } else if (choice === "delete") {
-    if (!await confirmDialog({ title: `Delete ${who}?`, confirm: "Delete account", danger: true,
-      body: "Their account, progress, notes and practice schemas are deleted for good. This cannot be undone." })) return;
+    if (!await confirmDialog({ title: t("Delete {who}?", { who }), confirm: t("Delete account"), danger: true,
+      body: t("Their account, progress, notes and practice schemas are deleted for good. This cannot be undone.") })) return;
     await api("/api/admin/delete", { user_id: user.id });
-    toast("Account deleted.");
+    toast(t("Account deleted."));
   }
   await reloadUsers();
   loadEvents();
@@ -179,12 +181,12 @@ async function act(user, choice) {
 
 async function showLink(link, who) {
   await openDialog(`
-    <h2>Reset link for ${esc(who)}</h2>
-    <p>Copy it now: it is shown only once. It works once, within 24 hours.</p>
-    <label class="field"><span>Reset link</span><input type="text" id="reset-link" readonly value="${esc(link)}"></label>
+    <h2>${esc(t("Reset link for {who}", { who }))}</h2>
+    <p>${esc(t("Copy it now: it is shown only once. It works once, within 24 hours."))}</p>
+    <label class="field"><span>${esc(t("Reset link"))}</span><input type="text" id="reset-link" readonly value="${esc(link)}"></label>
     <div class="row">
-      <button type="button" class="btn secondary" id="copy-link">Copy link</button>
-      <button class="btn" value="done">Done</button>
+      <button type="button" class="btn secondary" id="copy-link">${esc(t("Copy link"))}</button>
+      <button class="btn" value="done">${esc(t("Done"))}</button>
     </div>`, dialog => {
     const input = $("#reset-link", dialog);
     input.addEventListener("focus", () => input.select());
@@ -199,7 +201,7 @@ async function showLink(link, who) {
         input.select();
         try { copied = document.execCommand("copy"); } catch { copied = false; }
       }
-      button.textContent = copied ? "Copied" : "Press Ctrl+C to copy";
+      button.textContent = copied ? t("Copied") : t("Press Ctrl+C to copy");
     });
     input.select();
   });
@@ -212,27 +214,27 @@ function renderRegistration(settings) {
   let open = settings.registration_open;
   panel.innerHTML = `
     <div class="setting">
-      <div><h3 id="reg-label">Registration</h3><p>Closed stops new sign-ups. Existing accounts keep working.</p></div>
+      <div><h3 id="reg-label">${esc(t("Registration"))}</h3><p>${esc(t("Closed stops new sign-ups. Existing accounts keep working."))}</p></div>
       <div class="seg" role="group" aria-labelledby="reg-label">
-        <button type="button" data-open="1" aria-pressed="${open}">Open</button>
-        <button type="button" data-open="0" aria-pressed="${!open}">Closed</button>
+        <button type="button" data-open="1" aria-pressed="${open}">${esc(t("Open"))}</button>
+        <button type="button" data-open="0" aria-pressed="${!open}">${esc(t("Closed"))}</button>
       </div>
     </div>
     <div class="setting">
-      <div><h3><label for="max-users">User limit</label></h3><p>Sign-up closes when this many accounts exist. ${esc(plural(settings.users, "account"))} now.</p></div>
+      <div><h3><label for="max-users">${esc(t("User limit"))}</label></h3><p>${esc(tn(settings.users, "Sign-up closes when this many accounts exist. {n} account now.", "Sign-up closes when this many accounts exist. {n} accounts now."))}</p></div>
       <input type="number" id="max-users" min="1" step="1" inputmode="numeric" value="${esc(settings.max_users)}">
     </div>
-    <div class="form-actions"><button class="btn" type="button" id="save-registration">Save sign-up settings</button></div>`;
+    <div class="form-actions"><button class="btn" type="button" id="save-registration">${esc(t("Save sign-up settings"))}</button></div>`;
   $$("[data-open]", panel).forEach(b => b.addEventListener("click", () => {
     open = b.dataset.open === "1";
     $$("[data-open]", panel).forEach(x => x.setAttribute("aria-pressed", x === b));
   }));
   $("#save-registration").addEventListener("click", async () => {
     const max = Number($("#max-users").value);
-    if (!Number.isInteger(max) || max < 1) { toastError("The user limit must be a whole number of at least 1."); return; }
+    if (!Number.isInteger(max) || max < 1) { toastError(t("The user limit must be a whole number of at least 1.")); return; }
     try {
       renderRegistration(await api("/api/admin/settings", { open, max_users: max }));
-      toast(open ? "Registration is open." : "Registration is closed.");
+      toast(open ? t("Registration is open.") : t("Registration is closed."));
       loadEvents();
     } catch (err) { toastError(err.message); }
   });
@@ -250,27 +252,29 @@ function renderInactive() {
   if (!panel) return;
   panel.innerHTML = `
     <div class="setting">
-      <div><h3><label for="inactive-days">Delete accounts inactive for</label></h3>
-        <p>Learners who have not signed in for this many days (or never, since they joined). Admins are never deleted.</p></div>
-      <div class="days-input"><input type="number" id="inactive-days" min="1" step="1" inputmode="numeric" value="${esc(inactiveDays)}"><span>days</span></div>
+      <div><h3><label for="inactive-days">${esc(t("Delete accounts inactive for"))}</label></h3>
+        <p>${esc(t("Learners who have not signed in for this many days (or never, since they joined). Admins are never deleted."))}</p></div>
+      <div class="days-input"><input type="number" id="inactive-days" min="1" step="1" inputmode="numeric" value="${esc(inactiveDays)}"><span>${esc(tn(Number(inactiveDays) || 0, "day", "days"))}</span></div>
     </div>
-    <div class="form-actions"><button class="btn danger" type="button" id="delete-inactive">Delete inactive accounts</button>
+    <div class="form-actions"><button class="btn danger" type="button" id="delete-inactive">${esc(t("Delete inactive accounts"))}</button>
       <span class="muted small" id="inactive-count" role="status"></span></div>`;
   const count = () => {
     const days = Number($("#inactive-days").value);
-    $("#inactive-count").textContent = Number.isInteger(days) && days >= 1 ? `${plural(inactive(days).length, "account")} match.` : "";
+    $("#inactive-count").textContent = Number.isInteger(days) && days >= 1 ? tn(inactive(days).length, "{n} account matches.", "{n} accounts match.") : "";
   };
   $("#inactive-days").addEventListener("input", () => { inactiveDays = $("#inactive-days").value; count(); });
   count();
   $("#delete-inactive").addEventListener("click", async () => {
     const days = Number($("#inactive-days").value);
-    if (!Number.isInteger(days) || days < 1) { toastError("Enter a number of days of at least 1."); return; }
+    if (!Number.isInteger(days) || days < 1) { toastError(t("Enter a number of days of at least 1.")); return; }
     const n = inactive(days).length;
-    if (!await confirmDialog({ title: `Delete accounts inactive for ${days} days?`, confirm: "Delete accounts", danger: true,
-      body: `${n ? `About ${plural(n, "learner account")}` : "No learner accounts"} will be deleted with their progress, notes and practice schemas. This cannot be undone.` })) return;
+    if (!await confirmDialog({ title: tn(days, "Delete accounts inactive for {n} day?", "Delete accounts inactive for {n} days?"), confirm: t("Delete accounts"), danger: true,
+      body: n ? tn(n, "About {n} learner account will be deleted with their progress, notes and practice schemas. This cannot be undone.",
+        "About {n} learner accounts will be deleted with their progress, notes and practice schemas. This cannot be undone.")
+        : t("No learner accounts will be deleted with their progress, notes and practice schemas. This cannot be undone.") })) return;
     try {
       const { deleted } = await api("/api/admin/delete-inactive", { days });
-      toast(`${plural(deleted, "account")} deleted.`);
+      toast(tn(deleted, "{n} account deleted.", "{n} accounts deleted."));
       await reloadUsers();
       loadEvents();
     } catch (err) { toastError(err.message); }
@@ -290,7 +294,7 @@ async function loadEvents() {
   const box = $("#admin-events");
   if (!box) return;
   const select = $("#ev-user");
-  select.innerHTML = `<option value="">All accounts</option>${users.map(u =>
+  select.innerHTML = `<option value="">${esc(t("All accounts"))}</option>${users.map(u =>
     `<option value="${esc(u.id)}">${esc(u.email)}</option>`).join("")}`;
   select.value = users.some(u => u.id === filters.user_id) ? filters.user_id : "";
   const query = new URLSearchParams({ limit: "200" });
@@ -301,14 +305,14 @@ async function loadEvents() {
   try {
     events = (await api(`/api/admin/events?${query}`)).events;
   } catch (err) {
-    if (id === eventsRequest && $("#admin-events")) box.innerHTML = empty("Could not load the events", esc(err.message));
+    if (id === eventsRequest && $("#admin-events")) box.innerHTML = empty(esc(t("Could not load the events")), esc(err.message));
     return;
   }
   if (id !== eventsRequest || !$("#admin-events")) return;  // a newer request or another page took over
-  if (!events.length) { box.innerHTML = empty("No events", "Nothing matches these filters."); return; }
+  if (!events.length) { box.innerHTML = empty(esc(t("No events")), esc(t("Nothing matches these filters."))); return; }
   box.innerHTML = `
     <table class="data admin-events">
-      <thead><tr><th>Time</th><th>Event</th><th>Outcome</th><th>Account</th><th>Address</th><th>Details</th></tr></thead>
+      <thead><tr><th>${esc(t("Time"))}</th><th>${esc(t("Event"))}</th><th>${esc(t("Outcome"))}</th><th>${esc(t("Account"))}</th><th>${esc(t("Address"))}</th><th>${esc(t("Details"))}</th></tr></thead>
       <tbody>${events.map(e => `
         <tr>
           <td class="nowrap">${esc(when(e.t))}</td>
@@ -322,4 +326,4 @@ async function loadEvents() {
     </table>`;
 }
 
-export const adminView = { title: "Admin", render };
+export const adminView = { get title() { return t("Admin"); }, render };

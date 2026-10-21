@@ -2,6 +2,7 @@
    state, DDL over the data dictionary. */
 
 import { $, $$, esc, inlineCode, icon, plural } from "../core/dom.js";
+import { t, tn } from "../core/i18n.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
 import { C, S, P, L, DB, apply, loadProgress, topicLabel, needsNewerDb, sqlOff, noSql } from "../core/state.js";
@@ -17,11 +18,11 @@ let search = "";
 
 export function resetExercise() { currentLab = null; search = ""; }
 
-const KINDS = [["all", "All kinds"], ["query", "Query"], ["dml", "DML"], ["ddl", "DDL"], ["fix", "Fix the bug"]];
-const STATUSES = [["all", "Any status"], ["open", "Not passed"], ["passed", "Passed"]];
+const kinds = () => [["all", t("All kinds")], ["query", t("Query")], ["dml", "DML"], ["ddl", "DDL"], ["fix", t("Fix the bug")]];
+const statuses = () => [["all", t("Any status")], ["open", t("Not passed")], ["passed", t("Passed")]];
 
 const kindOf = lab => lab.kind || "query";
-const kindLabel = lab => lab.starter ? "Fix the bug" : { query: "Query", dml: "DML", ddl: "DDL" }[kindOf(lab)];
+const kindLabel = lab => lab.starter ? t("Fix the bug") : { query: t("Query"), dml: "DML", ddl: "DDL" }[kindOf(lab)];
 
 function filtered(f) {
   const words = search.toLowerCase().split(/\s+/).filter(Boolean);
@@ -37,12 +38,12 @@ function statusOf(id) {
 }
 
 function listHtml(shown, lab) {
-  if (!shown.length) return `<p class="list-empty">No exercise matches. Clear the search or the filters.</p>`;
+  if (!shown.length) return `<p class="list-empty">${esc(t("No exercise matches. Clear the search or the filters."))}</p>`;
   return `<ul class="item-list">${shown.map(l => {
     const st = statusOf(l.id);
     return `<li><button data-lab="${l.id}" aria-current="${l.id === lab.id}">
-      <span class="status-dot ${st}" role="img" aria-label="${st === "passed" ? "Passed" : st ? "Attempted" : "Not attempted"}"></span>
-      <span>${esc(l.title)}<small>${esc(topicLabel(l.topic))}, ${kindLabel(l)}</small></span></button></li>`;
+      <span class="status-dot ${st}" role="img" aria-label="${esc(st === "passed" ? t("Passed") : st ? t("Attempted") : t("Not attempted"))}"></span>
+      <span>${esc(l.title)}<small>${esc(topicLabel(l.topic))}, ${esc(kindLabel(l))}</small></span></button></li>`;
   }).join("")}</ul>`;
 }
 
@@ -66,24 +67,25 @@ function render(arg) {
   const next = pos >= 0 && pos < shown.length - 1 ? shown[pos + 1] : null;
   const passedCount = C.labs.filter(l => S.labs[l.id]?.passed).length;
   const howGraded = {
-    query: `Columns: <code>${esc(lab.columns)}</code>. ${lab.ordered ? "Row order is checked." : "Row order is not checked."}`,
-    dml: "Write DML statements. They run in a transaction that is rolled back after checking, so the sample data never changes.",
-    ddl: "Write DDL statements. DDL commits, so the checker drops the exercise's objects again after comparing them with the data dictionary.",
+    query: `${esc(t("Columns:"))} <code>${esc(lab.columns)}</code>. ${esc(lab.ordered ? t("Row order is checked.") : t("Row order is not checked."))}`,
+    dml: esc(t("Write DML statements. They run in a transaction that is rolled back after checking, so the sample data never changes.")),
+    ddl: esc(t("Write DDL statements. DDL commits, so the checker drops the exercise's objects again after comparing them with the data dictionary.")),
   }[kind];
-  const select = (id, value, options) => `<select id="${id}" aria-label="${id.slice(2)}">${options.map(([v, label]) =>
+  const filterNames = { "f-topic": t("Topic"), "f-kind": t("Kind"), "f-status": t("Status") };
+  const select = (id, value, options) => `<select id="${id}" aria-label="${esc(filterNames[id])}">${options.map(([v, label]) =>
     `<option value="${v}" ${value === v ? "selected" : ""}>${esc(label)}</option>`).join("")}</select>`;
 
   main.innerHTML = `
-    ${pageHead("Exercises", `Your SQL and the reference solution both run on the database, and the results are compared. ${passedCount} of ${C.labs.length} passed.`)}
-    <label class="list-picker field"><span>Exercise</span><select id="ex-picker">${pickerHtml(shown, lab)}</select></label>
+    ${pageHead(esc(t("Exercises")), esc(t("Your SQL and the reference solution both run on the database, and the results are compared. {passed} of {total} passed.", { passed: passedCount, total: C.labs.length })))}
+    <label class="list-picker field"><span>${esc(t("Exercise"))}</span><select id="ex-picker">${pickerHtml(shown, lab)}</select></label>
     <div class="split">
-      <nav class="split-list" aria-label="Exercises">
+      <nav class="split-list" aria-label="${esc(t("Exercises"))}">
         <div class="split-tools">
-          <input type="search" id="ex-search" placeholder="Search exercises" aria-label="Search exercises" value="${esc(search)}">
+          <input type="search" id="ex-search" placeholder="${esc(t("Search exercises"))}" aria-label="${esc(t("Search exercises"))}" value="${esc(search)}">
           <div class="filters">
-            ${select("f-topic", f.topic, [["all", "All topics"], ...Object.keys(C.topics).map(t => [t, topicLabel(t)])])}
-            ${select("f-kind", f.kind, KINDS)}
-            ${select("f-status", f.status, STATUSES)}
+            ${select("f-topic", f.topic, [["all", t("All topics")], ...Object.keys(C.topics).map(id => [id, topicLabel(id)])])}
+            ${select("f-kind", f.kind, kinds())}
+            ${select("f-status", f.status, statuses())}
           </div>
           <p class="split-count" id="ex-count" aria-live="polite">${plural(shown.length, "exercise")}</p>
         </div>
@@ -94,35 +96,37 @@ function render(arg) {
         <div class="ex-head">
           <h2 id="ex-title">${esc(lab.title)}</h2>
           <div class="ex-nav">
-            <button class="icon-btn" id="ex-prev" ${prev ? "" : "disabled"} aria-label="Previous exercise" title="Previous exercise">${icon("prev")}</button>
-            <button class="icon-btn" id="ex-next" ${next ? "" : "disabled"} aria-label="Next exercise" title="Next exercise">${icon("next")}</button>
+            <button class="icon-btn" id="ex-prev" ${prev ? "" : "disabled"} aria-label="${esc(t("Previous exercise"))}" title="${esc(t("Previous exercise"))}">${icon("prev")}</button>
+            <button class="icon-btn" id="ex-next" ${next ? "" : "disabled"} aria-label="${esc(t("Next exercise"))}" title="${esc(t("Next exercise"))}">${icon("next")}</button>
           </div>
         </div>
         <p class="lab-tags">
-          <span class="tag ${lab.starter ? "tag-fix" : ""}">${kindLabel(lab)}</span>
+          <span class="tag ${lab.starter ? "tag-fix" : ""}">${esc(kindLabel(lab))}</span>
           <span class="tag">${esc(topicLabel(lab.topic))}</span>
-          <span class="tag">Objective ${esc(lab.objective)}</span>
-          ${st?.passed ? `<span class="level level-strong">Passed</span>` : ""}
+          <span class="tag">${esc(t("Objective {id}", { id: lab.objective }))}</span>
+          ${st?.passed ? `<span class="level level-strong">${esc(t("Passed"))}</span>` : ""}
         </p>
-        ${lab.starter ? `<p class="small muted">The editor starts with a statement that has a mistake in it. Find it, fix it, and check.</p>` : ""}
-        ${needsNewerDb(lab) ? `<p class="callout">This exercise needs ${esc(lab.needs.label)}, and your database is ${esc(DB.product)} ${esc(DB.version)}. ${currentUser().role === "admin" ? `Set <code>${esc(C.exam.database_env)}</code> to give ${esc(C.exam.code)} its own database (see the README).` : `${esc(C.exam.code)}'s SQL features need ${esc(lab.needs.label)}, which this server does not provide.`}</p>` : ""}
+        ${lab.starter ? `<p class="small muted">${esc(t("The editor starts with a statement that has a mistake in it. Find it, fix it, and check."))}</p>` : ""}
+        ${needsNewerDb(lab) ? `<p class="callout">${esc(t("This exercise needs {needs}, and your database is {product} {version}.", { needs: lab.needs.label, product: DB.product, version: DB.version }))} ${currentUser().role === "admin"
+          ? esc(t("Set {env} to give {code} its own database (see the README).", { code: C.exam.code })).replace("{env}", `<code>${esc(C.exam.database_env)}</code>`)
+          : esc(t("{code}'s SQL features need {database}, which this server does not provide.", { code: C.exam.code, database: lab.needs.label }))}</p>` : ""}
         <p class="task">${inlineCode(lab.task)}</p>
         <p class="cols">${howGraded}</p>
         <div id="hint-box"></div>
         <div class="editor-wrap">
-          <textarea class="editor" id="ex-sql" aria-label="Your SQL" spellcheck="false" autocapitalize="off">${esc(draft)}</textarea>
+          <textarea class="editor" id="ex-sql" aria-label="${esc(t("Your SQL"))}" spellcheck="false" autocapitalize="off">${esc(draft)}</textarea>
           <div class="editor-bar">
-            <button class="btn" id="check-ex" ${off ? "disabled" : ""}>Check <span class="kbd">Ctrl+Enter</span></button>
-            ${kind === "ddl" ? "" : `<button class="btn secondary" id="run-ex" ${off ? "disabled" : ""}>Run without checking</button>`}
+            <button class="btn" id="check-ex" ${off ? "disabled" : ""}>${esc(t("Check"))} <span class="kbd">Ctrl+Enter</span></button>
+            ${kind === "ddl" ? "" : `<button class="btn secondary" id="run-ex" ${off ? "disabled" : ""}>${esc(t("Run without checking"))}</button>`}
             <span class="links">
-              ${lab.hint ? `<button class="link-btn" id="show-hint">Show a hint</button>` : ""}
-              ${lab.starter ? `<button class="link-btn quiet" id="reset-starter">Restore the starter</button>` : ""}
-              <button class="link-btn quiet" id="show-solution">Show solution</button>
+              ${lab.hint ? `<button class="link-btn" id="show-hint">${esc(t("Show a hint"))}</button>` : ""}
+              ${lab.starter ? `<button class="link-btn quiet" id="reset-starter">${esc(t("Restore the starter"))}</button>` : ""}
+              <button class="link-btn quiet" id="show-solution">${esc(t("Show solution"))}</button>
             </span>
           </div>
         </div>
         ${off ? `<p class="editor-note">${esc(noSql())}</p>` : ""}
-        <div class="results" id="ex-results" aria-live="polite">${st?.passed ? `<div class="verdict good"><strong>Passed earlier</strong><p>You solved this in ${plural(st.tries, "attempt")}.</p></div>` : ""}</div>
+        <div class="results" id="ex-results" aria-live="polite">${st?.passed ? `<div class="verdict good"><strong>${esc(t("Passed earlier"))}</strong><p>${esc(tn(st.tries, "You solved this in {n} attempt.", "You solved this in {n} attempts."))}</p></div>` : ""}</div>
       </section>
     </div>`;
 
@@ -131,28 +135,27 @@ function render(arg) {
 
   const check = async () => {
     if (off) return;
-    results.innerHTML = loading("Checking against the reference solution");
+    results.innerHTML = loading(t("Checking against the reference solution"));
     let res;
     try {
       res = await api("/api/grade", { id: lab.id, sql: editor.get() });
       await loadProgress();
     } catch (err) { results.innerHTML = errorBox(err.message); return; }
-    const what = kind === "query" ? "query" : "SQL";
     let html;
     if (res.error) {
-      html = `<div class="verdict bad"><strong>Your ${what} did not run</strong><p class="mono">${esc(res.error)}</p></div>${explainHtml(res.explain) ? `<div class="result">${explainHtml(res.explain)}</div>` : ""}`;
+      html = `<div class="verdict bad"><strong>${esc(kind === "query" ? t("Your query did not run") : t("Your SQL did not run"))}</strong><p class="mono">${esc(res.error)}</p></div>${explainHtml(res.explain) ? `<div class="result">${explainHtml(res.explain)}</div>` : ""}`;
     } else if (res.passed) {
       // Today's exercise: passing it ends today's session, so the way back to Today comes first.
       const today = P.plan.lab === lab.id;
-      html = `<div class="verdict good"><strong>Correct</strong><p>${res.feedback.length ? esc(res.feedback.join(" ")) : "Rows and order match the reference result."}</p>
-        ${today || next ? `<div class="row">${today ? `<a class="btn" href="/">Back to Today</a>` : ""}
-          ${next ? `<button class="btn ${today ? "secondary" : ""}" id="go-next">Next exercise${icon("next")}</button>` : ""}</div>` : ""}</div>
+      html = `<div class="verdict good"><strong>${esc(t("Correct"))}</strong><p>${esc(res.feedback.length ? res.feedback.join(" ") : t("Rows and order match the reference result."))}</p>
+        ${today || next ? `<div class="row">${today ? `<a class="btn" href="/">${esc(t("Back to Today"))}</a>` : ""}
+          ${next ? `<button class="btn ${today ? "secondary" : ""}" id="go-next">${esc(t("Next exercise"))}${icon("next")}</button>` : ""}</div>` : ""}</div>
         <div class="result">${gridHtml(res.columns, res.rows)}</div>`;
     } else {
-      html = `<div class="verdict bad"><strong>Not yet</strong><p>${esc(res.feedback.join(" "))}</p></div>
-        ${res.diff ? `<h3>${kind === "query" ? "Your result compared with the expected one" : "State after your statements, compared with the expected state"}</h3>${diffHtml(res.columns, res.diff)}`
-          : `<h3>${kind === "query" ? "Your result" : "State after your statements"}</h3><div class="result">${gridHtml(res.columns, res.rows)}</div>`}
-        <details class="disclosure"><summary>Show the expected result</summary><div class="result" style="margin-top:10px">${gridHtml(res.expected_columns, res.expected_rows)}</div></details>`;
+      html = `<div class="verdict bad"><strong>${esc(t("Not yet"))}</strong><p>${esc(res.feedback.join(" "))}</p></div>
+        ${res.diff ? `<h3>${esc(kind === "query" ? t("Your result compared with the expected one") : t("State after your statements, compared with the expected state"))}</h3>${diffHtml(res.columns, res.diff)}`
+          : `<h3>${esc(kind === "query" ? t("Your result") : t("State after your statements"))}</h3><div class="result">${gridHtml(res.columns, res.rows)}</div>`}
+        <details class="disclosure"><summary>${esc(t("Show the expected result"))}</summary><div class="result" style="margin-top:10px">${gridHtml(res.expected_columns, res.expected_rows)}</div></details>`;
     }
     results.innerHTML = html;
     $("#go-next")?.addEventListener("click", () => go("/exercises/" + next.id));
@@ -162,7 +165,7 @@ function render(arg) {
 
   $("#check-ex").addEventListener("click", check);
   $("#run-ex")?.addEventListener("click", async () => {
-    results.innerHTML = loading("Running");
+    results.innerHTML = loading(t("Running"));
     try { results.innerHTML = resultsHtml(await api("/api/run", { sql: editor.get(), keep: false })); }
     catch (err) { results.innerHTML = errorBox(err.message); }
   });
@@ -171,17 +174,17 @@ function render(arg) {
     $$("#hint-box .hint").forEach(h => h.remove());
     $("#hint-box").insertAdjacentHTML("afterbegin", `<div class="hint"><p>${inlineCode(lab.hint)}</p></div>` + (strong ? `<div class="hint"><p>${inlineCode(lab.hint2)}</p></div>` : ""));
     if (!lab.hint2 || strong) e.target.remove();
-    else e.target.textContent = "Show a stronger hint";
+    else e.target.textContent = t("Show a stronger hint");
   });
   $("#show-solution").addEventListener("click", async () => {
     if (!S.labs[lab.id]?.tries && !await confirmDialog({
-      title: "Show the solution?",
-      body: "You have not checked an attempt yet. Trying first makes the solution stick.",
-      confirm: "Show solution", cancel: "Keep trying",
+      title: t("Show the solution?"),
+      body: t("You have not checked an attempt yet. Trying first makes the solution stick."),
+      confirm: t("Show solution"), cancel: t("Keep trying"),
     })) return;
     api("/api/lab-solution", { id: lab.id }).then(apply).catch(() => {});
     $("#solution-box")?.remove();
-    $("#hint-box").insertAdjacentHTML("beforeend", `<div id="solution-box"><p class="small muted">Reference solution. Other correct queries are just as valid.</p><pre class="code"><code>${esc(lab.solution)}</code></pre></div>`);
+    $("#hint-box").insertAdjacentHTML("beforeend", `<div id="solution-box"><p class="small muted">${esc(t("Reference solution. Other correct queries are just as valid."))}</p><pre class="code"><code>${esc(lab.solution)}</code></pre></div>`);
   });
   $("#reset-starter")?.addEventListener("click", () => { editor.set(lab.starter); store("ex:" + lab.id, lab.starter); editor.focus(); });
   $("#ex-prev").addEventListener("click", () => go("/exercises/" + prev.id));
@@ -213,4 +216,4 @@ function render(arg) {
   }));
 }
 
-export const exercisesView = { title: "Exercises", render };
+export const exercisesView = { get title() { return t("Exercises"); }, render };
