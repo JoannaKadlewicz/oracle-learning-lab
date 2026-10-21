@@ -21,11 +21,17 @@
 </head>
 <body>
   <main class="auth-page">
-    <section class="auth-card" aria-labelledby="auth-title">
-      <div class="auth-head">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <p class="auth-brand">Oracle Learning Lab</p>
+    <a class="wordmark" href="/login" aria-label="Oracle Learning Lab, sign in">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span><strong>Oracle Learning Lab</strong><small>SQL certification prep</small></span>
+    </a>
+    <div class="auth-stack">
+      <div class="stack-card stack-left" aria-hidden="true">
+        <p class="stack-topic">Basic SELECT</p>
+        <p class="stack-q">salary + NULL = ?</p>
       </div>
+      <div class="stack-card stack-right" aria-hidden="true"><span class="stack-box">Every 6 days</span></div>
+    <section class="auth-card" aria-labelledby="auth-title">
       <h1 id="auth-title">Choose a new password</h1>
       <div id="done" class="notice good" role="status" hidden>Your password is set. <a href="/login">Sign in with it now.</a></div>
       <form id="reset-form" novalidate>
@@ -45,6 +51,8 @@
       </form>
       <p class="auth-alt"><a href="/login">Back to sign in</a></p>
     </section>
+    </div>
+    <p class="auth-about">Practice questions, flashcards and an SQL lab on your own Oracle schema, for the 1Z0-071 (Oracle 19c) and 1Z0-171 (Oracle 23ai) exams.</p>
   </main>
   <script type="module" src="/js/auth/reset.js"></script>
 </body>

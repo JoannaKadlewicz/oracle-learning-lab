@@ -1,4 +1,5 @@
-/* Sign-in, registration and reset pages: one ruled index card on the desk.
+/* Sign-in, registration and reset pages: the study desk, with the form as the top index card of a
+   small deck. Everything on the card sits on its ruled lines (--line).
    Loaded after tokens, base and components; these pages do not use the app's view CSS. */
 
 .brand-mark {
@@ -15,16 +16,90 @@
   transform: rotate(-4deg);
 }
 
+/* ------------------------------------------------------------------ the desk */
+
 .auth-page {
+  --line: 32px;
+  --card-w: 460px;
+  --margin-x: 64px;            /* left padding of a card; its red margin line sits at 70% of it */
   min-height: 100vh;
   min-height: 100dvh;
   display: grid;
-  place-items: center;
-  padding: 24px 16px;
+  grid-template-rows: auto 1fr auto;
+  gap: 32px;
+  padding: 28px clamp(16px, 4vw, 48px) 32px;
+  overflow-x: clip;
 }
 
+.wordmark { display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; justify-self: start; }
+.wordmark:hover { text-decoration: none; }
+.wordmark strong { display: block; font-size: var(--t-l); font-weight: 750; line-height: 1.2; letter-spacing: -.005em; }
+.wordmark small { display: block; font-size: var(--t-xs); color: var(--muted); line-height: 1.3; }
+
+.auth-about {
+  justify-self: center;
+  max-width: 58ch;
+  margin: 0;
+  text-align: center;
+  font-size: var(--t-s);
+  line-height: 1.55;
+  color: var(--muted);
+  text-wrap: balance;
+}
+
+/* ------------------------------------------------------------------ the deck */
+
+.auth-stack {
+  position: relative;
+  align-self: center;
+  justify-self: center;
+  width: min(100%, var(--card-w));
+  isolation: isolate;
+}
+
+/* Ruled index-card paper, shared by the form and the cards behind it. */
+.auth-card, .stack-card {
+  border-radius: 4px;
+  background-color: var(--card-paper);
+  background-image:
+    linear-gradient(to right, transparent calc(var(--margin-x) * .7 - 1px), color-mix(in srgb, var(--card-margin) 70%, var(--card-paper)) calc(var(--margin-x) * .7 - 1px) calc(var(--margin-x) * .7 + 1px), transparent calc(var(--margin-x) * .7 + 1px)),
+    linear-gradient(to bottom, transparent calc(2 * var(--line) - 2px), var(--card-margin) calc(2 * var(--line) - 2px) calc(2 * var(--line)), transparent calc(2 * var(--line))),
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), var(--card-rule) calc(var(--line) - 1px) var(--line));
+  box-shadow: var(--shadow-card);
+}
+
+.stack-card {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  padding: 0 24px 0 var(--margin-x);
+  color: var(--card-ink);
+  overflow: hidden;
+  animation: fan .7s var(--ease) .15s backwards;
+}
+.stack-left { transform: translate(-6px, 10px) rotate(-3deg); }
+.stack-right { transform: translate(8px, 6px) rotate(2.5deg); box-shadow: var(--shadow-s); }
+.stack-topic { margin: 0; height: calc(2 * var(--line)); padding-bottom: 4px; display: flex; align-items: flex-end; font-size: var(--t-s); color: var(--card-muted); line-height: var(--line); }
+/* Wraps inside the strip of the card that shows beside the form. */
+.stack-q { max-width: calc(var(--card-w) * .44 - var(--margin-x) - 12px); margin: var(--line) 0 0; font-size: 22px; font-weight: 750; line-height: var(--line); }
+.stack-box { position: absolute; top: 12px; right: 18px; font-size: var(--t-xs); line-height: 20px; color: var(--card-muted); }
+
+@keyframes fan { from { transform: none; } }
+
+/* With room beside it, the deck fans out so the cards underneath can be read. */
+@media (min-width: 1100px) {
+  .auth-stack { margin-block: calc(var(--line) * 1.5) calc(var(--line) * 3); }
+  .stack-left { transform: translate(-44%, 7%) rotate(-7deg); }
+  .stack-right { transform: translate(40%, -3%) rotate(5deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stack-card { animation: none; }
+}
+
+/* ------------------------------------------------------------------ the form card */
+
 .auth-card {
-  --line: 32px;
   --a-ink: var(--card-ink);
   --a-muted: var(--card-muted);
   --a-link: var(--card-link);
@@ -33,47 +108,52 @@
   --a-focus: var(--card-link);
   --a-edge: color-mix(in srgb, var(--card-ink) 35%, var(--card-rule));
   --a-tint: color-mix(in srgb, var(--card-ink) 6%, var(--card-paper));
+  --slot: calc(2 * var(--line));                 /* an input or button takes two lines... */
+  --slot-pad: calc(var(--line) / 5);             /* ...and is inset from both rules */
   position: relative;
-  width: 100%;
-  max-width: 460px;
-  padding: 0 24px 28px 64px;
-  border-radius: 4px;
+  padding: 0 28px var(--line) var(--margin-x);
   color: var(--a-ink);
-  background-color: var(--card-paper);
-  background-image:
-    linear-gradient(to bottom, transparent calc(2 * var(--line) - 2px), var(--card-margin) calc(2 * var(--line) - 2px) calc(2 * var(--line)), transparent calc(2 * var(--line))),
-    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 1px), var(--card-rule) calc(var(--line) - 1px) var(--line));
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 1px 0 rgba(22, 35, 58, .06), 0 22px 44px -18px rgba(22, 35, 58, .42);
 }
-.auth-card::before {
-  content: "";
-  position: absolute;
-  left: 44px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--card-margin);
-  opacity: .7;
-}
-.auth-card h1 { color: var(--a-ink); font-size: 26px; line-height: var(--line); margin: 0 0 var(--line); }
-.auth-card a { color: var(--a-link); }
+.auth-card a:not(.btn) { color: var(--a-link); }
 .auth-card :focus-visible { outline-color: var(--a-focus); }
 
-.auth-head { display: flex; align-items: flex-end; gap: 12px; height: calc(var(--line) * 2); padding-bottom: 3px; }
-.auth-brand { margin: 0; font-size: var(--t-s); font-weight: 700; letter-spacing: .02em; color: var(--a-muted); line-height: var(--line); }
-.auth-card h1 { margin-top: var(--line); }
+/* The title is written on the header line, above the red rule, as on a real index card. */
+.auth-card h1 {
+  height: calc(2 * var(--line));
+  margin: 0 0 var(--line);
+  padding-bottom: 3px;
+  display: flex;
+  align-items: flex-end;
+  color: var(--a-ink);
+  font-size: calc(var(--line) * .875);
+  font-weight: 750;
+  letter-spacing: -.01em;
+  line-height: var(--line);
+}
 
-.fields-set { display: grid; gap: 16px; margin-bottom: 20px; }
-.auth-card .field { gap: 4px; }
-.auth-card label { font-weight: 650; font-size: var(--t-s); color: var(--a-ink); line-height: 22px; }
-.auth-card .hint-text { color: var(--a-muted); line-height: 20px; }
+/* One line of text that sits on its rule. */
+.auth-card label, .auth-card .hint-text, .or, .auth-alt {
+  display: block;
+  height: var(--line);
+  margin: 0;
+  padding-top: calc(var(--line) * .3);
+  line-height: calc(var(--line) * .7);
+  font-size: var(--t-s);
+}
+
+.fields-set { display: grid; gap: 0; }
+.auth-card .field { display: grid; gap: 0; }
+.auth-card label { font-weight: 650; color: var(--a-ink); }
+.auth-card .hint-text { color: var(--a-muted); }
 
 .auth-card input {
   width: 100%;
+  height: calc(var(--slot) - 2 * var(--slot-pad));
+  margin: var(--slot-pad) 0;
   font: inherit;
-  font-size: 16px;
-  min-height: 44px;
-  padding: 8px 12px;
+  font-size: max(16px, calc(var(--line) * .53));
+  padding: 0 14px;
   border: 1.5px solid var(--a-edge);
   border-radius: var(--r-s);
   background: var(--card-paper);
@@ -85,13 +165,13 @@
 .auth-card input:disabled { background: var(--a-tint); color: var(--a-muted); }
 
 .pw { position: relative; }
-.pw input { padding-right: 70px; }
+.pw input { padding-right: 74px; }
 .pw-toggle {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  bottom: 4px;
-  min-width: 56px;
+  top: calc(var(--slot-pad) + 5px);
+  right: 5px;
+  bottom: calc(var(--slot-pad) + 5px);
+  min-width: 60px;
   padding: 0 10px;
   font: 600 var(--t-s)/1 var(--font);
   color: var(--a-link);
@@ -103,43 +183,62 @@
 .pw-toggle:hover { background: var(--a-tint); }
 .pw-toggle:disabled { color: var(--a-muted); cursor: not-allowed; background: transparent; }
 
-.problems { margin: 4px 0 0; padding: 0 0 0 20px; color: var(--a-bad); font-size: var(--t-s); line-height: 20px; }
+.problems { margin: 0; padding: 0 0 0 20px; color: var(--a-bad); font-size: var(--t-s); line-height: var(--line); }
 .problems[hidden], .form-error[hidden], .notice[hidden], #google[hidden] { display: none; }
 
+/* Messages take whole lines too, marked in the margin like a correction. */
 .form-error, .notice {
-  margin: 0 0 16px;
-  padding: 10px 12px;
-  border-radius: var(--r-s);
-  border: 1.5px solid color-mix(in srgb, var(--a-bad) 55%, var(--card-paper));
-  background: color-mix(in srgb, var(--a-bad) 9%, var(--card-paper));
+  margin: 0 0 var(--line);
+  padding: 0 12px;
+  border-radius: 3px;
+  box-shadow: inset 3px 0 0 var(--a-bad);
+  background: color-mix(in srgb, var(--a-bad) 8%, var(--card-paper));
   color: var(--a-bad);
   font-size: var(--t-s);
-  line-height: 1.45;
+  line-height: var(--line);
 }
-.notice { border-color: color-mix(in srgb, var(--mark) 60%, var(--card-ink)); background: color-mix(in srgb, var(--mark) 30%, var(--card-paper)); color: var(--a-ink); }
-.notice.good { border-color: color-mix(in srgb, var(--a-good) 55%, var(--card-paper)); background: color-mix(in srgb, var(--a-good) 10%, var(--card-paper)); color: var(--a-good); }
+.notice { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--mark) 45%, var(--card-ink)); background: color-mix(in srgb, var(--mark) 32%, var(--card-paper)); color: var(--a-ink); }
+.notice.good { box-shadow: inset 3px 0 0 var(--a-good); background: color-mix(in srgb, var(--a-good) 9%, var(--card-paper)); color: var(--a-good); }
 .notice.good a { color: var(--a-good); font-weight: 700; }
 .form-error:focus-visible { outline: 3px solid color-mix(in srgb, var(--a-focus) 40%, transparent); outline-offset: 2px; }
 
-.auth-submit, .auth-google { width: 100%; justify-content: center; }
-.auth-card .btn { --btn-bg: var(--card-ink); --btn-fg: var(--card-paper); --btn-border: var(--card-ink); text-decoration: none; }
+.auth-submit, .auth-google {
+  width: 100%;
+  height: calc(var(--slot) - 2 * var(--slot-pad));
+  min-height: 44px;
+  margin: calc(var(--line) + var(--slot-pad)) 0 var(--slot-pad);
+  justify-content: center;
+}
+.auth-google { margin-top: var(--slot-pad); }
+.auth-card .btn { --btn-bg: var(--card-ink); --btn-fg: var(--card-paper); --btn-border: var(--card-ink); text-decoration: none; font-size: max(15px, calc(var(--line) * .5)); }
 .auth-card .btn:hover { --btn-bg: color-mix(in srgb, var(--card-ink) 80%, var(--card-paper)); }
 .auth-card .btn.secondary { --btn-bg: var(--card-paper); --btn-fg: var(--card-ink); --btn-border: var(--a-edge); }
 .auth-card .btn.secondary:hover { --btn-bg: var(--a-tint); --btn-border: var(--card-ink); }
+.auth-google svg { width: 18px; height: 18px; flex: none; }
 
-.or { display: flex; align-items: center; gap: 12px; margin: 20px 0 12px; color: var(--a-muted); font-size: var(--t-s); }
-.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--a-edge); }
-.auth-alt { margin: 24px 0 0; font-size: var(--t-s); color: var(--a-muted); line-height: var(--line); }
+.or { display: flex; align-items: center; gap: 12px; color: var(--a-muted); }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; margin-top: 1px; background: var(--a-edge); }
+.auth-alt { margin-top: var(--line); color: var(--a-muted); }
+
+/* ------------------------------------------------------------------ sizes */
 
 @media (min-width: 1600px) {
-  .auth-card { --line: 36px; max-width: 520px; padding-left: 72px; }
-  .auth-card::before { left: 50px; }
-  .auth-card h1 { font-size: 30px; }
+  .auth-page { --line: 36px; --card-w: 520px; --margin-x: 72px; padding-top: 40px; }
+  .wordmark strong { font-size: var(--t-xl); }
+  .auth-about { font-size: var(--t-m); }
+  .stack-q { font-size: 25px; }
+}
+
+@media (min-width: 2200px) {
+  .auth-page { --line: 40px; --card-w: 580px; --margin-x: 80px; }
+  .stack-q { font-size: 28px; }
 }
 
 @media (max-width: 480px) {
-  .auth-page { align-items: start; padding: 16px 12px; }
-  .auth-card { padding: 0 16px 24px 52px; }
-  .auth-card::before { left: 38px; }
-  .auth-card h1 { font-size: 23px; }
+  .auth-page { --margin-x: 50px; grid-template-rows: auto; align-content: start; gap: 24px; padding: 18px 14px 24px; }
+  .auth-stack { align-self: start; }
+  .auth-about { margin-top: 8px; }
+  .auth-card { padding-right: 18px; }
+  .stack-left { transform: translate(-3px, 8px) rotate(-2deg); }
+  .stack-right { transform: translate(4px, 4px) rotate(1.5deg); }
 }
