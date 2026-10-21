@@ -53,6 +53,12 @@ class SessionManager:
             rec = dataclasses.replace(rec, last_seen_at=now)
         return rec
 
+    def live(self, user_id: str) -> list[SessionRecord]:
+        """The user's sessions that have not passed their idle or absolute deadline (read only)."""
+        now = self._clock()
+        return [rec for rec in self._repo.for_user(user_id)
+                if now < rec.created_at + self._absolute and now < rec.last_seen_at + self._idle]
+
     def end(self, token: str) -> None:
         self._repo.delete(token_hash(token))
 

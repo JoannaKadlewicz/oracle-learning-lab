@@ -111,6 +111,15 @@ class Authenticate:
         return Principal(user.id, user.email, user.role, record.token_hash, record.csrf_token, record.reauth_until)
 
 
+def require_admin(subject: object) -> Principal:
+    """The admin principal of a request (or of a principal itself); anyone else gets 404, so the admin area does
+    not reveal that it exists."""
+    principal = getattr(subject, "principal", subject)
+    if not isinstance(principal, Principal) or principal.role != "admin":
+        raise HttpError(404, "Not found")
+    return principal
+
+
 # Public auth POSTs run without a session; a signed-in browser (an old cookie) must still reach them.
 # They are protected by same_origin_only instead of a token.
 CSRF_EXEMPT = frozenset({"/api/auth/login", "/api/auth/register", "/api/auth/reset"})

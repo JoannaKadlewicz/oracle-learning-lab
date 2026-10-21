@@ -16,7 +16,8 @@ export function toast(message, { error = false } = {}) {
 
 export const toastError = message => toast(message, { error: true });
 
-function openDialog(inner, onOpen) {
+/** A modal with `inner` inside a method="dialog" form; resolves the returnValue of the button that closed it. */
+export function openDialog(inner, onOpen) {
   return new Promise(resolve => {
     const dialog = document.createElement("dialog");
     dialog.className = "modal";

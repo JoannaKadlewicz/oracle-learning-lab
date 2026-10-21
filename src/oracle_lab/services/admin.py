@@ -1,0 +1,202 @@
+"""What an administrator can do: list accounts, hand out reset links, lock, change roles, delete, recreate practice
+schemas, open or close sign-up, and read the security events. Every change is audited with the admin as user_id."""
+
+from __future__ import annotations
+
+import dataclasses
+import logging
+from collections.abc import Callable
+from typing import Any, Protocol
+
+from oracle_lab.accounts.deletion import AccountDeletion
+from oracle_lab.accounts.repositories import AppStores
+from oracle_lab.auth.audit import AuditLog
+from oracle_lab.auth.models import AuthError, PracticeSchema, Principal, ResetToken, User
+from oracle_lab.auth.registration import RegistrationPolicy
+from oracle_lab.auth.sessions import SessionManager
+from oracle_lab.auth.tokens import new_token, token_hash
+from oracle_lab.services import Clock
+
+log = logging.getLogger(__name__)
+
+RESET_LINK_SECONDS = 24 * 3600
+MAX_EVENTS = 500
+ROLES = ("learner", "admin")
+SELF = "You can't do that to your own account."
+ONLY_ADMIN = "You can't remove the only admin."
+
+
+class NotFound(AuthError):  # noqa: N818 - matches the other AuthError names
+    """An unknown user id or practice target: 404 {"error": "Not found"}."""
+
+    status = 404
+
+    def __init__(self, message: str = "Not found"):
+        super().__init__(message)
+
+
+class UserPractice(Protocol):
+    """The practice databases of one user (PracticeDatabases), as far as the admin page needs them."""
+
+    provisioners: Any
+
+    def provision(self, key: str) -> PracticeSchema | None: ...
+
+    def size_mb(self, key: str) -> float | None: ...
+
+
+PracticeFactory = Callable[[User], UserPractice]
+
+
+class AdminService:
+    def __init__(self, stores: AppStores, deletion: AccountDeletion, sessions: SessionManager,
+                 registration: RegistrationPolicy, practice_factory: PracticeFactory, audit: AuditLog, clock: Clock,
+                 public_url: str):
+        self._stores = stores
+        self._users = stores.users
+        self._deletion = deletion
+        self._sessions = sessions
+        self._registration = registration
+        self._practice = practice_factory
+        self._audit = audit
+        self._clock = clock
+        self._public_url = public_url.rstrip("/")
+
+    # --- reading -------------------------------------------------------------------------------------------------
+
+    def users(self) -> list[dict]:
+        return [self._row(user) for user in sorted(self._users.all(), key=lambda u: (u.created_at, u.email))]
+
+    def _row(self, user: User) -> dict:
+        return {
+            "id": user.id, "email": user.email,
+            "methods": sorted({i.provider for i in self._users.identities(user.id)}),
+            "role": user.role, "status": user.status, "created_at": user.created_at,
+            "last_login_at": user.last_login_at, "sessions": len(self._sessions.live(user.id)),
+            "schemas": [{"key": rec.database_key, "status": rec.status, "size_mb": self._size(user, rec),
+                         "error": rec.error}
+                        for rec in sorted(self._stores.schemas.for_user(user.id), key=lambda r: r.database_key)],
+        }
+
+    def _size(self, user: User, rec: PracticeSchema) -> float | None:
+        """Never breaks the list: any failure (no DBA view, database down) is None."""
+        if rec.status != "ready":
+            return None
+        try:
+            size = self._practice(user).size_mb(rec.database_key)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("size of the practice schema %s unknown: %s", rec.schema_name, exc)
+            return None
+        return None if size is None else round(float(size), 1)
+
+    def settings(self) -> dict:
+        return {"registration_open": self._registration.is_open(), "max_users": self._registration.max_users(),
+                "users": self._users.count()}
+
+    def events(self, limit: int = 200, event: str | None = None, user_id: str | None = None) -> list[dict]:
+        """Newest first, at most MAX_EVENTS."""
+        limit = max(1, min(int(limit), MAX_EVENTS))
+        return [{"t": e.t, "event": e.event, "outcome": e.outcome, "user_id": e.user_id, "ip": e.ip,
+                 "user_agent": e.user_agent, "detail": e.detail}
+                for e in self._stores.audit.recent(limit, event or None, user_id or None)]
+
+    # --- changing ------------------------------------------------------------------------------------------------
+
+    def reset_link(self, actor: Principal, user_id: str) -> str:
+        """A single-use password reset link, valid for 24 hours. The token is only in the returned link."""
+        user = self._user(user_id)
+        token = new_token()
+        self._stores.resets.add(ResetToken(token_hash(token), user.id, actor.user_id,
+                                           self._clock() + RESET_LINK_SECONDS))
+        self._audit.record("reset_link_created", "ok", user_id=actor.user_id, target=user.id)
+        return f"{self._public_url}/reset?token={token}"
+
+    def lock(self, actor: Principal, user_id: str) -> None:
+        user = self._other(actor, user_id)
+        self._users.update(dataclasses.replace(user, status="locked"))
+        self._sessions.end_all(user.id)
+        self._audit.record("user_locked", "ok", user_id=actor.user_id, target=user.id)
+
+    def unlock(self, actor: Principal, user_id: str) -> None:
+        user = self._user(user_id)
+        self._users.update(dataclasses.replace(user, status="active"))
+        self._audit.record("user_unlocked", "ok", user_id=actor.user_id, target=user.id)
+
+    def set_role(self, actor: Principal, user_id: str, role: str) -> None:
+        if role not in ROLES:
+            raise ValueError("Unknown role.")
+        user = self._other(actor, user_id)
+        if user.role == role:
+            return
+        if role != "admin" and sum(u.role == "admin" for u in self._users.all()) <= 1:
+            raise AuthError(ONLY_ADMIN)
+        self._users.update(dataclasses.replace(user, role=role))  # type: ignore[arg-type]
+        self._audit.record("role_changed", "ok", user_id=actor.user_id, target=user.id, role=role)
+
+    def delete(self, actor: Principal, user_id: str) -> None:
+        user = self._other(actor, user_id)
+        self._deletion.delete(user.id, actor.user_id)  # audits account_deleted
+
+    def recreate_schema(self, actor: Principal, user_id: str, key: str) -> dict:
+        """Drops the user's schema on target `key` (if any) and creates a new one, under the same per-(user, key)
+        lock as every other provisioning."""
+        user = self._user(user_id)
+        practice = self._practice(user)
+        if key not in practice.provisioners:
+            raise NotFound()
+        rec = practice.provision(key)
+        status = rec.status if rec is not None else "deleted"
+        self._audit.record("schema_recreated", "ok" if status == "ready" else "fail", user_id=actor.user_id,
+                           target=user.id, key=key, status=status)
+        return {"key": key, "status": status, "error": rec.error if rec is not None else None}
+
+    def delete_inactive(self, actor: Principal, days: int) -> int:
+        """Deletes the learners (never an admin or `actor`) not seen for `days` days: last sign-in, or creation when
+        they never signed in. Returns how many were deleted."""
+        if isinstance(days, bool) or not isinstance(days, int) or days < 1:
+            raise ValueError("Enter a number of days of at least 1.")
+        cutoff = self._clock() - days * 86400
+        deleted = failed = 0
+        for user in self._users.all():
+            if user.role == "admin" or user.id == actor.user_id:
+                continue
+            if (user.last_login_at if user.last_login_at is not None else user.created_at) >= cutoff:
+                continue
+            try:
+                self._deletion.delete(user.id, actor.user_id)
+            except Exception:  # noqa: BLE001 - delete the others; the summary counts the failures
+                log.exception("could not delete the inactive account %s", user.id)
+                failed += 1
+                continue
+            deleted += 1
+        detail: dict[str, Any] = {"days": days, "count": deleted}
+        if failed:
+            detail["failed"] = failed
+        self._audit.record("inactive_accounts_deleted", "ok" if not failed else "fail", user_id=actor.user_id,
+                           **detail)
+        return deleted
+
+    def update_settings(self, actor: Principal, open: bool | None = None,  # noqa: A002
+                        max_users: int | None = None) -> dict:
+        if open is not None and not isinstance(open, bool):
+            raise ValueError("open must be true or false.")
+        if max_users is not None and (isinstance(max_users, bool) or not isinstance(max_users, int) or max_users < 1):
+            raise ValueError("The user limit must be a whole number of at least 1.")
+        self._registration.set(open, max_users)
+        changed = {k: v for k, v in (("open", open), ("max_users", max_users)) if v is not None}
+        self._audit.record("registration_settings_changed", "ok", user_id=actor.user_id, **changed)
+        return self.settings()
+
+    # --- helpers -------------------------------------------------------------------------------------------------
+
+    def _user(self, user_id: str) -> User:
+        user = self._users.get(user_id) if isinstance(user_id, str) and user_id else None
+        if user is None:
+            raise NotFound()
+        return user
+
+    def _other(self, actor: Principal, user_id: str) -> User:
+        """The user, refusing the actor's own account (no admin locks, demotes or deletes themselves)."""
+        if user_id == actor.user_id:
+            raise ValueError(SELF)
+        return self._user(user_id)

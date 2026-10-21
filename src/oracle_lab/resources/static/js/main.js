@@ -15,6 +15,7 @@ import { reviewView } from "./views/review.js";
 import { progressView } from "./views/progress.js";
 import { notesView, openNote } from "./views/notes.js";
 import { settingsView } from "./views/settings.js";
+import { adminView } from "./views/admin.js";
 
 registerViews({
   home: homeView,
@@ -27,6 +28,7 @@ registerViews({
   progress: progressView,
   notes: notesView,
   settings: settingsView,
+  admin: adminView,
 });
 
 // Single-key shortcuts (quiz options, flashcard ratings) never fire while typing.

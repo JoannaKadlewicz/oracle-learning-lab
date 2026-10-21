@@ -28,11 +28,13 @@ from oracle_lab.provisioning.proxy import ProxyDatabase
 from oracle_lab.provisioning.schemas import SchemaProvisioner
 from oracle_lab.resources import COMMON_PASSWORDS, NOTES_DIR, STATIC_DIR
 from oracle_lab.services import Clock
+from oracle_lab.services.admin import AdminService
 from oracle_lab.services.context import UserContexts
 from oracle_lab.study.notes import FileNotes
 from oracle_lab.study.state import JsonStateStore
 from oracle_lab.web.application import WebApplication
 from oracle_lab.web.controllers.account import AccountController
+from oracle_lab.web.controllers.admin import AdminController
 from oracle_lab.web.controllers.auth import AuthController
 from oracle_lab.web.controllers.health import HealthController
 from oracle_lab.web.controllers.mock_exams import MockExamController
@@ -131,6 +133,9 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
     def practice(principal: Principal) -> PracticeDatabases:
         return PracticeDatabases(principal, stores.schemas, provisioners, gateways, catalog, settings.call_timeout_ms,
                                  clock, audit, user_exists)
+    def practice_of(user: User) -> PracticeDatabases:
+        """Another user's practice databases (the admin page): same locks and checks as the user's own."""
+        return practice(Principal(user.id, user.email, user.role, "", "", 0.0))
     contexts = UserContexts(stores, practice)
 
     cookies = CookiePolicy(settings.secure_cookies)
@@ -157,6 +162,8 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
     deletion = AccountDeletion(stores, sessions, audit,
                                lambda user_id: drop_user_schemas(user_id, stores.schemas, provisioners))
     account = AccountSettings(stores, policy, sessions, audit, clock, throttle)
+    admin = AdminService(stores, deletion, sessions, registration_policy, practice_of, audit, clock,
+                         settings.public_url)
     google = None
     if settings.google is not None:
         endpoint = google_endpoint or HttpTokenEndpoint(settings.google.client_id, settings.google.client_secret)
@@ -171,6 +178,7 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         AuthController(PasswordLogin(stores, sessions, throttle, audit, clock), registration, registration_policy,
                        account, sessions, cookies, google),
         AccountController(account, cookies, deletion),
+        AdminController(admin),
         StudyController(contexts, clock, track_databases=catalog.has_track_databases),
         MockExamController(contexts, clock),
         SqlLabController(contexts, guard, clock),

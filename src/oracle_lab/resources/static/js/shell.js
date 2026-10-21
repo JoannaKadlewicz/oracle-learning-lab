@@ -101,6 +101,7 @@ export function initShell({ onExamChange: handler }) {
   $("#account-name").textContent = user.display_name;
   $("#account-email").textContent = user.email;
   $("#rail-account").title = user.email;
+  $("#nav-admin").hidden = user.role !== "admin";
   $("#sign-out").addEventListener("click", signOut);
   onRoute(refreshNav);
 }

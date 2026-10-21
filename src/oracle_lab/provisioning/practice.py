@@ -235,6 +235,14 @@ class PracticeDatabases:
         return provision_schema(self.user_id, key, self.repo, self.provisioners[key], self.clock, self.audit,
                                 self.user_exists)
 
+    def size_mb(self, key: str) -> float | None:
+        """Megabytes the user's schema on target `key` takes; None when unknown (no record, target or view)."""
+        provisioner = self.provisioners.get(key)
+        rec = self.repo.get(self.user_id, key)
+        if provisioner is None or rec is None:
+            return None
+        return provisioner.size_mb(rec.schema_name)
+
     def drop_all(self) -> None:
         drop_user_schemas(self.user_id, self.repo, self.provisioners)
         self.repo.delete_for_user(self.user_id)

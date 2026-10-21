@@ -24,7 +24,10 @@ PRIVATE = [("GET", "/api/state"), ("GET", "/api/progress"), ("GET", "/api/conten
            ("GET", "/api/account/sessions"), ("POST", "/api/account/sessions/end"),
            ("POST", "/api/account/sessions/end-others"), ("POST", "/api/account/google/unlink"),
            ("POST", "/api/account/delete"), ("GET", "/admin")]
-ADMIN: list[tuple[str, str]] = []  # the admin API arrives in Task 20
+ADMIN = [("GET", "/api/admin/users"), ("GET", "/api/admin/events"), ("GET", "/api/admin/settings"),
+         ("POST", "/api/admin/reset-link"), ("POST", "/api/admin/lock"), ("POST", "/api/admin/unlock"),
+         ("POST", "/api/admin/role"), ("POST", "/api/admin/delete"), ("POST", "/api/admin/recreate-schema"),
+         ("POST", "/api/admin/delete-inactive"), ("POST", "/api/admin/settings")]
 
 
 class User:
@@ -49,7 +52,7 @@ def register(server: Client, email: str) -> User:
     return User(Client(server.port).sign_in(email))
 
 
-@pytest.mark.parametrize("method,path", PRIVATE)
+@pytest.mark.parametrize("method,path", PRIVATE + ADMIN)
 def test_every_private_endpoint_needs_a_session(serve, method, path):
     status, headers, body = serve()(path, data={} if method == "POST" else None)
     if method == "GET" and not path.startswith("/api/"):  # a page: the browser is sent to the login page
