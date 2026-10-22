@@ -2,11 +2,11 @@
    what else is open, and mastery per topic. */
 
 import { $$, esc, plural, icon } from "../core/dom.js";
-import { C, S, P, L, CARD, DB, A, mistakes, topicStats, topicLabel, subscribed, leftToday } from "../core/state.js";
+import { C, S, P, L, CARD, DB, A, mistakes, topicStats, topicLabel, can, leftToday } from "../core/state.js";
 import { currentUser } from "../core/session.js";
 import { t, tn, formatDate } from "../core/i18n.js";
 import { main, go } from "../core/router.js";
-import { levelBadge, meter, section, premiumTag } from "../ui/widgets.js";
+import { levelBadge, meter, section, accountTag } from "../ui/widgets.js";
 import { startQuiz, startMock, resumeMock, practiceSession, resumePractice } from "./quiz.js";
 import { openDeck } from "./cards.js";
 import { openNote } from "./notes.js";
@@ -61,8 +61,9 @@ const stepKind = (kind, label) => `<span class="step-kind kind-${kind}">${icon(k
 
 /** On a free plan, what is left of today's allowance of `kind`; null for subscribers. */
 function freeNote(kind) {
-  if (!A?.limits) return null;
-  const left = leftToday(kind), n = A.limits[kind];
+  const n = A?.limits?.[kind];
+  if (n == null) return null;
+  const left = leftToday(kind);
   if (!left) return kind === "cards" ? t("Today's free flashcards are used: back tomorrow") : t("Today's free questions are used: back tomorrow");
   return kind === "cards" ? t("{left} of {n} free flashcards left today", { left, n }) : t("{left} of {n} free questions left today", { left, n });
 }
@@ -144,8 +145,8 @@ function render() {
               : plan.cards.length ? t("Each card comes back just before you would forget it") : t("Come back tomorrow, or study a topic deck")))}</small>
             <span class="minutes">${cardsLeft.length ? esc(t("{n} min", { n: cardMinutes })) : ""}</span></a></li>
           ${locked ? `<li><a href="/exercises/${esc(lab.id)}" class="locked">
-            <strong>${stepKind("lab", t("Exercise"))}<span>${esc(lab.title)}</span>${premiumTag()}</strong>
-            <small>${esc(t("Read the task and solution; running SQL is Premium"))}</small>
+            <strong>${stepKind("lab", t("Exercise"))}<span>${esc(lab.title)}</span>${accountTag()}</strong>
+            <small>${esc(t("Read the task now; a free account checks your SQL"))}</small>
             <span class="minutes"></span></a></li>` : ""}
           ${counted ? `<li><a href="/exercises/${esc(lab.id)}" class="${done.lab ? "done" : ""}">
             <strong>${stepKind("lab", t("Exercise"))}<span>${esc(lab.title)}</span></strong>
@@ -175,9 +176,9 @@ function render() {
         <span>${esc(miss ? t("Cleared after confident correct answers on {days} different days.", { days: P.proof_days }) : t("Missed questions and lucky guesses collect here."))}</span></a>
       ${mock ? `<button data-start="resume">${icon("timer")}<strong>${esc(t("Resume your mock exam"))}</strong>
           <span>${esc(tn(mockLeft, "{answered} of {count} answered, {n} minute left.", "{answered} of {count} answered, {n} minutes left.", { answered: mock.answered, count: mock.count }))}</span></button>`
-        : `<button data-start="mock">${icon("timer")}<strong>${esc(t("Take a mock exam"))}${subscribed() ? "" : ` ${premiumTag()}`}</strong>
-          <span>${esc(subscribed() ? t("{questions} questions in {minutes} minutes, questions you have not seen first.", { questions: C.exam.questions, minutes: C.exam.minutes })
-            : t("Timed full exams are part of a subscription."))}</span></button>`}
+        : `<button data-start="mock">${icon("timer")}<strong>${esc(t("Take a mock exam"))}${can("mock") ? "" : ` ${accountTag()}`}</strong>
+          <span>${esc(can("mock") ? t("{questions} questions in {minutes} minutes, questions you have not seen first.", { questions: C.exam.questions, minutes: C.exam.minutes })
+            : t("Timed full exams come with a free account."))}</span></button>`}
       ${C.home_notes.map((n, i) => `<button data-note="${esc(n.path)}">${icon(i ? "notes" : "doc")}<strong>${esc(n.title)}</strong>
         <span>${esc(n.blurb)}</span></button>`).join("\n      ")}
     </div>`)}

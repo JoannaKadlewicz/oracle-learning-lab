@@ -1,13 +1,13 @@
 /* The app chrome around the views: exam picker, mistakes badge, database status, theme, and
    the navigation drawer on narrow screens. */
 
-import { $, $$ } from "./core/dom.js";
+import { $, $$, esc } from "./core/dom.js";
 import { api } from "./core/api.js";
 import { store } from "./core/store.js";
 import { t } from "./core/i18n.js";
 import { currentUser, signOut } from "./core/session.js";
 import { SQL_VIEWS } from "./core/roles.js";
-import { C, P, A, mistakes, apply, loadContent, setDatabase, sqlOff, subscribed } from "./core/state.js";
+import { C, P, A, mistakes, apply, loadContent, setDatabase, sqlOff, labOff, can, isGuest } from "./core/state.js";
 import { route, currentView, refresh, onRoute } from "./core/router.js";
 import { toast, toastError, confirmDialog } from "./ui/feedback.js";
 import { setSchema } from "./ui/editor.js";
@@ -42,12 +42,14 @@ export function renderExamSwitch() {
   examPicker($("#exam-picker"), { exams: Object.values(C.exams), current: C.exam.code, onPick: switchExam,
     locked: code => Boolean(usable) && !usable.includes(code) });
   $("#topbar-exam").textContent = C.exam.code;
-  // The SQL pages are marked Premium in a free workspace: redrawn on every switch.
+  // What the plan cannot use is marked in the rail: exercises need an account, the SQL lab Pro.
   for (const view of SQL_VIEWS) {
     const link = $(`#rail a[data-view="${view}"]`);
     link.querySelector(".premium-tag")?.remove();
-    if (!subscribed()) link.insertAdjacentHTML("beforeend", premiumTag());
+    if (view === "exercises" && !can("exercises")) link.insertAdjacentHTML("beforeend", premiumTag(t("Account"), t("Included in a free account")));
+    if (view === "lab" && !can("sql_lab")) link.insertAdjacentHTML("beforeend", premiumTag());
   }
+  renderGuestBar();
 }
 
 async function switchExam(code) {
@@ -68,16 +70,30 @@ async function switchExam(code) {
   } catch (err) { toastError(t("Could not switch the exam. {error}", { error: err.message })); }
 }
 
+/** A guest sees, on every page, that a free account keeps their progress and unlocks more. */
+function renderGuestBar() {
+  let bar = $("#guest-bar");
+  if (!isGuest()) { bar?.remove(); return; }
+  if (bar) return;
+  bar = document.createElement("div");
+  bar.id = "guest-bar";
+  bar.className = "guest-bar";
+  bar.setAttribute("role", "note");
+  bar.innerHTML = `<span>${esc(t("You're browsing as a guest. Create a free account to keep your progress and unlock unlimited quizzes, lessons and daily SQL exercises."))}</span>
+    <a class="btn small" href="/register">${esc(t("Create a free account"))}</a>`;
+  $("#main").before(bar);
+}
+
 /* ---------------------------------------------------------------- database */
 
 export function checkDatabase() {
   const el = $("#db-status");
   setSchema(null);
   // Without SQL practice there is nothing to probe; "Database offline" stays for a real outage.
-  if (sqlOff()) {
+  if (labOff()) {  // the schema probe is part of the SQL lab
     setDatabase(null);
     el.className = "db-status";
-    el.textContent = t("SQL practice unavailable");
+    el.textContent = sqlOff() ? t("SQL practice unavailable") : t("SQL exercises ready");
     el.title = "";
     return;
   }
@@ -121,8 +137,8 @@ export function initShell({ onExamChange: handler }) {
   initDrawer();
   const user = currentUser();
   $("#account-name").textContent = user.display_name;
-  $("#account-email").textContent = user.email;
-  $("#rail-account").title = user.email;
+  $("#account-email").textContent = user.role === "guest" ? t("Not registered yet") : user.email;
+  $("#rail-account").title = user.role === "guest" ? "" : user.email;
   $("#nav-admin").hidden = user.role !== "admin";
   $("#sign-out").addEventListener("click", signOut);
   onRoute(refreshNav);

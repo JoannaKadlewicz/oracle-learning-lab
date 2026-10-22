@@ -5,11 +5,11 @@ import { $, $$, esc, inlineCode, icon, plural } from "../core/dom.js";
 import { t, tn } from "../core/i18n.js";
 import { api } from "../core/api.js";
 import { store } from "../core/store.js";
-import { C, S, P, L, DB, apply, loadProgress, topicLabel, needsNewerDb, sqlOff, noSql, subscribed } from "../core/state.js";
+import { C, S, P, L, DB, A, apply, loadProgress, topicLabel, needsNewerDb, sqlOff, noSql, labOff, noLab, can, leftToday } from "../core/state.js";
 import { main, go, setTitle } from "../core/router.js";
 import { currentUser } from "../core/session.js";
 import { confirmDialog } from "../ui/feedback.js";
-import { pageHead, loading, premiumCallout } from "../ui/widgets.js";
+import { pageHead, loading, premiumCallout, registerButton, limitPanel } from "../ui/widgets.js";
 import { makeEditor } from "../ui/editor.js";
 import { gridHtml, explainHtml, diffHtml, resultsHtml, errorBox } from "../ui/sql.js";
 
@@ -77,7 +77,9 @@ function render(arg) {
 
   main.innerHTML = `
     ${pageHead(esc(t("Exercises")), esc(t("Your SQL and the reference solution both run on the database, and the results are compared. {passed} of {total} passed.", { passed: passedCount, total: C.labs.length })))}
-    ${subscribed() ? "" : premiumCallout()}
+    ${can("exercises") ? (leftToday("exercises") !== Infinity ? `<p class="callout">${esc(tn(leftToday("exercises"),
+      "{n} graded exercise left today on your plan.", "{n} graded exercises left today on your plan."))}</p>` : "")
+      : premiumCallout(t("Exercises need a free account"), t("Read every task and its solution now. A free account checks 10 of your answers a day against the database; your progress comes with you."), registerButton())}
     <label class="list-picker field"><span>${esc(t("Exercise"))}</span><select id="ex-picker">${pickerHtml(shown, lab)}</select></label>
     <div class="split">
       <nav class="split-list" aria-label="${esc(t("Exercises"))}">
@@ -118,7 +120,7 @@ function render(arg) {
           <textarea class="editor" id="ex-sql" aria-label="${esc(t("Your SQL"))}" spellcheck="false" autocapitalize="off">${esc(draft)}</textarea>
           <div class="editor-bar">
             <button class="btn" id="check-ex" ${off ? "disabled" : ""}>${esc(t("Check"))} <span class="kbd">Ctrl+Enter</span></button>
-            ${kind === "ddl" ? "" : `<button class="btn secondary" id="run-ex" ${off ? "disabled" : ""}>${esc(t("Run without checking"))}</button>`}
+            ${kind === "ddl" ? "" : `<button class="btn secondary" id="run-ex" ${labOff() ? `disabled title="${esc(noLab())}"` : ""}>${esc(t("Run without checking"))}</button>`}
             <span class="links">
               ${lab.hint ? `<button class="link-btn" id="show-hint">${esc(t("Show a hint"))}</button>` : ""}
               ${lab.starter ? `<button class="link-btn quiet" id="reset-starter">${esc(t("Restore the starter"))}</button>` : ""}
@@ -141,7 +143,10 @@ function render(arg) {
     try {
       res = await api("/api/grade", { id: lab.id, sql: editor.get() });
       await loadProgress();
-    } catch (err) { results.innerHTML = errorBox(err.message); return; }
+    } catch (err) {
+      results.innerHTML = err.limit ? limitPanel("exercises", A?.limits?.exercises) : errorBox(err.message);
+      return;
+    }
     let html;
     if (res.error) {
       html = `<div class="verdict bad"><strong>${esc(kind === "query" ? t("Your query did not run") : t("Your SQL did not run"))}</strong><p class="mono">${esc(res.error)}</p></div>${explainHtml(res.explain) ? `<div class="result">${explainHtml(res.explain)}</div>` : ""}`;

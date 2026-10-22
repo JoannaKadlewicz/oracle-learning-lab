@@ -26,15 +26,33 @@ export function apply(snapshot) {
   if (snapshot.access) A = snapshot.access;  // mock exam answers come without it: the last one stays
 }
 
-/** The one line shown where a SQL action would be, for users without SQL practice. */
-export const noSql = () => subscribed()
-  ? t("SQL practice isn't enabled on this server yet.")
-  : t("Running SQL is a premium feature, not included in free accounts.");
+/* The account's plan (guest, user, pro, admin) and what it may use; the server enforces the same table
+   (access/plans.py). */
+const FEATURES = {
+  sql_lab: ["pro", "admin", "learner"],
+  mock: ["user", "pro", "admin", "learner"],
+  exercises: ["user", "pro", "admin", "learner"],
+  many_workspaces: ["pro", "admin", "learner"],
+};
+export const plan = () => A?.plan ?? "admin";
+export const can = feature => FEATURES[feature].includes(plan());
+export const isGuest = () => plan() === "guest";
+
+/** The one line shown where a graded exercise would run, when it cannot. */
+export const noSql = () => isGuest()
+  ? t("Create a free account to solve SQL exercises: 10 a day are included.")
+  : t("SQL practice isn't enabled on this server yet.");
+/** The one line shown where free SQL (the lab, a card's Try it, Run without checking) would run, when it cannot. */
+export const noLab = () => isGuest() ? t("Free SQL runs are part of the Pro plan. Start with a free account.")
+  : !can("sql_lab") ? t("The SQL lab is part of the Pro plan.") : noSql();
 export const sqlOff = () => P?.sql_available === false;
-/** Everything in this workspace (a subscription, or an admin); false on a free workspace. */
-export const subscribed = () => (A?.level ?? "subscribed") === "subscribed";
-/** What is left today of a free plan's daily `kind` ("questions" or "cards"); Infinity without limits. */
-export const leftToday = kind => A?.limits ? Math.max(0, A.limits[kind] - (A.used?.[kind] ?? 0)) : Infinity;
+/** Free SQL (lab, Try it, Run without checking) is off: no practice, or not the Pro plan. */
+export const labOff = () => sqlOff() || !can("sql_lab");
+/** What is left today of a daily `kind` ("questions", "cards" or "exercises"); Infinity without a limit. */
+export const leftToday = kind => {
+  const limit = A?.limits?.[kind];
+  return limit == null ? Infinity : Math.max(0, limit - (A.used?.[kind] ?? 0));
+};
 
 /** What is left of today's plan after the questions: flashcard ids not reviewed yet, and the
     exercise when it is planned, not passed, and SQL is available. */

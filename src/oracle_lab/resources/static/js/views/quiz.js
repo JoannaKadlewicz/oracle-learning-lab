@@ -5,7 +5,7 @@ import { $, $$, esc, inlineCode, shuffle, icon, LETTERS } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { t, tn } from "../core/i18n.js";
 import { store, forget } from "../core/store.js";
-import { C, S, P, Q, CARD, A, apply, topicLabel, needsNewerDb, mistakes, sqlOff, noSql, todayLeft, subscribed, leftToday } from "../core/state.js";
+import { C, S, P, Q, CARD, A, apply, topicLabel, needsNewerDb, mistakes, labOff, noLab, todayLeft, can, isGuest, leftToday } from "../core/state.js";
 import { main, go, currentView, setLeaveGuard } from "../core/router.js";
 import { toast, clearToast, toastError, confirmDialog, closeDialogs } from "../ui/feedback.js";
 import { meter, pageHead, section, limitPanel } from "../ui/widgets.js";
@@ -156,7 +156,7 @@ function queueSecondTry(i) {
 
 export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder, fromToday = false }) {
   topics = topics || Object.keys(C.topics);
-  if (mode !== "exam" && !leftToday("questions")) { main.innerHTML = limitPanel("questions", A.limits.questions); return; }
+  if (mode !== "exam" && !leftToday("questions")) { main.innerHTML = limitPanel("questions", A.limits.questions, isGuest()); return; }
   if (mode === "exam") return startMock({ topics: topics.length === Object.keys(C.topics).length ? null : topics, count, minutes });
   let items;
   if (ids) items = keepOrder ? [...ids] : shuffle(ids);
@@ -179,7 +179,7 @@ export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder, 
    and scores the exam. */
 
 export async function startMock({ topics, count, minutes, ids } = {}) {
-  if (!subscribed()) { toast(t("Mock exams are part of a subscription. Ask an admin to upgrade this workspace.")); return; }
+  if (!can("mock")) { toast(t("Mock exams need a free account. Your progress comes with you.")); return; }
   if (P.active_mock && !await confirmDialog({
     title: t("Abandon the running mock exam?"),
     body: t("It will not be scored, and its questions count as seen."),
@@ -570,8 +570,8 @@ function renderQuestion(i, reviewing) {
     <div class="q-actions">
       ${actions}
       <span class="spacer"></span>
-      ${canTry ? (sqlOff()
-        ? `<span class="small muted">${esc(noSql())}</span><button class="btn ghost" disabled>${esc(t("Run it in the SQL lab"))}</button>`
+      ${canTry ? (labOff()
+        ? `<span class="small muted">${esc(noLab())}</span><button class="btn ghost" disabled>${esc(t("Run it in the SQL lab"))}</button>`
         : needsNewerDb(q)
         ? `<span class="small muted" title="${esc(t("{code}'s SQL features need {database}, which this server does not provide.", { code: C.exam.code, database: q.needs.label }))}">${esc(t("Runs on {database} only", { database: q.needs.label }))}</span>`
         : `<button class="btn ghost" id="try">${esc(t("Run it in the SQL lab"))}</button>`) : ""}
@@ -685,7 +685,7 @@ async function checkPractice(i, confidence) {
   // A second try is recorded like any other answer.
   try { apply(await api("/api/attempt", { id, chosen, confidence, mode: "practice" })); refreshNav(); }
   catch (err) {
-    if (err.limit) { main.innerHTML = limitPanel("questions", A?.limits?.questions); return; }
+    if (err.limit) { main.innerHTML = limitPanel("questions", A?.limits?.questions, isGuest()); return; }
     toastError(t("Could not save this answer. Check that the server is running.")); return;
   }
   const note = $("#second-note");

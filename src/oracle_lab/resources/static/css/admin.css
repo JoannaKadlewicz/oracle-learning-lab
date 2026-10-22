@@ -70,3 +70,5 @@ table.admin-events code { font-size: var(--t-xs); }
 .free-limits { display: flex; flex-wrap: wrap; gap: 12px; }
 .free-limits input { width: 7em; }
 .setting.free-plan { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.ws-custom b { color: var(--link); background: color-mix(in srgb, var(--link) 12%, var(--paper)); }
+.admin-guests { margin-bottom: 10px; }

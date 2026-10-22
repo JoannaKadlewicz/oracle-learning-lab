@@ -250,3 +250,7 @@ html.i18n-pending body { visibility: hidden; animation: i18n-reveal 0s 2s forwar
 @keyframes i18n-reveal { to { visibility: visible; } }
 
 .auth-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+
+.auth-guest { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rule); text-align: center; }
+.auth-guest .btn { width: 100%; justify-content: center; }
+.auth-guest p { margin: 8px 0 0; font-size: var(--t-xs); color: var(--muted); }

@@ -187,7 +187,7 @@ function optionHtml(id, x, current, locked) {
   const selected = x.code === current;
   return `<li role="option" id="${id}-${esc(x.code)}" data-exam="${esc(x.code)}" aria-selected="${selected}"${locked ? ` aria-disabled="true" class="locked"` : ""}>
     <span class="exam-picker-option-title"><span class="exam-picker-code">${esc(x.code)}</span> ${esc(x.name)}</span>
-    <span class="exam-picker-option-meta">${locked ? `${icon("lock")} ${esc(t("Requires a subscription"))}`
+    <span class="exam-picker-option-meta">${locked ? `${icon("lock")} ${esc(t("Pro plan"))}`
       : esc(t("{database}, {questions} questions, {minutes} min", { database: x.database, questions: x.questions, minutes: x.minutes }))}</span>
     <svg class="exam-picker-tick" aria-hidden="true"><use href="#i-check"/></svg>
   </li>`;

@@ -33,3 +33,10 @@ form.addEventListener("submit", async event => {
   setBusy(form, false);
   showError([result.error, result.status === 429 ? waitText(result.retryAfter) : ""].filter(Boolean).join(" "));
 });
+
+// "Try it without an account": a guest session, then the app (which asks for a workspace first).
+$("#try-guest").addEventListener("click", async () => {
+  const result = await postForm("/api/auth/guest", {});
+  if (result.ok) location.assign("/");
+  else showError(result.retryAfter ? waitText(result.retryAfter) : result.error);
+});

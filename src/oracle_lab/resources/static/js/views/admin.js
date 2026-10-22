@@ -17,13 +17,16 @@ const EVENTS = [
   "other_sessions_ended", "google_login", "google_link", "google_linked", "google_reauth", "google_unlinked",
   "account_deleted", "admin_bootstrapped", "legacy_import", "schema_provisioned", "schema_failed",
   "schema_drop_failed", "reset_link_created", "user_locked", "user_unlocked", "role_changed", "schema_recreated",
-  "registration_settings_changed", "inactive_accounts_deleted",
+  "registration_settings_changed", "inactive_accounts_deleted", "guest_started", "guest_adopted", "guest_purged",
+  "workspace_chosen", "workspace_access_changed", "account_limits_changed", "role_migrated",
 ];
 const DAY = 86400;
 
 let users = [];
 let filters = { event: "", user_id: "" };
 let inactiveDays = 180;
+let showGuests = false;
+const usersPath = () => "/api/admin/users" + (showGuests ? "?guests=1" : "");
 let eventsRequest = 0;  // only the newest events request may fill the table
 
 const when = time => time ? formatDate(time * 1000,
@@ -38,7 +41,7 @@ async function render() {
   main.innerHTML = loading(t("Loading accounts…"));
   let list, settings;
   try {
-    [list, settings] = await Promise.all([api("/api/admin/users"), api("/api/admin/settings")]);
+    [list, settings] = await Promise.all([api(usersPath()), api("/api/admin/settings")]);
   } catch (err) {
     main.innerHTML = empty(esc(t("The admin page could not be loaded")), esc(err.message),
       `<button class="btn secondary" type="button" id="admin-retry">${esc(t("Try again"))}</button>`);
@@ -49,7 +52,8 @@ async function render() {
   main.innerHTML = `
     ${pageHead(esc(t("Admin")), esc(t("Accounts, sign-up and the security events of this lab.")))}
     <div class="admin">
-      ${section(esc(t("Accounts")), `<div class="table-wrap" id="admin-users"></div>`, { aside: esc(plural(users.length, "account")) })}
+      ${section(esc(t("Accounts")), `<label class="check small admin-guests"><input type="checkbox" id="show-guests" ${showGuests ? "checked" : ""}> ${esc(t("Show guests"))}</label>
+        <div class="table-wrap" id="admin-users"></div>`, { aside: esc(plural(users.length, "account")) })}
       <div class="admin-panels">
         ${section(esc(t("Sign-up")), `<div class="panel" id="admin-registration"></div>`)}
         ${section(esc(t("Inactive accounts")), `<div class="panel danger-zone" id="admin-inactive"></div>`)}
@@ -72,6 +76,7 @@ async function render() {
   $("#ev-event").addEventListener("change", e => { filters.event = e.target.value; loadEvents(); });
   $("#ev-user").addEventListener("change", e => { filters.user_id = e.target.value; loadEvents(); });
   $("#ev-refresh").addEventListener("click", loadEvents);
+  $("#show-guests").addEventListener("change", e => { showGuests = e.target.checked; reloadUsers(); });
   $("#admin-users").addEventListener("click", e => {
     const b = e.target.closest("[data-manage]");
     if (b) manage(users.find(u => u.id === b.dataset.manage));
@@ -89,7 +94,7 @@ async function render() {
 }
 
 async function reloadUsers() {
-  users = (await api("/api/admin/users")).users;
+  users = (await api(usersPath())).users;
   if (!$("#admin-users")) return;
   renderUsers();
   renderInactive();
@@ -127,6 +132,7 @@ function renderUsers() {
 
 /** Another account's role is a picker right in the table; your own is a tag (you can't change it). */
 function roleCell(user, self) {
+  if (user.role === "guest") return `<span class="tag">${esc(roleLabel("guest"))}</span>`;
   if (self) return `<span class="tag ${user.role === "admin" ? "tag-admin" : ""}">${esc(roleLabel(user.role))}</span>`;
   return `<select class="role-select role-${esc(user.role)}" data-role-of="${esc(user.id)}" aria-label="${esc(t("Role of {email}", { email: user.email }))}">
     ${ROLES.map(r => `<option value="${esc(r)}"${r === user.role ? " selected" : ""}>${esc(roleLabel(r))}</option>`).join("")}
@@ -134,14 +140,14 @@ function roleCell(user, self) {
 }
 
 const workspaceTitle = code => C.exams[code]?.title || code;
-const levelLabel = level => ({ free: t("Free"), subscribed: t("Subscribed"), none: t("No access") }[level] ?? level);
+const manyWorkspaces = user => ["pro", "admin"].includes(user.role);
 
-/** The workspaces an account can open, each marked Free or Subscribed; admins have all of them. */
+/** The workspaces an account can open; admins have all of them. Own limits, if an admin set any, are marked. */
 function workspaceChips(user) {
+  const custom = Object.keys(user.limits || {}).length ? `<span class="ws-chip ws-custom"><b>${esc(t("Custom limits"))}</b></span>` : "";
   if (user.role === "admin") return `<span class="muted small">${esc(t("All workspaces"))}</span>`;
-  if (!user.workspaces.length) return `<span class="muted small">${esc(t("None yet"))}</span>`;
-  return `<div class="ws-chips">${user.workspaces.map(w => `<span class="ws-chip ws-${esc(w.level)}">${esc(workspaceTitle(w.code))}
-    <b>${esc(levelLabel(w.level))}</b></span>`).join("")}</div>`;
+  if (!user.workspaces.length) return `<span class="muted small">${esc(t("None yet"))}</span>${custom}`;
+  return `<div class="ws-chips">${user.workspaces.map(code => `<span class="ws-chip">${esc(workspaceTitle(code))}</span>`).join("")}${custom}</div>`;
 }
 
 /** The actions for one account, as a menu in a dialog (a dropdown would be clipped by the scrolling table). */
@@ -151,8 +157,8 @@ async function manage(user) {
   const items = [["reset", t("Create a password reset link"), ""]];
   if (!self) {
     items.push(user.status === "locked" ? ["unlock", t("Unlock the account"), ""] : ["lock", t("Lock the account"), ""]);
-    items.push(["role", t("Change role"), ""]);
-    if (user.role !== "admin") items.push(["workspaces", t("Workspaces"), ""]);
+    if (user.role !== "guest") items.push(["role", t("Change role"), ""]);
+    if (user.role !== "admin") items.push(["workspaces", t("Workspaces"), ""], ["limits", t("Limits"), ""]);
   }
   user.schemas.forEach(s => items.push([`schema:${s.key}`, t("Recreate the {key} practice schema", { key: s.key }), ""]));
   if (!self) items.push(["delete", t("Delete the account"), "danger"]);
@@ -188,6 +194,9 @@ async function act(user, choice) {
     toast(t("Account unlocked."));
   } else if (choice === "workspaces") {
     await manageWorkspaces(user);
+    return;
+  } else if (choice === "limits") {
+    await manageLimits(user);
     return;
   } else if (choice === "role") {
     const role = await pickRole(user);
@@ -230,7 +239,8 @@ async function changeRole(user, role) {
   const who = user.email, name = roleLabel(role);
   const body = {
     admin: t("Admins can see every account, lock and delete them, change sign-up settings, and use every workspace."),
-    user: t("They keep their progress and their workspaces, and lose the admin page."),
+    user: t("They keep their progress and one workspace: unlimited studying, 10 graded exercises a day, no SQL lab."),
+    pro: t("They get the SQL lab, unlimited exercises and can be given more workspaces."),
   }[role];
   if (!await confirmDialog({ title: t("Change the role of {who} to {role}?", { who, role: name }), confirm: t("Change role"),
     danger: role === "admin", body })) return false;
@@ -241,31 +251,34 @@ async function changeRole(user, role) {
   return true;
 }
 
-/** Every workspace with a three-way choice: No access, Free (one per user) or Subscribed. Changes apply at once. */
+/** Every workspace, a member or not. Guests and users have one workspace, so adding one moves theirs; a pro can
+    have any number. Changes apply at once. */
 async function manageWorkspaces(user) {
   const rows = () => Object.values(C.exams).map(x => {
-    const level = user.workspaces.find(w => w.code === x.code)?.level ?? "none";
+    const member = user.workspaces.includes(x.code);
     return `<div class="ws-access-row">
       <div><strong>${esc(x.title || x.code)}</strong><span class="muted small">${esc(x.database)}</span></div>
       <div class="seg small" role="group" aria-label="${esc(t("Access to {title}", { title: x.title || x.code }))}">
-        ${["none", "free", "subscribed"].map(l => `<button type="button" data-ws="${esc(x.code)}" data-level="${l}" aria-pressed="${l === level}">${esc(levelLabel(l))}</button>`).join("")}
+        <button type="button" data-ws="${esc(x.code)}" data-member="0" aria-pressed="${!member}">${esc(t("No access"))}</button>
+        <button type="button" data-ws="${esc(x.code)}" data-member="1" aria-pressed="${member}">${esc(t("Member"))}</button>
       </div></div>`;
   }).join("");
   await openDialog(`
     <h2>${esc(t("Workspaces of {who}", { who: user.email }))}</h2>
-    <p>${esc(t("Free gives daily quizzes, flashcards and the first lessons; one workspace per user. Subscribed gives everything, SQL included."))}</p>
+    <p>${esc(manyWorkspaces(user) ? t("A Pro account can be a member of any number of workspaces.")
+      : t("{role} accounts have one workspace: choosing another moves it. More than one needs the Pro plan.", { role: roleLabel(user.role) }))}</p>
     <div class="ws-access" id="ws-access">${rows()}</div>
     <div class="row"><button class="btn" value="done">${esc(t("Done"))}</button></div>`, dialog => {
     const box = $("#ws-access", dialog);
     box.addEventListener("click", async e => {
-      const b = e.target.closest("[data-level]");
+      const b = e.target.closest("[data-member]");
       if (!b || b.getAttribute("aria-pressed") === "true") return;
-      const code = b.dataset.ws, level = b.dataset.level;
-      const other = user.workspaces.find(w => w.level === "free" && w.code !== code);
-      if (level === "free" && other && !await confirmDialog({ title: t("Move the free workspace?"),
-        confirm: t("Move it"), body: t("{who} can have one free workspace. {from} loses its free access.", { who: user.email, from: workspaceTitle(other.code) }) })) return;
+      const code = b.dataset.ws, member = b.dataset.member === "1";
+      const other = user.workspaces.find(w => w !== code);
+      if (member && other && !manyWorkspaces(user) && !await confirmDialog({ title: t("Move their workspace?"),
+        confirm: t("Move it"), body: t("{who} has one workspace. {from} is replaced.", { who: user.email, from: workspaceTitle(other) }) })) return;
       try {
-        await api("/api/admin/workspace-access", { user_id: user.id, workspace: code, level });
+        await api("/api/admin/membership", { user_id: user.id, workspace: code, member });
         await reloadUsers();
         user = users.find(u => u.id === user.id) ?? user;
         box.innerHTML = rows();
@@ -273,6 +286,43 @@ async function manageWorkspaces(user) {
       } catch (err) { toastError(err.message); }
     });
   });
+}
+
+const LIMITS = () => [["questions", t("Questions a day"), 1000], ["cards", t("Flashcards a day"), 1000],
+  ["exercises", t("Graded exercises a day"), 1000], ["topics", t("Lessons: first topics"), 15]];
+
+/** The account's own limits; an empty field follows the plan (shown as its placeholder). */
+async function manageLimits(user) {
+  const shown = v => v == null ? t("unlimited") : String(v);
+  let typed = {};
+  const choice = await openDialog(`
+    <h2>${esc(t("Limits of {who}", { who: user.email }))}</h2>
+    <p>${esc(t("Leave a field empty to follow the {plan} plan. A number here wins, up or down.", { plan: roleLabel(user.role) }))}</p>
+    <div class="free-limits">${LIMITS().map(([key, label, max]) => `<label class="field"><span>${esc(label)}</span>
+      <input type="number" data-own="${key}" min="0" max="${max}" step="1" inputmode="numeric" value="${esc(user.limits?.[key] ?? "")}"
+        placeholder="${esc(user.limits?.[key] == null ? shown(user.effective_limits?.[key]) : "")}"></label>`).join("")}</div>
+    <div class="row"><button type="button" class="btn ghost" data-close>${esc(t("Cancel"))}</button>
+      <button class="btn secondary" value="clear">${esc(t("Use the plan's limits"))}</button>
+      <button class="btn" value="save">${esc(t("Save limits"))}</button></div>`, dialog => {
+    // Kept up to date as the fields change (the dialog is gone once it resolves): empty is null, "follow the plan".
+    const read = () => {
+      typed = Object.fromEntries([...dialog.querySelectorAll("[data-own]")]
+        .map(input => [input.dataset.own, input.value === "" ? null : Number(input.value)]));
+    };
+    read();
+    dialog.addEventListener("input", read);
+  });
+  if (choice !== "save" && choice !== "clear") return;
+  const values = choice === "clear" ? null : typed;
+  if (values && Object.values(values).some(n => n !== null && (!Number.isInteger(n) || n < 0))) {
+    toastError(t("Limits must be whole numbers of at least 0.")); return;
+  }
+  try {
+    await api("/api/admin/limits", { user_id: user.id, limits: values });
+    toast(values ? t("Limits saved for {who}.", { who: user.email }) : t("{who} follows the plan's limits again.", { who: user.email }));
+    await reloadUsers();
+    loadEvents();
+  } catch (err) { toastError(err.message); }
 }
 
 async function showLink(link, who) {
@@ -321,10 +371,11 @@ function renderRegistration(settings) {
       <input type="number" id="max-users" min="1" step="1" inputmode="numeric" value="${esc(settings.max_users)}">
     </div>
     <div class="setting free-plan">
-      <div><h3>${esc(t("Free plan"))}</h3><p>${esc(t("What a free workspace gets each day, and how many topics' lessons it can read."))}</p></div>
+      <div><h3>${esc(t("Plans"))}</h3><p>${esc(t("What a guest gets each day, and how many graded exercises a free account solves. Pro has no limits."))}</p></div>
       <div class="free-limits">
-        ${[["questions", t("Questions a day"), 1000], ["cards", t("Flashcards a day"), 1000], ["topics", t("Free topics"), 15]].map(([key, label, max]) =>
-          `<label class="field"><span>${esc(label)}</span><input type="number" data-limit="${key}" min="0" max="${max}" step="1" inputmode="numeric" value="${esc(settings.free_limits?.[key] ?? 0)}"></label>`).join("")}
+        ${[["guest_questions", t("Guest: questions a day"), 1000], ["guest_cards", t("Guest: flashcards a day"), 1000],
+          ["guest_topics", t("Guest: lessons, first topics"), 15], ["user_exercises", t("User: exercises a day"), 1000]].map(([key, label, max]) =>
+          `<label class="field"><span>${esc(label)}</span><input type="number" data-limit="${key}" min="0" max="${max}" step="1" inputmode="numeric" value="${esc(settings.plan_defaults?.[key] ?? 0)}"></label>`).join("")}
       </div>
     </div>
     <div class="form-actions"><button class="btn" type="button" id="save-registration">${esc(t("Save sign-up settings"))}</button></div>`;
@@ -335,12 +386,12 @@ function renderRegistration(settings) {
   $("#save-registration").addEventListener("click", async () => {
     const max = Number($("#max-users").value);
     if (!Number.isInteger(max) || max < 1) { toastError(t("The user limit must be a whole number of at least 1.")); return; }
-    const freeLimits = Object.fromEntries($$("[data-limit]", panel).map(input => [input.dataset.limit, Number(input.value)]));
-    if (Object.values(freeLimits).some(n => !Number.isInteger(n) || n < 0)) {
-      toastError(t("The free plan limits must be whole numbers of at least 0.")); return;
+    const defaults = Object.fromEntries($$("[data-limit]", panel).map(input => [input.dataset.limit, input.value === "" ? NaN : Number(input.value)]));
+    if (Object.values(defaults).some(n => !Number.isInteger(n) || n < 0)) {
+      toastError(t("Limits must be whole numbers of at least 0.")); return;
     }
     try {
-      renderRegistration(await api("/api/admin/settings", { open, max_users: max, free_limits: freeLimits }));
+      renderRegistration(await api("/api/admin/settings", { open, max_users: max, plan_defaults: defaults }));
       toast(open ? t("Registration is open.") : t("Registration is closed."));
       loadEvents();
     } catch (err) { toastError(err.message); }
