@@ -4,9 +4,9 @@
 
 import { $, $$, esc, shuffle } from "../core/dom.js";
 import { api } from "../core/api.js";
-import { t, tn } from "../core/i18n.js";
+import { t, tn, lang, LANGUAGES } from "../core/i18n.js";
 import { store } from "../core/store.js";
-import { C, P, CARD, DB, apply, dueCards, cardLearned, topicLabel, needsNewerDb, sqlOff, noSql, todayLeft } from "../core/state.js";
+import { C, P, CARD, DB, apply, dueCards, cardLearned, topicLabel, topicNo, needsNewerDb, sqlOff, noSql, todayLeft } from "../core/state.js";
 import { main, go } from "../core/router.js";
 import { toast, toastError } from "../ui/feedback.js";
 import { meter, pageHead, section, loading } from "../ui/widgets.js";
@@ -17,6 +17,56 @@ import { cardText } from "../ui/cardtext.js";
 import { labDraft } from "./lab.js";
 
 let deck = null;
+
+/* The language of the card text. The switch above the card shows the same card in the other language (to check
+   something unclear in your own) without changing the app's language or reloading; it stays until switched back.
+   Each language's cards are fetched once per exam track. */
+const LANGUAGE_NAMES = { en: ["EN", "English"], pl: ["PL", "Polski"] };
+let cardLanguage = null;  // null: the app's language
+const translations = {};  // "exam:language" -> { cards: {id: card}, topics }
+
+const shownLanguage = () => cardLanguage ?? lang();
+
+async function cardsIn(code) {
+  if (code === lang()) return { cards: CARD, topics: C.topics };
+  const key = `${C.exam.code}:${code}`;
+  if (!translations[key]) {
+    const content = await api("/api/content", undefined, { language: code });
+    translations[key] = { cards: Object.fromEntries(content.flashcards.map(c => [c.id, c])), topics: content.topics };
+  }
+  return translations[key];
+}
+
+/** The card's texts in the shown language (the app's when that language is not loaded). */
+function shownCard(card) {
+  const source = cardLanguage && translations[`${C.exam.code}:${cardLanguage}`];
+  const other = source?.cards[card.id];
+  if (!other) return { front: card.front, back: card.back, topic: topicLabel(card.topic), language: lang() };
+  return { front: other.front, back: other.back, topic: `${topicNo(card.topic)}. ${source.topics[card.topic] ?? ""}`, language: cardLanguage };
+}
+
+const languageSwitch = () => `<div class="seg card-lang" role="group" aria-label="${esc(t("Card language"))}" title="${esc(t("Show this card in another language. Press L to switch."))}">
+  ${LANGUAGES.map(code => `<button type="button" data-card-lang="${code}" lang="${code}" aria-label="${esc(LANGUAGE_NAMES[code][1])}" aria-pressed="${code === shownLanguage()}">${LANGUAGE_NAMES[code][0]}</button>`).join("")}
+</div>`;
+
+/** Shows the current card in `code`, in place: the side, the rating buttons and the Try-it editor stay as they are. */
+async function showCardIn(code) {
+  if (!deck?.queue.length || code === shownLanguage()) return;
+  const id = deck.queue[0];
+  try { await cardsIn(code); } catch (err) { toastError(err.message); return; }
+  if (!deck || deck.queue[0] !== id || !$("#card")) return;  // the card changed meanwhile
+  cardLanguage = code === lang() ? null : code;
+  const shown = shownCard(currentCard());
+  const el = $("#card");
+  el.lang = shown.language;
+  $(".card-topic", el).textContent = shown.topic;
+  $(".card-front .card-text", el).innerHTML = cardText(shown.front);
+  $(".card-question", el).innerHTML = cardText(shown.front);
+  $(".card-back .card-text", el).innerHTML = cardText(shown.back);
+  $$("[data-card-lang]", main).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cardLang === shownLanguage())));
+}
+
+const otherLanguage = () => LANGUAGES.find(code => code !== shownLanguage());
 
 // Below this width the Try-it panel sits under the card, so it stays behind a button even after the flip.
 const narrow = matchMedia("(max-width: 1179.98px)");
@@ -107,6 +157,7 @@ function renderCard() {
     return;
   }
   const card = currentCard();
+  const shown = shownCard(card);
   const info = P.cards[card.id];
   const status = !info ? t("New card") : info.interval >= 1 ? tn(info.interval, "Every {n} day", "Every {n} days") : t("Relearning");
   const progress = deck.total ? (deck.done / deck.total) * 100 : 0;
@@ -119,20 +170,21 @@ function renderCard() {
           <span><b>${deck.queue.length}</b> ${esc(t("left"))}</span><span><b>${deck.done}</b> ${esc(t("done"))}</span><span><b>${deck.again}</b> ${esc(t("again"))}</span>
         </div>
         <span class="spacer"></span>
+        ${languageSwitch()}
         <button class="link-btn quiet small" id="deck-quit">${esc(t("Stop studying"))}</button>
       </div>
       <div class="deck-progress"><i style="width:${progress}%"></i></div>
       <div class="card-stage">
-        <button class="index-card ${deck.flipped ? "flipped" : ""}" id="card" aria-label="${esc(cardSideLabel())}">
+        <button class="index-card ${deck.flipped ? "flipped" : ""}" id="card" lang="${esc(shown.language)}" aria-label="${esc(cardSideLabel())}">
           <div class="card-face card-front" aria-hidden="${deck.flipped}">
             <span class="card-box">${esc(status)}</span>
-            <p class="card-topic">${esc(topicLabel(card.topic))}</p>
-            <div class="card-text">${cardText(card.front)}</div>
+            <p class="card-topic">${esc(shown.topic)}</p>
+            <div class="card-text">${cardText(shown.front)}</div>
             <p class="card-hint">${esc(t("Space or click to flip"))}</p>
           </div>
           <div class="card-face card-back" aria-hidden="${!deck.flipped}">
-            <p class="card-question">${cardText(card.front)}</p>
-            <div class="card-text">${cardText(card.back)}</div>
+            <p class="card-question">${cardText(shown.front)}</p>
+            <div class="card-text">${cardText(shown.back)}</div>
             <p class="card-hint">${esc(t("1 again, 2 hard, 3 medium, 4 easy"))}</p>
           </div>
         </button>
@@ -147,6 +199,7 @@ function renderCard() {
   $("#card").addEventListener("click", flipCard);
   $$("[data-rating]", main).forEach(b => b.addEventListener("click", () => rateCard(b.dataset.rating)));
   $("#deck-quit").addEventListener("click", () => { deck = null; render(); });
+  $$("[data-card-lang]", main).forEach(b => b.addEventListener("click", () => showCardIn(b.dataset.cardLang)));
   updateTry(card);
 }
 
@@ -270,6 +323,7 @@ function onKey(e) {
   else if (e.key === "2") rateCard("hard");
   else if (e.key === "3") rateCard("good");
   else if (e.key === "4") rateCard("easy");
+  else if (e.key === "l" || e.key === "L") showCardIn(otherLanguage());
 }
 
 export const cardsView = { get title() { return t("Flashcards"); }, render, onKey };

@@ -10,7 +10,8 @@ async function sessionEnded() {
   catch { return false; }
 }
 
-export async function api(path, body) {
+/** `language` asks for the answer in that language instead of the page's (e.g. one flashcard in the other language). */
+export async function api(path, body, { language } = {}) {
   const opts = body === undefined ? {} : {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
@@ -18,7 +19,7 @@ export async function api(path, body) {
   };
   let res;
   try {
-    res = await fetch(path, { ...opts, headers: { ...opts.headers, "X-Language": lang() } });
+    res = await fetch(path, { ...opts, headers: { ...opts.headers, "X-Language": language ?? lang() } });
   } catch {
     throw new ApiError(t("The study server is not responding."));
   }
