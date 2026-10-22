@@ -1,5 +1,4 @@
 {
-  "Your account cannot run SQL. Ask an admin for learner access.": "Twoje konto nie może uruchamiać SQL. Poproś administratora o rolę „Uczący się”.",
   "Login required": "Musisz się zalogować",
   "Not found": "Nie znaleziono",
   "Internal server error": "Wewnętrzny błąd serwera",
@@ -208,5 +207,9 @@
   "{name} must be a whole number.": "{name} musi być liczbą całkowitą.",
   "{name} must be between 0 and {max}.": "{name} musi mieścić się w przedziale od 0 do {max}.",
   "The classic Oracle SQL certification, on Oracle Database 19c.": "Klasyczny certyfikat Oracle SQL, na Oracle Database 19c.",
-  "The new Oracle AI Database SQL Associate exam, on Oracle 23ai.": "Nowy egzamin Oracle AI Database SQL Associate, na Oracle 23ai."
+  "The new Oracle AI Database SQL Associate exam, on Oracle 23ai.": "Nowy egzamin Oracle AI Database SQL Associate, na Oracle 23ai.",
+  "Choose a workspace first.": "Najpierw wybierz workspace.",
+  "This needs a subscription to the workspace.": "To wymaga subskrypcji tego workspace’u.",
+  "You have used today's {n} free questions. Come back tomorrow, or ask an admin for a subscription.": "Dzisiejszy darmowy limit pytań ({n}) został wykorzystany. Wróć jutro albo poproś administratora o subskrypcję.",
+  "You have used today's {n} free flashcards. Come back tomorrow, or ask an admin for a subscription.": "Dzisiejszy darmowy limit fiszek ({n}) został wykorzystany. Wróć jutro albo poproś administratora o subskrypcję."
 }

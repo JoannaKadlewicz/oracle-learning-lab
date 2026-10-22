@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from oracle_lab.services import Clock
+from oracle_lab.services import NEEDS_SUBSCRIPTION, AccessDenied, Clock
 from oracle_lab.services.context import UserContexts
 from oracle_lab.services.mock_exams import MockExamService
 from oracle_lab.web.controllers import respond
@@ -18,11 +18,15 @@ class MockExamController:
         self.contexts = contexts
         self.clock = clock
 
-    def mocks(self, request: Request) -> MockExamService:
+    def mocks(self, request: Request, starting: bool = False) -> MockExamService:
+        """The user's mock exams; starting one needs a subscription (a running one can still be finished)."""
         context = self.contexts(request)
+        if starting and context.level != "subscribed":
+            raise AccessDenied(NEEDS_SUBSCRIPTION)
         return MockExamService(context.state, self.clock, context.sql_available, request.language)
 
     def register(self, router: Router) -> None:
         router.get("/api/mock", lambda r: respond(lambda: self.mocks(r).get(r.query("id"))))
         for action, handle in ACTIONS.items():
-            router.post(f"/api/mock/{action}", lambda r, handle=handle: respond(lambda: handle(self.mocks(r), r.json())))
+            router.post(f"/api/mock/{action}", lambda r, handle=handle, start=action == "start":
+                        respond(lambda: handle(self.mocks(r, start), r.json())))

@@ -10,8 +10,10 @@ from oracle_lab.study.state import State
 from oracle_lab.study.tracks import exam_code, track, track_state
 
 
-def snapshot(state: State, now: float, sql_available: bool = True, lang: str = DEFAULT_LANGUAGE) -> dict[str, Any]:
-    progress = engine.progress(track(state), track_state(state), now, sql_available)
+def snapshot(state: State, now: float, sql_available: bool = True, lang: str = DEFAULT_LANGUAGE,
+             caps: dict[str, int] | None = None) -> dict[str, Any]:
+    """The state and its progress; `caps` bounds today's plan to a free plan's daily allowance."""
+    progress = engine.progress(track(state), track_state(state), now, sql_available, caps)
     return {"state": state, "progress": {**localized(progress, lang), "exam": exam_code(state)},
             "sql_available": sql_available}
 

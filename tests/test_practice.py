@@ -370,7 +370,11 @@ def test_practice_databases_are_built_only_when_used():
     from oracle_lab.web.http import Request
 
     built = []
-    contexts = UserContexts(memory_stores(), lambda p: built.append(p) or "practice")
+    from oracle_lab.access.models import WorkspaceAccess
+
+    stores = memory_stores()
+    stores.access.put(WorkspaceAccess("u1", "1Z0-071", "subscribed", "admin", 1.0))
+    contexts = UserContexts(stores, lambda p: built.append(p) or "practice")
     ctx = contexts(Request("GET", "/api/state", {}, principal=principal()))
     assert built == [] and ctx.state is not None
     assert ctx.practice == "practice" and ctx.practice == "practice" and built == [principal()]

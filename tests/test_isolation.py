@@ -49,8 +49,20 @@ class User:
         return json.loads(body) if status == 200 else (status, body)
 
 
-def register(server: Client, email: str) -> User:
-    return User(Client(server.port).sign_in(email))
+def subscribe(stores, user_id: str) -> None:
+    """Every workspace for `user_id`, so the request reaches the feature under test."""
+    from oracle_lab import exams
+    from oracle_lab.access.models import WorkspaceAccess
+
+    for code in exams.EXAMS:
+        stores.access.put(WorkspaceAccess(user_id, code, "subscribed", "admin", 1.0))
+
+
+def register(server: Client, email: str, stores=None) -> User:
+    user = User(Client(server.port).sign_in(email))
+    if stores is not None:
+        subscribe(stores, stores.users.by_email(email).id)
+    return user
 
 
 @pytest.mark.parametrize("method,path", PRIVATE + ADMIN)
@@ -79,14 +91,16 @@ def test_user_context_refuses_a_request_without_a_principal():
 def test_user_context_has_the_users_own_state_and_notes():
     stores = memory_stores()
     principal = Principal("u1", "a@x.org", "user", "hash", "csrf", None)
+    subscribe(stores, "u1")
     ctx = UserContexts(stores)(Request("GET", "/api/state", {}, principal=principal))
     assert ctx.principal == principal and ctx.practice is None
     assert ctx.state is stores.states.for_user("u1") and ctx.notes is stores.notes.for_user("u1")
 
 
 def test_users_do_not_see_each_others_progress_or_notes(serve):
-    server = serve(stores=memory_stores())
-    a, b = register(server, "a@x.org"), register(server, "b@x.org")
+    stores = memory_stores()
+    server = serve(stores=stores)
+    a, b = register(server, "a@x.org", stores), register(server, "b@x.org", stores)
     a.post("/api/settings", {"exam_date": "2027-01-01"})
     a_note_path = a.post("/api/notes/save", {"title": "Secret", "sql": "SELECT 1 FROM dual;"})["path"]
     assert a.get("/api/state")["settings"]["exam_date"] == "2027-01-01"
@@ -99,7 +113,7 @@ def test_users_do_not_see_each_others_progress_or_notes(serve):
 def test_progress_and_mock_exams_are_kept_per_user(serve):
     stores = memory_stores()
     server = serve(stores=stores)
-    a, b = register(server, "a@x.org"), register(server, "b@x.org")
+    a, b = register(server, "a@x.org", stores), register(server, "b@x.org", stores)
     mock = a.post("/api/mock/start", {"count": 2, "minutes": 5})["mock"]
     assert b.get("/api/mock?id=" + mock["id"])[0] == 404
     assert b.post("/api/mock/submit", {"mock_id": mock["id"]})[0] == 400  # an unknown mock, as for any bad id
@@ -108,9 +122,15 @@ def test_progress_and_mock_exams_are_kept_per_user(serve):
     assert mock["id"] in json.dumps(stores.states.for_user(user_a.id).load())
 
 
-@pytest.mark.parametrize("role,practice_on,expected", [("admin", False, True), ("learner", True, True),
-                                                       ("learner", False, False), ("free", True, False)])
-def test_who_may_run_sql(role, practice_on, expected):
+@pytest.mark.parametrize("role,level,practice_on,expected", [
+    ("admin", None, False, True), ("user", "subscribed", True, True),
+    ("user", "subscribed", False, False), ("user", "free", True, False)])
+def test_who_may_run_sql(role, level, practice_on, expected):
+    from oracle_lab.access.models import WorkspaceAccess
+
+    stores = memory_stores()
+    if level:
+        stores.access.put(WorkspaceAccess("u1", "1Z0-071", level, "admin", 1.0))
     principal = Principal("u1", "a@x.org", role, "hash", "csrf", None)
-    ctx = UserContexts(memory_stores(), None, practice_on)(Request("GET", "/api/state", {}, principal=principal))
+    ctx = UserContexts(stores, None, practice_on)(Request("GET", "/api/state", {}, principal=principal))
     assert ctx.sql_available is expected

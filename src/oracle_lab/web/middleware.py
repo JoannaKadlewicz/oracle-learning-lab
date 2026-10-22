@@ -15,6 +15,7 @@ from oracle_lab.accounts.repositories import UserRepository
 from oracle_lab.auth.models import AuthError, Principal, Throttled, WeakPassword
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.provisioning.practice import PracticeUnavailable
+from oracle_lab.services import AccessError
 from oracle_lab.web.cookies import CookiePolicy
 from oracle_lab.web.http import HttpError, Request, Response, is_clean_path
 from oracle_lab.web.routing import Handler
@@ -42,6 +43,8 @@ def error_boundary(request: Request, call_next: Handler) -> Response:
         return auth_error_response(exc, lang)
     except PracticeUnavailable as exc:
         return Response.json({"error": i18n.translate(lang, i18n.message_of(exc)), "practice": "unavailable"}, 503)
+    except AccessError as exc:
+        return Response.json({"error": i18n.translate(lang, i18n.message_of(exc)), **exc.extra}, exc.status)
     except Exception:
         logging.getLogger(__name__).exception("unhandled error in %s %s", request.method, request.path)
         return Response.json({"error": i18n.translate(lang, "Internal server error")}, 500)

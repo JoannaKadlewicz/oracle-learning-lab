@@ -332,10 +332,12 @@ def _plan_lab(content, state, now):
     return None
 
 
-def daily_plan(content, state, now, rng=random, sql_available=True):
+def daily_plan(content, state, now, rng=random, sql_available=True, caps=None):
     """Today's session, sized to the daily minutes: due flashcards (a quarter of the time, at least a few), one
     exercise from the weakest objective, and the rest as practice questions (at least five). Without SQL practice the
-    exercise is still shown, but `lab_locked`: it takes no time and the session is complete without it."""
+    exercise is still shown, but `lab_locked`: it takes no time and the session is complete without it.
+    `caps` ({"questions": n, "cards": n}, a free plan's daily allowance) bounds both lists, minimums included."""
+    caps = caps or {}
     settings = state.get("settings", {})
     minutes = settings.get("daily_minutes") or DEFAULT_DAILY_MINUTES
     today = local_day(now)
@@ -343,12 +345,12 @@ def daily_plan(content, state, now, rng=random, sql_available=True):
     if settings.get("exam_date"):
         days_left = (datetime.date.fromisoformat(settings["exam_date"]) - today).days
 
-    cards = _plan_cards(content, state, now, int(minutes * 0.25 / MINUTES["card"]))
+    cards = _plan_cards(content, state, now, int(minutes * 0.25 / MINUTES["card"]))[:caps.get("cards")]
     left = minutes - len(cards) * MINUTES["card"]
     lab = _plan_lab(content, state, now)
     lab_minutes = MINUTES["lab"] if lab and sql_available else 0
     left -= lab_minutes
-    questions = pick_questions(content, state, now, max(5, int(left / MINUTES["question"])), rng=rng)
+    questions = pick_questions(content, state, now, max(5, int(left / MINUTES["question"])), rng=rng)[:caps.get("questions")]
 
     answered = len(state.get("attempts", {}))
     unseen = len(content.QUESTIONS) - answered
@@ -386,7 +388,7 @@ def as_of(state, t):
     return {**state, "attempts": attempts, "cards": cards, "labs": labs}
 
 
-def todays_plan(content, state, now, sql_available=True):
+def todays_plan(content, state, now, sql_available=True, caps=None):
     """The daily plan as set at the start of the day, with what is done since.
 
     The plan is built from the progress at midnight, so finishing an item ticks it off instead of
@@ -394,7 +396,7 @@ def todays_plan(content, state, now, sql_available=True):
     start = day_start(now)
     end = day_start(start + 1.5 * DAY)
     plan = daily_plan(content, as_of(state, start), end - 1, rng=random.Random(local_day(now).toordinal()),
-                      sql_available=sql_available)
+                      sql_available=sql_available, caps=caps)
     attempts, cards, labs = state.get("attempts", {}), state.get("cards", {}), state.get("labs", {})
     questions = [qid for qid in plan["questions"] if any(a["t"] >= start for a in attempts.get(qid, []))]
     reviewed = [cid for cid in plan["cards"] if any(r[0] >= start for r in cards.get(cid, {}).get("reviews", []))]
@@ -765,7 +767,7 @@ def ready_to_book(content, state, by_objective):
 
 # --------------------------------------------------------------------------- summary for the front end
 
-def progress(content, state, now, sql_available=True):
+def progress(content, state, now, sql_available=True, caps=None):
     by_objective, by_topic = mastery(content, state, now)
     questions = {q["id"]: q for q in content.QUESTIONS}
     cards = {cid: card_schedule(entry) for cid, entry in state.get("cards", {}).items()}
@@ -780,7 +782,7 @@ def progress(content, state, now, sql_available=True):
         "due_reviews": len(due_reviews(content, state, now)),
         "cards": {cid: {"interval": round(s["interval"], 1), "due": s["due"], "reps": s["reps"]} for cid, s in cards.items()},
         "calibration": calibration(state.get("attempts", {})),
-        "plan": todays_plan(content, state, now, sql_available),
+        "plan": todays_plan(content, state, now, sql_available, caps),
         "settings": state.get("settings", {}),
         "proof_days": PROOF_DAYS,
         "readiness": readiness(content, state, now),

@@ -84,9 +84,14 @@ def test_cross_site_fetches_are_refused(serve):
 
 
 def test_progress_reports_sql_available_for_learners_and_admins(serve):
-    http = serve()
+    from oracle_lab.access.models import WorkspaceAccess
+    from oracle_lab.accounts.memory import memory_stores
+
+    stores = memory_stores()
+    http = serve(stores=stores)
     admin = http.sign_in("admin@example.org")  # the first account is the admin
     learner = Client(http.port).sign_in("learner@example.org")
+    stores.access.put(WorkspaceAccess(stores.users.by_email("learner@example.org").id, "1Z0-071", "subscribed", "a", 1.0))
     assert json.loads(admin("/api/progress")[2])["sql_available"] is True
     assert json.loads(learner("/api/progress")[2])["sql_available"] is False
 

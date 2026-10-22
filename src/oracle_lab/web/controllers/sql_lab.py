@@ -6,7 +6,7 @@ from oracle_lab.database.query import format_error
 from oracle_lab.i18n import message_of
 from oracle_lab.provisioning.guards import RunGuard
 from oracle_lab.provisioning.practice import PracticeUnavailable
-from oracle_lab.services import Clock, NotFoundError
+from oracle_lab.services import NEEDS_SUBSCRIPTION, AccessDenied, Clock, NotFoundError
 from oracle_lab.services.context import UserContexts
 from oracle_lab.services.sql_lab import ExerciseService, SqlLabService
 from oracle_lab.web.http import HttpError, Request, Response
@@ -18,14 +18,11 @@ log = logging.getLogger(__name__)
 _NOT_SHOWN_IN_PAGE = (PracticeUnavailable, HttpError)
 
 
-NO_SQL = "Your account cannot run SQL. Ask an admin for learner access."
-
-
 def _sql_context(contexts: UserContexts, request: Request):
-    """The user's context; a free account may not run SQL at all (403)."""
+    """The user's context; running SQL needs a subscription to the workspace (403 otherwise)."""
     ctx = contexts(request)
-    if ctx.principal.role == "free":
-        raise HttpError(403, NO_SQL)
+    if ctx.level != "subscribed":
+        raise AccessDenied(NEEDS_SUBSCRIPTION)
     return ctx
 
 
