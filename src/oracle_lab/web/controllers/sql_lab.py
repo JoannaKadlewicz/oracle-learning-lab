@@ -8,7 +8,7 @@ from oracle_lab.i18n import Msg, message_of
 from oracle_lab.provisioning.guards import RunGuard
 from oracle_lab.provisioning.practice import PracticeUnavailable
 from oracle_lab.services import NEEDS_ACCOUNT, NEEDS_PRO, AccessDenied, Clock, LimitReached, NotFoundError
-from oracle_lab.services.context import UserContexts
+from oracle_lab.services.context import UserContext, UserContexts
 from oracle_lab.services.sql_lab import ExerciseService, SqlLabService
 from oracle_lab.services.study import LIMIT_MESSAGES
 from oracle_lab.study import recording
@@ -84,32 +84,43 @@ class ExerciseController:
         self.guard = guard
         self.clock = clock
 
-    def exercises(self, request: Request, lab_id: object = None) -> ExerciseService:
-        """Graded exercises are for accounts; a plan's daily allowance is counted (and kept by a progress reset)
-        before the SQL runs, inside the user's state transaction."""
+    def exercises(self, request: Request) -> tuple[ExerciseService, UserContext]:
+        """Graded exercises are for accounts (guests get 403)."""
         ctx = self.contexts(request)
         if not ctx.access.can("exercises"):
             raise AccessDenied(NEEDS_ACCOUNT)
+        return ExerciseService(ctx.state, ctx.practice, self.guard, self.clock), ctx
+
+    def _allowance(self, ctx: UserContext, count: bool) -> None:
+        """The plan's daily allowance of graded runs: checked before the SQL runs, and one counted once a run has
+        happened (an outage, a busy guard or SQL that did not run costs nothing). Kept by a progress reset."""
         allowed = ctx.access.limits.exercises
-        if allowed is not None and lab_id in recording.LAB_IDS:
-            with ctx.state.transaction() as state:
-                if used_today(state, self.clock())["exercises"] >= allowed:
-                    raise LimitReached(Msg.of(LIMIT_MESSAGES["exercises"], n=allowed), "exercises")
+        if allowed is None:
+            return
+        with ctx.state.transaction() as state:
+            if used_today(state, self.clock())["exercises"] >= allowed:
+                raise LimitReached(Msg.of(LIMIT_MESSAGES["exercises"], n=allowed), "exercises")
+            if count:
                 count_use(state, "exercises", self.clock())
-        return ExerciseService(ctx.state, ctx.practice, self.guard, self.clock)
 
     def register(self, router: Router) -> None:
         router.post("/api/grade", self.grade)
 
     def grade(self, request: Request) -> Response:
         data = request.json()
-        exercises = self.exercises(request, data.get("id"))
+        lab_id = data.get("id")
+        if not isinstance(lab_id, str) or lab_id not in recording.LAB_IDS:
+            raise HttpError(404, "Unknown exercise")
+        exercises, ctx = self.exercises(request)
+        self._allowance(ctx, count=False)
         try:
-            result = exercises.grade(data.get("id"), str(data.get("sql", "")), request.language)
+            result = exercises.grade(lab_id, str(data.get("sql", "")), request.language)
         except NotFoundError as exc:
             raise HttpError(404, message_of(exc)) from exc
         except _NOT_SHOWN_IN_PAGE:
             raise
         except Exception as exc:  # noqa: BLE001
             return _database_failure(exc, passed=False)
+        if not result.get("error"):
+            self._allowance(ctx, count=True)
         return Response.json(result)

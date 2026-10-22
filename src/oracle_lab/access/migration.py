@@ -56,11 +56,12 @@ def migrate_plans(stores: AppStores, clock: Clock, audit: AuditLog) -> int:
         if not old:
             continue
         try:
-            for r in old:
-                stores.access.put(WorkspaceAccess(r.user_id, r.workspace, "member", r.granted_by, r.granted_at))
+            # The plan first: rewriting the rows erases what it is decided from, so a failure must not come between.
             if user.role == "user" and any(r.level == "subscribed" for r in old):
                 stores.users.set_role(user.id, "pro")
                 audit.record("role_migrated", "ok", user_id=user.id, old_role="user", new_role="pro")
+            for r in old:
+                stores.access.put(WorkspaceAccess(r.user_id, r.workspace, "member", r.granted_by, r.granted_at))
         except Exception:  # noqa: BLE001
             log.exception("moving account %s to plans failed", user.id)
             continue

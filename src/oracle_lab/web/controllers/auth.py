@@ -14,6 +14,7 @@ from oracle_lab.auth.registration import Registration, RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.exams import EXAMS
 from oracle_lab.i18n import Msg
+from oracle_lab.services import NEEDS_ACCOUNT
 from oracle_lab.web.cookies import CookiePolicy
 from oracle_lab.web.http import HttpError, Request, Response
 from oracle_lab.web.middleware import auth_error_response, safe_next
@@ -133,6 +134,7 @@ class AuthController:
     def config(self, _: Request) -> Response:
         exams = [{"code": e.code, "database": e.database_label} for e in EXAMS.values()]
         return Response.json({"google": self.google is not None, "registration_open": self.policy.is_open(),
+                              "guests": self.guests is not None and self.guests.allowed(),
                               "exams": exams})
 
     def reset(self, request: Request) -> Response:
@@ -146,6 +148,8 @@ class AuthController:
         intent = request.query("intent", "login")
         if intent not in ("login", "link", "reauth"):
             raise HttpError(400, "Unknown sign-in intent")
+        if intent != "login" and request.principal is not None and request.principal.role == "guest":
+            raise HttpError(403, NEEDS_ACCOUNT)  # a guest account has no sign-in of its own to link to
         next_path = safe_next(request.query("next", "/"))
         try:
             url, flow_id = google.start(intent, next_path, request.principal, request.client)

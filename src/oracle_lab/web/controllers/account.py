@@ -5,9 +5,10 @@ from __future__ import annotations
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.auth.account_settings import AccountSettings
 from oracle_lab.auth.models import LoginResult
+from oracle_lab.services import NEEDS_ACCOUNT
 from oracle_lab.web.controllers.auth import SESSION_MAX_AGE, principal_of, text
 from oracle_lab.web.cookies import CookiePolicy
-from oracle_lab.web.http import Request, Response
+from oracle_lab.web.http import HttpError, Request, Response
 from oracle_lab.web.routing import Router
 
 OK = {"ok": True}
@@ -19,14 +20,22 @@ class AccountController:
         self.deletion = deletion
         self.cookies = cookies
 
+    def _account_only(self, handler):
+        """Password, sessions, Google and deletion belong to accounts: a guest has nothing to change (403)."""
+        def run(request: Request) -> Response:
+            if request.principal is not None and request.principal.role == "guest":
+                raise HttpError(403, NEEDS_ACCOUNT)
+            return handler(request)
+        return run
+
     def register(self, router: Router) -> None:
-        router.post("/api/account/password", self.change_password)
-        router.post("/api/account/set-password", self.set_password)
+        router.post("/api/account/password", self._account_only(self.change_password))
+        router.post("/api/account/set-password", self._account_only(self.set_password))
         router.get("/api/account/sessions", self.sessions)
-        router.post("/api/account/sessions/end", self.end_session)
-        router.post("/api/account/sessions/end-others", self.end_other_sessions)
-        router.post("/api/account/google/unlink", self.unlink_google)
-        router.post("/api/account/delete", self.delete)
+        router.post("/api/account/sessions/end", self._account_only(self.end_session))
+        router.post("/api/account/sessions/end-others", self._account_only(self.end_other_sessions))
+        router.post("/api/account/google/unlink", self._account_only(self.unlink_google))
+        router.post("/api/account/delete", self._account_only(self.delete))
 
     def change_password(self, request: Request) -> Response:
         data = request.json()

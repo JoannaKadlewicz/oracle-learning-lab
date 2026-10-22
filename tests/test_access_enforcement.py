@@ -96,11 +96,19 @@ def test_user_cannot_use_the_sql_lab_but_pro_can(lab, method, path):
     assert user(path, data)[0] != 403  # 503 here: this test server has no practice database
 
 
-def test_user_gets_ten_graded_exercises_a_day(lab):
+@pytest.fixture
+def graded(monkeypatch):
+    """Grading answers at once (this test server has no practice database); the count is what is tested."""
+    from oracle_lab.web.controllers import sql_lab
+
+    monkeypatch.setattr(sql_lab.ExerciseService, "grade", lambda self, *a: {"passed": False, "feedback": []})
+
+
+def test_user_gets_ten_graded_exercises_a_day(lab, graded):
     stores, _, user, uid = lab
     as_plan(stores, uid, "user")
     for _ in range(10):
-        assert grade(user)[0] != 403  # 503 without a practice database, but counted
+        assert grade(user)[0] == 200
     status, _, raw = grade(user)
     assert status == 403 and json.loads(raw)["limit"] == "exercises"
     assert user("/api/reset-progress", {})[0] == 200
@@ -108,7 +116,7 @@ def test_user_gets_ten_graded_exercises_a_day(lab):
     assert body(user("/api/progress"))["access"]["used"]["exercises"] == 10
 
 
-def test_override_unlocks_more_for_one_account(lab):
+def test_override_unlocks_more_for_one_account(lab, graded):
     stores, _, user, uid = lab
     as_plan(stores, uid, "user")
     plans.set_override(stores.settings, uid, {"exercises": 1})

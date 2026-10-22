@@ -153,7 +153,20 @@ class AdminService:
             if role != "admin":
                 self._keep_an_admin(actor, user, "role_changed", meta)
             self._users.set_role(user.id, role)
+            if not plans.can(role, "many_workspaces"):
+                self._keep_one_workspace(user.id)
         self._audit.record("role_changed", "ok", user_id=actor.user_id, target=user.id, role=role, **meta)
+
+    def _keep_one_workspace(self, user_id: str) -> None:
+        """A plan with one workspace keeps the one in use (else the first) and leaves the others."""
+        rows = self._stores.access.for_user(user_id)
+        if len(rows) <= 1:
+            return
+        saved = self._stores.states.for_user(user_id).load().get("settings", {}).get("exam")
+        keep = saved if any(r.workspace == saved for r in rows) else rows[0].workspace
+        for row in rows:
+            if row.workspace != keep:
+                self._stores.access.delete(user_id, row.workspace)
 
     def set_limits(self, actor: Principal, user_id: str, limits: dict | None, *, ip: str = "",
                    user_agent: str = "") -> dict:

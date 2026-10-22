@@ -12,9 +12,11 @@ from oracle_lab.auth.models import Identity, SessionRecord, User
 from oracle_lab.auth.sessions import SessionManager
 from oracle_lab.auth.throttle import Throttle
 from oracle_lab.auth.tokens import new_id
-from oracle_lab.services import Clock
+from oracle_lab.services import AccessDenied, Clock
+from oracle_lab.study.state import new_state
 
 log = logging.getLogger(__name__)
+GUESTS_CLOSED = "This lab is not open to guests."
 GUEST_DOMAIN = "guest.invalid"  # a reserved domain: a guest's placeholder address can never be a real one
 
 
@@ -24,7 +26,9 @@ def accounts(users: UserRepository) -> int:
 
 
 class GuestAccess:
-    def __init__(self, stores: AppStores, sessions: SessionManager, throttle: Throttle, audit: AuditLog, clock: Clock):
+    def __init__(self, stores: AppStores, sessions: SessionManager, throttle: Throttle, audit: AuditLog, clock: Clock,
+                 allowed=lambda: True):
+        self.allowed = allowed  # guests only while sign-up is open: a closed lab stays closed to strangers
         self._stores = stores
         self._sessions = sessions
         self._throttle = throttle
@@ -33,6 +37,8 @@ class GuestAccess:
 
     def start(self, ip: str, user_agent: str) -> tuple[str, SessionRecord]:
         """A new guest account and its session (Throttled after too many from one address)."""
+        if not self.allowed():
+            raise AccessDenied(GUESTS_CLOSED)
         self._throttle.check_guest(ip)
         now = self._clock()
         uid = new_id()
@@ -53,8 +59,11 @@ def adopt_guest(stores: AppStores, guest_id: str, user_id: str, audit: AuditLog 
     try:
         state = stores.states.for_user(guest_id).load()
         with stores.states.for_user(user_id).transaction() as fresh:
-            fresh.clear()
-            fresh.update(state)
+            if fresh == new_state() or not any(fresh.get(k) for k in ("attempts", "cards", "labs", "mocks")):
+                fresh.clear()
+                fresh.update(state)
+            else:  # e.g. the first admin's imported single-user progress: never overwritten
+                log.warning("account %s already has progress; guest %s's progress was not moved", user_id, guest_id)
         old, new = stores.notes.for_user(guest_id), stores.notes.for_user(user_id)
         for name, title in old.entries():
             text = old.read(name)

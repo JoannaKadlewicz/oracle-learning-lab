@@ -142,6 +142,12 @@ async function renderAccount() {
   const panel = $("#account");
   if (!panel) return;
   let user = currentUser();
+  if (user.role === "guest") {  // nothing to change yet: the account comes with registering
+    panel.innerHTML = `<div class="setting"><div><h3>${esc(t("Account"))}</h3>
+      <p>${esc(t("You're using the app as a guest. Create a free account to keep your progress, set a password or connect Google."))}</p></div>
+      <a class="btn" href="/register">${esc(t("Create a free account"))}</a></div>`;
+    return;
+  }
   let config = { google: false };
   let sessions = [];
   try {

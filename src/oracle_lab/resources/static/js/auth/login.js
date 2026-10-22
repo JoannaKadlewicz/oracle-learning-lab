@@ -21,7 +21,11 @@ function googleError(code) {
 }
 if (params.has("error")) showError(googleError(params.get("error")), { focus: false });
 
-getConfig().then(config => { $("#google").hidden = !config.google; fillAbout(config); });
+getConfig().then(config => {
+  $("#google").hidden = !config.google;
+  $(".auth-guest").hidden = config.guests === false;  // no guests while sign-up is closed
+  fillAbout(config);
+});
 
 form.addEventListener("submit", async event => {
   event.preventDefault();
