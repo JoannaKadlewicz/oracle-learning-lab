@@ -5,7 +5,7 @@ import { api } from "../core/api.js";
 import { main, go } from "../core/router.js";
 import { t } from "../core/i18n.js";
 import { C, topicLabel } from "../core/state.js";
-import { pageHead, loading, empty, accountTag, premiumCallout, registerButton } from "../ui/widgets.js";
+import { pageHead, loading, empty, accountTag, accountCallout } from "../ui/widgets.js";
 
 let currentNote = null;
 
@@ -63,8 +63,7 @@ async function render() {
 
   if (!currentNote) { $("#note").innerHTML = empty(esc(t("No notes yet"))); return; }
   if (locked.has(currentNote)) {
-    $("#note").innerHTML = premiumCallout(t("This lesson needs a free account"),
-      t("A guest reads the first lessons and the exam guide. A free account reads every lesson, and your progress comes with you."), registerButton());
+    $("#note").innerHTML = accountCallout(t("Every lesson is free with an account"));
     return;
   }
   const note = await api("/api/note?path=" + encodeURIComponent(currentNote));

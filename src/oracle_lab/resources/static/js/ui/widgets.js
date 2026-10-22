@@ -46,8 +46,12 @@ export const loading = text => `<p class="loading">${esc(text)}</p>`;
 /** The small lock that marks what free accounts can see but not use. */
 export const premiumTag = (label = t("Pro"), title = t("Part of the Pro plan")) =>
   `<span class="premium-tag" title="${esc(title)}">${icon("lock")}<span>${esc(label)}</span></span>`;
-/** The lock on what a guest gets by creating a free account. */
-export const accountTag = () => premiumTag(t("Free account"), t("Included in a free account"));
+/* Two locks only, the same words everywhere: "Free account" (a guest gets it by registering, at no cost) and
+   "Pro" (the paid plan). Every guest lock leads to the same pitch and the same button. */
+export const accountTag = () => premiumTag(t("Free account"), t("Free with an account"));
+
+/** Why to register, in one sentence: the same on every guest lock. */
+export const accountPitch = () => t("A free account takes 30 seconds: unlimited quizzes, flashcards and lessons, plus 10 SQL exercises a day. Your progress comes with you.");
 
 /** The banner on a page whose SQL a free account cannot run: the page stays readable, the buttons stay off. */
 export const premiumCallout = (title, text, action = "") =>
@@ -56,13 +60,19 @@ export const premiumCallout = (title, text, action = "") =>
 /** The call to action of a lock: a guest registers (keeping their progress); an account asks for Pro. */
 export const registerButton = () => `<a class="btn small" href="/register">${esc(t("Create a free account"))}</a>`;
 
+/** A guest's lock on a page: `title` says what the free account unlocks here. */
+export const accountCallout = title => premiumCallout(title, accountPitch(), registerButton());
+
+/** An account's lock on a Pro feature. */
+export const proCallout = title => premiumCallout(title,
+  t("The Pro plan adds the SQL lab, unlimited SQL exercises and more workspaces. Ask an admin to upgrade your account."));
+
 /** Shown instead of the next question or card once a free plan's daily allowance of `kind` is used up. */
 export function limitPanel(kind, n, guest = false) {
   const title = { cards: t("That's today's flashcards"), exercises: t("That's today's exercises") }[kind] ?? t("That's today's questions");
   const text = kind === "exercises"
     ? t("You solved all {n} exercises included for today. Come back tomorrow, or ask an admin for the Pro plan to practise without limits.", { n })
-    : guest
-      ? t("A guest gets {n} a day. Create a free account for unlimited quizzes, flashcards and lessons; your progress comes with you.", { n })
+    : guest ? `${t("A guest gets {n} a day.", { n })} ${accountPitch()}`
       : t("You used all {n} for today. Come back tomorrow.", { n });
   return `<div class="empty limit-panel">${icon("lock")}<strong>${esc(title)}</strong><p>${esc(text)}</p>
     <div class="row">${guest ? `<a class="btn" href="/register">${esc(t("Create a free account"))}</a>` : ""}

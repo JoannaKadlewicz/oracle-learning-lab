@@ -40,10 +40,10 @@ export const isGuest = () => plan() === "guest";
 
 /** The one line shown where a graded exercise would run, when it cannot. */
 export const noSql = () => isGuest()
-  ? t("Create a free account to solve SQL exercises: 10 a day are included.")
+  ? t("Free with an account: 10 SQL exercises a day.")
   : t("SQL practice isn't enabled on this server yet.");
 /** The one line shown where free SQL (the lab, a card's Try it, Run without checking) would run, when it cannot. */
-export const noLab = () => isGuest() ? t("Free SQL runs are part of the Pro plan. Start with a free account.")
+export const noLab = () => isGuest() ? t("Start with a free account: SQL exercises are free, the SQL lab is Pro.")
   : !can("sql_lab") ? t("The SQL lab is part of the Pro plan.") : noSql();
 export const sqlOff = () => P?.sql_available === false;
 /** Free SQL (lab, Try it, Run without checking) is off: no practice, or not the Pro plan. */

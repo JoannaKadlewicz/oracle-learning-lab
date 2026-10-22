@@ -8,7 +8,7 @@ import { store } from "../core/store.js";
 import { S, DB, labOff, noLab, can, isGuest } from "../core/state.js";
 import { main } from "../core/router.js";
 import { toast, toastError, confirmDialog, promptDialog } from "../ui/feedback.js";
-import { pageHead, loading, premiumCallout, registerButton } from "../ui/widgets.js";
+import { pageHead, loading, accountCallout, proCallout } from "../ui/widgets.js";
 import { makeEditor, schemaHtml, invalidateSchema } from "../ui/editor.js";
 import { displaySql, resultsHtml, vizHtml, bindViz, errorBox } from "../ui/sql.js";
 import { openNote } from "./notes.js";
@@ -27,10 +27,8 @@ async function render() {
   const where = DB ? `${DB.product} ${DB.version.split(".").slice(0, 2).join(".")}` : t("your database");
   main.innerHTML = `
     ${pageHead(esc(t("SQL lab")), esc(t("Run any SQL against the learning schema on {where}. Separate statements with semicolons, end PL/SQL blocks with a line holding only {slash}, and select text to run only that part.", { where })).replace("{slash}", "<code>/</code>"))}
-    ${can("sql_lab") ? "" : premiumCallout(t("The SQL lab is part of the Pro plan"),
-      isGuest() ? t("Read along freely. A free account solves 10 graded exercises a day; the lab, for any SQL you like, comes with Pro.")
-        : t("Your free account solves 10 graded exercises a day. Running any SQL you like here comes with the Pro plan; ask an admin."),
-      isGuest() ? registerButton() : "")}
+    ${can("sql_lab") ? "" : isGuest() ? accountCallout(t("Start with a free account: SQL exercises are free, the SQL lab is Pro"))
+      : proCallout(t("The SQL lab is part of the Pro plan"))}
     <div class="lab">
       <div>
         <div class="editor-wrap">

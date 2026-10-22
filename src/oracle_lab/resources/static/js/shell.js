@@ -11,7 +11,7 @@ import { C, P, A, mistakes, apply, loadContent, setDatabase, sqlOff, labOff, can
 import { route, currentView, refresh, onRoute } from "./core/router.js";
 import { toast, toastError, confirmDialog } from "./ui/feedback.js";
 import { setSchema } from "./ui/editor.js";
-import { premiumTag } from "./ui/widgets.js";
+import { premiumTag, accountTag, accountPitch } from "./ui/widgets.js";
 import { examPicker } from "./ui/exam-picker.js";
 
 let onExamChange = () => {};
@@ -46,7 +46,7 @@ export function renderExamSwitch() {
   for (const view of SQL_VIEWS) {
     const link = $(`#rail a[data-view="${view}"]`);
     link.querySelector(".premium-tag")?.remove();
-    if (view === "exercises" && !can("exercises")) link.insertAdjacentHTML("beforeend", premiumTag(t("Account"), t("Included in a free account")));
+    if (view === "exercises" && !can("exercises")) link.insertAdjacentHTML("beforeend", accountTag());
     if (view === "lab" && !can("sql_lab")) link.insertAdjacentHTML("beforeend", premiumTag());
   }
   renderGuestBar();
@@ -79,7 +79,7 @@ function renderGuestBar() {
   bar.id = "guest-bar";
   bar.className = "guest-bar";
   bar.setAttribute("role", "note");
-  bar.innerHTML = `<span>${esc(t("You're browsing as a guest. Create a free account to keep your progress and unlock unlimited quizzes, lessons and daily SQL exercises."))}</span>
+  bar.innerHTML = `<span><strong>${esc(t("You're browsing as a guest"))}.</strong> ${esc(accountPitch())}</span>
     <a class="btn small" href="/register">${esc(t("Create a free account"))}</a>`;
   $("#main").before(bar);
 }

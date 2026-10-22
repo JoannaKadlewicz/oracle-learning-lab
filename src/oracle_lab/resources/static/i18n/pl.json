@@ -912,5 +912,17 @@
   "Coming soon": "Wkrótce",
   "Pick what you want to learn first. It becomes your workspace; more than one comes with the Pro plan.": "Wybierz, czego chcesz uczyć się najpierw. To będzie Twój workspace; więcej niż jeden daje plan Pro.",
   "{title} becomes your workspace. More workspaces come with the Pro plan.": "{title} będzie Twoim workspace’em. Kolejne workspace’y daje plan Pro.",
-  "You're using the app as a guest. Create a free account to keep your progress, set a password or connect Google.": "Korzystasz z aplikacji jako gość. Załóż darmowe konto, aby zachować postępy, ustawić hasło albo podłączyć Google."
+  "You're using the app as a guest. Create a free account to keep your progress, set a password or connect Google.": "Korzystasz z aplikacji jako gość. Załóż darmowe konto, aby zachować postępy, ustawić hasło albo podłączyć Google.",
+  "A free account takes 30 seconds: unlimited quizzes, flashcards and lessons, plus 10 SQL exercises a day. Your progress comes with you.": "Darmowe konto zakładasz w 30 sekund: quizy, fiszki i lekcje bez limitu oraz 10 ćwiczeń SQL dziennie. Postępy przejdą na konto.",
+  "A guest gets {n} a day.": "Gość dostaje {n} dziennie.",
+  "Every lesson is free with an account": "Wszystkie lekcje są za darmo z kontem",
+  "Free with an account": "Za darmo z kontem",
+  "Free with an account: 10 SQL exercises a day": "Za darmo z kontem: 10 ćwiczeń SQL dziennie",
+  "Free with an account: 10 SQL exercises a day.": "Za darmo z kontem: 10 ćwiczeń SQL dziennie.",
+  "Mock exams are free with an account.": "Egzaminy próbne są za darmo z kontem.",
+  "SQL exercises are free with an account": "Ćwiczenia SQL są za darmo z kontem",
+  "Start with a free account: SQL exercises are free, the SQL lab is Pro": "Zacznij od darmowego konta: ćwiczenia SQL są za darmo, laboratorium SQL jest w Pro",
+  "Start with a free account: SQL exercises are free, the SQL lab is Pro.": "Zacznij od darmowego konta: ćwiczenia SQL są za darmo, laboratorium SQL jest w Pro.",
+  "The Pro plan adds the SQL lab, unlimited SQL exercises and more workspaces. Ask an admin to upgrade your account.": "Plan Pro dodaje laboratorium SQL, ćwiczenia SQL bez limitu i więcej workspace’ów. Poproś administratora o zmianę planu.",
+  "You're browsing as a guest": "Korzystasz jako gość"
 }

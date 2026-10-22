@@ -146,7 +146,7 @@ function render() {
             <span class="minutes">${cardsLeft.length ? esc(t("{n} min", { n: cardMinutes })) : ""}</span></a></li>
           ${locked ? `<li><a href="/exercises/${esc(lab.id)}" class="locked">
             <strong>${stepKind("lab", t("Exercise"))}<span>${esc(lab.title)}</span>${accountTag()}</strong>
-            <small>${esc(t("Read the task now; a free account checks your SQL"))}</small>
+            <small>${esc(t("Free with an account: 10 SQL exercises a day"))}</small>
             <span class="minutes"></span></a></li>` : ""}
           ${counted ? `<li><a href="/exercises/${esc(lab.id)}" class="${done.lab ? "done" : ""}">
             <strong>${stepKind("lab", t("Exercise"))}<span>${esc(lab.title)}</span></strong>
@@ -178,7 +178,7 @@ function render() {
           <span>${esc(tn(mockLeft, "{answered} of {count} answered, {n} minute left.", "{answered} of {count} answered, {n} minutes left.", { answered: mock.answered, count: mock.count }))}</span></button>`
         : `<button data-start="mock">${icon("timer")}<strong>${esc(t("Take a mock exam"))}${can("mock") ? "" : ` ${accountTag()}`}</strong>
           <span>${esc(can("mock") ? t("{questions} questions in {minutes} minutes, questions you have not seen first.", { questions: C.exam.questions, minutes: C.exam.minutes })
-            : t("Timed full exams come with a free account."))}</span></button>`}
+            : t("Free with an account"))}</span></button>`}
       ${C.home_notes.map((n, i) => `<button data-note="${esc(n.path)}">${icon(i ? "notes" : "doc")}<strong>${esc(n.title)}</strong>
         <span>${esc(n.blurb)}</span></button>`).join("\n      ")}
     </div>`)}

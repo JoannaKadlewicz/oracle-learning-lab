@@ -9,7 +9,7 @@ import { C, S, P, L, DB, A, apply, loadProgress, topicLabel, needsNewerDb, sqlOf
 import { main, go, setTitle } from "../core/router.js";
 import { currentUser } from "../core/session.js";
 import { confirmDialog } from "../ui/feedback.js";
-import { pageHead, loading, premiumCallout, registerButton, limitPanel } from "../ui/widgets.js";
+import { pageHead, loading, accountCallout, limitPanel } from "../ui/widgets.js";
 import { makeEditor } from "../ui/editor.js";
 import { gridHtml, explainHtml, diffHtml, resultsHtml, errorBox } from "../ui/sql.js";
 
@@ -79,7 +79,7 @@ function render(arg) {
     ${pageHead(esc(t("Exercises")), esc(t("Your SQL and the reference solution both run on the database, and the results are compared. {passed} of {total} passed.", { passed: passedCount, total: C.labs.length })))}
     ${can("exercises") ? (leftToday("exercises") !== Infinity ? `<p class="callout">${esc(tn(leftToday("exercises"),
       "{n} graded exercise left today on your plan.", "{n} graded exercises left today on your plan."))}</p>` : "")
-      : premiumCallout(t("Exercises need a free account"), t("Read every task and its solution now. A free account checks 10 of your answers a day against the database; your progress comes with you."), registerButton())}
+      : accountCallout(t("SQL exercises are free with an account"))}
     <label class="list-picker field"><span>${esc(t("Exercise"))}</span><select id="ex-picker">${pickerHtml(shown, lab)}</select></label>
     <div class="split">
       <nav class="split-list" aria-label="${esc(t("Exercises"))}">

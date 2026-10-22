@@ -93,8 +93,12 @@ export function startRouting() {
     const a = e.target.closest("a[href^='/']");
     if (!a || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey
         || a.target || a.hasAttribute("download")) return;
+    // Only this app's own views are routed here; server pages (/register, /login, /reset, /report) load for real.
+    const href = a.getAttribute("href");
+    const name = href.split(/[/?#]/)[1] ?? "";
+    if (name && !views[name]) return;
     e.preventDefault();
-    go(a.getAttribute("href"));
+    go(href);
   });
   if (location.hash.startsWith("#/")) history.replaceState(null, "", location.hash.slice(1));
   return route();

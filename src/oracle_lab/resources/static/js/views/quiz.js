@@ -179,7 +179,7 @@ export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder, 
    and scores the exam. */
 
 export async function startMock({ topics, count, minutes, ids } = {}) {
-  if (!can("mock")) { toast(t("Mock exams need a free account. Your progress comes with you.")); return; }
+  if (!can("mock")) { toast(t("Mock exams are free with an account.")); return; }
   if (P.active_mock && !await confirmDialog({
     title: t("Abandon the running mock exam?"),
     body: t("It will not be scored, and its questions count as seen."),
