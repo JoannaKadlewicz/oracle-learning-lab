@@ -13,6 +13,7 @@ from oracle_lab.access.plans import PlanDefaults
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.audit import AuditLog
+from oracle_lab.auth.guest import accounts
 from oracle_lab.auth.models import AuthError, PracticeSchema, Principal, ResetToken, User
 from oracle_lab.auth.registration import RegistrationPolicy
 from oracle_lab.auth.sessions import SessionManager
@@ -102,7 +103,7 @@ class AdminService:
 
     def settings(self) -> dict:
         return {"registration_open": self._registration.is_open(), "max_users": self._registration.max_users(),
-                "users": self._users.count(), "plan_defaults": PlanDefaults.load(self._stores.settings).public()}
+                "users": accounts(self._users), "plan_defaults": PlanDefaults.load(self._stores.settings).public()}
 
     def events(self, limit: int = 200, event: str | None = None, user_id: str | None = None) -> list[dict]:
         """Newest first, at most MAX_EVENTS."""

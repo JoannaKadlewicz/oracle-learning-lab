@@ -9,6 +9,7 @@ from collections.abc import Callable
 from oracle_lab.accounts.memory import TAKEN
 from oracle_lab.accounts.repositories import AppStores, SettingsRepository, UserRepository
 from oracle_lab.auth.audit import AuditLog
+from oracle_lab.auth.guest import accounts
 from oracle_lab.auth.models import AuthError, EmailTaken, Identity, LoginResult, RegistrationClosed, User, WeakPassword
 from oracle_lab.auth.passwords import PasswordPolicy, hash_password
 from oracle_lab.auth.sessions import SessionManager
@@ -46,7 +47,7 @@ class RegistrationPolicy:
             self._settings.set("max_users", str(max_users))
 
     def check(self) -> None:
-        if not self.is_open() or self._users.count() >= self.max_users():
+        if not self.is_open() or accounts(self._users) >= self.max_users():
             raise RegistrationClosed("Registration is closed.")
 
 
@@ -105,7 +106,7 @@ class Registration:
         with self._lock:
             if not bypass_policy:
                 self._registration.check()
-            first = self._first_user_is_admin and self._users.count() == 0
+            first = self._first_user_is_admin and accounts(self._users) == 0
             now = self._clock()
             uid = new_id()
             ident = identity(uid)

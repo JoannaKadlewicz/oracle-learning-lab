@@ -17,6 +17,7 @@ from oracle_lab.accounts.sqlite_store import sqlite_stores
 from oracle_lab.auth.account_settings import AccountSettings
 from oracle_lab.auth.audit import AuditLog
 from oracle_lab.auth.google import GoogleSignIn, HttpTokenEndpoint, TokenEndpoint
+from oracle_lab.auth.guest import GuestAccess, adopt_guest
 from oracle_lab.auth.login import PasswordLogin
 from oracle_lab.auth.models import Principal, User
 from oracle_lab.auth.passwords import PasswordPolicy, load_common_passwords
@@ -188,7 +189,8 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         HealthController(),
         Pages(STATIC_DIR, settings.app_name),
         AuthController(PasswordLogin(stores, sessions, throttle, audit, clock), registration, registration_policy,
-                       account, sessions, cookies, google),
+                       account, sessions, cookies, google, GuestAccess(stores, sessions, throttle, audit, clock),
+                       lambda guest_id, user_id: adopt_guest(stores, guest_id, user_id, audit)),
         AccountController(account, cookies, deletion),
         AdminController(admin, workspaces),
         WorkspacesController(workspaces, contexts),

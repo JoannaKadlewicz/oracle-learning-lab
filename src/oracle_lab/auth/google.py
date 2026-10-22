@@ -144,6 +144,7 @@ class GoogleOutcome:
     message: str | None
     intent: str = "login"
     code: str | None = None
+    created_user_id: str | None = None  # set when this sign-in created the account
 
 
 class GoogleSignIn:
@@ -271,4 +272,4 @@ class GoogleSignIn:
         self._audit.record("google_login", "ok", user_id=user.id, ip=ip, user_agent=user_agent)
         if created:
             self._registration.notify_created(user)
-        return GoogleOutcome(token, flow.next_path, None)
+        return GoogleOutcome(token, flow.next_path, None, created_user_id=user.id if created else None)

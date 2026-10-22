@@ -23,7 +23,7 @@ class User:
 
 @dataclass(frozen=True)
 class Identity:
-    provider: Literal["password", "google"]
+    provider: Literal["password", "google", "guest"]
     subject: str
     user_id: str
     password_hash: str | None = None

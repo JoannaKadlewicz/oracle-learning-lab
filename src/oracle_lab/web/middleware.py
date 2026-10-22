@@ -70,7 +70,7 @@ def access_log(request: Request, call_next: Handler) -> Response:
 
 PUBLIC_PATHS = frozenset({
     "/login", "/register", "/reset", "/healthz",
-    "/api/auth/login", "/api/auth/register", "/api/auth/reset", "/api/auth/config",
+    "/api/auth/login", "/api/auth/register", "/api/auth/reset", "/api/auth/config", "/api/auth/guest",
     "/auth/google/start", "/auth/google/callback", "/js/core/dom.js", "/js/core/i18n.js",
 })
 PUBLIC_PREFIXES = ("/css/", "/js/auth/", "/i18n/")  # directories only; with PUBLIC_PATHS, all that the auth pages load
@@ -102,7 +102,7 @@ class Authenticate:
             raise HttpError(404, "Not found")
         principal = self._principal(request)
         if principal is not None:
-            if request.method == "GET" and path in _LOGGED_OUT_ONLY:
+            if request.method == "GET" and path in _LOGGED_OUT_ONLY and principal.role != "guest":
                 return Response.redirect("/")
             return call_next(replace(request, principal=principal))
         if path in self.public_paths or path.startswith(self.public_prefixes):

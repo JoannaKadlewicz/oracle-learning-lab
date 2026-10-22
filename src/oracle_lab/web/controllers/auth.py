@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from urllib.parse import quote
 
 from oracle_lab.auth.account_settings import AccountSettings
 from oracle_lab.auth.google import GoogleSignIn
+from oracle_lab.auth.guest import GuestAccess
 from oracle_lab.auth.login import PasswordLogin
 from oracle_lab.auth.models import AuthError, LoginResult, Principal, Throttled
 from oracle_lab.auth.registration import Registration, RegistrationPolicy
@@ -54,7 +56,10 @@ def text(data: dict, name: str) -> str:
 class AuthController:
     def __init__(self, login: PasswordLogin, registration: Registration, policy: RegistrationPolicy,
                  account: AccountSettings, sessions: SessionManager, cookies: CookiePolicy,
-                 google: GoogleSignIn | None):
+                 google: GoogleSignIn | None, guests: GuestAccess | None = None,
+                 adopt: Callable[[str, str], None] = lambda guest_id, user_id: None):
+        self.guests = guests
+        self.adopt = adopt  # moves a guest's progress into the account created from its session
         self.login = login
         self.registration = registration
         self.policy = policy
@@ -66,6 +71,7 @@ class AuthController:
     def register(self, router: Router) -> None:
         router.post("/api/auth/login", self.sign_in)
         router.post("/api/auth/register", self.sign_up)
+        router.post("/api/auth/guest", self.guest)
         router.post("/api/auth/logout", self.sign_out)
         router.get("/api/auth/me", self.me)
         router.get("/api/auth/config", self.config)
@@ -83,7 +89,22 @@ class AuthController:
         data = request.json()
         result = self.registration.with_password(text(data, "email"), text(data, "password"), request.client,
                                                  request.header("User-Agent"))
+        self._adopt_guest(request, result.user.id)
         return self._signed_in(request, result, data)
+
+    def guest(self, request: Request) -> Response:
+        """"Try it without an account": a guest session (any earlier session cookie of this browser ends)."""
+        if self.guests is None:
+            raise HttpError(404, "Not found")
+        token, _ = self.guests.start(request.client, request.header("User-Agent"))
+        response = Response.json({"ok": True, "next": "/"})
+        response.cookies.append(self.new_session_cookie(request, token))
+        return response
+
+    def _adopt_guest(self, request: Request, user_id: str) -> None:
+        principal = request.principal
+        if principal is not None and principal.role == "guest":
+            self.adopt(principal.user_id, user_id)
 
     def _signed_in(self, request: Request, result: LoginResult, data: dict) -> Response:
         response = Response.json({"ok": True, "next": safe_next(text(data, "next") or "/")})
@@ -150,6 +171,8 @@ class AuthController:
             if outcome.intent == "login":
                 return Response.redirect(login_error(outcome.code), cookies=cookies)
             location = with_google_error(location, outcome.code)  # a signed-in user stays where they were
+        if outcome.created_user_id is not None:
+            self._adopt_guest(request, outcome.created_user_id)
         if outcome.token is not None:
             cookies.append(self.new_session_cookie(request, outcome.token))
         return Response.redirect(_quoted(location), cookies=cookies)

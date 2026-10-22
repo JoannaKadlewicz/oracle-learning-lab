@@ -21,6 +21,7 @@ IP_FAILURES = 30
 REGISTER_PER_IP = 3
 REGISTER_WINDOW = 3600.0
 GOOGLE_PER_IP = 30
+GUESTS_PER_IP = 10  # guest accounts per address an hour
 AUDITS_PER_HOUR = 10  # "throttled" audit records per throttle key an hour; the rest are refused unrecorded
 _AUDIT_PREFIX = "audit_throttled:"
 
@@ -81,6 +82,14 @@ class Throttle:
         if self._repo.count_since(key, self._clock() - REGISTER_WINDOW) >= REGISTER_PER_IP:
             # Conservative: the oldest registration is not known, so assume the whole window.
             raise self._refuse(key, "register", ip, int(REGISTER_WINDOW))
+
+    def check_guest(self, ip: str) -> None:
+        key = f"guest:ip:{ip}"
+        if self._repo.count_since(key, self._clock() - REGISTER_WINDOW) >= GUESTS_PER_IP:
+            raise self._refuse(key, "guest", ip, int(REGISTER_WINDOW))
+
+    def guest_started(self, ip: str) -> None:
+        self._repo.record(f"guest:ip:{ip}", self._clock())
 
     def registered(self, ip: str) -> None:
         self._repo.record(f"register:ip:{ip}", self._clock())
