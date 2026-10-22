@@ -6,8 +6,8 @@ import { api } from "./core/api.js";
 import { store } from "./core/store.js";
 import { t } from "./core/i18n.js";
 import { currentUser, signOut } from "./core/session.js";
-import { canRunSql, SQL_VIEWS } from "./core/roles.js";
-import { C, P, mistakes, apply, loadContent, setDatabase, sqlOff } from "./core/state.js";
+import { SQL_VIEWS } from "./core/roles.js";
+import { C, P, A, mistakes, apply, loadContent, setDatabase, sqlOff, subscribed } from "./core/state.js";
 import { route, currentView, refresh, onRoute } from "./core/router.js";
 import { toast, toastError, confirmDialog } from "./ui/feedback.js";
 import { setSchema } from "./ui/editor.js";
@@ -38,7 +38,9 @@ export function applyTheme(theme) {
 /* ---------------------------------------------------------------- exam track */
 
 export function renderExamSwitch() {
-  examPicker($("#exam-picker"), { exams: Object.values(C.exams), current: C.exam.code, onPick: switchExam });
+  const usable = A?.usable;  // missing (an older snapshot): nothing is shown locked, the server still decides
+  examPicker($("#exam-picker"), { exams: Object.values(C.exams), current: C.exam.code, onPick: switchExam,
+    locked: code => Boolean(usable) && !usable.includes(code) });
   $("#topbar-exam").textContent = C.exam.code;
 }
 
@@ -116,7 +118,7 @@ export function initShell({ onExamChange: handler }) {
   $("#account-email").textContent = user.email;
   $("#rail-account").title = user.email;
   $("#nav-admin").hidden = user.role !== "admin";
-  if (!canRunSql(user)) {
+  if (!subscribed()) {
     for (const view of SQL_VIEWS) $(`#rail a[data-view="${view}"]`).insertAdjacentHTML("beforeend", premiumTag());
   }
   $("#sign-out").addEventListener("click", signOut);

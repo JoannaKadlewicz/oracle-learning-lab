@@ -21,6 +21,7 @@ import { progressView } from "./views/progress.js";
 import { notesView, openNote } from "./views/notes.js";
 import { settingsView } from "./views/settings.js";
 import { adminView } from "./views/admin.js";
+import { workspacePicker } from "./views/workspace-picker.js";
 
 registerViews({
   home: homeView,
@@ -85,6 +86,15 @@ async function boot() {
   try {
     await loadSession();
     useUser(currentUser().id);
+    // A first visit picks a workspace before anything else (admins always have one).
+    const overview = await api("/api/workspaces");
+    if (!overview.current) {
+      await initI18n(preferredLanguage(overview.language));
+      languageReady = true;
+      showPage();
+      workspacePicker(overview);
+      return;
+    }
     await loadProgress();
     await carryClickedLanguage();
     await initI18n(preferredLanguage(S?.settings?.language));

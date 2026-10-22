@@ -2,19 +2,19 @@
    groups the exams by database product. Focus stays on the button; aria-activedescendant names
    the active option. The open list is position: fixed so the scrolling rail cannot clip it. */
 
-import { esc } from "../core/dom.js";
+import { esc, icon } from "../core/dom.js";
 import { t } from "../core/i18n.js";
 
 const TYPEAHEAD_MS = 500;
 
 /** Renders the picker into `host`, replacing its content. Safe to call again on every change. */
-export function examPicker(host, { exams, current, onPick }) {
+export function examPicker(host, { exams, current, onPick, locked = () => false }) {
   host._examPicker?.destroy();
   const id = host.id || "exam-picker";
   const hadFocus = host.contains(document.activeElement);
   const cur = exams.find(x => x.code === current) || exams[0];
   host.classList.add("exam-picker");
-  host.innerHTML = buttonHtml(id, cur) + listHtml(id, exams, cur.code);
+  host.innerHTML = buttonHtml(id, cur) + listHtml(id, exams, cur.code, locked);
 
   const button = host.querySelector(".exam-picker-button");
   const list = host.querySelector(".exam-picker-list");
@@ -59,6 +59,7 @@ export function examPicker(host, { exams, current, onPick }) {
   }
 
   function pick(i) {
+    if (options[i].getAttribute("aria-disabled") === "true") return;  // needs a subscription: stays open, stays put
     const code = options[i].dataset.exam;
     close();
     if (code !== cur.code) onPick(code);
@@ -171,21 +172,23 @@ function buttonHtml(id, cur) {
 }
 
 /** One group per product, in registry order (the order of `exams`). */
-function listHtml(id, exams, current) {
+function listHtml(id, exams, current, locked) {
   const products = [...new Set(exams.map(x => x.product))];
   const groups = products.map((p, g) => `
     <li role="group" aria-labelledby="${id}-g${g}">
       <div class="exam-picker-heading" id="${id}-g${g}">${esc(p)}</div>
-      <ul role="none">${exams.filter(x => x.product === p).map(x => optionHtml(id, x, current)).join("")}</ul>
+      <ul role="none">${exams.filter(x => x.product === p).map(x => optionHtml(id, x, current, locked(x.code))).join("")}</ul>
     </li>`).join("");
   return `<ul class="exam-picker-list" id="${id}-list" role="listbox" aria-labelledby="exam-switch-label" hidden>${groups}</ul>`;
 }
 
-function optionHtml(id, x, current) {
+/** A workspace the user may not open is listed (and announced) but not selectable: "Requires a subscription". */
+function optionHtml(id, x, current, locked) {
   const selected = x.code === current;
-  return `<li role="option" id="${id}-${esc(x.code)}" data-exam="${esc(x.code)}" aria-selected="${selected}">
+  return `<li role="option" id="${id}-${esc(x.code)}" data-exam="${esc(x.code)}" aria-selected="${selected}"${locked ? ` aria-disabled="true" class="locked"` : ""}>
     <span class="exam-picker-option-title"><span class="exam-picker-code">${esc(x.code)}</span> ${esc(x.name)}</span>
-    <span class="exam-picker-option-meta">${esc(t("{database}, {questions} questions, {minutes} min", { database: x.database, questions: x.questions, minutes: x.minutes }))}</span>
+    <span class="exam-picker-option-meta">${locked ? `${icon("lock")} ${esc(t("Requires a subscription"))}`
+      : esc(t("{database}, {questions} questions, {minutes} min", { database: x.database, questions: x.questions, minutes: x.minutes }))}</span>
     <svg class="exam-picker-tick" aria-hidden="true"><use href="#i-check"/></svg>
   </li>`;
 }

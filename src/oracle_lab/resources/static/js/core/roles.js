@@ -1,20 +1,18 @@
-/* The account roles and what each may do here. The server enforces them; the page only follows. */
+/* Account roles. What a user may do inside a workspace is their access there (free or subscribed, see
+   core/state.js), not their role. The server enforces both; the page only follows. */
 
 import { t } from "./i18n.js";
 
 /** Least to most rights: the order of the role pickers. */
-export const ROLES = ["free", "learner", "admin"];
+export const ROLES = ["user", "admin"];
 
-export const roleLabel = role => ({ free: t("Free"), learner: t("Learner"), admin: t("Administrator") }[role] ?? role);
+export const roleLabel = role => ({ user: t("User"), admin: t("Administrator") }[role] ?? role);
 
 /** One line on what the role allows, for the role pickers. */
 export const roleSummary = role => ({
-  free: t("Flashcards, quizzes, progress and notes. No SQL."),
-  learner: t("Everything except the admin page, SQL included."),
+  user: t("Studies in the workspaces an admin gives them, or their one free workspace."),
   admin: t("Everything, including accounts and sign-up settings."),
 }[role] ?? "");
 
-/** Free accounts get neither the SQL lab nor the exercises. */
-export const canRunSql = user => user?.role !== "free";
-/** The pages a free account sees locked. */
+/** The pages a free workspace shows locked. */
 export const SQL_VIEWS = ["exercises", "lab"];

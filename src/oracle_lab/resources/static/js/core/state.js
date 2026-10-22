@@ -9,13 +9,12 @@
 
 import { api } from "./api.js";
 import { t } from "./i18n.js";
-import { canRunSql } from "./roles.js";
-import { currentUser } from "./session.js";
 
 export let C = null;
 export let S = null;
 export let P = null;
 export let DB = null;
+export let A = null;  // the user's access in the current workspace: { workspace, level, usable, limits, used }
 export const Q = {};
 export const L = {};
 export const CARD = {};
@@ -24,13 +23,16 @@ export function apply(snapshot) {
   S = snapshot.state;
   P = snapshot.progress;
   if (P) P.sql_available = snapshot.sql_available !== false;
+  if (snapshot.access) A = snapshot.access;  // mock exam answers come without it: the last one stays
 }
 
 /** The one line shown where a SQL action would be, for users without SQL practice. */
-export const noSql = () => canRunSql(currentUser())
+export const noSql = () => subscribed()
   ? t("SQL practice isn't enabled on this server yet.")
   : t("Running SQL is a premium feature, not included in free accounts.");
 export const sqlOff = () => P?.sql_available === false;
+/** Everything in this workspace (a subscription, or an admin); false on a free workspace. */
+export const subscribed = () => (A?.level ?? "subscribed") === "subscribed";
 
 /** What is left of today's plan after the questions: flashcard ids not reviewed yet, and the
     exercise when it is planned, not passed, and SQL is available. */

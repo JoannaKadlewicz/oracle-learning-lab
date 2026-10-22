@@ -20,8 +20,9 @@ class WorkspacesController:
 
     def overview(self, request: Request) -> Response:
         ctx = self.contexts(request, require_workspace=False)
-        saved = ctx.state.load().get("settings", {}).get("exam")
-        return Response.json(self.workspaces.overview(ctx.principal, saved, request.language))
+        settings = ctx.state.load().get("settings", {})
+        overview = self.workspaces.overview(ctx.principal, settings.get("exam"), request.language)
+        return Response.json({**overview, "language": settings.get("language")})  # the picker's language
 
     def choose(self, request: Request) -> Response:
         ctx = self.contexts(request, require_workspace=False)

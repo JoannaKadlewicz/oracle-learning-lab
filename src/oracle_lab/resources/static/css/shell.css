@@ -131,6 +131,8 @@ body.exam-mode .shell { grid-template-columns: minmax(0, 1fr); }
 .exam-picker-option-meta { grid-column: 1; font-size: var(--t-xs); color: var(--muted); }
 .exam-picker-tick { grid-column: 2; grid-row: 1 / span 2; width: 18px; height: 18px; color: var(--link); visibility: hidden; }
 [aria-selected="true"] > .exam-picker-tick { visibility: visible; }
+.exam-picker-list [role=option].locked { opacity: .55; cursor: not-allowed; }
+.exam-picker-option-meta svg { width: 12px; height: 12px; vertical-align: -1px; }
 
 .nav { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
 .nav-label { font-size: var(--t-xs); color: var(--muted); padding: 14px 12px 6px; }

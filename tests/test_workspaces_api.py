@@ -42,6 +42,14 @@ def test_overview_marks_levels_and_current(lab):
     assert body(admin("/api/workspaces"))["current"] == exams.DEFAULT_EXAM
 
 
+def test_overview_carries_the_account_language_for_the_picker(lab):
+    stores, _, user, uid = lab
+    assert body(user("/api/workspaces"))["language"] is None
+    with stores.states.for_user(uid).transaction() as state:
+        state["settings"]["language"] = "pl"
+    assert body(user("/api/workspaces"))["language"] == "pl"
+
+
 def test_choose_once_grants_free_and_sets_default(lab):
     stores, _, user, uid = lab
     assert user("/api/workspaces/choose", {"workspace": "nope"})[0] == 400

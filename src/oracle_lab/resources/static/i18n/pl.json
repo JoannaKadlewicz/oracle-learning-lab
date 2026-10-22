@@ -797,5 +797,14 @@
   "Knew it at once": "Znam od razu",
   "Card language": "Język fiszki",
   "Show this card in another language. Press L to switch.": "Pokaż tę fiszkę w innym języku. Klawisz L przełącza.",
-  "The language of the whole app and your account, English unless you pick another. In Flashcards you can still show a single card in the other language.": "Język całej aplikacji i Twojego konta; domyślnie angielski. We fiszkach możesz nadal pokazać pojedynczą kartę w drugim języku."
+  "The language of the whole app and your account, English unless you pick another. In Flashcards you can still show a single card in the other language.": "Język całej aplikacji i Twojego konta; domyślnie angielski. We fiszkach możesz nadal pokazać pojedynczą kartę w drugim języku.",
+  "Choose your workspace": "Wybierz swój workspace",
+  "Pick what you want to learn first. It becomes your free workspace, with daily quizzes, flashcards and the first lessons. The others need a subscription, which an admin can give you.": "Wybierz, czego chcesz uczyć się najpierw. To będzie Twój darmowy workspace: codzienne quizy, fiszki i pierwsze lekcje. Pozostałe wymagają subskrypcji, którą może przyznać administrator.",
+  "Requires a subscription": "Wymaga subskrypcji",
+  "Start learning": "Zaczynam naukę",
+  "Start with {title}?": "Zacząć od {title}?",
+  "Studies in the workspaces an admin gives them, or their one free workspace.": "Uczy się w workspace’ach przyznanych przez administratora albo w swoim jednym darmowym.",
+  "User": "Użytkownik",
+  "{title} becomes your free workspace. Other workspaces need a subscription.": "{title} zostanie Twoim darmowym workspace’em. Pozostałe wymagają subskrypcji.",
+  "{n} questions on the exam": ["{n} pytanie na egzaminie", "{n} pytania na egzaminie", "{n} pytań na egzaminie"]
 }
