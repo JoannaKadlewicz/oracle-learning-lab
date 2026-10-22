@@ -105,7 +105,8 @@ def _healthcheck(settings: Settings, args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="oracle-lab", description="Stepwise (oracle-lab): learn data languages for certification exams")
+    parser = argparse.ArgumentParser(prog="oracle-lab",
+                                     description="Stepwise (oracle-lab): learn data languages for certification exams")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
 
