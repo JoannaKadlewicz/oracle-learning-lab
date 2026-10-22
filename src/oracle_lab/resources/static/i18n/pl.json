@@ -24,7 +24,6 @@
   "{n} learner accounts": ["{n} konto ucznia", "{n} konta uczniów", "{n} kont uczniów"],
 
   "Language": "Język",
-  "The app and its questions switch to this language, and the page reloads.": "Aplikacja i pytania przełączą się na ten język, a strona zostanie odświeżona.",
   "Sign in · Oracle Learning Lab": "Zaloguj się · Oracle Learning Lab",
   "Create account · Oracle Learning Lab": "Załóż konto · Oracle Learning Lab",
   "Reset password · Oracle Learning Lab": "Zresetuj hasło · Oracle Learning Lab",
@@ -797,5 +796,6 @@
   "Knew it": "Znam",
   "Knew it at once": "Znam od razu",
   "Card language": "Język fiszki",
-  "Show this card in another language. Press L to switch.": "Pokaż tę fiszkę w innym języku. Klawisz L przełącza."
+  "Show this card in another language. Press L to switch.": "Pokaż tę fiszkę w innym języku. Klawisz L przełącza.",
+  "The language of the whole app and your account, English unless you pick another. In Flashcards you can still show a single card in the other language.": "Język całej aplikacji i Twojego konta; domyślnie angielski. We fiszkach możesz nadal pokazać pojedynczą kartę w drugim języku."
 }

@@ -168,7 +168,6 @@ html.i18n-pending body { visibility: hidden; animation: i18n-reveal 0s 2s forwar
 .nav .count { margin-left: auto; }
 
 .rail-foot { margin-top: auto; display: grid; gap: 4px; }
-.rail-lang { justify-self: start; margin: 4px 12px 0; }
 .db-status { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: var(--t-xs); color: var(--muted); }
 .db-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--rule-strong); flex: none; }
 .db-status.ok::before { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent); }

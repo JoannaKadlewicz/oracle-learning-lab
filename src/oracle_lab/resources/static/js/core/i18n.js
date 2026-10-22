@@ -68,16 +68,10 @@ export function tn(n, one, many, params = {}) {
   return format(n === 1 ? one : many, values);
 }
 
-/** The account's setting (when signed in), else the language remembered in this browser, else the first
-    supported one in the browser's languages, else English. */
+/** The account's setting (when signed in), else the language picked in this browser, else English: the
+    browser's own languages are not guessed from, so the app is English until someone chooses otherwise. */
 export function preferredLanguage(account) {
-  const chosen = supported(account) || supported(stored(LANG_KEY));
-  if (chosen) return chosen;
-  for (const tag of navigator.languages || [navigator.language || ""]) {
-    const base = supported(String(tag).toLowerCase().split("-")[0]);
-    if (base) return base;
-  }
-  return DEFAULT_LANGUAGE;
+  return supported(account) || supported(stored(LANG_KEY)) || DEFAULT_LANGUAGE;
 }
 
 /** True when the learner clicked a language that the account has not taken yet (cleared once it is saved). */

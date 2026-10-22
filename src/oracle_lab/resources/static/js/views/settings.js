@@ -39,7 +39,7 @@ function render() {
           </div>
         </div>
         <div class="setting">
-          <div><h3 id="language-label">${esc(t("Language"))}</h3><p>${esc(t("The app and its questions switch to this language, and the page reloads."))}</p></div>
+          <div><h3 id="language-label">${esc(t("Language"))}</h3><p>${esc(t("The language of the whole app and your account, English unless you pick another. In Flashcards you can still show a single card in the other language."))}</p></div>
           <div class="seg" role="group" aria-labelledby="language-label">
             <button type="button" data-lang="en" lang="en">English</button>
             <button type="button" data-lang="pl" lang="pl">Polski</button>

@@ -4,7 +4,7 @@
 import { $, $$ } from "./core/dom.js";
 import { api } from "./core/api.js";
 import { store } from "./core/store.js";
-import { t, wireLanguageSwitch } from "./core/i18n.js";
+import { t } from "./core/i18n.js";
 import { currentUser, signOut } from "./core/session.js";
 import { canRunSql, SQL_VIEWS } from "./core/roles.js";
 import { C, P, mistakes, apply, loadContent, setDatabase, sqlOff } from "./core/state.js";
@@ -120,6 +120,5 @@ export function initShell({ onExamChange: handler }) {
     for (const view of SQL_VIEWS) $(`#rail a[data-view="${view}"]`).insertAdjacentHTML("beforeend", premiumTag());
   }
   $("#sign-out").addEventListener("click", signOut);
-  wireLanguageSwitch($("#rail-lang"));
   onRoute(refreshNav);
 }
