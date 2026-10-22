@@ -109,14 +109,20 @@ creates both users itself; for your own database and for Google sign-in see
 installation [docs/docker.md](docs/docker.md#upgrading-an-existing-deployment). Without them,
 learners cannot run SQL ("not set up"); only administrators use the shared schema. The old single `STUDY_AUTH_*` login is gone.
 
-Each account has one of three roles, which an administrator changes on the Admin page (the role picker in the
-accounts table, or Manage → Change role):
+Learning happens in **workspaces**, one per certification track (today "Oracle SQL · 1Z0-071" and
+"Oracle SQL · 1Z0-171"). On the first visit a new account picks one from a grid of tiles; it becomes their
+**free** workspace and the default. Access is per workspace:
 
-| Role | Can use |
+| Access | What it includes |
 | --- | --- |
-| Administrator | everything, including the Admin page |
-| Learner | everything except the Admin page |
-| Free | flashcards, quizzes, mistakes, progress and notes; the SQL lab and exercises are shown locked as premium (readable, but the server refuses to run SQL). The default for new accounts, which get a practice schema only once promoted |
+| Free (one workspace per user) | A daily allowance of quiz questions and flashcards (20 and 20 by default), the first 2 topics' lessons and the exam guide, mistakes, progress and personal notes. Exercises, the SQL lab and mock exams are shown locked as Premium. |
+| Subscribed | Everything in that workspace: SQL exercises, the SQL lab, mock exams, every lesson, no daily limits. |
+
+Other workspaces stay visible in the "Preparing for" drop-down, greyed out as needing a subscription. Account
+roles are just **User** and **Administrator**; administrators use every workspace. On the Admin page an
+administrator grants or removes access (Manage → Workspaces: No access / Free / Subscribed), moves a user's free
+workspace, and sets the free plan's limits under Sign-up. Payments are not built yet: subscriptions are given by
+an administrator. The server enforces all of it; the pages only follow.
 
 The full list, with validation, is in [src/oracle_lab/config.py](src/oracle_lab/config.py).
 
