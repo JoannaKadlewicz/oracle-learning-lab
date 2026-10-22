@@ -110,19 +110,23 @@ installation [docs/docker.md](docs/docker.md#upgrading-an-existing-deployment). 
 learners cannot run SQL ("not set up"); only administrators use the shared schema. The old single `STUDY_AUTH_*` login is gone.
 
 Learning happens in **workspaces**, one per certification track (today "Oracle SQL · 1Z0-071" and
-"Oracle SQL · 1Z0-171"). On the first visit a new account picks one from a grid of tiles; it becomes their
-**free** workspace and the default. Access is per workspace:
+"Oracle SQL · 1Z0-171"; PostgreSQL, MySQL, pandas and others are shown as "coming soon"). On the first visit
+everyone picks one from a grid of tiles; it becomes their workspace and the default. What an account may do is
+its **plan**:
 
-| Access | What it includes |
-| --- | --- |
-| Free (one workspace per user) | A daily allowance of quiz questions and flashcards (20 and 20 by default), the first 2 topics' lessons and the exam guide, mistakes, progress and personal notes. Exercises, the SQL lab and mock exams are shown locked as Premium. |
-| Subscribed | Everything in that workspace: SQL exercises, the SQL lab, mock exams, every lesson, no daily limits. |
+| | Guest (no account) | User (free account) | Pro | Admin |
+| --- | --- | --- | --- | --- |
+| Quiz questions, flashcards | 20 + 20 a day | unlimited | unlimited | unlimited |
+| Lessons | first 2 topics + exam guide | all | all | all |
+| Graded SQL exercises | — | 10 a day | unlimited | unlimited |
+| SQL lab, flashcard "Try it", "Run without checking" | — | — | yes | yes |
+| Mock exams | — | yes | yes | yes |
+| Workspaces | 1 | 1 | any number (given by an admin) | all |
 
-Other workspaces stay visible in the "Preparing for" drop-down, greyed out as needing a subscription. Account
-roles are just **User** and **Administrator**; administrators use every workspace. On the Admin page an
-administrator grants or removes access (Manage → Workspaces: No access / Free / Subscribed), moves a user's free
-workspace, and sets the free plan's limits under Sign-up. Payments are not built yet: subscriptions are given by
-an administrator. The server enforces all of it; the pages only follow.
+Guests start from "Try it without an account" on the sign-in page; registering from a guest session keeps the
+progress. Guests are purged 30 days after they started. Pro is granted by an administrator for now (no payments
+yet). On the Admin page an administrator changes plans (User / Pro / Admin), workspace memberships and per-account
+limits (Manage → Limits), and the plan defaults under Sign-up. The server enforces all of it; the pages follow.
 
 The full list, with validation, is in [src/oracle_lab/config.py](src/oracle_lab/config.py).
 
