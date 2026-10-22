@@ -42,12 +42,13 @@ export function renderExamSwitch() {
   examPicker($("#exam-picker"), { exams: Object.values(C.exams), current: C.exam.code, onPick: switchExam,
     locked: code => Boolean(usable) && !usable.includes(code) });
   $("#topbar-exam").textContent = C.exam.code;
-  // What the plan cannot use is marked in the rail: exercises need an account, the SQL lab Pro.
+  // What the plan cannot use is marked in the rail: a guest signs in first (exercises, the SQL lab), an account
+  // without Pro sees the lab's Pro lock and, on opening it, what Pro adds.
   for (const view of SQL_VIEWS) {
     const link = $(`#rail a[data-view="${view}"]`);
     link.querySelector(".premium-tag")?.remove();
     if (view === "exercises" && !can("exercises")) link.insertAdjacentHTML("beforeend", accountTag());
-    if (view === "lab" && !can("sql_lab")) link.insertAdjacentHTML("beforeend", premiumTag());
+    if (view === "lab" && !can("sql_lab")) link.insertAdjacentHTML("beforeend", isGuest() ? accountTag() : premiumTag());
   }
   renderGuestBar();
 }

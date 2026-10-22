@@ -7,7 +7,7 @@
 
 /* The lab without the Pro plan: the page shows through, greyed out and out of reach, under one lock. */
 .paywall { position: relative; min-height: 480px; }
-.paywall-preview { filter: grayscale(1); opacity: .35; user-select: none; pointer-events: none;
+.paywall-preview { filter: grayscale(1) blur(3px); opacity: .45; user-select: none; pointer-events: none;
   mask-image: linear-gradient(to bottom, #000 55%, transparent); -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); }
 .paywall-card { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); width: min(480px, calc(100% - 32px));
   display: grid; justify-items: center; gap: 12px; padding: 30px 28px 28px; text-align: center;
