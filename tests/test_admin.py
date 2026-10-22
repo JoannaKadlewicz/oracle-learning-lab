@@ -118,9 +118,15 @@ def test_admin_api_over_http(serve):
     assert owner("/api/admin/settings", {"max_users": 0})[0] == 400
     assert owner("/api/admin/settings", {"open": "yes"})[0] == 400
     assert owner("/api/admin/recreate-schema", {"user_id": learner.id, "key": "default"})[0] == 404
-    assert owner("/api/admin/events?limit=abc")[0] == 400
-    events = json.loads(owner("/api/admin/events?event=reset_link_created")[2])["events"]
-    assert [e["event"] for e in events] == ["reset_link_created"]
+    assert owner("/api/admin/events?per_page=abc")[0] == 400
+    assert owner("/api/admin/events?since=soon")[0] == 400
+    events = json.loads(owner("/api/admin/events?event=reset_link_created")[2])
+    assert [e["event"] for e in events["events"]] == ["reset_link_created"] and events["total"] == 1
+    page = json.loads(owner("/api/admin/users?q=learner&per_page=5")[2])
+    assert [u["email"] for u in page["users"]] == ["learner@example.org"] and page["pages"] == 1
+    assert owner("/api/admin/users?page=x")[0] == 400
+    assert json.loads(owner("/api/admin/inactive?days=1")[2]) == {"count": 0}
+    assert owner("/api/admin/inactive?days=0")[0] == 400
     settings = json.loads(owner("/api/admin/settings")[2])
     assert settings == {"registration_open": True, "max_users": 25, "users": 2,
                         "plan_defaults": {"guest_questions": 20, "guest_cards": 20, "guest_topics": 2,
@@ -318,6 +324,57 @@ def test_events_newest_first_with_filters(admin):
     assert admin.events(user_id="nobody") == []
     assert len(admin.events(limit=1)) == 1
     assert len(admin.events(limit=10_000)) <= 500
+
+
+def test_users_page_searches_filters_and_pages(admin):
+    stores = admin.stores
+    for n in range(30):
+        _user(stores, f"learner{n:02d}", created=NOW - (100 - n) * DAY)
+    _user(stores, "pro1", role="pro", created=NOW)
+    _user(stores, "guest1", role="guest")
+    stores.users.set_status("learner05", "locked")
+
+    page = admin.users_page(per_page=10)
+    assert (page["total"], page["pages"], page["page"], len(page["users"])) == (32, 4, 1, 10)
+    assert admin.users_page(per_page=10, page=4)["users"][-1]["id"] == "pro1"
+    assert admin.users_page(per_page=10, page=99)["page"] == 4  # past the end: the last page
+    assert [u["id"] for u in admin.users_page(q="LEARNER2")["users"]] == [f"learner2{n}" for n in range(10)]
+    assert [u["id"] for u in admin.users_page(role="pro")["users"]] == ["pro1"]
+    assert [u["id"] for u in admin.users_page(role="guest")["users"]] == ["guest1"]
+    assert "guest1" not in [u["id"] for u in admin.users_page(per_page=100)["users"]]
+    assert [u["id"] for u in admin.users_page(status="locked")["users"]] == ["learner05"]
+    assert admin.users_page(q="nobody") == {"users": [], "total": 0, "page": 1, "pages": 1, "per_page": 25}
+    assert admin.users_page(per_page=10_000)["per_page"] == 100
+
+
+def test_inactive_count_matches_what_delete_inactive_deletes(admin):
+    _user(admin.stores, "old", last_login=NOW - 200 * DAY)
+    _user(admin.stores, "recent", last_login=NOW - DAY)
+    _user(admin.stores, "old_admin", role="admin", last_login=NOW - 200 * DAY)
+    assert admin.inactive_count(_actor(), 180) == 1
+    assert admin.delete_inactive(_actor(), 180) == 1
+    assert admin.inactive_count(_actor(), 180) == 0
+
+
+def test_events_page_filters_and_names_the_accounts(admin):
+    _user(admin.stores, "u1")
+    _user(admin.stores, "u2")
+    admin.lock(_actor(), "u1")
+    admin._audit.record("login", "fail", user_id="u2", ip="10.9.8.7")
+    admin._audit.record("login", "ok", user_id="u1", ip="10.0.0.1")
+
+    page = admin.events_page(per_page=2)
+    assert (page["total"], page["pages"], [e["event"] for e in page["events"]]) == (3, 2, ["login", "login"])
+    assert page["events"][0]["account"] == "u1@example.org"
+    assert [e["event"] for e in admin.events_page(page=2, per_page=2)["events"]] == ["user_locked"]
+    locked = admin.events_page(event="user_locked")["events"][0]
+    assert locked["account"] == "boss@example.org" and page["emails"]["u1"] == "u1@example.org"
+    assert admin.events_page(event="user_locked")["emails"] == {"boss": "boss@example.org", "u1": "u1@example.org"}
+    assert [e["ip"] for e in admin.events_page(outcome="fail")["events"]] == ["10.9.8.7"]
+    assert [e["user_id"] for e in admin.events_page(account="U2@EXAMPLE")["events"]] == ["u2"]
+    assert admin.events_page(account="nobody")["total"] == 0
+    assert [e["ip"] for e in admin.events_page(text="10.9")["events"]] == ["10.9.8.7"]
+    assert admin.events_page(since=NOW + 1)["total"] == 0 and admin.events_page(until=NOW)["total"] == 0
 
 
 def test_every_admin_action_is_audited(admin):

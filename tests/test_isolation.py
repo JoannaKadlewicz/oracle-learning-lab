@@ -27,6 +27,7 @@ PRIVATE = [("GET", "/api/state"), ("GET", "/api/progress"), ("GET", "/api/conten
            ("POST", "/api/account/sessions/end-others"), ("POST", "/api/account/google/unlink"),
            ("POST", "/api/account/delete"), ("GET", "/admin")]
 ADMIN = [("GET", "/api/admin/users"), ("GET", "/api/admin/events"), ("GET", "/api/admin/settings"),
+         ("GET", "/api/admin/inactive"),
          ("POST", "/api/admin/reset-link"), ("POST", "/api/admin/lock"), ("POST", "/api/admin/unlock"),
          ("POST", "/api/admin/role"), ("POST", "/api/admin/delete"), ("POST", "/api/admin/recreate-schema"),
          ("POST", "/api/admin/delete-inactive"), ("POST", "/api/admin/settings"),

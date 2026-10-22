@@ -50,6 +50,17 @@ class GuestAccess:
         return token, record
 
 
+def drop_guest(stores: AppStores, guest_id: str, audit: AuditLog | None = None) -> None:
+    """Deletes a guest whose session has ended: with no e-mail or password, nobody can reach it again. Its
+    progress, notes and workspace go with it (the stores cascade). Anything but a guest is left alone."""
+    guest = stores.users.get(guest_id)
+    if guest is None or guest.role != "guest":
+        return
+    stores.users.delete(guest_id)
+    if audit is not None:
+        audit.record("guest_purged", "ok", user_id=guest_id, reason="session_ended")
+
+
 def adopt_guest(stores: AppStores, guest_id: str, user_id: str, audit: AuditLog | None = None) -> None:
     """Moves a guest's progress, personal notes and workspace to the account just created from its session, then
     deletes the guest. Never raises: the new account must not fail because of the old guest."""

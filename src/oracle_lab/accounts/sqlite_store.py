@@ -15,7 +15,7 @@ from typing import Any
 
 from oracle_lab.access.models import WorkspaceAccess
 from oracle_lab.accounts.memory import TAKEN
-from oracle_lab.accounts.repositories import AppStores
+from oracle_lab.accounts.repositories import AppStores, AuditQuery, like_pattern
 from oracle_lab.auth.models import (
     AuditEvent,
     EmailTaken,
@@ -424,6 +424,34 @@ class SqliteAudit:
             (event, event, user_id, user_id, limit),
         )
         return [AuditEvent(*r[:6], json.loads(r[6])) for r in rows]
+
+    def search(self, query: AuditQuery, offset: int = 0, limit: int = 50) -> tuple[list[AuditEvent], int]:
+        conditions: list[str] = []
+        params: list[Any] = []
+        for column, value in (("event", query.event), ("outcome", query.outcome)):
+            if value is not None:
+                conditions.append(f"{column} = ?")
+                params.append(value)
+        if query.user_ids is not None:
+            conditions.append(f"user_id IN ({', '.join('?' * len(query.user_ids))})" if query.user_ids else "0 = 1")
+            params.extend(query.user_ids)
+        if query.since is not None:
+            conditions.append("t >= ?")
+            params.append(query.since)
+        if query.until is not None:
+            conditions.append("t < ?")
+            params.append(query.until)
+        if query.text:
+            pattern = like_pattern(query.text)
+            conditions.append("(" + " OR ".join(f"LOWER({c}) LIKE ? ESCAPE '\\'"
+                                                for c in ("event", "ip", "user_agent", "detail")) + ")")
+            params.extend([pattern] * 4)
+        where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
+        total = self._db.conn.execute(f"SELECT COUNT(*) FROM audit {where}", params).fetchone()[0]
+        rows = self._db.conn.execute(
+            f"SELECT t, event, outcome, user_id, ip, user_agent, detail FROM audit {where}"
+            "ORDER BY t DESC, id DESC LIMIT ? OFFSET ?", [*params, limit, offset])
+        return [AuditEvent(*r[:6], json.loads(r[6])) for r in rows], total
 
     def purge(self, before: float) -> None:
         self._db.conn.execute("DELETE FROM audit WHERE t < ?", (before,))

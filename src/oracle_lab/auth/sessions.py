@@ -11,13 +11,16 @@ from oracle_lab.services import Clock
 
 DAY = 86400
 TOUCH_INTERVAL = 60.0
+SESSION_IDLE = 7 * DAY  # a session unused this long has ended
+SESSION_ABSOLUTE = 30 * DAY
 
 
 class SessionManager:
     """`expires_at` on the record is the hard (absolute) deadline, so repository purges never drop a live
     session; the idle deadline is last_seen_at + idle, computed on resolve."""
 
-    def __init__(self, repo: SessionRepository, clock: Clock, idle: float = 7 * DAY, absolute: float = 30 * DAY) -> None:
+    def __init__(self, repo: SessionRepository, clock: Clock, idle: float = SESSION_IDLE,
+                 absolute: float = SESSION_ABSOLUTE) -> None:
         self._repo = repo
         self._clock = clock
         self._idle = idle

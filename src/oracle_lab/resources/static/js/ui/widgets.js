@@ -82,3 +82,25 @@ export function limitPanel(kind, n, guest = false) {
     <div class="row">${guest ? `<a class="btn" href="/register">${esc(t("Create a free account"))}</a>` : ""}
       <a class="btn ${guest ? "secondary" : ""}" href="/">${esc(t("Back to Today"))}</a><a class="btn secondary" href="/progress">${esc(t("See your progress"))}</a></div></div>`;
 }
+
+const PAGE_SIZES = [10, 25, 50, 100];
+
+/** Fills `el` with the page controls of a list the server pages (`meta`: page, pages, total, per_page);
+    `onChange({ page, per_page })` asks for another page or page size. */
+export function renderPager(el, meta, onChange) {
+  if (!el) return;
+  const { page, pages, total, per_page: perPage } = meta;
+  el.innerHTML = `<nav class="pager" aria-label="${esc(t("Pages"))}">
+    <span class="pager-count">${esc(tn(total, "{n} result", "{n} results"))}</span>
+    <span class="pager-pages">
+      <button class="btn secondary small" type="button" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>${esc(t("Previous"))}</button>
+      <span>${esc(t("Page {page} of {pages}", { page, pages }))}</span>
+      <button class="btn secondary small" type="button" data-page="${page + 1}" ${page >= pages ? "disabled" : ""}>${esc(t("Next"))}</button>
+    </span>
+    <label class="pager-size">${esc(t("Per page"))} <select>${PAGE_SIZES.map(n =>
+      `<option value="${n}" ${n === perPage ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+  </nav>`;
+  el.querySelectorAll("[data-page]").forEach(b => b.addEventListener("click", () =>
+    onChange({ page: Number(b.dataset.page), per_page: perPage })));
+  el.querySelector("select").addEventListener("change", e => onChange({ page: 1, per_page: Number(e.target.value) }));
+}

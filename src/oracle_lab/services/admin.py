@@ -11,7 +11,7 @@ from oracle_lab import exams
 from oracle_lab.access import plans
 from oracle_lab.access.plans import PlanDefaults
 from oracle_lab.accounts.deletion import AccountDeletion
-from oracle_lab.accounts.repositories import AppStores
+from oracle_lab.accounts.repositories import AppStores, AuditQuery
 from oracle_lab.auth.audit import AuditLog
 from oracle_lab.auth.guest import accounts
 from oracle_lab.auth.models import AuthError, PracticeSchema, Principal, ResetToken, User
@@ -24,11 +24,22 @@ log = logging.getLogger(__name__)
 
 RESET_LINK_SECONDS = 24 * 3600
 MAX_EVENTS = 500
+PER_PAGE = 25
+MAX_PER_PAGE = 100
 DENIALS_PER_HOUR = 10
 ROLES = ("user", "pro", "admin")  # what an admin can assign; guests only come from "Try it without an account"
 SELF = "You can't do that to your own account."
 ONLY_ADMIN = "You can't remove the only admin."
 GUEST_TARGET = "A guest has no account to upgrade. They can register first."
+
+
+def _page(items: list, page: int, per_page: int) -> tuple[list, dict]:
+    """The `page` (from 1, kept within the pages there are) of `items`, `per_page` (1 to MAX_PER_PAGE) long."""
+    per_page = max(1, min(int(per_page), MAX_PER_PAGE))
+    pages = max(1, -(-len(items) // per_page))
+    page = max(1, min(int(page), pages))
+    return items[(page - 1) * per_page:page * per_page], {"total": len(items), "page": page, "pages": pages,
+                                                          "per_page": per_page}
 
 
 class NotFound(AuthError):  # noqa: N818 - matches the other AuthError names
@@ -75,6 +86,18 @@ class AdminService:
         return [self._row(user) for user in sorted(self._users.all(), key=lambda u: (u.created_at, u.email))
                 if include_guests or user.role != "guest"]
 
+    def users_page(self, q: str = "", role: str = "", status: str = "", page: int = 1,
+                   per_page: int = PER_PAGE) -> dict:
+        """One page of the accounts, oldest first. `q` is part of the e-mail or id (any case); `role` empty lists the
+        registered accounts, "guest" the guests; only that page's rows are built (schema sizes ask the database)."""
+        needle = q.strip().lower()
+        matching = [user for user in sorted(self._users.all(), key=lambda u: (u.created_at, u.email))
+                    if (user.role == role if role else user.role != "guest")
+                    and (not status or user.status == status)
+                    and (not needle or needle in user.email.lower() or needle in user.id.lower())]
+        rows, meta = _page(matching, page, per_page)
+        return {"users": [self._row(user) for user in rows], **meta}
+
     def _row(self, user: User) -> dict:
         access = self._stores.access.for_user(user.id)
         return {
@@ -104,6 +127,30 @@ class AdminService:
     def settings(self) -> dict:
         return {"registration_open": self._registration.is_open(), "max_users": self._registration.max_users(),
                 "users": accounts(self._users), "plan_defaults": PlanDefaults.load(self._stores.settings).public()}
+
+    def events_page(self, event: str = "", outcome: str = "", account: str = "", text: str = "",
+                    since: float | None = None, until: float | None = None, page: int = 1,
+                    per_page: int = PER_PAGE) -> dict:
+        """One page of the security events, newest first, with the e-mail of every account they name. `account` is
+        part of an e-mail or id (any case); `text` part of the event, address, user agent or details."""
+        user_ids = None
+        if account.strip():
+            needle = account.strip().lower()
+            user_ids = tuple({account.strip(), *(u.id for u in self._users.all()
+                                                 if needle in u.email.lower() or needle in u.id.lower())})
+        query = AuditQuery(event or None, outcome or None, user_ids, text.strip() or None, since, until)
+        per_page = max(1, min(int(per_page), MAX_PER_PAGE))
+        _, total = self._stores.audit.search(query, 0, 1)
+        pages = max(1, -(-total // per_page))
+        page = max(1, min(int(page), pages))
+        events, _ = self._stores.audit.search(query, (page - 1) * per_page, per_page)
+        named = {e.user_id for e in events if e.user_id} | {
+            v for e in events for k, v in e.detail.items() if k in ("target", "actor") and isinstance(v, str)}
+        emails = {uid: user.email for uid in sorted(named) if (user := self._users.get(uid)) is not None}
+        return {"events": [{"t": e.t, "event": e.event, "outcome": e.outcome, "user_id": e.user_id,
+                            "account": emails.get(e.user_id or ""), "ip": e.ip, "user_agent": e.user_agent,
+                            "detail": e.detail} for e in events],
+                "emails": emails, "total": total, "page": page, "pages": pages, "per_page": per_page}
 
     def events(self, limit: int = 200, event: str | None = None, user_id: str | None = None) -> list[dict]:
         """Newest first, at most MAX_EVENTS."""
@@ -200,18 +247,25 @@ class AdminService:
                            ip=ip, user_agent=user_agent, target=user.id, key=key, status=status)
         return {"key": key, "status": status, "error": rec.error if rec is not None else None}
 
-    def delete_inactive(self, actor: Principal, days: int, *, ip: str = "", user_agent: str = "") -> int:
-        """Deletes the learners (never an admin or `actor`) not seen for `days` days: last sign-in, or creation when
-        they never signed in. Returns how many were deleted."""
+    def _inactive(self, actor: Principal, days: int) -> list[User]:
+        """The learners (never an admin or `actor`) not seen for `days` days: last sign-in, or creation when they
+        never signed in."""
         if isinstance(days, bool) or not isinstance(days, int) or days < 1:
             raise ValueError("Enter a number of days of at least 1.")
         cutoff = self._clock() - days * 86400
+        return [user for user in self._users.all()
+                if user.role != "admin" and user.id != actor.user_id
+                and (user.last_login_at if user.last_login_at is not None else user.created_at) < cutoff]
+
+    def inactive_count(self, actor: Principal, days: int) -> int:
+        """How many accounts delete_inactive(actor, days) would delete now."""
+        return len(self._inactive(actor, days))
+
+    def delete_inactive(self, actor: Principal, days: int, *, ip: str = "", user_agent: str = "") -> int:
+        """Deletes the learners (never an admin or `actor`) not seen for `days` days: last sign-in, or creation when
+        they never signed in. Returns how many were deleted."""
         deleted = failed = 0
-        for user in self._users.all():
-            if user.role == "admin" or user.id == actor.user_id:
-                continue
-            if (user.last_login_at if user.last_login_at is not None else user.created_at) >= cutoff:
-                continue
+        for user in self._inactive(actor, days):
             try:
                 with self._guard:
                     current = self._users.get(user.id)

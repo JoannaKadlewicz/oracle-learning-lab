@@ -22,7 +22,7 @@ import oracledb
 
 from oracle_lab.access.models import WorkspaceAccess
 from oracle_lab.accounts.memory import TAKEN
-from oracle_lab.accounts.repositories import AppStores
+from oracle_lab.accounts.repositories import AppStores, AuditQuery, like_pattern
 from oracle_lab.auth.models import (
     AuditEvent,
     EmailTaken,
@@ -531,6 +531,38 @@ class OracleAudit:
                 binds,
             )
             return [AuditEvent(r[0], r[1], r[2], r[3], _s(r[4]), _s(r[5]), _json(r[6])) for r in cur]
+
+    def search(self, query: AuditQuery, offset: int = 0, limit: int = 50) -> tuple[list[AuditEvent], int]:
+        conditions: list[str] = []
+        binds: dict[str, Any] = {}
+        for column, value in (("event", query.event), ("outcome", query.outcome)):
+            if value is not None:
+                conditions.append(f"{column} = :{column}")
+                binds[column] = value
+        if query.user_ids is not None:
+            names = [f"u{n}" for n in range(len(query.user_ids))]
+            conditions.append(f"user_id IN ({', '.join(':' + n for n in names)})" if names else "1 = 0")
+            binds.update(zip(names, query.user_ids, strict=True))
+        if query.since is not None:
+            conditions.append("t >= :since")
+            binds["since"] = query.since
+        if query.until is not None:
+            conditions.append("t < :until")
+            binds["until"] = query.until
+        if query.text:
+            conditions.append("(" + " OR ".join(f"LOWER({c}) LIKE :text ESCAPE '\\'"
+                                                for c in ("event", "ip", "user_agent", "detail")) + ")")
+            binds["text"] = like_pattern(query.text)
+        where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute(f"SELECT COUNT(*) FROM app_audit {where}", binds)
+            total = cur.fetchone()[0]
+            cur.execute(
+                "SELECT t, event, outcome, user_id, ip, user_agent, detail FROM app_audit "
+                f"{where}ORDER BY t DESC, id DESC OFFSET :o ROWS FETCH NEXT :n ROWS ONLY",
+                {**binds, "o": offset, "n": limit},
+            )
+            return [AuditEvent(r[0], r[1], r[2], r[3], _s(r[4]), _s(r[5]), _json(r[6])) for r in cur], total
 
     def purge(self, before: float) -> None:
         with session(self._db) as conn, conn.cursor() as cur:

@@ -9,7 +9,7 @@ import { currentUser } from "../core/session.js";
 import { ROLES, roleLabel, roleSummary } from "../core/roles.js";
 import { C } from "../core/state.js";
 import { toast, toastError, confirmDialog, openDialog } from "../ui/feedback.js";
-import { pageHead, section, empty, loading } from "../ui/widgets.js";
+import { pageHead, section, empty, loading, renderPager } from "../ui/widgets.js";
 
 const methodName = method => ({ password: t("Password"), google: "Google" }[method] ?? method);
 const EVENTS = [
@@ -20,18 +20,29 @@ const EVENTS = [
   "registration_settings_changed", "inactive_accounts_deleted", "guest_started", "guest_adopted", "guest_purged",
   "workspace_chosen", "workspace_access_changed", "account_limits_changed", "role_migrated",
 ];
-const DAY = 86400;
 
+// The server pages and filters both lists; `users` is the page shown, `emails` names the accounts of the events shown.
 let users = [];
-let filters = { event: "", user_id: "" };
+let usersQuery = { q: "", role: "", status: "", page: 1, per_page: 25 };
+let filters = { event: "", outcome: "", account: "", q: "", from: "", to: "", page: 1, per_page: 25 };
+let emails = {};
 let inactiveDays = 180;
-let showGuests = false;
-const usersPath = () => "/api/admin/users" + (showGuests ? "?guests=1" : "");
-let eventsRequest = 0;  // only the newest events request may fill the table
+let usersRequest = 0;  // only the newest request of each list may fill its table
+let eventsRequest = 0;
 
 const when = time => time ? formatDate(time * 1000,
   { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : t("Never");
-const emailOf = id => users.find(u => u.id === id)?.email;
+const emailOf = id => emails[id] ?? users.find(u => u.id === id)?.email;
+const params = query => new URLSearchParams(Object.entries(query).filter(([, v]) => v !== "" && v != null));
+/** Calls `fn` once typing has paused, so a search box asks the server once per word, not per key. */
+const debounced = (fn, ms = 300) => { let timer; return () => { clearTimeout(timer); timer = setTimeout(fn, ms); }; };
+/** A day picked in a date field as seconds since the epoch, at local midnight; `days` later for an end. */
+const dayStart = (value, days = 0) => {
+  if (!value) return "";
+  const d = new Date(`${value}T00:00`);
+  d.setDate(d.getDate() + days);
+  return String(d.getTime() / 1000);
+};
 
 async function render() {
   if (currentUser()?.role !== "admin") {
@@ -41,7 +52,7 @@ async function render() {
   main.innerHTML = loading(t("Loading accounts…"));
   let list, settings;
   try {
-    [list, settings] = await Promise.all([api(usersPath()), api("/api/admin/settings")]);
+    [list, settings] = await Promise.all([api(`/api/admin/users?${params(usersQuery)}`), api("/api/admin/settings")]);
   } catch (err) {
     main.innerHTML = empty(esc(t("The admin page could not be loaded")), esc(err.message),
       `<button class="btn secondary" type="button" id="admin-retry">${esc(t("Try again"))}</button>`);
@@ -52,8 +63,19 @@ async function render() {
   main.innerHTML = `
     ${pageHead(esc(t("Admin")), esc(t("Accounts, sign-up and the security events of this lab.")))}
     <div class="admin">
-      ${section(esc(t("Accounts")), `<label class="check small admin-guests"><input type="checkbox" id="show-guests" ${showGuests ? "checked" : ""}> ${esc(t("Show guests"))}</label>
-        <div class="table-wrap" id="admin-users"></div>`, { aside: esc(plural(users.length, "account")) })}
+      ${section(esc(t("Accounts")), `
+        <div class="admin-filters fields">
+          <label class="field admin-search"><span>${esc(t("Search"))}</span><input type="search" id="acct-q" placeholder="${esc(t("E-mail or account id"))}" value="${esc(usersQuery.q)}"></label>
+          <label class="field"><span>${esc(t("Role"))}</span><select id="acct-role">
+            <option value="">${esc(t("Registered accounts"))}</option>
+            ${ROLES.map(r => `<option value="${esc(r)}">${esc(roleLabel(r))}</option>`).join("")}
+            <option value="guest">${esc(t("Guests"))}</option>
+          </select></label>
+          <label class="field"><span>${esc(t("Status"))}</span><select id="acct-status">
+            <option value="">${esc(t("Any status"))}</option><option value="active">${esc(t("Active"))}</option><option value="locked">${esc(t("Locked"))}</option>
+          </select></label>
+        </div>
+        <div class="table-wrap" id="admin-users"></div><div id="users-pager"></div>`, { aside: esc(plural(list.total, "account")) })}
       <div class="admin-panels">
         ${section(esc(t("Sign-up")), `<div class="panel" id="admin-registration"></div>`)}
         ${section(esc(t("Inactive accounts")), `<div class="panel danger-zone" id="admin-inactive"></div>`)}
@@ -64,19 +86,38 @@ async function render() {
             <option value="">${esc(t("All events"))}</option>
             ${EVENTS.map(e => `<option value="${esc(e)}">${esc(e.replaceAll("_", " "))}</option>`).join("")}
           </select></label>
-          <label class="field"><span>${esc(t("Account"))}</span><select id="ev-user"></select></label>
+          <label class="field"><span>${esc(t("Outcome"))}</span><select id="ev-outcome">
+            <option value="">${esc(t("Any outcome"))}</option>${["ok", "fail", "denied"].map(o => `<option value="${o}">${o}</option>`).join("")}
+          </select></label>
+          <label class="field"><span>${esc(t("Account"))}</span><input type="search" id="ev-account" placeholder="${esc(t("E-mail or account id"))}"></label>
+          <label class="field"><span>${esc(t("Search"))}</span><input type="search" id="ev-q" placeholder="${esc(t("Address, browser or details"))}"></label>
+          <label class="field"><span>${esc(t("From"))}</span><input type="date" id="ev-from"></label>
+          <label class="field"><span>${esc(t("To"))}</span><input type="date" id="ev-to"></label>
           <button class="btn secondary" type="button" id="ev-refresh">${esc(t("Refresh"))}</button>
         </div>
-        <div class="table-wrap" id="admin-events">${loading(t("Loading events…"))}</div>`, { aside: esc(t("Newest first, up to 200")) })}
+        <div class="table-wrap" id="admin-events">${loading(t("Loading events…"))}</div><div id="events-pager"></div>`, { aside: esc(t("Newest first")) })}
     </div>`;
-  renderUsers();
+  showUsers(list);
   renderRegistration(settings);
   renderInactive();
-  $("#ev-event").value = filters.event;
-  $("#ev-event").addEventListener("change", e => { filters.event = e.target.value; loadEvents(); });
-  $("#ev-user").addEventListener("change", e => { filters.user_id = e.target.value; loadEvents(); });
+  $("#acct-role").value = usersQuery.role;
+  $("#acct-status").value = usersQuery.status;
+  const searchUsers = debounced(() => { usersQuery = { ...usersQuery, q: $("#acct-q").value.trim(), page: 1 }; reloadUsers(); });
+  $("#acct-q").addEventListener("input", searchUsers);
+  $("#acct-role").addEventListener("change", e => { usersQuery = { ...usersQuery, role: e.target.value, page: 1 }; reloadUsers(); });
+  $("#acct-status").addEventListener("change", e => { usersQuery = { ...usersQuery, status: e.target.value, page: 1 }; reloadUsers(); });
+
+  const fields = { event: "#ev-event", outcome: "#ev-outcome", account: "#ev-account", q: "#ev-q", from: "#ev-from", to: "#ev-to" };
+  const readFilters = () => {
+    for (const [key, sel] of Object.entries(fields)) filters[key] = $(sel).value.trim();
+    filters.page = 1;
+    loadEvents();
+  };
+  for (const [key, sel] of Object.entries(fields)) {
+    $(sel).value = filters[key];
+    $(sel).addEventListener($(sel).type === "search" ? "input" : "change", $(sel).type === "search" ? debounced(readFilters) : readFilters);
+  }
   $("#ev-refresh").addEventListener("click", loadEvents);
-  $("#show-guests").addEventListener("change", e => { showGuests = e.target.checked; reloadUsers(); });
   $("#admin-users").addEventListener("click", e => {
     const b = e.target.closest("[data-manage]");
     if (b) manage(users.find(u => u.id === b.dataset.manage));
@@ -94,12 +135,24 @@ async function render() {
 }
 
 async function reloadUsers() {
-  users = (await api(usersPath())).users;
-  if (!$("#admin-users")) return;
-  renderUsers();
+  const id = ++usersRequest;
+  let list;
+  try {
+    list = await api(`/api/admin/users?${params(usersQuery)}`);
+  } catch (err) { toastError(err.message); return; }
+  if (id !== usersRequest || !$("#admin-users")) return;  // a newer request or another page took over
+  showUsers(list);
   renderInactive();
+}
+
+/** Shows one page of accounts from the server, with its pager and the total in the section head. */
+function showUsers(list) {
+  users = list.users;
+  usersQuery = { ...usersQuery, page: list.page, per_page: list.per_page };
+  renderUsers();
+  renderPager($("#users-pager"), list, ({ page, per_page }) => { usersQuery = { ...usersQuery, page, per_page }; reloadUsers(); });
   const aside = $("#admin-users").closest(".section").querySelector(".section-head p");
-  if (aside) aside.textContent = plural(users.length, "account");
+  if (aside) aside.textContent = plural(list.total, "account");
 }
 
 /* ---------------------------------------------------------------- accounts */
@@ -111,6 +164,10 @@ function schemaText(s) {
 
 function renderUsers() {
   const me = currentUser().id;
+  if (!users.length) {
+    $("#admin-users").innerHTML = empty(esc(t("No accounts")), esc(t("Nothing matches these filters.")));
+    return;
+  }
   $("#admin-users").innerHTML = `
     <table class="data admin-users">
       <thead><tr><th>${esc(t("Account"))}</th><th>${esc(t("Role"))}</th><th>${esc(t("Workspaces"))}</th><th>${esc(t("Status"))}</th><th>${esc(t("Last sign-in"))}</th><th class="num">${esc(t("Sessions"))}</th><th>${esc(t("Practice schemas"))}</th><th class="actions"><span class="sr-only">${esc(t("Actions"))}</span></th></tr></thead>
@@ -400,9 +457,9 @@ function renderRegistration(settings) {
 
 /* ---------------------------------------------------------------- inactive accounts */
 
-function inactive(days) {
-  const cutoff = Date.now() / 1000 - days * DAY;
-  return users.filter(u => u.role !== "admin" && u.id !== currentUser().id && (u.last_login_at ?? u.created_at) < cutoff);
+/** How many accounts "Delete inactive accounts" would delete now; the server counts them by its own rule. */
+async function inactiveCount(days) {
+  return (await api(`/api/admin/inactive?days=${days}`)).count;
 }
 
 function renderInactive() {
@@ -416,16 +473,23 @@ function renderInactive() {
     </div>
     <div class="form-actions"><button class="btn danger" type="button" id="delete-inactive">${esc(t("Delete inactive accounts"))}</button>
       <span class="muted small" id="inactive-count" role="status"></span></div>`;
-  const count = () => {
+  const count = async () => {
     const days = Number($("#inactive-days").value);
-    $("#inactive-count").textContent = Number.isInteger(days) && days >= 1 ? tn(inactive(days).length, "{n} account matches.", "{n} accounts match.") : "";
+    const out = $("#inactive-count");
+    if (!Number.isInteger(days) || days < 1) { out.textContent = ""; return; }
+    try {
+      const n = await inactiveCount(days);
+      if (out.isConnected && Number($("#inactive-days").value) === days) out.textContent = tn(n, "{n} account matches.", "{n} accounts match.");
+    } catch { out.textContent = ""; }
   };
-  $("#inactive-days").addEventListener("input", () => { inactiveDays = $("#inactive-days").value; count(); });
+  $("#inactive-days").addEventListener("input", () => { inactiveDays = $("#inactive-days").value; countSoon(); });
+  const countSoon = debounced(count);
   count();
   $("#delete-inactive").addEventListener("click", async () => {
     const days = Number($("#inactive-days").value);
     if (!Number.isInteger(days) || days < 1) { toastError(t("Enter a number of days of at least 1.")); return; }
-    const n = inactive(days).length;
+    let n;
+    try { n = await inactiveCount(days); } catch (err) { toastError(err.message); return; }
     if (!await confirmDialog({ title: tn(days, "Delete accounts inactive for {n} day?", "Delete accounts inactive for {n} days?"), confirm: t("Delete accounts"), danger: true,
       body: n ? tn(n, "About {n} learner account will be deleted with their progress, notes and practice schemas. This cannot be undone.",
         "About {n} learner accounts will be deleted with their progress, notes and practice schemas. This cannot be undone.")
@@ -451,22 +515,21 @@ function detailText(detail) {
 async function loadEvents() {
   const box = $("#admin-events");
   if (!box) return;
-  const select = $("#ev-user");
-  select.innerHTML = `<option value="">${esc(t("All accounts"))}</option>${users.map(u =>
-    `<option value="${esc(u.id)}">${esc(u.email)}</option>`).join("")}`;
-  select.value = users.some(u => u.id === filters.user_id) ? filters.user_id : "";
-  const query = new URLSearchParams({ limit: "200" });
-  if (filters.event) query.set("event", filters.event);
-  if (select.value) query.set("user_id", select.value);
+  const { from, to, ...rest } = filters;
+  const query = params({ ...rest, since: dayStart(from), until: dayStart(to, 1) });
   const id = ++eventsRequest;
-  let events;
+  let page;
   try {
-    events = (await api(`/api/admin/events?${query}`)).events;
+    page = await api(`/api/admin/events?${query}`);
   } catch (err) {
     if (id === eventsRequest && $("#admin-events")) box.innerHTML = empty(esc(t("Could not load the events")), esc(err.message));
     return;
   }
   if (id !== eventsRequest || !$("#admin-events")) return;  // a newer request or another page took over
+  const { events } = page;
+  emails = page.emails;
+  filters = { ...filters, page: page.page, per_page: page.per_page };
+  renderPager($("#events-pager"), page, ({ page: next, per_page }) => { filters = { ...filters, page: next, per_page }; loadEvents(); });
   if (!events.length) { box.innerHTML = empty(esc(t("No events")), esc(t("Nothing matches these filters."))); return; }
   box.innerHTML = `
     <table class="data admin-events">
@@ -476,7 +539,7 @@ async function loadEvents() {
           <td class="nowrap">${esc(when(e.t))}</td>
           <td class="nowrap"><code>${esc(e.event)}</code></td>
           <td><span class="tag ${e.outcome === "ok" ? "tag-ok" : "tag-fix"}">${esc(e.outcome)}</span></td>
-          <td class="ev-user">${esc(emailOf(e.user_id) || e.user_id || "-")}</td>
+          <td class="ev-user">${esc(e.account || e.user_id || "-")}</td>
           <td class="nowrap" title="${esc(e.user_agent)}">${esc(e.ip || "-")}</td>
           <td class="ev-detail">${esc(detailText(e.detail))}</td>
         </tr>`).join("")}

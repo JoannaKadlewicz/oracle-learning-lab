@@ -6,10 +6,11 @@ import json
 
 from conftest import NOW, PASSWORD, Client, session_cookie
 from oracle_lab import content
-from oracle_lab.accounts.maintenance import GUEST_IDLE_DAYS, Maintenance
+from oracle_lab.accounts.maintenance import GUEST_GRACE, Maintenance
 from oracle_lab.accounts.memory import memory_stores
 from oracle_lab.auth.audit import AuditLog
-from oracle_lab.study import engine
+from oracle_lab.auth.models import Identity, User
+from oracle_lab.auth.sessions import SESSION_IDLE
 
 
 def start_guest(client: Client) -> Client:
@@ -87,11 +88,46 @@ def test_registering_without_a_guest_is_unchanged(serve):
     assert user.role == "user" and stores.access.for_user(user.id) == []
 
 
-def test_old_guests_are_purged(serve):
+def maintain(stores, at):
+    Maintenance(stores, AuditLog(stores.audit, lambda: at), lambda: at).run_once()
+
+
+def test_a_guest_whose_session_has_lapsed_is_purged(serve):
     stores = memory_stores()
     server = serve(stores=stores)
     start_guest(Client(server.port))
     guest = next(u for u in stores.users.all() if u.role == "guest")
-    later = NOW + (GUEST_IDLE_DAYS + 1) * engine.DAY
-    Maintenance(stores, AuditLog(stores.audit, lambda: later), lambda: later).run_once()
+    maintain(stores, NOW + SESSION_IDLE - 60)  # still signed in: kept
+    assert stores.users.get(guest.id) is not None
+    maintain(stores, NOW + SESSION_IDLE + 60)  # idle too long: nobody can reach this guest again
     assert stores.users.get(guest.id) is None
+    assert stores.audit.recent(event="guest_purged")[0].detail == {"reason": "session_ended"}
+
+
+def test_a_guest_just_created_is_kept_until_its_session_exists():
+    stores = memory_stores()
+    stores.users.add(User("g1", "g1@guest.invalid", "Guest", "guest", "active", NOW, NOW, None),
+                     Identity("guest", "g1", "g1"))
+    maintain(stores, NOW + GUEST_GRACE - 60)
+    assert stores.users.get("g1") is not None
+    maintain(stores, NOW + GUEST_GRACE + 60)
+    assert stores.users.get("g1") is None
+
+
+def test_a_guest_is_deleted_when_its_browser_starts_another(serve):
+    stores = memory_stores()
+    server = serve(stores=stores)
+    cookie = start_guest(Client(server.port)).headers["Cookie"]
+    first = next(u for u in stores.users.all() if u.role == "guest")
+    landing = Client(server.port)
+    assert landing("/api/auth/guest", {}, headers={"Cookie": cookie, "Origin": landing.origin})[0] == 200
+    guests = [u for u in stores.users.all() if u.role == "guest"]
+    assert len(guests) == 1 and guests[0].id != first.id
+
+
+def test_a_guest_signing_out_is_deleted(serve):
+    stores = memory_stores()
+    server = serve(stores=stores)
+    guest = start_guest(Client(server.port))
+    assert guest("/api/auth/logout", {})[0] == 200
+    assert not [u for u in stores.users.all() if u.role == "guest"]

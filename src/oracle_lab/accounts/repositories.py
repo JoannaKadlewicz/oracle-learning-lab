@@ -107,11 +107,32 @@ class ThrottleRepository(Protocol):
     def purge(self, before: float) -> None: ...
 
 
+@dataclass(frozen=True)
+class AuditQuery:
+    """Which security events to list; every field that is set must match. `user_ids` is any of them (empty: none),
+    `text` a case-insensitive part of the event name, address, user agent or details, `until` exclusive."""
+
+    event: str | None = None
+    outcome: str | None = None
+    user_ids: tuple[str, ...] | None = None
+    text: str | None = None
+    since: float | None = None
+    until: float | None = None
+
+
+def like_pattern(text: str) -> str:
+    """`text` as a LIKE pattern for "contains", lower case, with % and _ taken literally (ESCAPE '\\')."""
+    return "%" + text.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
 class AuditRepository(Protocol):
     def add(self, event: AuditEvent) -> None: ...
 
     def recent(self, limit: int = 200, event: str | None = None, user_id: str | None = None) -> list[AuditEvent]:
         """Newest first."""
+
+    def search(self, query: AuditQuery, offset: int = 0, limit: int = 50) -> tuple[list[AuditEvent], int]:
+        """One page of the matching events, newest first, and how many match in all."""
 
     def purge(self, before: float) -> None: ...
 

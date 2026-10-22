@@ -6,7 +6,7 @@ import dataclasses
 
 import pytest
 
-from oracle_lab.accounts.repositories import AppStores
+from oracle_lab.accounts.repositories import AppStores, AuditQuery
 from oracle_lab.auth.models import (
     AuditEvent,
     EmailTaken,
@@ -167,6 +167,37 @@ def audit_recent_newest_first_and_filters(stores: AppStores) -> None:
     assert [e.t for e in stores.audit.recent(user_id="u2")] == [3.0, 2.0]
     stores.audit.purge(2.0)
     assert [e.t for e in stores.audit.recent()] == [3.0, 2.0]
+
+
+def audit_search_filters_and_pages(stores: AppStores) -> None:
+    def ev(t: float, event: str, user_id: str | None, outcome: str = "ok", ip: str = "ip", ua: str = "ua",
+           detail: dict | None = None) -> AuditEvent:
+        return AuditEvent(t, event, outcome, user_id, ip, ua, detail or {})
+
+    stores.audit.add(ev(1.0, "login", "u1", ip="10.0.0.1"))
+    stores.audit.add(ev(2.0, "login", "u2", outcome="fail", ip="10.0.0.2", detail={"reason": "Bad_Password"}))
+    stores.audit.add(ev(3.0, "logout", "u2", ip="192.168.1.5"))
+    stores.audit.add(ev(4.0, "role_changed", "u3", detail={"target": "u1"}))
+    stores.audit.add(ev(5.0, "login", "u1", ua="Firefox 100%"))
+
+    def times(query: AuditQuery | None = None, offset: int = 0, limit: int = 50) -> tuple[list[float], int]:
+        events, total = stores.audit.search(query or AuditQuery(), offset, limit)
+        return [e.t for e in events], total
+
+    assert times() == ([5.0, 4.0, 3.0, 2.0, 1.0], 5)
+    assert times(offset=2, limit=2) == ([3.0, 2.0], 5)
+    assert times(offset=10) == ([], 5)
+    assert times(AuditQuery(event="login")) == ([5.0, 2.0, 1.0], 3)
+    assert times(AuditQuery(outcome="fail")) == ([2.0], 1)
+    assert times(AuditQuery(user_ids=("u1", "u3"))) == ([5.0, 4.0, 1.0], 3)
+    assert times(AuditQuery(user_ids=())) == ([], 0)
+    assert times(AuditQuery(text="bad_pass")) == ([2.0], 1)  # any case
+    assert times(AuditQuery(text="192.168")) == ([3.0], 1)
+    assert times(AuditQuery(text="u1")) == ([4.0], 1)  # in the details, not the account column
+    assert times(AuditQuery(text="100%")) == ([5.0], 1)  # % and _ are literal
+    assert times(AuditQuery(text="_")) == ([4.0, 2.0], 2)
+    assert times(AuditQuery(since=2.0, until=4.0)) == ([3.0, 2.0], 2)
+    assert times(AuditQuery(event="login", user_ids=("u1",), since=2.0)) == ([5.0], 1)
 
 
 def settings_round_trip(stores: AppStores) -> None:
@@ -402,6 +433,7 @@ CONTRACT = [
     session_touch_and_reauth,
     throttle_counts_window,
     audit_recent_newest_first_and_filters,
+    audit_search_filters_and_pages,
     settings_round_trip,
     practice_schemas_round_trip,
     state_store_is_per_user,

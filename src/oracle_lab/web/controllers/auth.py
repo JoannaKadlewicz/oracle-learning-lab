@@ -61,10 +61,12 @@ class AuthController:
                  account: AccountSettings, sessions: SessionManager, cookies: CookiePolicy,
                  google: GoogleSignIn | None, guests: GuestAccess | None = None,
                  adopt: Callable[[str, str], None] = lambda guest_id, user_id: None,
-                 guest_workspace: Callable[[str, str], None] = lambda user_id, workspace: None):
+                 guest_workspace: Callable[[str, str], None] = lambda user_id, workspace: None,
+                 drop_guest: Callable[[str], None] = lambda guest_id: None):
         self.guests = guests
         self.guest_workspace = guest_workspace
         self.adopt = adopt  # moves a guest's progress into the account created from its session
+        self.drop_guest = drop_guest  # deletes a guest whose session this app ends: nobody could reach it again
         self.login = login
         self.registration = registration
         self.policy = policy
@@ -107,7 +109,14 @@ class AuthController:
             self.guest_workspace(record.user_id, workspace)
         response = Response.json({"ok": True, "next": "/"})
         response.cookies.append(self.new_session_cookie(request, token))
+        self._drop_guest_of(request)  # this browser's earlier guest, if any
         return response
+
+    def _drop_guest_of(self, request: Request) -> None:
+        """Deletes the guest of the session the request came with (its session has just been ended)."""
+        principal = request.principal
+        if principal is not None and principal.role == "guest":
+            self.drop_guest(principal.user_id)
 
     def _adopt_guest(self, request: Request, user_id: str) -> None:
         principal = request.principal
@@ -130,6 +139,7 @@ class AuthController:
         token = self.cookies.read(request, self.cookies.session_name)
         if token is not None:
             self.login.logout(token)
+            self._drop_guest_of(request)
         response = Response.json({"ok": True})
         response.cookies.append(self.cookies.clear_session())
         return response

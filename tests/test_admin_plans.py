@@ -48,7 +48,7 @@ def test_guests_hidden_unless_asked(lab):
     stores, admin, _, uid = lab
     stores.users.set_role(uid, "guest")
     assert uid not in [u["id"] for u in body(admin("/api/admin/users"))["users"]]
-    assert uid in [u["id"] for u in body(admin("/api/admin/users?guests=1"))["users"]]
+    assert uid in [u["id"] for u in body(admin("/api/admin/users?role=guest"))["users"]]
 
 
 def test_plan_defaults_round_trip(lab):

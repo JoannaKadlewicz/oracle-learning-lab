@@ -37,8 +37,17 @@ table.admin-events { min-width: 880px; font-size: var(--t-s); }
 .schema-failed { color: var(--bad); }
 .schema-provisioning { color: var(--warn); }
 
-.admin-filters { margin-bottom: 14px; }
-.admin-filters select { min-width: 200px; max-width: 100%; }
+.admin-filters { margin-bottom: 14px; gap: 12px 16px; }
+.admin-filters select { min-width: 180px; max-width: 100%; }
+.admin-filters input[type="search"] { width: 15em; max-width: 100%; }
+.admin-filters .admin-search input { width: 20em; }
+
+/* Under each paged table: how many match, previous and next, and the page size. */
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px;
+  margin-top: 12px; font-size: var(--t-s); color: var(--muted); }
+.pager-pages { display: inline-flex; align-items: center; gap: 12px; color: var(--ink-2); }
+.pager-size { display: inline-flex; align-items: center; gap: 8px; }
+.pager-size select { width: auto; }
 .ev-detail { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-2); overflow-wrap: anywhere; min-width: 240px; }
 .ev-user { overflow-wrap: anywhere; min-width: 160px; }
 table.admin-events code { font-size: var(--t-xs); }
@@ -52,7 +61,7 @@ table.admin-events code { font-size: var(--t-xs); }
 
 @media (max-width: 600px) {
   .admin-filters { display: grid; grid-template-columns: minmax(0, 1fr); }
-  .admin-filters select { min-width: 0; width: 100%; }
+  .admin-filters select, .admin-filters input[type="search"], .admin-filters .admin-search input { min-width: 0; width: 100%; }
   .admin-filters .btn { justify-self: start; }
 }
 
@@ -71,4 +80,3 @@ table.admin-events code { font-size: var(--t-xs); }
 .free-limits input { width: 7em; }
 .setting.free-plan { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .ws-custom b { color: var(--link); background: color-mix(in srgb, var(--link) 12%, var(--paper)); }
-.admin-guests { margin-bottom: 10px; }

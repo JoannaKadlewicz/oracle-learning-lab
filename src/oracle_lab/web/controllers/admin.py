@@ -29,6 +29,17 @@ def _optional(data: dict, name: str, kind: type) -> object:
     return value
 
 
+def _number(request: Request, name: str, default: float | None = None, kind: type = int) -> float | None:
+    """A numeric query parameter (`default` when absent); anything else is a 400."""
+    raw = request.query(name)
+    if not raw:
+        return default
+    try:
+        return kind(raw)
+    except ValueError as exc:
+        raise HttpError(400, Msg.of("{name} must be a number", name=name)) from exc
+
+
 def _meta(request: Request) -> dict:
     """The client of a request, for the audit record of an admin action."""
     return {"ip": request.client, "user_agent": request.header("User-Agent")}
@@ -44,6 +55,7 @@ class AdminController:
             ("GET", "/api/admin/users"): self.users,
             ("GET", "/api/admin/events"): self.events,
             ("GET", "/api/admin/settings"): self.settings,
+            ("GET", "/api/admin/inactive"): self.inactive,
             ("POST", "/api/admin/reset-link"): self.reset_link,
             ("POST", "/api/admin/lock"): self.lock,
             ("POST", "/api/admin/unlock"): self.unlock,
@@ -75,7 +87,11 @@ class AdminController:
         return run
 
     def users(self, request: Request) -> Response:
-        return Response.json({"users": self.admin.users(include_guests=request.query("guests") == "1")})
+        return Response.json(self.admin.users_page(request.query("q"), request.query("role"), request.query("status"),
+                                                   _number(request, "page", 1), _number(request, "per_page", 25)))
+
+    def inactive(self, request: Request) -> Response:
+        return Response.json({"count": self.admin.inactive_count(require_admin(request), _number(request, "days", 0))})
 
     def limits(self, request: Request) -> Response:
         data = request.json()
@@ -84,12 +100,10 @@ class AdminController:
         return Response.json({"ok": True, "limits": saved})
 
     def events(self, request: Request) -> Response:
-        try:
-            limit = int(request.query("limit", "200"))
-        except ValueError as exc:
-            raise HttpError(400, "limit must be a number") from exc
-        return Response.json({"events": self.admin.events(limit, request.query("event") or None,
-                                                          request.query("user_id") or None)})
+        return Response.json(self.admin.events_page(
+            request.query("event"), request.query("outcome"), request.query("account"), request.query("q"),
+            _number(request, "since", kind=float), _number(request, "until", kind=float),
+            _number(request, "page", 1), _number(request, "per_page", 25)))
 
     def settings(self, _: Request) -> Response:
         return Response.json(self.admin.settings())

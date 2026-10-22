@@ -52,6 +52,7 @@
   "this mock exam was abandoned": "ten egzamin próbny został przerwany",
   "{name} must be a non-empty string": "{name} musi być niepustym tekstem",
   "{name} has the wrong type": "{name} ma nieprawidłowy typ",
+  "{name} must be a number": "{name} musi być liczbą",
   "limit must be a number": "limit musi być liczbą",
   "days is required": "days jest wymagane",
   "Unknown role.": "Nieznana rola.",

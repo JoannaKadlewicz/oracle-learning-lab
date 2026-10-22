@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import threading
 from collections.abc import Callable
 
 from oracle_lab.access.models import WorkspaceAccess
-from oracle_lab.accounts.repositories import AppStores
+from oracle_lab.accounts.repositories import AppStores, AuditQuery
 from oracle_lab.auth.models import (
     AuditEvent,
     EmailTaken,
@@ -243,6 +244,23 @@ class MemoryAudit:
             ordered = sorted(enumerate(self._events), key=lambda p: (p[1].t, p[0]), reverse=True)
         matching = [e for _, e in ordered if (event is None or e.event == event) and (user_id is None or e.user_id == user_id)]
         return matching[:limit]
+
+    def search(self, query: AuditQuery, offset: int = 0, limit: int = 50) -> tuple[list[AuditEvent], int]:
+        with self._lock:
+            ordered = [e for _, e in sorted(enumerate(self._events), key=lambda p: (p[1].t, p[0]), reverse=True)]
+        text = query.text.lower() if query.text else None
+
+        def matches(e: AuditEvent) -> bool:
+            return ((query.event is None or e.event == query.event)
+                    and (query.outcome is None or e.outcome == query.outcome)
+                    and (query.user_ids is None or e.user_id in query.user_ids)
+                    and (query.since is None or e.t >= query.since)
+                    and (query.until is None or e.t < query.until)
+                    and (text is None or any(text in part.lower() for part in
+                                             (e.event, e.ip, e.user_agent, json.dumps(e.detail, default=str)))))
+
+        matching = [e for e in ordered if matches(e)]
+        return matching[offset:offset + limit], len(matching)
 
     def purge(self, before: float) -> None:
         with self._lock:
