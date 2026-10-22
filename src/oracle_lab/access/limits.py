@@ -56,11 +56,25 @@ class FreeLimits:
 
 
 def used_today(state: State, now: float) -> dict[str, int]:
-    """Answers and flashcard ratings since the start of the user's day."""
+    """Answers and flashcard ratings since the start of the user's day: the recorded ones, or the day's usage
+    counter when it is higher (it survives a progress reset, so resetting cannot refill the allowance)."""
     start = engine.day_start(now)
     questions = sum(1 for history in state.get("attempts", {}).values() for a in history if a.get("t", 0) >= start)
     cards = sum(1 for entry in state.get("cards", {}).values() for r in entry.get("reviews", []) if r[0] >= start)
-    return {"questions": questions, "cards": cards}
+    usage = state.get("usage", {})
+    if usage.get("day") != engine.local_day(now).isoformat():
+        usage = {}
+    return {"questions": max(questions, usage.get("questions", 0)), "cards": max(cards, usage.get("cards", 0))}
+
+
+def count_use(state: State, kind: str, now: float) -> None:
+    """Adds one `kind` ("questions" or "cards") to today's usage counter in the state."""
+    day = engine.local_day(now).isoformat()
+    usage = state.get("usage", {})
+    if usage.get("day") != day:
+        usage = {"day": day, "questions": 0, "cards": 0}
+    usage[kind] = usage.get(kind, 0) + 1
+    state["usage"] = usage
 
 
 def note_allowed(path: str, level: str, free_topics: int) -> bool:

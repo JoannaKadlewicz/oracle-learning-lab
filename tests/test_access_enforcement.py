@@ -123,3 +123,24 @@ def test_used_today_matches_the_limits_module(lab):
     question = content.QUESTIONS[0]
     user("/api/attempt", {"id": question["id"], "chosen": question["answer"]})
     assert limits.used_today(stores.states.for_user(uid).load(), NOW)["questions"] == 1
+
+
+def test_switching_returns_the_new_workspaces_access(lab):
+    stores, _, user, uid = lab
+    grant(stores, uid, "1Z0-071", "free")
+    grant(stores, uid, "1Z0-171", "subscribed")
+    switched = body(user("/api/settings", {"exam": "1Z0-171"}))
+    assert switched["access"]["workspace"] == "1Z0-171" and switched["access"]["level"] == "subscribed"
+    assert switched["access"]["limits"] is None and switched["progress"]["exam"] == "1Z0-171"
+
+
+def test_resetting_progress_keeps_todays_free_usage(lab):
+    stores, _, user, uid = lab
+    grant(stores, uid, "1Z0-071", "free")
+    stores.settings.set("free_questions_per_day", "2")
+    question = content.QUESTIONS[0]
+    for _ in range(2):
+        assert user("/api/attempt", {"id": question["id"], "chosen": question["answer"]})[0] == 200
+    assert user("/api/reset-progress", {})[0] == 200
+    status, _, raw = user("/api/attempt", {"id": question["id"], "chosen": question["answer"]})
+    assert status == 403 and json.loads(raw)["limit"] == "questions"

@@ -54,3 +54,24 @@ def test_admin_untouched_and_second_run_changes_nothing():
     assert stores.users.get("a1").role == "admin" and levels(stores, "a1") == {}
     assert run(stores) == 0
     assert levels(stores, "l1") == {code: "subscribed" for code in exams.EXAMS}
+
+
+def test_one_broken_account_does_not_stop_the_others(monkeypatch):
+    from oracle_lab.access import migration
+
+    stores = memory_stores()
+    add(stores, "f1", "free")
+    add(stores, "l1", "learner")
+    real = migration.exam_code
+    monkeypatch.setattr(migration, "exam_code", lambda state: (_ for _ in ()).throw(ValueError("corrupt")))
+    assert run(stores) == 1  # f1 failed, l1 moved
+    assert stores.users.get("l1").role == "user" and stores.users.get("f1").role == "free"
+    monkeypatch.setattr(migration, "exam_code", real)
+    assert run(stores) == 1 and stores.users.get("f1").role == "user"
+
+
+def test_a_learner_not_migrated_yet_keeps_everything():
+    from oracle_lab.access import policy
+
+    assert policy.usable("learner", []) == list(exams.EXAMS)
+    assert all(policy.level_in("learner", [], code) == "subscribed" for code in exams.EXAMS)

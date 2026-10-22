@@ -11,8 +11,9 @@ LevelIn = Literal["none", "free", "subscribed"]
 
 
 def level_in(role: str, rows: list[WorkspaceAccess], workspace: str) -> LevelIn:
-    """The user's level in `workspace`; admins have every workspace without rows."""
-    if role == "admin":
+    """The user's level in `workspace`; admins have every workspace without rows, and so does an account still on
+    the old `learner` role (its migration failed): it keeps what it had until it is moved."""
+    if role in ("admin", "learner"):
         return "subscribed"
     return next((r.level for r in rows if r.workspace == workspace), "none")
 

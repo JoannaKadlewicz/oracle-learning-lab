@@ -42,6 +42,12 @@ export function renderExamSwitch() {
   examPicker($("#exam-picker"), { exams: Object.values(C.exams), current: C.exam.code, onPick: switchExam,
     locked: code => Boolean(usable) && !usable.includes(code) });
   $("#topbar-exam").textContent = C.exam.code;
+  // The SQL pages are marked Premium in a free workspace: redrawn on every switch.
+  for (const view of SQL_VIEWS) {
+    const link = $(`#rail a[data-view="${view}"]`);
+    link.querySelector(".premium-tag")?.remove();
+    if (!subscribed()) link.insertAdjacentHTML("beforeend", premiumTag());
+  }
 }
 
 async function switchExam(code) {
@@ -118,9 +124,6 @@ export function initShell({ onExamChange: handler }) {
   $("#account-email").textContent = user.email;
   $("#rail-account").title = user.email;
   $("#nav-admin").hidden = user.role !== "admin";
-  if (!subscribed()) {
-    for (const view of SQL_VIEWS) $(`#rail a[data-view="${view}"]`).insertAdjacentHTML("beforeend", premiumTag());
-  }
   $("#sign-out").addEventListener("click", signOut);
   onRoute(refreshNav);
 }

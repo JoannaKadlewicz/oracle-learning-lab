@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from oracle_lab import content, exams
-from oracle_lab.access.limits import used_today
+from oracle_lab.access.limits import count_use, used_today
 from oracle_lab.engines import engine_for_exam
 from oracle_lab.i18n import Msg
 from oracle_lab.services import NEEDS_SUBSCRIPTION, AccessDenied, Clock, LimitReached, NotFoundError
@@ -117,6 +117,7 @@ class StudyService:
         allowed = limits.questions_per_day if kind == "questions" else limits.cards_per_day
         if used_today(state, self.clock())[kind] >= allowed:
             raise LimitReached(Msg.of(LIMIT_MESSAGES[kind], n=allowed), kind)
+        count_use(state, kind, self.clock())
 
     def _snapshot(self, state: State) -> dict[str, Any]:
         limits = self.access.limits

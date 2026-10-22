@@ -33,9 +33,15 @@ class StudyController:
         router.post("/api/attempt", lambda r: respond(lambda: self.study(r).record_attempt(r.json())))
         router.post("/api/card", lambda r: respond(lambda: self.study(r).record_card(r.json())))
         router.post("/api/lab-solution", lambda r: respond(lambda: self.study(r).mark_solution_seen(r.json().get("id"))))
-        router.post("/api/settings", lambda r: respond(lambda: self.study(r).update_settings(r.json())))
+        router.post("/api/settings", self.update_settings)
         router.post("/api/pick", self.pick)
         router.post("/api/reset-progress", lambda r: Response.json(self.study(r).reset_progress()))
+
+    def update_settings(self, request: Request) -> Response:
+        """A changed workspace changes the user's access too: the answer is built on the new one."""
+        data = request.json()
+        response = respond(lambda: self.study(request).update_settings(data))
+        return respond(lambda: self.study(request).progress()) if "exam" in data else response
 
     def readiness_report(self, request: Request) -> Response:
         # Opened in a new tab, so no X-Language header: the app's link names the language.

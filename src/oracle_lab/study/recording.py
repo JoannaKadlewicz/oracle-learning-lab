@@ -105,7 +105,10 @@ def record_settings(state: State, data: dict) -> None:
 
 
 def reset_progress(state: State) -> None:
-    """Forget answers, reviews, exercises and mock exams; keep the settings and the SQL history."""
+    """Forget answers, reviews, exercises and mock exams; keep the settings, the SQL history and today's free-plan
+    usage (a reset must not refill the daily allowance)."""
     kept = {"settings": state.get("settings", {}), "history": state.get("history", [])}
+    if "usage" in state:
+        kept["usage"] = state["usage"]
     state.clear()
     state.update({"attempts": {}, "cards": {}, "labs": {}, "mocks": [], **kept})
