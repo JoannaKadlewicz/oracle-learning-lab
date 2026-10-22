@@ -204,5 +204,9 @@
 
   "Learning plan": "Plan nauki",
   "Mistakes": "Błędy",
-  "Progress": "Postępy"
+  "Progress": "Postępy",
+  "{name} must be a whole number.": "{name} musi być liczbą całkowitą.",
+  "{name} must be between 0 and {max}.": "{name} musi mieścić się w przedziale od 0 do {max}.",
+  "The classic Oracle SQL certification, on Oracle Database 19c.": "Klasyczny certyfikat Oracle SQL, na Oracle Database 19c.",
+  "The new Oracle AI Database SQL Associate exam, on Oracle 23ai.": "Nowy egzamin Oracle AI Database SQL Associate, na Oracle 23ai."
 }

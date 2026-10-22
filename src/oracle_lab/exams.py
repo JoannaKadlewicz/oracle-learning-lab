@@ -27,6 +27,8 @@ class Exam:
     minutes: int
     passing_pct: int
     about: str
+    title: str = ""  # the workspace's name in the picker and the switcher
+    tile: str = ""  # one line on the workspace's tile
 
     @property
     def database_env(self) -> str:
@@ -38,6 +40,7 @@ class Exam:
             "database": self.database_label, "database_env": self.database_env,
             "versions": list(self.versions), "questions": self.questions, "minutes": self.minutes,
             "passing_pct": self.passing_pct, "about": self.about,
+            "title": self.title or self.name, "tile": self.tile,
         }
 
 
@@ -47,12 +50,16 @@ EXAMS: dict[str, Exam] = {
         database=DEFAULT_DATABASE, database_label="Oracle Database 19c", fallback=None,
         versions=(19, 23), pack="oracle-sql", questions=63, minutes=120, passing_pct=63,
         about="Tests Oracle Database 19c behavior. Questions whose answer changed in 23ai "
-              "are shown on this exam only."),
+              "are shown on this exam only.",
+        title="Oracle SQL · 1Z0-071",
+        tile="The classic Oracle SQL certification, on Oracle Database 19c."),
     "1Z0-171": Exam(
         code="1Z0-171", name="Oracle AI Database SQL Associate", product="Oracle", engine="oracle",
         database="23ai", database_label="Oracle AI Database 23ai", fallback=DEFAULT_DATABASE,
         versions=(23, None), pack="oracle-sql", questions=60, minutes=120, passing_pct=65,
-        about="Tests the same SQL on Oracle 23ai and adds topic 15, the SQL features new in 23ai."),
+        about="Tests the same SQL on Oracle 23ai and adds topic 15, the SQL features new in 23ai.",
+        title="Oracle SQL · 1Z0-171",
+        tile="The new Oracle AI Database SQL Associate exam, on Oracle 23ai."),
 }
 DEFAULT_EXAM = "1Z0-071"
 

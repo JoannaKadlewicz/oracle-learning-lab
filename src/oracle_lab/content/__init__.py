@@ -199,7 +199,7 @@ def _names(kind: str, names: dict[str, str], pack: Pack, lang: str) -> dict[str,
 def public_exam(exam: exams.Exam, lang: str = "en") -> dict:
     """The exam facts for the front end, the about text in `lang`."""
     facts = exam.public()
-    return {**facts, "about": translate(lang, facts["about"])}
+    return {**facts, "about": translate(lang, facts["about"]), "tile": translate(lang, facts["tile"])}
 
 
 def home_notes(pack: Pack, lang: str = "en") -> list[dict]:
