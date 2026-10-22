@@ -56,6 +56,17 @@ function bold(text, value) {
   return at < 0 ? esc(text) : `${esc(text.slice(0, at))}<b>${esc(s)}</b>${esc(text.slice(at + s.length))}`;
 }
 
+/** The kind of a session step, as a small labelled chip before its title: Quiz, Flashcards or Exercise. */
+const stepKind = (kind, label) => `<span class="step-kind kind-${kind}">${icon(kind === "lab" ? "exercise" : kind)}${esc(label)}</span>`;
+
+/** The flashcard step's title: what kind of cards are left, without a "0 due". */
+function cardsTitle(plan, left, due, fresh) {
+  if (!plan.cards.length) return t("Nothing due today");
+  if (!left.length) return tn(plan.cards.length, "{n} card reviewed", "{n} cards reviewed");
+  if (due && fresh) return t("{due} to review · {fresh} new", { due, fresh });
+  return fresh ? tn(fresh, "Learn {n} new card", "Learn {n} new cards") : tn(due, "Review {n} card", "Review {n} cards");
+}
+
 function render() {
   const plan = P.plan;
   const miss = mistakes().length;
@@ -114,25 +125,24 @@ function render() {
           style="--done: ${total ? finished / total : 0}"></div>
         <ol class="session-steps">
           <li><a href="/quiz" data-start="questions" class="${questionsDone ? "done" : ""}">
-            <strong>${esc(tn(plan.questions.length, "Answer {n} question", "Answer {n} questions"))}</strong>
+            <strong>${stepKind("quiz", t("Quiz"))}<span>${esc(tn(plan.questions.length, "Answer {n} question", "Answer {n} questions"))}</span></strong>
             <small>${esc(questionsDone ? t("All answered") : done.questions.length
               ? t("{done} of {total} answered", { done: done.questions.length, total: plan.questions.length })
-              : t("Open mistakes, due reviews and your weakest objectives"))}</small>
+              : t("Mistakes and due reviews first, then weak spots"))}</small>
             <span class="minutes">${questionsDone ? "" : esc(t("{n} min", { n: questionMinutes }))}</span></a></li>
           <li><a href="/cards" data-start="cards" class="${cardsDone ? "done" : ""}" ${plan.cards.length ? "" : `aria-disabled="true" tabindex="-1"`}>
-            <strong>${esc(cardsLeft.length ? t("Review {due} due · {fresh} new", { due: cardsDue, fresh: cardsNew })
-              : plan.cards.length ? tn(plan.cards.length, "Review {n} flashcard", "Review {n} flashcards") : t("No flashcards due today"))}</strong>
+            <strong>${stepKind("cards", t("Flashcards"))}<span>${esc(cardsTitle(plan, cardsLeft, cardsDue, cardsNew))}</span></strong>
             <small>${esc(cardsDone ? t("All reviewed") : done.cards.length ? t("{done} of {total} reviewed", { done: done.cards.length, total: plan.cards.length })
-              : plan.cards.length ? t("Spaced by how well you know them") : t("Come back tomorrow, or study a topic deck"))}</small>
+              : plan.cards.length ? t("Each card comes back just before you would forget it") : t("Come back tomorrow, or study a topic deck"))}</small>
             <span class="minutes">${cardsLeft.length ? esc(t("{n} min", { n: cardMinutes })) : ""}</span></a></li>
           ${locked ? `<li><a href="/exercises/${esc(lab.id)}" class="locked">
-            <strong>${esc(t("Exercise: {title}", { title: lab.title }))} ${premiumTag()}</strong>
-            <small>${esc(t("Read it now; running SQL needs a premium account"))}</small>
+            <strong>${stepKind("lab", t("Exercise"))}<span>${esc(lab.title)}</span>${premiumTag()}</strong>
+            <small>${esc(t("Read the task and solution; running SQL is Premium"))}</small>
             <span class="minutes"></span></a></li>` : ""}
           ${counted ? `<li><a href="/exercises/${esc(lab.id)}" class="${done.lab ? "done" : ""}">
-            <strong>${esc(t("Exercise: {title}", { title: lab.title }))}</strong>
+            <strong>${stepKind("lab", t("Exercise"))}<span>${esc(lab.title)}</span></strong>
             <small>${esc(done.lab ? t("Passed") : S.labs[lab.id]?.passed ? t("Passed before: a second go keeps it fresh")
-              : t("{topic}, one of your weakest objectives", { topic: topicLabel(lab.topic) }))}</small>
+              : t("{topic} · a weak spot, checked automatically", { topic: topicLabel(lab.topic) }))}</small>
             <span class="minutes">${done.lab ? "" : esc(t("{n} min", { n: 8 }))}</span></a></li>` : ""}
         </ol>
         <div class="session-foot">

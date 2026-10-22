@@ -68,8 +68,9 @@
   background: var(--card-paper);
 }
 .session-steps a.done::before { content: "✓"; background: var(--card-ink); color: var(--card-paper); }
-.session-steps a.done strong { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--card-margin); color: var(--card-muted); }
-.session-steps a.done:hover strong { text-decoration: line-through; }
+.session-steps a.done strong { color: var(--card-muted); }
+.session-steps a.done strong > span:not(.step-kind),
+.session-steps a.done:hover strong > span:not(.step-kind) { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--card-margin); }
 
 /* Progress drawn over the red header line, like a highlighter stroke; out of the flow so the ruling holds */
 .session-progress {
@@ -110,10 +111,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.session-steps strong { font-size: 17.5px; font-weight: 700; }
+.session-steps strong { font-size: 17.5px; font-weight: 700; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.session-steps strong > span:not(.step-kind):not(.premium-tag) { overflow: hidden; text-overflow: ellipsis; }
+
+/* What kind of challenge a step is: one colour per kind, the same in light and dark (the card is always paper). */
+.step-kind { display: inline-flex; align-items: center; gap: 5px; flex: none; width: 10.4em; justify-content: center;
+  font: 750 11px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px;
+  color: var(--kind); background: color-mix(in srgb, var(--kind) 11%, var(--card-paper)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kind) 28%, transparent); }
+.step-kind svg { width: 13px; height: 13px; flex: none; }
+.kind-quiz { --kind: var(--card-link); }
+.kind-cards { --kind: var(--card-good); }
+.kind-lab { --kind: #8A5A00; }
+.session-steps a.done .step-kind { opacity: .6; }
 .session-steps small { grid-column: 1; font-size: var(--t-s); color: var(--card-muted); }
 .session-steps .minutes { grid-column: 2; grid-row: 1; line-height: var(--line); font-size: var(--t-s); color: var(--card-muted); font-variant-numeric: tabular-nums; }
-.session-steps a:hover strong { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; text-decoration-color: var(--card-margin); }
+.session-steps a:hover strong > span:not(.step-kind) { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; text-decoration-color: var(--card-margin); }
 .session-steps a:focus-visible { outline-offset: -2px; }
 .session-steps a[aria-disabled="true"] { opacity: .55; pointer-events: none; }
 .session-foot {
@@ -237,4 +249,4 @@
 /* An exercise a free account can read but not run: listed, but not a step to finish. */
 .session-steps a.locked::before { border-style: dashed; border-color: var(--card-muted); color: var(--card-muted); }
 .session-steps a.locked strong { color: var(--card-muted); }
-.session-steps a.locked .premium-tag { margin-left: 6px; color: #8A5A00; background: #FCF0D4; }
+.session-steps a.locked .premium-tag { flex: none; color: #8A5A00; background: #FCF0D4; }
