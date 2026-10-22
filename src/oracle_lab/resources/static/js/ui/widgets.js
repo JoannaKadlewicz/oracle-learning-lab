@@ -1,6 +1,6 @@
 /* Small HTML builders shared by views. */
 
-import { esc } from "../core/dom.js";
+import { esc, icon } from "../core/dom.js";
 import { t, tn } from "../core/i18n.js";
 
 /** The mastery level's name: new, weak, learning or strong. */
@@ -42,3 +42,10 @@ export function empty(title, text = "", action = "") {
 }
 
 export const loading = text => `<p class="loading">${esc(text)}</p>`;
+
+/** The small lock that marks what free accounts can see but not use. */
+export const premiumTag = () => `<span class="premium-tag" title="${esc(t("Premium: not included in free accounts"))}">${icon("lock")}<span>${esc(t("Premium"))}</span></span>`;
+
+/** The banner on a page whose SQL a free account cannot run: the page stays readable, the buttons stay off. */
+export const premiumCallout = () => `<div class="callout premium-callout">${icon("lock")}<p><strong>${esc(t("SQL is a premium feature"))}</strong>
+  ${esc(t("Free accounts can read the exercises and the SQL lab, but not run queries. Ask an admin to upgrade your account to Learner."))}</p></div>`;

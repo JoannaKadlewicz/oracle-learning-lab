@@ -420,3 +420,11 @@ pre.code code { font-size: inherit; background: none; border: 0; padding: 0; }
 }
 .lang-switch button:hover { color: var(--ink); }
 .lang-switch button[aria-pressed="true"] { background: var(--paper); color: var(--ink); font-weight: 650; box-shadow: var(--shadow-s), 0 0 0 1px var(--rule); }
+
+/* Premium: what free accounts see but cannot use. */
+.premium-tag { display: inline-flex; align-items: center; gap: 4px; font: 700 11px/1 var(--font); letter-spacing: .02em;
+  text-transform: uppercase; color: var(--warn); background: var(--warn-bg); padding: 3px 7px 3px 6px; border-radius: 999px;
+  vertical-align: middle; white-space: nowrap; }
+.premium-tag svg { width: 12px; height: 12px; flex: none; }
+.premium-callout { display: flex; gap: 12px; align-items: flex-start; border-left-color: var(--warn); margin-bottom: 20px; }
+.premium-callout svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--warn); }

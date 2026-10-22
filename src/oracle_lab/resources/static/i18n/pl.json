@@ -779,10 +779,15 @@
   "Flashcards, quizzes, progress and notes. No SQL.": "Fiszki, quizy, postępy i notatki. Bez SQL.",
   "Free": "Darmowy",
   "Change the role of {who} to {role}?": "Zmienić rolę {who} na: {role}?",
-  "Not included in your account": "Niedostępne w Twoim koncie",
   "Role of {email}": "Rola konta {email}",
   "They keep their progress and can use everything except the admin page.": "Postępy zostają. Konto ma dostęp do wszystkiego poza stroną administracji.",
   "They keep their progress, but can't run SQL in the SQL lab or the exercises.": "Postępy zostają, ale konto nie może uruchamiać SQL w laboratorium SQL ani w ćwiczeniach.",
-  "Your account doesn't include SQL practice. Ask an admin for learner access.": "Twoje konto nie obejmuje ćwiczeń z SQL. Poproś administratora o rolę „Uczący się”.",
-  "{who} is now {role}.": "{who}: nowa rola to {role}."
+  "{who} is now {role}.": "{who}: nowa rola to {role}.",
+  "Free accounts can read the exercises and the SQL lab, but not run queries. Ask an admin to upgrade your account to Learner.": "Konto darmowe może przeglądać ćwiczenia i laboratorium SQL, ale nie uruchamia zapytań. Poproś administratora o zmianę roli na „Uczący się”.",
+  "Passed before: a second go keeps it fresh": "Zaliczone wcześniej: powtórka utrwali wiedzę",
+  "Premium": "Premium",
+  "Premium: not included in free accounts": "Premium: niedostępne w koncie darmowym",
+  "Read it now; running SQL needs a premium account": "Możesz je przeczytać; uruchamianie SQL wymaga konta premium",
+  "Running SQL is a premium feature, not included in free accounts.": "Uruchamianie SQL to funkcja premium, niedostępna w koncie darmowym.",
+  "SQL is a premium feature": "SQL to funkcja premium"
 }

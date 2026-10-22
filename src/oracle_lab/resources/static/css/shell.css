@@ -250,3 +250,6 @@ html.i18n-pending body { visibility: hidden; animation: i18n-reveal 0s 2s forwar
 .account-name { grid-area: name; font-weight: 650; font-size: var(--t-s); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-email { grid-area: email; color: var(--muted); font-size: var(--t-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account .btn { grid-area: out; }
+
+.nav a .premium-tag { margin-left: auto; }
+.nav a .premium-tag svg { width: 12px; height: 12px; color: inherit; }

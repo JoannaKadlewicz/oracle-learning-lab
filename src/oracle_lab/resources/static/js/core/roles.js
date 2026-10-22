@@ -16,4 +16,5 @@ export const roleSummary = role => ({
 
 /** Free accounts get neither the SQL lab nor the exercises. */
 export const canRunSql = user => user?.role !== "free";
+/** The pages a free account sees locked. */
 export const SQL_VIEWS = ["exercises", "lab"];

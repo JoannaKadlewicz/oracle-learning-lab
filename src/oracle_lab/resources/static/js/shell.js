@@ -11,6 +11,7 @@ import { C, P, mistakes, apply, loadContent, setDatabase, sqlOff } from "./core/
 import { route, currentView, refresh, onRoute } from "./core/router.js";
 import { toast, toastError, confirmDialog } from "./ui/feedback.js";
 import { setSchema } from "./ui/editor.js";
+import { premiumTag } from "./ui/widgets.js";
 import { examPicker } from "./ui/exam-picker.js";
 
 let onExamChange = () => {};
@@ -115,7 +116,9 @@ export function initShell({ onExamChange: handler }) {
   $("#account-email").textContent = user.email;
   $("#rail-account").title = user.email;
   $("#nav-admin").hidden = user.role !== "admin";
-  for (const view of SQL_VIEWS) $(`#rail a[data-view="${view}"]`).parentElement.hidden = !canRunSql(user);
+  if (!canRunSql(user)) {
+    for (const view of SQL_VIEWS) $(`#rail a[data-view="${view}"]`).insertAdjacentHTML("beforeend", premiumTag());
+  }
   $("#sign-out").addEventListener("click", signOut);
   wireLanguageSwitch($("#rail-lang"));
   onRoute(refreshNav);

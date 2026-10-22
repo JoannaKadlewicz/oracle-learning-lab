@@ -305,9 +305,37 @@ def due_reviews(content, state, now):
 
 # --------------------------------------------------------------------------- daily plan
 
+MIN_PLAN_CARDS = 3  # a session always has a few flashcards, even with nothing due
+
+
+def _plan_cards(content, state, now, budget):
+    """Due and new flashcards within the budget, topped up to MIN_PLAN_CARDS with the reviewed ones due soonest."""
+    queue = card_queue(content, state, now)
+    cards = (queue["due"] + queue["new"])[:max(budget, MIN_PLAN_CARDS)]
+    if len(cards) < MIN_PLAN_CARDS:
+        reviewed = state.get("cards", {})
+        ahead = sorted((card_schedule(reviewed[c["id"]])["due"], c["id"]) for c in content.FLASHCARDS
+                       if c["id"] in reviewed and c["id"] not in cards)
+        cards += [cid for _, cid in ahead[:MIN_PLAN_CARDS - len(cards)]]
+    return cards
+
+
+def _plan_lab(content, state, now):
+    """The exercise of the session: an open one from the weakest objective; with all passed, the one passed longest ago."""
+    labs = state.get("labs", {})
+    open_labs = [lab for lab in content.LABS if not labs.get(lab["id"], {}).get("passed")]
+    if open_labs:
+        by_objective, _ = mastery(content, state, now)
+        return min(open_labs, key=lambda lab: (by_objective[lab["objective"]]["estimate"], lab["id"]))["id"]
+    if content.LABS:
+        return min(content.LABS, key=lambda lab: (labs.get(lab["id"], {}).get("t", 0), lab["id"]))["id"]
+    return None
+
+
 def daily_plan(content, state, now, rng=random, sql_available=True):
-    """Today's session, sized to the daily minutes: due flashcards (a quarter of the time),
-    one lab from the weakest objective when there is time (none without SQL practice), and the rest as practice questions."""
+    """Today's session, sized to the daily minutes: due flashcards (a quarter of the time, at least a few), one
+    exercise from the weakest objective, and the rest as practice questions (at least five). Without SQL practice the
+    exercise is still shown, but `lab_locked`: it takes no time and the session is complete without it."""
     settings = state.get("settings", {})
     minutes = settings.get("daily_minutes") or DEFAULT_DAILY_MINUTES
     today = local_day(now)
@@ -315,18 +343,11 @@ def daily_plan(content, state, now, rng=random, sql_available=True):
     if settings.get("exam_date"):
         days_left = (datetime.date.fromisoformat(settings["exam_date"]) - today).days
 
-    queue = card_queue(content, state, now)
-    card_budget = int(minutes * 0.25 / MINUTES["card"])
-    cards = (queue["due"] + queue["new"])[:card_budget]
-
+    cards = _plan_cards(content, state, now, int(minutes * 0.25 / MINUTES["card"]))
     left = minutes - len(cards) * MINUTES["card"]
-    lab = None
-    if left >= 20 and sql_available:
-        by_objective, _ = mastery(content, state, now)
-        open_labs = [lab for lab in content.LABS if not state.get("labs", {}).get(lab["id"], {}).get("passed")]
-        if open_labs:
-            lab = min(open_labs, key=lambda lab: (by_objective[lab["objective"]]["estimate"], lab["id"]))["id"]
-            left -= MINUTES["lab"]
+    lab = _plan_lab(content, state, now)
+    lab_minutes = MINUTES["lab"] if lab and sql_available else 0
+    left -= lab_minutes
     questions = pick_questions(content, state, now, max(5, int(left / MINUTES["question"])), rng=rng)
 
     answered = len(state.get("attempts", {}))
@@ -344,8 +365,8 @@ def daily_plan(content, state, now, rng=random, sql_available=True):
         "cards": cards,
         "questions": questions,
         "lab": lab,
-        "estimate": round(len(cards) * MINUTES["card"] + len(questions) * MINUTES["question"]
-                          + (MINUTES["lab"] if lab else 0)),
+        "lab_locked": bool(lab) and not sql_available,
+        "estimate": round(len(cards) * MINUTES["card"] + len(questions) * MINUTES["question"] + lab_minutes),
         "advice": advice,
     }
 
@@ -381,7 +402,7 @@ def todays_plan(content, state, now, sql_available=True):
     lab_done = bool(lab.get("passed") and lab.get("t", 0) >= start)
     plan["done"] = {"questions": questions, "cards": reviewed, "lab": lab_done}
     plan["complete"] = (len(questions) == len(plan["questions"]) and len(reviewed) == len(plan["cards"])
-                        and (lab_done or not plan["lab"]))
+                        and (lab_done or not plan["lab"] or plan["lab_locked"]))
     return plan
 
 

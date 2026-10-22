@@ -233,3 +233,8 @@
   .session-foot .session-stamp { margin-right: auto; padding: 0 8px; font-size: var(--t-xs); letter-spacing: .03em; }
   .fact-value { font-size: 42px; }
 }
+
+/* An exercise a free account can read but not run: listed, but not a step to finish. */
+.session-steps a.locked::before { border-style: dashed; border-color: var(--card-muted); color: var(--card-muted); }
+.session-steps a.locked strong { color: var(--card-muted); }
+.session-steps a.locked .premium-tag { margin-left: 6px; color: #8A5A00; background: #FCF0D4; }

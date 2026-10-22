@@ -113,7 +113,7 @@ accounts table, or Manage → Change role):
 | --- | --- |
 | Administrator | everything, including the Admin page |
 | Learner | everything except the Admin page |
-| Free | flashcards, quizzes, mistakes, progress and notes; no SQL lab or exercises (the server refuses them). The default for new accounts, which get a practice schema only once promoted |
+| Free | flashcards, quizzes, mistakes, progress and notes; the SQL lab and exercises are shown locked as premium (readable, but the server refuses to run SQL). The default for new accounts, which get a practice schema only once promoted |
 
 The full list, with validation, is in [src/oracle_lab/config.py](src/oracle_lab/config.py).
 

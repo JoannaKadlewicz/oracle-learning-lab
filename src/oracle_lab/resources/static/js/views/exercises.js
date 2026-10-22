@@ -9,7 +9,8 @@ import { C, S, P, L, DB, apply, loadProgress, topicLabel, needsNewerDb, sqlOff, 
 import { main, go, setTitle } from "../core/router.js";
 import { currentUser } from "../core/session.js";
 import { confirmDialog } from "../ui/feedback.js";
-import { pageHead, loading } from "../ui/widgets.js";
+import { pageHead, loading, premiumCallout } from "../ui/widgets.js";
+import { canRunSql } from "../core/roles.js";
 import { makeEditor } from "../ui/editor.js";
 import { gridHtml, explainHtml, diffHtml, resultsHtml, errorBox } from "../ui/sql.js";
 
@@ -77,6 +78,7 @@ function render(arg) {
 
   main.innerHTML = `
     ${pageHead(esc(t("Exercises")), esc(t("Your SQL and the reference solution both run on the database, and the results are compared. {passed} of {total} passed.", { passed: passedCount, total: C.labs.length })))}
+    ${canRunSql(currentUser()) ? "" : premiumCallout()}
     <label class="list-picker field"><span>${esc(t("Exercise"))}</span><select id="ex-picker">${pickerHtml(shown, lab)}</select></label>
     <div class="split">
       <nav class="split-list" aria-label="${esc(t("Exercises"))}">
