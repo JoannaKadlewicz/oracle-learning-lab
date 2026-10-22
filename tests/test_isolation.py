@@ -16,7 +16,8 @@ PRIVATE = [("GET", "/api/state"), ("GET", "/api/progress"), ("GET", "/api/conten
            ("GET", "/report"),
            ("POST", "/api/attempt"), ("POST", "/api/card"), ("POST", "/api/settings"), ("POST", "/api/pick"),
            ("POST", "/api/reset-progress"), ("GET", "/api/mock"), ("POST", "/api/mock/start"), ("GET", "/api/notes"),
-           ("GET", "/api/note"), ("POST", "/api/notes/save"), ("GET", "/api/workspaces"), ("POST", "/api/workspaces/choose"), ("POST", "/api/run"), ("POST", "/api/grade"),
+           ("GET", "/api/note"), ("POST", "/api/notes/save"), ("GET", "/api/workspaces"),
+           ("POST", "/api/workspaces/choose"), ("POST", "/api/run"), ("POST", "/api/grade"),
            ("GET", "/api/schema"), ("POST", "/api/reset-data"), ("POST", "/api/visualize"),
            # the rest of the route table: the remaining study and mock exam actions, the account endpoints
            ("POST", "/api/lab-solution"), ("POST", "/api/mock/answer"), ("POST", "/api/mock/submit"),

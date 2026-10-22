@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from oracle_lab.access.service import UnknownUser, WorkspaceService
+from oracle_lab.access.service import UnknownUserError, WorkspaceService
 from oracle_lab.auth.models import Principal
 from oracle_lab.i18n import Msg, message_of
 from oracle_lab.services.admin import AdminService
@@ -131,6 +131,6 @@ class AdminController:
         try:
             self.workspaces.set_access(require_admin(request), _string(data, "user_id"), data.get("workspace"),
                                        data.get("level"), **_meta(request))
-        except UnknownUser as exc:
+        except UnknownUserError as exc:
             raise HttpError(404, "Not found") from exc
         return Response.json(OK)

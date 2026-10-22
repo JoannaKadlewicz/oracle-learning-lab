@@ -19,7 +19,7 @@ ADMIN_TARGET = "Admins already have every workspace."
 NONE = "none"
 
 
-class UnknownUser(LookupError):
+class UnknownUserError(LookupError):
     """The admin named a user id that does not exist."""
 
 
@@ -68,7 +68,7 @@ class WorkspaceService:
             raise ValueError(Msg.of("Unknown access level: {level}", level=str(level)))
         user = self._stores.users.get(user_id)
         if user is None:
-            raise UnknownUser(user_id)
+            raise UnknownUserError(user_id)
         if user.role == "admin":
             raise ValueError(ADMIN_TARGET)
         if level == NONE:

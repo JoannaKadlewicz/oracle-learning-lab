@@ -122,7 +122,8 @@ def test_admin_api_over_http(serve):
     events = json.loads(owner("/api/admin/events?event=reset_link_created")[2])["events"]
     assert [e["event"] for e in events] == ["reset_link_created"]
     settings = json.loads(owner("/api/admin/settings")[2])
-    assert settings == {"registration_open": True, "max_users": 25, "users": 2}
+    assert settings == {"registration_open": True, "max_users": 25, "users": 2,
+                        "free_limits": {"questions": 20, "cards": 20, "topics": 2}}
 
 
 # --- the service -----------------------------------------------------------------------------------------------
@@ -148,7 +149,7 @@ def test_users_lists_methods_sessions_and_schemas(admin):
         {"key": "default", "status": "ready", "size_mb": 12.5, "error": None}]
     assert rows["u2"]["schemas"] == [{"key": "default", "status": "ready", "size_mb": None, "error": None}]
     assert set(rows["boss"]) == {"id", "email", "methods", "role", "status", "created_at", "last_login_at",
-                                 "sessions", "schemas"}
+                                 "sessions", "workspaces", "schemas"}
 
 
 def test_reset_link_works_once(serve):
@@ -290,7 +291,8 @@ def test_registration_settings_apply_immediately(serve):
                              headers={"Origin": anonymous.origin})
     assert status == 403
     owner("/api/admin/settings", {"open": True, "max_users": 2})
-    assert json.loads(owner("/api/admin/settings")[2]) == {"registration_open": True, "max_users": 2, "users": 1}
+    assert json.loads(owner("/api/admin/settings")[2]) == {"registration_open": True, "max_users": 2, "users": 1,
+                                                            "free_limits": {"questions": 20, "cards": 20, "topics": 2}}
     Client(server.port).sign_in("second@example.org")
     status, _, _ = anonymous("/api/auth/register", {"email": "third@example.org", "password": PASSWORD},
                              headers={"Origin": anonymous.origin})
