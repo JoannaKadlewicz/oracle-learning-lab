@@ -72,6 +72,7 @@ PUBLIC_PATHS = frozenset({
     "/login", "/register", "/reset", "/healthz",
     "/api/auth/login", "/api/auth/register", "/api/auth/reset", "/api/auth/config", "/api/auth/guest",
     "/auth/google/start", "/auth/google/callback", "/js/core/dom.js", "/js/core/i18n.js",
+    "/js/ui/tech-logos.js", "/js/ui/workspace-tiles.js",
 })
 PUBLIC_PREFIXES = ("/css/", "/js/auth/", "/i18n/")  # directories only; with PUBLIC_PATHS, all that the auth pages load
 _LOGGED_OUT_ONLY = ("/login", "/register")
@@ -107,6 +108,8 @@ class Authenticate:
             return call_next(replace(request, principal=principal))
         if path in self.public_paths or path.startswith(self.public_prefixes):
             return call_next(request)
+        if request.method == "GET" and path == "/":  # the landing page: sign in, or try a workspace as a guest
+            return call_next(replace(request, target="/login"))
         if request.method == "GET" and not path.startswith("/api/") and not PurePosixPath(path).suffix:
             return Response.redirect("/login?next=" + quote(safe_next(request.target), safe=""))
         raise HttpError(401, "Login required")

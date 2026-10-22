@@ -176,8 +176,8 @@ def test_throttled_login_returns_429_with_retry_after(serve):
 
 
 def test_auth_config(serve, tmp_path):
-    assert json.loads(serve()("/api/auth/config")[2]) | {"exams": None} == {
-        "google": False, "registration_open": True, "guests": True, "exams": None}
+    assert json.loads(serve()("/api/auth/config")[2]) | {"exams": None, "workspaces": None} == {
+        "google": False, "registration_open": True, "guests": True, "exams": None, "workspaces": None}
     closed = serve(settings_for(tmp_path, STUDY_REGISTRATION="closed", **GOOGLE_ENV), stores=memory_stores())
     config = json.loads(closed("/api/auth/config")[2])
     assert config["google"] is True and config["registration_open"] is False

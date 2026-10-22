@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from urllib.parse import quote
 
+from oracle_lab.access.service import workspace_facts
 from oracle_lab.auth.account_settings import AccountSettings
 from oracle_lab.auth.google import GoogleSignIn
 from oracle_lab.auth.guest import GuestAccess
@@ -54,12 +55,15 @@ def text(data: dict, name: str) -> str:
     return value
 
 
+
 class AuthController:
     def __init__(self, login: PasswordLogin, registration: Registration, policy: RegistrationPolicy,
                  account: AccountSettings, sessions: SessionManager, cookies: CookiePolicy,
                  google: GoogleSignIn | None, guests: GuestAccess | None = None,
-                 adopt: Callable[[str, str], None] = lambda guest_id, user_id: None):
+                 adopt: Callable[[str, str], None] = lambda guest_id, user_id: None,
+                 guest_workspace: Callable[[str, str], None] = lambda user_id, workspace: None):
         self.guests = guests
+        self.guest_workspace = guest_workspace
         self.adopt = adopt  # moves a guest's progress into the account created from its session
         self.login = login
         self.registration = registration
@@ -97,7 +101,10 @@ class AuthController:
         """"Try it without an account": a guest session (any earlier session cookie of this browser ends)."""
         if self.guests is None:
             raise HttpError(404, "Not found")
-        token, _ = self.guests.start(request.client, request.header("User-Agent"))
+        token, record = self.guests.start(request.client, request.header("User-Agent"))
+        workspace = request.json().get("workspace")
+        if isinstance(workspace, str) and workspace in EXAMS:  # a landing tile: straight into that workspace
+            self.guest_workspace(record.user_id, workspace)
         response = Response.json({"ok": True, "next": "/"})
         response.cookies.append(self.new_session_cookie(request, token))
         return response
@@ -131,11 +138,11 @@ class AuthController:
         principal = principal_of(request)
         return Response.json({"user": self.account.profile(principal), "csrf_token": principal.csrf_token})
 
-    def config(self, _: Request) -> Response:
+    def config(self, request: Request) -> Response:
         exams = [{"code": e.code, "database": e.database_label} for e in EXAMS.values()]
         return Response.json({"google": self.google is not None, "registration_open": self.policy.is_open(),
                               "guests": self.guests is not None and self.guests.allowed(),
-                              "exams": exams})
+                              "exams": exams, "workspaces": workspace_facts(request.language)})
 
     def reset(self, request: Request) -> Response:
         data = request.json()

@@ -250,3 +250,6 @@
 .session-steps a.locked::before { border-style: dashed; border-color: var(--card-muted); color: var(--card-muted); }
 .session-steps a.locked strong { color: var(--card-muted); }
 .session-steps a.locked .premium-tag { flex: none; color: #8A5A00; background: #FCF0D4; }
+
+.next-list .premium-tag { font-size: 10px; padding: 2px 7px 2px 6px; margin-left: 6px; }
+.next-list .premium-tag svg { width: 11px; height: 11px; }

@@ -1,0 +1,88 @@
+/* Workspace tiles: the landing page and the first-visit picker. A tile is a card with the technology's logo on
+   its brand-coloured badge, a faint brand glow, the facts and one action. Shared: both pages link this file. */
+
+.ws-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 18px; }
+
+.ws-tile {
+  --brand: var(--link);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  padding: 22px 22px 20px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 60%),
+    var(--paper);
+  border: 1.5px solid color-mix(in srgb, var(--brand) 22%, var(--rule));
+  border-radius: var(--r-l);
+  cursor: pointer;
+  transition: border-color .18s, transform .14s, box-shadow .18s;
+}
+/* The logo again, large and faint, as a watermark in the corner. */
+.ws-tile::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: -28px;
+  bottom: -34px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand) 9%, transparent);
+}
+button.ws-tile:hover { border-color: var(--brand); transform: translateY(-3px);
+  box-shadow: 0 18px 36px -20px color-mix(in srgb, var(--brand) 85%, transparent); }
+button.ws-tile:focus-visible { outline: 3px solid color-mix(in srgb, var(--focus) 45%, transparent); outline-offset: 2px; }
+
+.ws-tile-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.ws-tile-db { font-size: var(--t-s); font-weight: 650; color: var(--muted); }
+.ws-tile-title { font-size: 21px; font-weight: 750; letter-spacing: -.01em; }
+.ws-tile-text { color: var(--ink-2); line-height: 1.5; }
+.ws-stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; padding: 0; list-style: none; }
+.ws-stats li { font-size: var(--t-xs); font-weight: 600; color: var(--ink-2); padding: 3px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 9%, var(--paper-2)); }
+.ws-tile-action { margin-top: 6px; font-weight: 700; color: var(--brand); filter: saturate(1.1) brightness(1.15); }
+button.ws-tile:hover .ws-tile-action span { display: inline-block; transform: translateX(3px); transition: transform .15s; }
+
+.logo-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  color: var(--brand-ink);
+  background: var(--brand);
+  box-shadow: 0 6px 16px -8px var(--brand), inset 0 0 0 1px color-mix(in srgb, #fff 18%, transparent);
+}
+.logo-badge svg { width: 26px; height: 26px; fill: currentColor; }
+.logo-badge.small { width: 36px; height: 36px; border-radius: 10px; }
+.logo-badge.small svg { width: 20px; height: 20px; }
+
+.ws-soon-title { margin: 44px 0 14px; font-size: var(--t-m); color: var(--muted); font-weight: 700; letter-spacing: .02em; }
+.ws-grid-soon { grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: 12px; }
+.ws-soon { cursor: default; padding: 16px 16px 18px; gap: 4px; filter: grayscale(.55); opacity: .75; }
+.ws-soon::after { display: none; }
+.ws-soon .ws-tile-title { font-size: 16px; }
+.ws-soon .ws-tile-text { font-size: var(--t-s); color: var(--muted); }
+.ws-ribbon { margin-left: auto; white-space: nowrap; font: 700 10px/1 var(--font); letter-spacing: .06em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px; color: var(--warn); background: var(--warn-bg); }
+
+@media (max-width: 600px) {
+  .ws-grid-soon { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ws-soon .ws-tile-text { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .ws-tile, .ws-tile * { transition: none !important; } button.ws-tile:hover { transform: none; } }
+
+/* The small badge of the "Preparing for" picker in the app's rail. */
+.logo-badge.tiny { width: 28px; height: 28px; border-radius: 8px; box-shadow: none; }
+.logo-badge.tiny svg { width: 16px; height: 16px; }
+.exam-picker-button { gap: 10px; }
+.exam-picker-option-title { display: flex; align-items: center; gap: 8px; }
+.exam-picker-option-title .logo-badge.tiny { width: 20px; height: 20px; border-radius: 6px; }
+.exam-picker-option-title .logo-badge.tiny svg { width: 12px; height: 12px; }

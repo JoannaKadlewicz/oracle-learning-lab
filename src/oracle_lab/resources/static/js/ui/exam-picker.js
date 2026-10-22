@@ -3,6 +3,7 @@
    the active option. The open list is position: fixed so the scrolling rail cannot clip it. */
 
 import { esc, icon } from "../core/dom.js";
+import { logoBadge } from "./workspace-tiles.js";
 import { t } from "../core/i18n.js";
 
 const TYPEAHEAD_MS = 500;
@@ -163,6 +164,7 @@ function buttonHtml(id, cur) {
   return `<button type="button" class="exam-picker-button" id="${id}-button" role="combobox"
       aria-haspopup="listbox" aria-expanded="false" aria-controls="${id}-list"
       aria-labelledby="exam-switch-label ${id}-button">
+    ${logoBadge(cur.logo, "tiny")}
     <span class="exam-picker-value">
       <span class="exam-picker-code">${esc(cur.code)}</span>
       <span class="exam-picker-db">${esc(cur.database)}</span>
@@ -186,7 +188,7 @@ function listHtml(id, exams, current, locked) {
 function optionHtml(id, x, current, locked) {
   const selected = x.code === current;
   return `<li role="option" id="${id}-${esc(x.code)}" data-exam="${esc(x.code)}" aria-selected="${selected}"${locked ? ` aria-disabled="true" class="locked"` : ""}>
-    <span class="exam-picker-option-title"><span class="exam-picker-code">${esc(x.code)}</span> ${esc(x.name)}</span>
+    <span class="exam-picker-option-title">${logoBadge(x.logo, "tiny")}<span class="exam-picker-code">${esc(x.code)}</span> ${esc(x.name)}</span>
     <span class="exam-picker-option-meta">${locked ? `${icon("lock")} ${esc(t("Pro plan"))}`
       : esc(t("{database}, {questions} questions, {minutes} min", { database: x.database, questions: x.questions, minutes: x.minutes }))}</span>
     <svg class="exam-picker-tick" aria-hidden="true"><use href="#i-check"/></svg>

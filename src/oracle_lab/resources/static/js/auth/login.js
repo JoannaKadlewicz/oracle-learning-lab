@@ -1,5 +1,6 @@
 import { $ } from "/js/core/dom.js";
 import { t } from "/js/core/i18n.js";
+import { workspaceTile, soonTile, COMING_SOON } from "/js/ui/workspace-tiles.js";
 import { initAuthPage, postForm, getConfig, fillAbout, waitText, showError, setBusy, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
 
 await initAuthPage();
@@ -23,9 +24,29 @@ if (params.has("error")) showError(googleError(params.get("error")), { focus: fa
 
 getConfig().then(config => {
   $("#google").hidden = !config.google;
-  $(".auth-guest").hidden = config.guests === false;  // no guests while sign-up is closed
   fillAbout(config);
+  renderWorkspaces(config);
 });
+
+/** The workspaces to try: a tile starts a guest right inside it. While sign-up is closed (no guests) a tile asks
+    to sign in instead. */
+function renderWorkspaces(config) {
+  const guests = config.guests !== false;
+  $("#hero-try").hidden = !guests;
+  $("#landing-tiles").innerHTML = (config.workspaces || [])
+    .map(w => workspaceTile(w, guests ? t("Try it without an account") : t("Sign in to start"))).join("");
+  $("#landing-soon").innerHTML = COMING_SOON().map(soonTile).join("");
+  $("#landing-tiles").addEventListener("click", async event => {
+    const tile = event.target.closest("[data-workspace]");
+    if (!tile) return;
+    if (!guests) { $("#email").focus(); return; }
+    tile.disabled = true;
+    const result = await postForm("/api/auth/guest", { workspace: tile.dataset.workspace });
+    if (result.ok) return location.assign("/");
+    tile.disabled = false;
+    showError(result.retryAfter ? waitText(result.retryAfter) : result.error);
+  });
+}
 
 form.addEventListener("submit", async event => {
   event.preventDefault();
@@ -38,9 +59,3 @@ form.addEventListener("submit", async event => {
   showError([result.error, result.status === 429 ? waitText(result.retryAfter) : ""].filter(Boolean).join(" "));
 });
 
-// "Try it without an account": a guest session, then the app (which asks for a workspace first).
-$("#try-guest").addEventListener("click", async () => {
-  const result = await postForm("/api/auth/guest", {});
-  if (result.ok) location.assign("/");
-  else showError(result.retryAfter ? waitText(result.retryAfter) : result.error);
-});

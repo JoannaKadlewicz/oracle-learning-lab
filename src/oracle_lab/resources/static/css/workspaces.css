@@ -1,52 +1,9 @@
-/* The first-visit workspace picker: the whole window, tiles in a responsive grid. */
+/* The first-visit workspace picker: the whole window, tiles (tiles.css) in a responsive grid. */
 
 body.picking .rail, body.picking .topbar, body.picking .scrim { display: none; }
 body.picking .shell { grid-template-columns: minmax(0, 1fr); }
 
-.ws-pick { max-width: 980px; margin: 0 auto; padding: 56px 0 72px; }
+.ws-pick { max-width: 1040px; margin: 0 auto; padding: 56px 0 72px; }
 .ws-pick h1 { font-size: clamp(30px, 4vw, 42px); letter-spacing: -0.02em; margin: 0 0 12px; }
 .ws-pick-lead { max-width: 640px; color: var(--muted); font-size: var(--t-m); margin: 0 0 36px; }
-.ws-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 18px; }
-
-.ws-tile {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  text-align: left;
-  font: inherit;
-  color: var(--ink);
-  padding: 24px 24px 22px;
-  background: var(--paper);
-  border: 1.5px solid var(--rule);
-  border-radius: var(--r-l);
-  cursor: pointer;
-  transition: border-color .15s, transform .12s, box-shadow .15s;
-}
-.ws-tile:hover { border-color: var(--link); transform: translateY(-3px); box-shadow: 0 14px 30px -18px color-mix(in srgb, var(--link) 80%, transparent); }
-.ws-tile:focus-visible { outline: 3px solid color-mix(in srgb, var(--focus) 45%, transparent); outline-offset: 2px; }
-.ws-tile-icon { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 8px; border-radius: 12px;
-  color: var(--link); background: color-mix(in srgb, var(--link) 12%, var(--paper)); }
-.ws-tile-icon svg { width: 24px; height: 24px; }
-.ws-tile-title { font-size: 20px; font-weight: 750; }
-.ws-tile-engine { font-size: var(--t-s); font-weight: 600; color: var(--link); }
-.ws-tile-text { color: var(--ink-2); }
-.ws-tile-meta { margin-top: 8px; font-size: var(--t-xs); color: var(--muted); }
-
 @media (max-width: 600px) { .ws-pick { padding-top: 28px; } }
-
-.tech-logo { width: 26px; height: 26px; fill: currentColor; }
-.ws-soon-title { margin: 48px 0 14px; font-size: var(--t-m); color: var(--muted); font-weight: 700; letter-spacing: .02em; }
-.ws-grid-soon { grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: 14px; }
-.ws-soon { position: relative; overflow: hidden; cursor: default; opacity: .62; padding: 20px; }
-.ws-soon:hover { transform: none; box-shadow: none; border-color: var(--rule); }
-.ws-soon .ws-tile-icon { color: var(--muted); background: var(--paper-2); }
-.ws-soon .ws-tile-title { font-size: 17px; }
-.ws-soon .ws-tile-text { font-size: var(--t-s); color: var(--muted); }
-.ws-ribbon { position: absolute; top: 14px; right: 14px; font: 700 10px/1 var(--font); letter-spacing: .06em;
-  text-transform: uppercase; padding: 4px 8px; border-radius: 999px; color: var(--warn); background: var(--warn-bg); }
-@media (max-width: 600px) {
-  .ws-grid-soon { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .ws-soon { padding: 14px; }
-  .ws-soon .ws-tile-text { display: none; }
-  .ws-ribbon { position: static; justify-self: start; order: 3; }
-}

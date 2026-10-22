@@ -16,4 +16,5 @@
 @import url("dashboard.css") layer(views);
 @import url("notes.css") layer(views);
 @import url("admin.css") layer(views);
+@import url("tiles.css") layer(views);
 @import url("workspaces.css") layer(views);

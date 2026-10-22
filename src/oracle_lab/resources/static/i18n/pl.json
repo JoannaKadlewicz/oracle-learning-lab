@@ -924,5 +924,14 @@
   "Start with a free account: SQL exercises are free, the SQL lab is Pro": "Zacznij od darmowego konta: ćwiczenia SQL są za darmo, laboratorium SQL jest w Pro",
   "Start with a free account: SQL exercises are free, the SQL lab is Pro.": "Zacznij od darmowego konta: ćwiczenia SQL są za darmo, laboratorium SQL jest w Pro.",
   "The Pro plan adds the SQL lab, unlimited SQL exercises and more workspaces. Ask an admin to upgrade your account.": "Plan Pro dodaje laboratorium SQL, ćwiczenia SQL bez limitu i więcej workspace’ów. Poproś administratora o zmianę planu.",
-  "You're browsing as a guest": "Korzystasz jako gość"
+  "You're browsing as a guest": "Korzystasz jako gość",
+  "Choose what to learn": "Wybierz, czego chcesz się uczyć",
+  "Exam-style quizzes, spaced-repetition flashcards and real SQL exercises checked on a live database. Free to start.": "Quizy jak na egzaminie, fiszki z powtórkami w odstępach i prawdziwe ćwiczenia SQL sprawdzane na działającej bazie. Start za darmo.",
+  "Flashcards that come back just before you would forget": "Fiszki wracają tuż zanim zdążysz zapomnieć",
+  "Open any workspace now, without an account. Register later and your progress comes with you.": "Otwórz dowolny workspace od razu, bez konta. Zarejestruj się później, a postępy przejdą na konto.",
+  "Questions written like the real exam, with explanations": "Pytania jak na prawdziwym egzaminie, z wyjaśnieniami",
+  "SQL you write, run and grade on Oracle": "SQL, który piszesz, uruchamiasz i sprawdzasz na Oracle",
+  "Sign in to start": "Zaloguj się, aby zacząć",
+  "{n} min exam": "egzamin {n} min",
+  "{n} SQL exercises": ["{n} ćwiczenie SQL", "{n} ćwiczenia SQL", "{n} ćwiczeń SQL"]
 }

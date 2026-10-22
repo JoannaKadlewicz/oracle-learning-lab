@@ -40,7 +40,7 @@ class Exam:
             "database": self.database_label, "database_env": self.database_env,
             "versions": list(self.versions), "questions": self.questions, "minutes": self.minutes,
             "passing_pct": self.passing_pct, "about": self.about,
-            "title": self.title or self.name, "tile": self.tile,
+            "title": self.title or self.name, "tile": self.tile, "logo": self.engine,
         }
 
 

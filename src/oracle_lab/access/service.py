@@ -18,6 +18,24 @@ ALREADY_CHOSEN = "Your workspace is already chosen. Ask an admin to change it."
 ADMIN_TARGET = "Admins already have every workspace."
 
 
+_COUNTS: dict[str, dict[str, int]] = {}
+
+
+def workspace_facts(lang: str = "en") -> list[dict[str, Any]]:
+    """Every workspace as the tiles show it: facts, logo and how much material it has (counted once)."""
+    out = []
+    for code, exam in exams.EXAMS.items():
+        if code not in _COUNTS:
+            view = content.for_exam(code)
+            _COUNTS[code] = {"questions": len(view.QUESTIONS), "flashcards": len(view.FLASHCARDS),
+                             "exercises": len(view.LABS)}
+        facts = content.public_exam(exam, lang)
+        out.append({"code": code, "title": facts["title"], "tile": facts["tile"], "logo": exam.engine,
+                    "database": exam.database_label, "minutes": exam.minutes, "exam_questions": exam.questions,
+                    "counts": _COUNTS[code]})
+    return out
+
+
 class UnknownUserError(LookupError):
     """The admin named a user id that does not exist."""
 
@@ -37,12 +55,8 @@ class WorkspaceService:
     def overview(self, principal: Principal, saved: str | None, lang: str = "en") -> dict[str, Any]:
         """Every workspace with the user's level in it, and the one they are in (None: they must pick)."""
         rows = self._stores.access.for_user(principal.user_id)
-        workspaces = []
-        for code, exam in exams.EXAMS.items():
-            facts = content.public_exam(exam, lang)
-            workspaces.append({"code": code, "title": facts["title"], "tile": facts["tile"],
-                               "engine": exam.database_label, "logo": exam.engine, "questions": exam.questions,
-                               "level": policy.level_in(principal.role, rows, code)})
+        workspaces = [{**w, "engine": w["database"], "questions": w["exam_questions"],
+                       "level": policy.level_in(principal.role, rows, w["code"])} for w in workspace_facts(lang)]
         return {"current": policy.current_workspace(principal.role, rows, saved), "workspaces": workspaces}
 
     def choose(self, principal: Principal, workspace: Any, *, ip: str = "", user_agent: str = "") -> None:
