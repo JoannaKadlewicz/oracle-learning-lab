@@ -104,9 +104,13 @@ export function clearExplicitLanguage() {
 
 /** Fills the static texts of `root`: data-i18n="Text" replaces the element's text, and
     data-i18n-aria-label="Text" its aria-label. English is the text already in the HTML. */
+/** The product name the server put on the page (STUDY_APP_NAME). */
+export const appName = () => document.documentElement.dataset.appName || "Stepwise";
+
 export function translatePage(root = document) {
-  for (const el of root.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
-  for (const el of root.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel));
+  const params = { app: appName() };
+  for (const el of root.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n, params);
+  for (const el of root.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel, params));
 }
 
 let saveToAccount = null;

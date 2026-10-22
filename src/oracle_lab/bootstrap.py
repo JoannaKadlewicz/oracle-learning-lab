@@ -182,16 +182,16 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         Maintenance(stores, audit, clock).start()
 
     guard = RunGuard()
-    router = Router(fallback=StaticFiles(STATIC_DIR))
+    router = Router(fallback=StaticFiles(STATIC_DIR, app_name=settings.app_name))
     controllers = (
         HealthController(),
-        Pages(STATIC_DIR),
+        Pages(STATIC_DIR, settings.app_name),
         AuthController(PasswordLogin(stores, sessions, throttle, audit, clock), registration, registration_policy,
                        account, sessions, cookies, google),
         AccountController(account, cookies, deletion),
         AdminController(admin, workspaces),
         WorkspacesController(workspaces, contexts),
-        StudyController(contexts, clock, track_databases=catalog.has_track_databases),
+        StudyController(contexts, clock, track_databases=catalog.has_track_databases, app_name=settings.app_name),
         MockExamController(contexts, clock),
         SqlLabController(contexts, guard, clock),
         ExerciseController(contexts, guard, clock),

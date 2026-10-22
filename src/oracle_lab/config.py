@@ -25,6 +25,7 @@ they can live in secret files. Every variable is optional and has a development 
     STUDY_ADMIN_EMAIL                account that is made administrator (and receives the single-user progress)
     STUDY_ADMIN_PASSWORD[_FILE]      its initial password; without it (Google must be configured then) the
                                      account signing in with Google under that email becomes the admin
+    STUDY_APP_NAME                   the product name on every page (default Stepwise, a working name)
     STUDY_REGISTRATION               open (default) or closed: may new users sign up
     STUDY_MAX_USERS                  cap on accounts (default 25)
     STUDY_PROVISIONER_USER           Oracle user that creates and drops practice schemas; with
@@ -106,6 +107,7 @@ class Settings:
     init_timeout: float
     call_timeout_ms: int
     log_level: str
+    app_name: str = "Stepwise"
 
     @property
     def personal_notes_dir(self) -> Path:
@@ -163,6 +165,7 @@ class Settings:
             init_timeout=_integer(env, "STUDY_INIT_TIMEOUT", 600, minimum=0),
             call_timeout_ms=_integer(env, "STUDY_CALL_TIMEOUT_MS", 15000, minimum=1),
             log_level=_log_level(env),
+            app_name=(env.get("STUDY_APP_NAME") or "").strip() or "Stepwise",
         )
 
 

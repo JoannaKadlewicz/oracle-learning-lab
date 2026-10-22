@@ -24,10 +24,10 @@
   "{n} learner accounts": ["{n} konto ucznia", "{n} konta uczniów", "{n} kont uczniów"],
 
   "Language": "Język",
-  "Sign in · Oracle Learning Lab": "Zaloguj się · Oracle Learning Lab",
-  "Create account · Oracle Learning Lab": "Załóż konto · Oracle Learning Lab",
-  "Reset password · Oracle Learning Lab": "Zresetuj hasło · Oracle Learning Lab",
-  "Oracle Learning Lab, sign in": "Oracle Learning Lab, logowanie",
+  "Sign in · {app}": "Zaloguj się · {app}",
+  "Create account · {app}": "Załóż konto · {app}",
+  "Reset password · {app}": "Zresetuj hasło · {app}",
+  "{app}, sign in": "{app}, logowanie",
   "SQL certification prep": "Przygotowanie do certyfikacji SQL",
   "Basic SELECT": "Podstawowy SELECT",
   "Every 6 days": "Co 6 dni",
@@ -838,5 +838,6 @@
   "What a free workspace gets each day, and how many topics' lessons it can read.": "Ile dostaje darmowy workspace każdego dnia i z ilu tematów można czytać lekcje.",
   "Workspaces": "Workspace’y",
   "Workspaces of {who}": "Workspace’y: {who}",
-  "{who} can have one free workspace. {from} loses its free access.": "{who} może mieć jeden darmowy workspace. {from} traci darmowy dostęp."
+  "{who} can have one free workspace. {from} loses its free access.": "{who} może mieć jeden darmowy workspace. {from} traci darmowy dostęp.",
+  "Master data, one step at a time.": "Opanuj dane krok po kroku."
 }

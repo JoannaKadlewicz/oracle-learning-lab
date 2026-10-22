@@ -13,7 +13,8 @@ from oracle_lab.web.routing import Router
 class StudyController:
     """Content of the exam track, progress, quiz answers, flashcards, settings: all of the signed-in user."""
 
-    def __init__(self, contexts: UserContexts, clock: Clock, track_databases: bool):
+    def __init__(self, contexts: UserContexts, clock: Clock, track_databases: bool, app_name: str = "Stepwise"):
+        self.app_name = app_name
         self.contexts = contexts
         self.clock = clock
         self.track_databases = track_databases
@@ -40,7 +41,7 @@ class StudyController:
         # Opened in a new tab, so no X-Language header: the app's link names the language.
         lang = request.query("lang") if request.query("lang") in LANGUAGES else request.language
         ctx = self.study(request, lang).report_context()
-        return Response.html(report.render(ctx.content, ctx.state, ctx.progress, ctx.now, lang))
+        return Response.html(report.render(ctx.content, ctx.state, ctx.progress, ctx.now, lang, self.app_name))
 
     def pick(self, request: Request) -> Response:
         data = request.json()

@@ -34,7 +34,7 @@ def _serve(settings: Settings, _: argparse.Namespace) -> int:
         log.warning("STUDY_AUTH_PASSWORD is set but ignored: the app now has its own login.")
     app = build_app(settings)
     databases = ", ".join(f"{key}={target}" for key, target in settings.databases.items())
-    log.info("Oracle Learning Lab %s on http://%s:%d (databases: %s; data in %s)", __version__,
+    log.info("%s %s on http://%s:%d (databases: %s; data in %s)", settings.app_name, __version__,
              settings.host, settings.port, databases, settings.state_database or settings.data_dir)
     serve(app, settings.host, settings.port)
     return 0
@@ -105,7 +105,7 @@ def _healthcheck(settings: Settings, args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="oracle-lab", description="Oracle Learning Lab: SQL certification exam practice")
+    parser = argparse.ArgumentParser(prog="oracle-lab", description="Stepwise (oracle-lab): learn data languages for certification exams")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
 

@@ -3,7 +3,7 @@
    the document title, focus and scroll, and calls leave() on the old view. */
 
 import { $, $$, esc } from "./dom.js";
-import { t } from "./i18n.js";
+import { t, appName } from "./i18n.js";
 
 export const main = $("#main");
 const views = {};
@@ -32,7 +32,7 @@ async function mayLeave() {
 }
 
 export function setTitle(title) {
-  document.title = title ? `${title} | Oracle Learning Lab` : "Oracle Learning Lab";
+  document.title = title ? `${title} | ${appName()}` : appName();
 }
 
 export async function route() {

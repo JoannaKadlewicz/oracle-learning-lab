@@ -1,4 +1,6 @@
-# Oracle Learning Lab (1Z0-071 and 1Z0-171)
+# Stepwise (1Z0-071 and 1Z0-171)
+
+*Stepwise is a working name (set with `STUDY_APP_NAME`); the project was called Oracle Learning Lab.*
 
 A local web app for the Oracle SQL certification exams, **1Z0-071** (Oracle Database SQL, 19c) and
 **1Z0-171** (Oracle AI Database SQL Associate, 23ai), that grades your SQL against a real Oracle
@@ -89,6 +91,7 @@ from files (`*_FILE`) rather than from the code or the command line. Settings:
 | `STUDY_TRUST_PROXY` | off | `1` behind a reverse proxy: believe `X-Forwarded-For` (needs an `https://` `STUDY_PUBLIC_URL`) |
 | `STUDY_ADMIN_EMAIL`, `STUDY_ADMIN_PASSWORD_FILE` | – | The administrator account (default: the first user to register); set `STUDY_ADMIN_PASSWORD`, or sign in with Google using that address |
 | `STUDY_GOOGLE_CLIENT_ID`, `STUDY_GOOGLE_CLIENT_SECRET_FILE` | – | Turn on "Sign in with Google" |
+| `STUDY_APP_NAME` | `Stepwise` | The product name on every page |
 | `STUDY_REGISTRATION`, `STUDY_MAX_USERS` | `open`, `25` | Allow sign-ups; cap on accounts |
 | `STUDY_PROVISIONER_USER`, `STUDY_PROVISIONER_PASSWORD_FILE` | – | Oracle user that creates private practice schemas |
 | `STUDY_GATEWAY_USER`, `STUDY_GATEWAY_PASSWORD_FILE` | – | Proxy user the app connects through (`CREATE SESSION` only) |

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import html
 import re
 from pathlib import Path
 
@@ -22,10 +23,20 @@ def inline_script_hashes(html: str) -> tuple[str, ...]:
                  for body in INLINE_SCRIPT.findall(html))
 
 
+APP_NAME = b"{{APP_NAME}}"
+
+
+def branded(page: bytes, app_name: str) -> bytes:
+    """A page with the product name in place of {{APP_NAME}} (never inside an inline script, so the CSP hashes
+    computed from the files still hold)."""
+    return page.replace(APP_NAME, html.escape(app_name).encode())
+
+
 class StaticFiles:
-    def __init__(self, root: Path, index: str = "index.html"):
+    def __init__(self, root: Path, index: str = "index.html", app_name: str = "Stepwise"):
         self.root = root.resolve()
         self.index = self.root / index
+        self.app_name = app_name
 
     def __call__(self, request: Request) -> Response:
         path = request.path
@@ -41,4 +52,7 @@ class StaticFiles:
             target = self.index  # a client-side route such as /quiz
         content_type = CONTENT_TYPES.get(target.suffix, "application/octet-stream") + "; charset=utf-8"
         cache = "no-store" if target.suffix == ".html" else "no-cache"  # pages may carry per-session state
-        return Response(200, target.read_bytes(), content_type, {"Cache-Control": cache})
+        body = target.read_bytes()
+        if target.suffix == ".html":
+            body = branded(body, self.app_name)
+        return Response(200, body, content_type, {"Cache-Control": cache})

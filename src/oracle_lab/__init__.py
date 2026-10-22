@@ -1,4 +1,4 @@
-"""Oracle Learning Lab: a study app for the Oracle SQL certification exams.
+"""Stepwise (package oracle_lab): a study app for data-language certifications, the Oracle SQL exams first.
 
 Package layout (dependencies point downwards only):
 

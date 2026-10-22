@@ -1,6 +1,6 @@
 # Running with Docker
 
-One container runs **Oracle Database 19c Enterprise Edition** and the **Oracle Learning Lab** web
+One container runs **Oracle Database 19c Enterprise Edition** and the **Stepwise** (formerly Oracle Learning Lab) web
 app together. The database files and your progress are kept in folders on the host.
 Passwords are Docker secrets in `./secrets`. They are never in the image, the compose file or the
 environment.
@@ -41,7 +41,7 @@ host                                     container "lab"  (FROM your oracle/data
 
 The **first start creates the database, which takes 10–30 minutes** (`DATABASE IS READY TO USE!` in
 the log). After that the startup scripts provision `ORASTUDY`, `OLL_PROVISIONER` and `OLL_GATEWAY`, the entrypoint creates the sample tables and starts the
-app (`Oracle Learning Lab 2.0.0 on http://0.0.0.0:8071 ...`). Later starts take about a minute.
+app (`Stepwise 2.0.0 on http://0.0.0.0:8071 ...`). Later starts take about a minute.
 `make ps` shows `healthy` when both the database and the app are up.
 
 Open http://localhost:8071; you are sent to the sign-in page. Register the first account there:
@@ -210,6 +210,7 @@ too.
 | `STUDY_TRUST_PROXY` | off | `1` behind a reverse proxy such as Render's, so `X-Forwarded-For` is believed; needs an `https://` `STUDY_PUBLIC_URL` |
 | `STUDY_ADMIN_EMAIL`, `STUDY_ADMIN_PASSWORD[_FILE]` | – | The account with this e-mail is the administrator; the password is its initial one. Without a password, Google sign-in must be configured |
 | `STUDY_GOOGLE_CLIENT_ID`, `STUDY_GOOGLE_CLIENT_SECRET[_FILE]` | – | Both together turn on "Sign in with Google" |
+| `STUDY_APP_NAME` | `Stepwise` | the product name on every page |
 | `STUDY_REGISTRATION` | `open` | `closed` stops new sign-ups |
 | `STUDY_MAX_USERS` | `25` | Cap on accounts |
 | `STUDY_PRACTICE_TABLESPACE`, `STUDY_PRACTICE_QUOTA_MB` | `USERS`, `50` | Where practice schemas live and their quota (`DATA` on Autonomous) |
