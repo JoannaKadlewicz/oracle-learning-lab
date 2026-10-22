@@ -91,7 +91,7 @@ def test_first_registered_user_is_admin_without_admin_email(tmp_path, serve):
     assert stores.states.for_user(first.id).load()["settings"] == {"marker": 1}
     http2 = serve(settings_for(tmp_path), stores=stores).sign_in("second@example.org")
     second = stores.users.by_email("second@example.org")
-    assert second.role == "learner" and stores.states.for_user(second.id).load() == new_state()
+    assert second.role == "free" and stores.states.for_user(second.id).load() == new_state()
     assert http2
 
 
@@ -240,7 +240,7 @@ def test_password_sign_up_cannot_take_the_reserved_admin_email(tmp_path):
         reg.with_password(" Ann@Example.org ", PASSWORD, "ip", "ua")
     assert str(refused.value) == "Could not create the account. If you already have one, sign in instead."
     assert stores.users.count() == 0 and stores.settings.get("admin_email_claim") == "ann@example.org"
-    assert reg.with_password("bob@example.org", PASSWORD, "ip", "ua").user.role == "learner"
+    assert reg.with_password("bob@example.org", PASSWORD, "ip", "ua").user.role == "free"
 
 
 def test_admin_email_and_password_create_the_admin_with_the_legacy_progress(tmp_path):

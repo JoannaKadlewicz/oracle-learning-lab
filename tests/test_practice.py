@@ -349,8 +349,10 @@ def test_learner_without_a_practice_database_gets_503_on_every_sql_route(serve):
     from conftest import PASSWORD
 
     server = serve(stores=memory_stores())
-    server.sign_in("admin@x.org")  # the first account is the admin
+    admin = server.sign_in("admin@x.org")  # the first account is the admin
     learner = type(server)(server.port).sign_in("learner@x.org", PASSWORD)
+    user_id = next(u["id"] for u in json.loads(admin("/api/admin/users")[2])["users"] if u["email"] == "learner@x.org")
+    assert admin("/api/admin/role", {"user_id": user_id, "role": "learner"})[0] == 200  # new accounts are free
     routes = (("/api/run", {"sql": "SELECT 1 FROM dual;"}), ("/api/visualize", {"sql": "SELECT 1 FROM dual"}),
               ("/api/schema", None), ("/api/reset-data", {}), ("/api/grade", {"id": content.LABS[0]["id"], "sql": "SELECT 1"}))
     for path, data in routes:
@@ -522,3 +524,10 @@ def test_lab_service_reads_the_exam_once_for_database_and_engine(monkeypatch):
     for _ in range(2):
         database, engine = lab.current()
         assert database == engine
+
+
+def test_a_free_account_gets_no_schema_at_sign_up():
+    stores, provisioner = memory_stores(), FakeProvisioner()
+    user = User("u1", "u1@x.org", "u1", "free", "active", NOW, None, None)
+    provisioning_hook({"default": provisioner}, stores.schemas, lambda: NOW, None)(user)
+    assert stores.schemas.get("u1", "default") is None and provisioner.calls == []

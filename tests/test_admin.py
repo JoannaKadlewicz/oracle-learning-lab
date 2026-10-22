@@ -104,7 +104,7 @@ def test_admin_api_over_http(serve):
 
     users = json.loads(owner("/api/admin/users")[2])["users"]
     row = next(u for u in users if u["email"] == "learner@example.org")
-    assert row["methods"] == ["password"] and row["role"] == "learner" and row["sessions"] == 1
+    assert row["methods"] == ["password"] and row["role"] == "free" and row["sessions"] == 1
     assert row["schemas"] == []
     status, _, body = owner("/api/admin/reset-link", {"user_id": learner.id})
     assert status == 200 and "/reset?token=" in json.loads(body)["link"]

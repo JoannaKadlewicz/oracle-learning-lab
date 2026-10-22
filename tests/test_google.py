@@ -122,7 +122,7 @@ def test_new_google_user_is_created_and_logged_in(g):
     out = g.g.finish(fid, state, "code", "1.1.1.1", "ua", None)
     assert out.message is None and out.token and out.next_path == "/next"
     user = g.stores.users.by_identity("google", "sub-1")
-    assert (user.email, user.display_name, user.role) == ("ann@example.org", "Ann A", "learner")
+    assert (user.email, user.display_name, user.role) == ("ann@example.org", "Ann A", "free")
     assert user.last_login_at == 1000.0 and [u.id for u in g.created] == [user.id]
     assert g.sessions.resolve(out.token).user_id == user.id
     assert g.ep.calls[0][0] == "code" and g.ep.calls[0][2].endswith("/auth/google/callback")
