@@ -106,6 +106,15 @@ creates both users itself; for your own database and for Google sign-in see
 installation [docs/docker.md](docs/docker.md#upgrading-an-existing-deployment). Without them,
 learners cannot run SQL ("not set up"); only administrators use the shared schema. The old single `STUDY_AUTH_*` login is gone.
 
+Each account has one of three roles, which an administrator changes on the Admin page (the role picker in the
+accounts table, or Manage → Change role):
+
+| Role | Can use |
+| --- | --- |
+| Administrator | everything, including the Admin page |
+| Learner | everything except the Admin page (the default for new accounts) |
+| Free | flashcards, quizzes, mistakes, progress and notes; no SQL lab or exercises (the server refuses them) |
+
 The full list, with validation, is in [src/oracle_lab/config.py](src/oracle_lab/config.py).
 
 ## Features

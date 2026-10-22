@@ -423,3 +423,25 @@ def test_admin_denied_cap_over_http_still_answers_404(serve):
     learner = Client(server.port).sign_in("learner@example.org")
     statuses = [learner("/api/admin/users")[0] for _ in range(12)]
     assert statuses == [404] * 12 and len(stores.audit.recent(event="admin_denied")) == 10
+
+
+def test_set_role_accepts_the_free_role(admin):
+    _user(admin.stores, "u1")
+    admin.set_role(_actor(), "u1", "free")
+    assert admin.stores.users.get("u1").role == "free"
+
+
+@pytest.mark.parametrize("method,path", [("POST", "/api/run"), ("POST", "/api/visualize"), ("GET", "/api/schema"),
+                                         ("POST", "/api/reset-data"), ("POST", "/api/grade")])
+def test_a_free_account_cannot_run_sql(serve, method, path):
+    stores = memory_stores()
+    server = serve(stores=stores)
+    owner = Client(server.port).sign_in("owner@example.org")
+    free = Client(server.port).sign_in("free@example.org")
+    user = stores.users.by_email("free@example.org")
+    assert owner("/api/admin/role", {"user_id": user.id, "role": "free"})[0] == 200
+    status, _, body = free(path, {"sql": "select 1 from dual", "id": "x"} if method == "POST" else None)
+    assert status == 403
+    assert json.loads(body)["error"] == "Your account cannot run SQL. Ask an admin for learner access."
+    assert json.loads(free("/api/progress")[2])["sql_available"] is False
+    assert free("/api/admin/users")[0] == 404  # and no admin area

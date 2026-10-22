@@ -6,6 +6,7 @@ import { api } from "../core/api.js";
 import { t, tn, formatDate } from "../core/i18n.js";
 import { main } from "../core/router.js";
 import { currentUser } from "../core/session.js";
+import { ROLES, roleLabel, roleSummary } from "../core/roles.js";
 import { toast, toastError, confirmDialog, openDialog } from "../ui/feedback.js";
 import { pageHead, section, empty, loading } from "../ui/widgets.js";
 
@@ -74,6 +75,15 @@ async function render() {
     const b = e.target.closest("[data-manage]");
     if (b) manage(users.find(u => u.id === b.dataset.manage));
   });
+  $("#admin-users").addEventListener("change", async e => {
+    const select = e.target.closest("[data-role-of]");
+    if (!select) return;
+    const user = users.find(u => u.id === select.dataset.roleOf);
+    try {
+      if (await changeRole(user, select.value)) return;
+    } catch (err) { toastError(err.message); }
+    select.value = user.role;  // cancelled or refused: show the role the account still has
+  });
   await loadEvents();
 }
 
@@ -102,7 +112,7 @@ function renderUsers() {
         <tr>
           <td><div class="acct-cell"><strong>${esc(u.email)}</strong>${u.id === me ? ` <span class="tag tag-here">${esc(t("You"))}</span>` : ""}
             <span class="muted small">${esc(t("{methods}, joined {date}", { methods: u.methods.map(methodName).join(", ") || t("No sign-in method"), date: when(u.created_at) }))}</span></div></td>
-          <td><span class="tag ${u.role === "admin" ? "tag-admin" : ""}">${esc(u.role === "admin" ? t("Administrator") : t("Learner"))}</span></td>
+          <td>${roleCell(u, u.id === me)}</td>
           <td><span class="tag ${u.status === "locked" ? "tag-fix" : "tag-ok"}">${esc(u.status === "locked" ? t("Locked") : t("Active"))}</span></td>
           <td class="nowrap">${esc(when(u.last_login_at))}</td>
           <td class="num">${esc(u.sessions)}</td>
@@ -113,6 +123,14 @@ function renderUsers() {
     </table>`;
 }
 
+/** Another account's role is a picker right in the table; your own is a tag (you can't change it). */
+function roleCell(user, self) {
+  if (self) return `<span class="tag ${user.role === "admin" ? "tag-admin" : ""}">${esc(roleLabel(user.role))}</span>`;
+  return `<select class="role-select role-${esc(user.role)}" data-role-of="${esc(user.id)}" aria-label="${esc(t("Role of {email}", { email: user.email }))}">
+    ${ROLES.map(r => `<option value="${esc(r)}"${r === user.role ? " selected" : ""}>${esc(roleLabel(r))}</option>`).join("")}
+  </select>`;
+}
+
 /** The actions for one account, as a menu in a dialog (a dropdown would be clipped by the scrolling table). */
 async function manage(user) {
   if (!user) return;
@@ -120,13 +138,13 @@ async function manage(user) {
   const items = [["reset", t("Create a password reset link"), ""]];
   if (!self) {
     items.push(user.status === "locked" ? ["unlock", t("Unlock the account"), ""] : ["lock", t("Lock the account"), ""]);
-    items.push(user.role === "admin" ? ["learner", t("Remove admin rights"), ""] : ["admin", t("Make admin"), ""]);
+    items.push(["role", t("Change role"), ""]);
   }
   user.schemas.forEach(s => items.push([`schema:${s.key}`, t("Recreate the {key} practice schema", { key: s.key }), ""]));
   if (!self) items.push(["delete", t("Delete the account"), "danger"]);
   const choice = await openDialog(`
     <h2>${esc(user.email)}</h2>
-    <p>${esc(t("{role}, {status}. Last sign-in: {date}.", { role: user.role === "admin" ? t("Administrator") : t("Learner"),
+    <p>${esc(t("{role}, {status}. Last sign-in: {date}.", { role: roleLabel(user.role),
       status: user.status === "locked" ? t("locked") : t("active"), date: when(user.last_login_at) }))}</p>
     <div class="action-list">
       ${items.map(([value, label, cls]) => `<button class="btn ${cls || "secondary"}" value="${esc(value)}">${esc(label)}</button>`).join("")}
@@ -154,13 +172,10 @@ async function act(user, choice) {
     if (!await confirmDialog({ title: t("Unlock {who}?", { who }), confirm: t("Unlock"), body: t("They can sign in again.") })) return;
     await api("/api/admin/unlock", { user_id: user.id });
     toast(t("Account unlocked."));
-  } else if (choice === "admin" || choice === "learner") {
-    const promote = choice === "admin";
-    if (!await confirmDialog({ title: promote ? t("Make {who} an admin?", { who }) : t("Remove admin rights from {who}?", { who }),
-      confirm: promote ? t("Make admin") : t("Remove admin rights"), danger: promote,
-      body: promote ? t("Admins can see every account, lock and delete them, and change sign-up settings.") : t("They keep their progress and become a learner.") })) return;
-    await api("/api/admin/role", { user_id: user.id, role: choice });
-    toast(promote ? t("Admin rights granted.") : t("Admin rights removed."));
+  } else if (choice === "role") {
+    const role = await pickRole(user);
+    if (role) await changeRole(user, role);  // reloads the accounts itself
+    return;
   } else if (choice.startsWith("schema:")) {
     const key = choice.slice(7);
     if (!await confirmDialog({ title: t("Recreate the {key} practice schema?", { key }), confirm: t("Recreate"), danger: true,
@@ -177,6 +192,37 @@ async function act(user, choice) {
   }
   await reloadUsers();
   loadEvents();
+}
+
+/** The three roles as choices, each with what it allows; the current one is marked. Resolves to the picked role. */
+async function pickRole(user) {
+  const choice = await openDialog(`
+    <h2>${esc(t("Change the role of {who}", { who: user.email }))}</h2>
+    <div class="role-choices">
+      ${ROLES.map(r => `<button class="role-choice${r === user.role ? " current" : ""}" value="${esc(r)}"${r === user.role ? ` aria-current="true" disabled` : ""}>
+        <strong>${esc(roleLabel(r))}${r === user.role ? ` <span class="tag">${esc(t("Current"))}</span>` : ""}</strong>
+        <span class="muted small">${esc(roleSummary(r))}</span></button>`).join("")}
+    </div>
+    <div class="row"><button type="button" class="btn ghost" data-close>${esc(t("Cancel"))}</button></div>`);
+  return ROLES.includes(choice) && choice !== user.role ? choice : null;
+}
+
+/** Confirms and applies a role change; true when the account now has `role`. */
+async function changeRole(user, role) {
+  if (!user || role === user.role) return false;
+  const who = user.email, name = roleLabel(role);
+  const body = {
+    admin: t("Admins can see every account, lock and delete them, and change sign-up settings."),
+    learner: t("They keep their progress and can use everything except the admin page."),
+    free: t("They keep their progress, but can't run SQL in the SQL lab or the exercises."),
+  }[role];
+  if (!await confirmDialog({ title: t("Change the role of {who} to {role}?", { who, role: name }), confirm: t("Change role"),
+    danger: role === "admin", body })) return false;
+  await api("/api/admin/role", { user_id: user.id, role });
+  toast(t("{who} is now {role}.", { who, role: name }));
+  await reloadUsers();
+  loadEvents();
+  return true;
 }
 
 async function showLink(link, who) {

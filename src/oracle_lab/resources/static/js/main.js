@@ -8,7 +8,9 @@ import {
 import { api } from "./core/api.js";
 import { loadSession, currentUser } from "./core/session.js";
 import { useUser } from "./core/store.js";
-import { S, apply, loadProgress, loadContent } from "./core/state.js";
+import { canRunSql, SQL_VIEWS } from "./core/roles.js";
+import { empty } from "./ui/widgets.js";
+import { S, apply, loadProgress, loadContent, noSql } from "./core/state.js";
 import { main, registerViews, startRouting, dispatchKey } from "./core/router.js";
 import { initShell, checkDatabase } from "./shell.js";
 import { homeView } from "./views/home.js";
@@ -22,7 +24,7 @@ import { notesView, openNote } from "./views/notes.js";
 import { settingsView } from "./views/settings.js";
 import { adminView } from "./views/admin.js";
 
-registerViews({
+const views = {
   home: homeView,
   quiz: quizView,
   mock: mockView,
@@ -34,7 +36,16 @@ registerViews({
   notes: notesView,
   settings: settingsView,
   admin: adminView,
+};
+
+/** A free account reaching the SQL lab or the exercises by URL sees why, not a page it cannot use. */
+const sqlOnly = view => Object.create(view, {
+  render: { value: arg => canRunSql(currentUser()) ? view.render(arg)
+    : void (main.innerHTML = empty(esc(t("Not included in your account")), esc(noSql()),
+      `<a class="btn secondary" href="/">${esc(t("Go to Today"))}</a>`)) },
 });
+SQL_VIEWS.forEach(name => { views[name] = sqlOnly(views[name]); });
+registerViews(views);
 
 // Single-key shortcuts (quiz options, flashcard ratings) never fire while typing.
 document.addEventListener("keydown", e => {
