@@ -1,6 +1,6 @@
 import { $ } from "/js/core/dom.js";
 import { t } from "/js/core/i18n.js";
-import { initAuthPage, postForm, getConfig, fillAbout, waitText, showError, showProblems, setBusy, disableForm, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
+import { initAuthPage, postForm, getConfig, waitText, showError, showProblems, setBusy, disableForm, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
 
 await initAuthPage();
 
@@ -11,7 +11,6 @@ wirePasswordToggles();
 carryNext(next);
 
 getConfig().then(config => {
-  fillAbout(config);
   $("#google").hidden = !(config.google && config.registration_open);
   if (!config.registration_open) {
     $("#closed").hidden = false;

@@ -1,14 +1,14 @@
 /* SQL lab: free SQL against the learning schema, with explanations, DML changes, the visualizer,
    history and the schema browser. */
 
-import { $, $$, esc, plural } from "../core/dom.js";
+import { $, $$, esc, plural, icon } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { t, formatDate } from "../core/i18n.js";
 import { store } from "../core/store.js";
 import { S, DB, labOff, noLab, can, isGuest } from "../core/state.js";
 import { main } from "../core/router.js";
 import { toast, toastError, confirmDialog, promptDialog } from "../ui/feedback.js";
-import { pageHead, loading, accountCallout, proCallout } from "../ui/widgets.js";
+import { pageHead, loading, signInUrl } from "../ui/widgets.js";
 import { makeEditor, schemaHtml, invalidateSchema } from "../ui/editor.js";
 import { displaySql, resultsHtml, vizHtml, bindViz, errorBox } from "../ui/sql.js";
 import { openNote } from "./notes.js";
@@ -22,13 +22,44 @@ export function labDraft(sql) {
   return sql;
 }
 
+/** Without the Pro plan the lab stays closed: a greyed-out preview of it, behind a lock that says what Pro adds.
+    (The server refuses the lab's requests anyway.) */
+function renderLocked() {
+  const guest = isGuest();
+  const sample = { ok: true, results: [{ type: "rows", sql: DEFAULT_SQL, ms: 4, columns: ["EMPLOYEE_ID", "LAST_NAME", "SALARY"],
+    rows: [[100, "King", 24000], [101, "Kochhar", 17000], [102, "De Haan", 17000], [145, "Russell", 14000]] }] };
+  main.innerHTML = `
+    ${pageHead(esc(t("SQL lab")), esc(t("Run any SQL you like against your own copy of the sample schema.")))}
+    <div class="paywall">
+      <div class="paywall-preview" inert aria-hidden="true">
+        <div class="editor-wrap">
+          <textarea class="editor" id="sql" tabindex="-1">${esc(DEFAULT_SQL)}</textarea>
+          <div class="editor-bar"><span class="btn">${esc(t("Run"))}</span><span class="btn secondary">${esc(t("Visualize rows"))}</span></div>
+        </div>
+        <div class="results">${resultsHtml(sample)}</div>
+      </div>
+      <section class="paywall-card" aria-labelledby="paywall-title">
+        ${icon("lock")}
+        <h2 id="paywall-title">${esc(t("The SQL lab needs a Pro subscription"))}</h2>
+        <p>${esc(t("Write any query and see its rows, what your INSERT, UPDATE or DELETE changed, and how a join combines the rows of two tables."))}</p>
+        <p class="paywall-note">${esc(guest
+          ? t("Sign in to an account with the Pro plan. New here? A free account comes first and already checks 10 SQL exercises a day.")
+          : t("Pro is assigned by an admin for now: ask yours to upgrade your account. Your free account checks 10 SQL exercises a day."))}</p>
+        <div class="row">${guest
+          ? `<a class="btn" href="${esc(signInUrl("/lab"))}">${esc(t("Sign in"))}</a>
+             <a class="btn secondary" href="/register?${new URLSearchParams({ next: "/lab" })}">${esc(t("Create an account"))}</a>`
+          : `<a class="btn" href="/exercises">${esc(t("Go to SQL exercises"))}</a>`}</div>
+      </section>
+    </div>`;
+  makeEditor($("#sql"), { onRun: () => {} });
+}
+
 async function render() {
+  if (!can("sql_lab")) return renderLocked();
   const off = labOff();
   const where = DB ? `${DB.product} ${DB.version.split(".").slice(0, 2).join(".")}` : t("your database");
   main.innerHTML = `
     ${pageHead(esc(t("SQL lab")), esc(t("Run any SQL against the learning schema on {where}. Separate statements with semicolons, end PL/SQL blocks with a line holding only {slash}, and select text to run only that part.", { where })).replace("{slash}", "<code>/</code>"))}
-    ${can("sql_lab") ? "" : isGuest() ? accountCallout(t("Start with a free account: SQL exercises are free, the SQL lab is Pro"))
-      : proCallout(t("The SQL lab is part of the Pro plan"))}
     <div class="lab">
       <div>
         <div class="editor-wrap">

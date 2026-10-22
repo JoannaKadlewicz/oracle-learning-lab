@@ -1,7 +1,7 @@
 import { $ } from "/js/core/dom.js";
 import { t } from "/js/core/i18n.js";
 import { workspaceTile, soonTile, COMING_SOON } from "/js/ui/workspace-tiles.js";
-import { initAuthPage, postForm, getConfig, fillAbout, waitText, showError, setBusy, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
+import { initAuthPage, postForm, getConfig, waitText, showError, setBusy, wirePasswordToggles, focusFirstMissing, carryNext } from "/js/auth/form.js";
 
 await initAuthPage();
 
@@ -24,7 +24,6 @@ if (params.has("error")) showError(googleError(params.get("error")), { focus: fa
 
 getConfig().then(config => {
   $("#google").hidden = !config.google;
-  fillAbout(config);
   renderWorkspaces(config);
 });
 

@@ -45,10 +45,23 @@
     </header>
     <div class="auth-stack">
       <div class="stack-card stack-left" aria-hidden="true">
-        <p class="stack-topic" data-i18n="Basic SELECT">Basic SELECT</p>
-        <p class="stack-q">salary + NULL = ?</p>
+        <p class="stack-topic" data-i18n="Oracle trap">Oracle trap</p>
+        <p class="stack-q">'' <span>IS NULL</span></p>
+        <ol class="stack-opts">
+          <li><span class="stack-answer">TRUE<svg class="stack-ring" viewBox="0 0 120 44" preserveAspectRatio="none"><path pathLength="1" d="M14 30C6 22 14 8 44 6c32-2 66 2 70 16 4 14-28 18-58 18C26 40 6 34 8 22c2-8 14-13 30-15"/></svg></span></li>
+          <li>FALSE</li>
+          <li data-i18n="Error">Error</li>
+        </ol>
       </div>
-      <div class="stack-card stack-right" aria-hidden="true"><span class="stack-box" data-i18n="Every 6 days">Every 6 days</span></div>
+      <div class="stack-card stack-right" aria-hidden="true">
+        <p class="stack-topic stack-when" data-i18n="Next review">Next review</p>
+        <ol class="stack-ladder">
+          <li class="done" data-i18n="1 day">1 day</li>
+          <li class="done" data-i18n="3 days">3 days</li>
+          <li class="now" data-i18n="6 days">6 days</li>
+          <li data-i18n="2 weeks">2 weeks</li>
+        </ol>
+      </div>
     <section class="auth-card" aria-labelledby="auth-title">
       <h1 id="auth-title" data-i18n="Choose a new password">Choose a new password</h1>
       <div id="done" class="notice good" role="status" hidden><span data-i18n="Your password is set.">Your password is set.</span> <a href="/login" data-i18n="Sign in with it now.">Sign in with it now.</a></div>
@@ -70,7 +83,7 @@
       <p class="auth-alt"><a href="/login" data-i18n="Back to sign in">Back to sign in</a></p>
     </section>
     </div>
-    <p class="auth-about" data-i18n="Practice questions, flashcards and an SQL lab on your own Oracle schema, for the 1Z0-071 (Oracle 19c) and 1Z0-171 (Oracle 23ai) exams.">Practice questions, flashcards and an SQL lab on your own Oracle schema, for the 1Z0-071 (Oracle 19c) and 1Z0-171 (Oracle 23ai) exams.</p>
+    <footer class="auth-foot">© 2026 Bespoke Software</footer>
   </main>
   <script type="module" src="/js/auth/reset.js"></script>
 </body>

@@ -5,6 +5,19 @@
 .lab { display: grid; grid-template-columns: minmax(0, 1fr) 272px; gap: 24px; align-items: start; }
 .lab-side { position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow: auto; }
 
+/* The lab without the Pro plan: the page shows through, greyed out and out of reach, under one lock. */
+.paywall { position: relative; min-height: 480px; }
+.paywall-preview { filter: grayscale(1); opacity: .35; user-select: none; pointer-events: none;
+  mask-image: linear-gradient(to bottom, #000 55%, transparent); -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent); }
+.paywall-card { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); width: min(480px, calc(100% - 32px));
+  display: grid; justify-items: center; gap: 12px; padding: 30px 28px 28px; text-align: center;
+  background: var(--paper); border: 1px solid var(--rule-strong); border-radius: var(--r-l); box-shadow: var(--shadow-card); }
+.paywall-card > svg { width: 30px; height: 30px; color: var(--warn); }
+.paywall-card h2 { margin: 0; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+.paywall-card p { margin: 0; color: var(--ink-2); text-wrap: pretty; }
+.paywall-card .paywall-note { font-size: var(--t-s); color: var(--muted); }
+.paywall-card .row { justify-content: center; margin-top: 6px; }
+
 .split { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
 .split-list {
   position: sticky;

@@ -47,16 +47,6 @@ export async function getConfig() {
   return { google: false, registration_open: true };
 }
 
-/** Fills the page's `.auth-about` line from the exams the server offers; the static text stays on failure. */
-export function fillAbout(config) {
-  const el = document.querySelector(".auth-about");
-  const exams = (config.exams || []).map(e => `${e.code} (${e.database})`);
-  if (!el || !exams.length) return;
-  // en-GB lists "A, B and C" (no comma before "and"), as the English text always did.
-  const list = new Intl.ListFormat(lang() === "en" ? "en-GB" : lang(), { type: "conjunction" }).format(exams);
-  el.textContent = t("Practice questions, flashcards and an SQL lab on your own database, for the {exams} exams.", { exams: list });
-}
-
 /** "Try again in 3 minutes." from a Retry-After in seconds. */
 export function waitText(seconds) {
   if (!seconds) return "";

@@ -11,7 +11,7 @@ import { C, P, A, mistakes, apply, loadContent, setDatabase, sqlOff, labOff, can
 import { route, currentView, refresh, onRoute } from "./core/router.js";
 import { toast, toastError, confirmDialog } from "./ui/feedback.js";
 import { setSchema } from "./ui/editor.js";
-import { premiumTag, accountTag, accountPitch } from "./ui/widgets.js";
+import { premiumTag, accountTag, accountPitch, signInUrl } from "./ui/widgets.js";
 import { examPicker } from "./ui/exam-picker.js";
 
 let onExamChange = () => {};
@@ -84,6 +84,19 @@ function renderGuestBar() {
   $("#main").before(bar);
 }
 
+/** A link or button carrying the "Sign in" lock does not open its locked page for a guest: it goes to sign in,
+    and back to that page afterwards. Capturing on the document runs before the router and the views' handlers. */
+function guardAccountLocks() {
+  document.addEventListener("click", e => {
+    const target = e.target.closest("a, button");
+    if (!target?.querySelector(".account-tag") || !isGuest()) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const href = target.tagName === "A" ? target.getAttribute("href") : null;
+    location.assign(signInUrl(href?.startsWith("/") ? href : location.pathname));
+  }, true);
+}
+
 /* ---------------------------------------------------------------- database */
 
 export function checkDatabase() {
@@ -135,11 +148,19 @@ export function initShell({ onExamChange: handler }) {
   onExamChange = handler;
   renderExamSwitch();
   initDrawer();
+  guardAccountLocks();
   const user = currentUser();
   $("#account-name").textContent = user.display_name;
   $("#account-email").textContent = user.role === "guest" ? t("Not registered yet") : user.email;
   $("#rail-account").title = user.role === "guest" ? "" : user.email;
   $("#nav-admin").hidden = user.role !== "admin";
-  $("#sign-out").addEventListener("click", signOut);
+  const signOutBtn = $("#sign-out");
+  if (user.role === "guest") {  // a guest has nothing to leave: signing in keeps this session's progress
+    signOutBtn.dataset.i18n = "Sign in";
+    signOutBtn.textContent = t("Sign in");
+    signOutBtn.addEventListener("click", () => location.assign("/login"));
+  } else {
+    signOutBtn.addEventListener("click", signOut);
+  }
   onRoute(refreshNav);
 }

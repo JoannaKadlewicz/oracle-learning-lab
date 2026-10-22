@@ -44,11 +44,14 @@ export function empty(title, text = "", action = "") {
 export const loading = text => `<p class="loading">${esc(text)}</p>`;
 
 /** The small lock that marks what free accounts can see but not use. */
-export const premiumTag = (label = t("Pro"), title = t("Part of the Pro plan")) =>
-  `<span class="premium-tag" title="${esc(title)}">${icon("lock")}<span>${esc(label)}</span></span>`;
-/* Two locks only, the same words everywhere: "Free account" (a guest gets it by registering, at no cost) and
-   "Pro" (the paid plan). Every guest lock leads to the same pitch and the same button. */
-export const accountTag = () => premiumTag(t("Free account"), t("Free with an account"));
+export const premiumTag = (label = t("Pro"), title = t("Part of the Pro plan"), cls = "") =>
+  `<span class="premium-tag${cls ? ` ${cls}` : ""}" title="${esc(title)}">${icon("lock")}<span>${esc(label)}</span></span>`;
+/* Two locks only, the same words everywhere: "Sign in" (a guest gets it with an account, at no cost) and
+   "Pro" (the paid plan). Whatever carries the "Sign in" lock takes a guest to sign in (see shell.js). */
+export const accountTag = () => premiumTag(t("Sign in"), t("Sign in or create a free account to use this"), "account-tag");
+
+/** Where a guest's lock leads: sign in (or register from there), then back to `next`. */
+export const signInUrl = (next = location.pathname) => `/login?${new URLSearchParams({ next })}`;
 
 /** Why to register, in one sentence: the same on every guest lock. */
 export const accountPitch = () => t("A free account takes 30 seconds: unlimited quizzes, flashcards and lessons, plus 10 SQL exercises a day. Your progress comes with you.");
@@ -63,9 +66,6 @@ export const registerButton = () => `<a class="btn small" href="/register">${esc
 /** A guest's lock on a page: `title` says what the free account unlocks here. */
 export const accountCallout = title => premiumCallout(title, accountPitch(), registerButton());
 
-/** An account's lock on a Pro feature. */
-export const proCallout = title => premiumCallout(title,
-  t("The Pro plan adds the SQL lab, unlimited SQL exercises and more workspaces. Ask an admin to upgrade your account."));
 
 /** Shown instead of the next question or card once a free plan's daily allowance of `kind` is used up. */
 export function limitPanel(kind, n, guest = false) {

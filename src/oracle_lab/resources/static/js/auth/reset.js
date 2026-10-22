@@ -1,6 +1,6 @@
 import { $ } from "/js/core/dom.js";
 import { t } from "/js/core/i18n.js";
-import { initAuthPage, postForm, getConfig, fillAbout, showError, showProblems, setBusy, disableForm, wirePasswordToggles, focusFirstMissing } from "/js/auth/form.js";
+import { initAuthPage, postForm, showError, showProblems, setBusy, disableForm, wirePasswordToggles, focusFirstMissing } from "/js/auth/form.js";
 
 await initAuthPage();
 
@@ -8,7 +8,6 @@ const token = new URLSearchParams(location.search).get("token") || "";
 const form = $("#reset-form");
 
 wirePasswordToggles();
-getConfig().then(fillAbout);
 if (!token) {
   showError(t("This reset link is invalid or has expired. Ask your administrator for a new one."), { focus: false });
   disableForm(form);
