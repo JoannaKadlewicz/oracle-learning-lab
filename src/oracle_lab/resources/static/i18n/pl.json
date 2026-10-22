@@ -776,7 +776,6 @@
   "They keep their progress and can use everything except the admin page.": "Postępy zostają. Konto ma dostęp do wszystkiego poza stroną administracji.",
   "They keep their progress, but can't run SQL in the SQL lab or the exercises.": "Postępy zostają, ale konto nie może uruchamiać SQL w laboratorium SQL ani w ćwiczeniach.",
   "{who} is now {role}.": "{who}: nowa rola to {role}.",
-  "Free accounts can read the exercises and the SQL lab, but not run queries. Ask an admin to upgrade your account to Learner.": "Konto darmowe może przeglądać ćwiczenia i laboratorium SQL, ale nie uruchamia zapytań. Poproś administratora o zmianę roli na „Uczący się”.",
   "Passed before: a second go keeps it fresh": "Zaliczone wcześniej: powtórka utrwali wiedzę",
   "Premium": "Premium",
   "Premium: not included in free accounts": "Premium: niedostępne w koncie darmowym",
@@ -806,5 +805,19 @@
   "Studies in the workspaces an admin gives them, or their one free workspace.": "Uczy się w workspace’ach przyznanych przez administratora albo w swoim jednym darmowym.",
   "User": "Użytkownik",
   "{title} becomes your free workspace. Other workspaces need a subscription.": "{title} zostanie Twoim darmowym workspace’em. Pozostałe wymagają subskrypcji.",
-  "{n} questions on the exam": ["{n} pytanie na egzaminie", "{n} pytania na egzaminie", "{n} pytań na egzaminie"]
+  "{n} questions on the exam": ["{n} pytanie na egzaminie", "{n} pytania na egzaminie", "{n} pytań na egzaminie"],
+  "Mock exams are part of a subscription. Ask an admin to upgrade this workspace.": "Egzaminy próbne są w subskrypcji. Poproś administratora o subskrypcję tego workspace’u.",
+  "That's today's free flashcards": "To już dzisiejsze darmowe fiszki",
+  "That's today's free questions": "To już dzisiejsze darmowe pytania",
+  "Timed full exams are part of a subscription.": "Pełne egzaminy na czas są w subskrypcji.",
+  "Today's free flashcards are used: back tomorrow": "Dzisiejsze darmowe fiszki wykorzystane: wróć jutro",
+  "Today's free questions are used: back tomorrow": "Dzisiejsze darmowe pytania wykorzystane: wróć jutro",
+  "You answered all {n} free questions for today. Come back tomorrow for more, or ask an admin for a subscription to practise without limits.": "Dzisiejsze darmowe pytania ({n}) są już za Tobą. Wróć jutro po kolejne albo poproś administratora o subskrypcję, aby ćwiczyć bez limitu.",
+  "You rated all {n} free flashcards for today. Come back tomorrow for more, or ask an admin for a subscription to study without limits.": "Dzisiejsze darmowe fiszki ({n}) są już za Tobą. Wróć jutro po kolejne albo poproś administratora o subskrypcję, aby uczyć się bez limitu.",
+  "{label} (Premium)": "{label} (Premium)",
+  "{left} of {n} free flashcards left today": "Zostało {left} z {n} darmowych fiszek na dziś",
+  "{left} of {n} free questions left today": "Zostało {left} z {n} darmowych pytań na dziś",
+  "A free workspace can read the exercises and the SQL lab, but not run queries. Ask an admin for a subscription to this workspace.": "W darmowym workspace’ie możesz przeglądać ćwiczenia i laboratorium SQL, ale bez uruchamiania zapytań. Poproś administratora o subskrypcję tego workspace’u.",
+  "This lesson is part of a subscription": "Ta lekcja jest w subskrypcji",
+  "A free workspace includes the first lessons and the exam guide. Ask an admin for a subscription to read every lesson.": "Darmowy workspace obejmuje pierwsze lekcje i przewodnik po egzaminie. Poproś administratora o subskrypcję, aby czytać wszystkie lekcje."
 }

@@ -2,7 +2,7 @@
    what else is open, and mastery per topic. */
 
 import { $$, esc, plural, icon } from "../core/dom.js";
-import { C, S, P, L, CARD, DB, mistakes, topicStats, topicLabel } from "../core/state.js";
+import { C, S, P, L, CARD, DB, A, mistakes, topicStats, topicLabel, subscribed, leftToday } from "../core/state.js";
 import { currentUser } from "../core/session.js";
 import { t, tn, formatDate } from "../core/i18n.js";
 import { main, go } from "../core/router.js";
@@ -58,6 +58,14 @@ function bold(text, value) {
 
 /** The kind of a session step, as a small labelled chip before its title: Quiz, Flashcards or Exercise. */
 const stepKind = (kind, label) => `<span class="step-kind kind-${kind}">${icon(kind === "lab" ? "exercise" : kind)}${esc(label)}</span>`;
+
+/** On a free plan, what is left of today's allowance of `kind`; null for subscribers. */
+function freeNote(kind) {
+  if (!A?.limits) return null;
+  const left = leftToday(kind), n = A.limits[kind];
+  if (!left) return kind === "cards" ? t("Today's free flashcards are used: back tomorrow") : t("Today's free questions are used: back tomorrow");
+  return kind === "cards" ? t("{left} of {n} free flashcards left today", { left, n }) : t("{left} of {n} free questions left today", { left, n });
+}
 
 /** The flashcard step's title: what kind of cards are left, without a "0 due". */
 function cardsTitle(plan, left, due, fresh) {
@@ -126,14 +134,14 @@ function render() {
         <ol class="session-steps">
           <li><a href="/quiz" data-start="questions" class="${questionsDone ? "done" : ""}">
             <strong>${stepKind("quiz", t("Quiz"))}<span>${esc(tn(plan.questions.length, "Answer {n} question", "Answer {n} questions"))}</span></strong>
-            <small>${esc(questionsDone ? t("All answered") : done.questions.length
+            <small>${esc(questionsDone ? t("All answered") : freeNote("questions") ?? (done.questions.length
               ? t("{done} of {total} answered", { done: done.questions.length, total: plan.questions.length })
-              : t("Mistakes and due reviews first, then weak spots"))}</small>
+              : t("Mistakes and due reviews first, then weak spots")))}</small>
             <span class="minutes">${questionsDone ? "" : esc(t("{n} min", { n: questionMinutes }))}</span></a></li>
           <li><a href="/cards" data-start="cards" class="${cardsDone ? "done" : ""}" ${plan.cards.length ? "" : `aria-disabled="true" tabindex="-1"`}>
             <strong>${stepKind("cards", t("Flashcards"))}<span>${esc(cardsTitle(plan, cardsLeft, cardsDue, cardsNew))}</span></strong>
-            <small>${esc(cardsDone ? t("All reviewed") : done.cards.length ? t("{done} of {total} reviewed", { done: done.cards.length, total: plan.cards.length })
-              : plan.cards.length ? t("Each card comes back just before you would forget it") : t("Come back tomorrow, or study a topic deck"))}</small>
+            <small>${esc(cardsDone ? t("All reviewed") : freeNote("cards") ?? (done.cards.length ? t("{done} of {total} reviewed", { done: done.cards.length, total: plan.cards.length })
+              : plan.cards.length ? t("Each card comes back just before you would forget it") : t("Come back tomorrow, or study a topic deck")))}</small>
             <span class="minutes">${cardsLeft.length ? esc(t("{n} min", { n: cardMinutes })) : ""}</span></a></li>
           ${locked ? `<li><a href="/exercises/${esc(lab.id)}" class="locked">
             <strong>${stepKind("lab", t("Exercise"))}<span>${esc(lab.title)}</span>${premiumTag()}</strong>
@@ -167,8 +175,9 @@ function render() {
         <span>${esc(miss ? t("Cleared after confident correct answers on {days} different days.", { days: P.proof_days }) : t("Missed questions and lucky guesses collect here."))}</span></a>
       ${mock ? `<button data-start="resume">${icon("timer")}<strong>${esc(t("Resume your mock exam"))}</strong>
           <span>${esc(tn(mockLeft, "{answered} of {count} answered, {n} minute left.", "{answered} of {count} answered, {n} minutes left.", { answered: mock.answered, count: mock.count }))}</span></button>`
-        : `<button data-start="mock">${icon("timer")}<strong>${esc(t("Take a mock exam"))}</strong>
-          <span>${esc(t("{questions} questions in {minutes} minutes, questions you have not seen first.", { questions: C.exam.questions, minutes: C.exam.minutes }))}</span></button>`}
+        : `<button data-start="mock">${icon("timer")}<strong>${esc(t("Take a mock exam"))}${subscribed() ? "" : ` ${premiumTag()}`}</strong>
+          <span>${esc(subscribed() ? t("{questions} questions in {minutes} minutes, questions you have not seen first.", { questions: C.exam.questions, minutes: C.exam.minutes })
+            : t("Timed full exams are part of a subscription."))}</span></button>`}
       ${C.home_notes.map((n, i) => `<button data-note="${esc(n.path)}">${icon(i ? "notes" : "doc")}<strong>${esc(n.title)}</strong>
         <span>${esc(n.blurb)}</span></button>`).join("\n      ")}
     </div>`)}

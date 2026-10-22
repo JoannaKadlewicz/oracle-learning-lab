@@ -5,7 +5,7 @@ import { api } from "../core/api.js";
 import { main, go } from "../core/router.js";
 import { t } from "../core/i18n.js";
 import { C, topicLabel } from "../core/state.js";
-import { pageHead, loading, empty } from "../ui/widgets.js";
+import { pageHead, loading, empty, premiumTag, premiumCallout } from "../ui/widgets.js";
 
 let currentNote = null;
 
@@ -32,14 +32,17 @@ function describe(note) {
 async function render() {
   main.innerHTML = `${pageHead(esc(t("Notes")), esc(t("Lesson notes for every topic, and your saved SQL notes.")))}${loading(t("Loading notes"))}`;
   const list = await api("/api/notes");
-  if (!list.some(n => n.path === currentNote)) currentNote = (list.find(n => n.path.includes("notes.md")) || list[0])?.path;
+  if (!list.some(n => n.path === currentNote)) {
+    currentNote = (list.find(n => n.path.includes("notes.md") && !n.locked) || list.find(n => !n.locked) || list[0])?.path;
+  }
+  const locked = new Set(list.filter(n => n.locked).map(n => n.path));
   const groups = {};
   for (const n of list) {
     const d = describe(n);
     (groups[d.group] ||= []).push({ ...n, label: d.label });
   }
   const options = Object.entries(groups).map(([g, items]) => `<optgroup label="${esc(g)}">${items.map(n =>
-    `<option value="${esc(n.path)}" ${n.path === currentNote ? "selected" : ""}>${esc(n.label)}</option>`).join("")}</optgroup>`).join("");
+    `<option value="${esc(n.path)}" ${n.path === currentNote ? "selected" : ""}>${esc(n.locked ? t("{label} (Premium)", { label: n.label }) : n.label)}</option>`).join("")}</optgroup>`).join("");
 
   main.innerHTML = `
     ${pageHead(esc(t("Notes")), esc(t("Lesson notes for every topic, and your saved SQL notes.")))}
@@ -48,7 +51,7 @@ async function render() {
       <nav class="split-list" aria-label="${esc(t("Notes"))}">
         <div class="split-scroll">
           ${Object.entries(groups).map(([g, items]) => `<p class="item-group">${esc(g)}</p><ul class="item-list">${items.map(n =>
-            `<li><button data-note="${esc(n.path)}" aria-current="${n.path === currentNote}"><span></span><span>${esc(n.label)}</span></button></li>`).join("")}</ul>`).join("")}
+            `<li><button data-note="${esc(n.path)}" aria-current="${n.path === currentNote}"${n.locked ? ` class="locked"` : ""}><span></span><span>${esc(n.label)}${n.locked ? ` ${premiumTag()}` : ""}</span></button></li>`).join("")}</ul>`).join("")}
         </div>
       </nav>
       <article class="note-body" id="note">${loading(t("Loading"))}</article>
@@ -59,6 +62,11 @@ async function render() {
   $("[aria-current='true']", main)?.scrollIntoView({ block: "nearest" });
 
   if (!currentNote) { $("#note").innerHTML = empty(esc(t("No notes yet"))); return; }
+  if (locked.has(currentNote)) {
+    $("#note").innerHTML = premiumCallout(t("This lesson is part of a subscription"),
+      t("A free workspace includes the first lessons and the exam guide. Ask an admin for a subscription to read every lesson."));
+    return;
+  }
   const note = await api("/api/note?path=" + encodeURIComponent(currentNote));
   const isSql = currentNote.endsWith(".sql");
   if (isSql || !window.marked) {

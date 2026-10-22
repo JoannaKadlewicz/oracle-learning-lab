@@ -47,5 +47,16 @@ export const loading = text => `<p class="loading">${esc(text)}</p>`;
 export const premiumTag = () => `<span class="premium-tag" title="${esc(t("Premium: not included in free accounts"))}">${icon("lock")}<span>${esc(t("Premium"))}</span></span>`;
 
 /** The banner on a page whose SQL a free account cannot run: the page stays readable, the buttons stay off. */
-export const premiumCallout = () => `<div class="callout premium-callout">${icon("lock")}<p><strong>${esc(t("SQL is a premium feature"))}</strong>
-  ${esc(t("Free accounts can read the exercises and the SQL lab, but not run queries. Ask an admin to upgrade your account to Learner."))}</p></div>`;
+export const premiumCallout = (title = t("SQL is a premium feature"),
+  text = t("A free workspace can read the exercises and the SQL lab, but not run queries. Ask an admin for a subscription to this workspace.")) =>
+  `<div class="callout premium-callout">${icon("lock")}<p><strong>${esc(title)}</strong> ${esc(text)}</p></div>`;
+
+/** Shown instead of the next question or card once a free plan's daily allowance of `kind` is used up. */
+export function limitPanel(kind, n) {
+  const title = kind === "cards" ? t("That's today's free flashcards") : t("That's today's free questions");
+  const text = kind === "cards"
+    ? t("You rated all {n} free flashcards for today. Come back tomorrow for more, or ask an admin for a subscription to study without limits.", { n })
+    : t("You answered all {n} free questions for today. Come back tomorrow for more, or ask an admin for a subscription to practise without limits.", { n });
+  return `<div class="empty limit-panel">${icon("lock")}<strong>${esc(title)}</strong><p>${esc(text)}</p>
+    <div class="row"><a class="btn" href="/">${esc(t("Back to Today"))}</a><a class="btn secondary" href="/progress">${esc(t("See your progress"))}</a></div></div>`;
+}

@@ -6,10 +6,10 @@ import { $, $$, esc, shuffle } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { t, tn, lang, LANGUAGES } from "../core/i18n.js";
 import { store } from "../core/store.js";
-import { C, P, CARD, DB, apply, dueCards, cardLearned, topicLabel, topicNo, needsNewerDb, sqlOff, noSql, todayLeft } from "../core/state.js";
+import { C, P, CARD, DB, A, apply, dueCards, cardLearned, topicLabel, topicNo, needsNewerDb, sqlOff, noSql, todayLeft, leftToday } from "../core/state.js";
 import { main, go } from "../core/router.js";
 import { toast, toastError } from "../ui/feedback.js";
-import { meter, pageHead, section, loading } from "../ui/widgets.js";
+import { meter, pageHead, section, loading, limitPanel } from "../ui/widgets.js";
 import { makeEditor } from "../ui/editor.js";
 import { resultsHtml, errorBox } from "../ui/sql.js";
 import { formatSample } from "../ui/sample.js";
@@ -95,6 +95,7 @@ export function openDeck(cards, keepOrder, { fromToday = false } = {}) {
 }
 
 function render() {
+  if (deck && !leftToday("cards")) { deck = null; main.innerHTML = limitPanel("cards", A.limits.cards); return; }
   if (!deck) return renderSetup();
   renderCard();
 }
@@ -306,7 +307,10 @@ async function rateCard(rating) {
   deck.flipped = false;
   deck.revealed = false;
   deck.tryOpen = false;
-  try { apply(await api("/api/card", { id, rating })); } catch { toastError(t("Could not save the card result.")); }
+  try { apply(await api("/api/card", { id, rating })); } catch (err) {
+    if (err.limit) { deck = null; main.innerHTML = limitPanel("cards", A?.limits?.cards); current.busy = false; return; }
+    toastError(t("Could not save the card result."));
+  }
   current.busy = false;
   if (deck !== current) return;  // the deck was closed meanwhile
   renderCard();

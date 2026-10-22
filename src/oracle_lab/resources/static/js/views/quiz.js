@@ -5,10 +5,10 @@ import { $, $$, esc, inlineCode, shuffle, icon, LETTERS } from "../core/dom.js";
 import { api } from "../core/api.js";
 import { t, tn } from "../core/i18n.js";
 import { store, forget } from "../core/store.js";
-import { C, S, P, Q, CARD, apply, topicLabel, needsNewerDb, mistakes, sqlOff, noSql, todayLeft } from "../core/state.js";
+import { C, S, P, Q, CARD, A, apply, topicLabel, needsNewerDb, mistakes, sqlOff, noSql, todayLeft, subscribed, leftToday } from "../core/state.js";
 import { main, go, currentView, setLeaveGuard } from "../core/router.js";
 import { toast, clearToast, toastError, confirmDialog, closeDialogs } from "../ui/feedback.js";
-import { meter, pageHead, section } from "../ui/widgets.js";
+import { meter, pageHead, section, limitPanel } from "../ui/widgets.js";
 import { readinessHtml } from "../ui/charts.js";
 import { refreshNav } from "../shell.js";
 import { labDraft } from "./lab.js";
@@ -156,6 +156,7 @@ function queueSecondTry(i) {
 
 export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder, fromToday = false }) {
   topics = topics || Object.keys(C.topics);
+  if (mode !== "exam" && !leftToday("questions")) { main.innerHTML = limitPanel("questions", A.limits.questions); return; }
   if (mode === "exam") return startMock({ topics: topics.length === Object.keys(C.topics).length ? null : topics, count, minutes });
   let items;
   if (ids) items = keepOrder ? [...ids] : shuffle(ids);
@@ -178,6 +179,7 @@ export async function startQuiz({ mode, topics, count, minutes, ids, keepOrder, 
    and scores the exam. */
 
 export async function startMock({ topics, count, minutes, ids } = {}) {
+  if (!subscribed()) { toast(t("Mock exams are part of a subscription. Ask an admin to upgrade this workspace.")); return; }
   if (P.active_mock && !await confirmDialog({
     title: t("Abandon the running mock exam?"),
     body: t("It will not be scored, and its questions count as seen."),
@@ -682,7 +684,10 @@ async function checkPractice(i, confidence) {
   $("#next")?.focus({ preventScroll: true });
   // A second try is recorded like any other answer.
   try { apply(await api("/api/attempt", { id, chosen, confidence, mode: "practice" })); refreshNav(); }
-  catch { toastError(t("Could not save this answer. Check that the server is running.")); return; }
+  catch (err) {
+    if (err.limit) { main.innerHTML = limitPanel("questions", A?.limits?.questions); return; }
+    toastError(t("Could not save this answer. Check that the server is running.")); return;
+  }
   const note = $("#second-note");
   if (note && quiz?.items[quiz.idx] === entry) {
     note.hidden = !openMistake(id);

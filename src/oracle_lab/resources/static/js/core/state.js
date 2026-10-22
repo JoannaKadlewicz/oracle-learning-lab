@@ -33,6 +33,8 @@ export const noSql = () => subscribed()
 export const sqlOff = () => P?.sql_available === false;
 /** Everything in this workspace (a subscription, or an admin); false on a free workspace. */
 export const subscribed = () => (A?.level ?? "subscribed") === "subscribed";
+/** What is left today of a free plan's daily `kind` ("questions" or "cards"); Infinity without limits. */
+export const leftToday = kind => A?.limits ? Math.max(0, A.limits[kind] - (A.used?.[kind] ?? 0)) : Infinity;
 
 /** What is left of today's plan after the questions: flashcard ids not reviewed yet, and the
     exercise when it is planned, not passed, and SQL is available. */

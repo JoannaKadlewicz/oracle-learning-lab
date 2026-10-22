@@ -428,3 +428,6 @@ pre.code code { font-size: inherit; background: none; border: 0; padding: 0; }
 .premium-tag svg { width: 12px; height: 12px; flex: none; }
 .premium-callout { display: flex; gap: 12px; align-items: flex-start; border-left-color: var(--warn); margin-bottom: 20px; }
 .premium-callout svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--warn); }
+
+.limit-panel > svg { width: 34px; height: 34px; color: var(--warn); }
+.item-list button.locked { color: var(--muted); }

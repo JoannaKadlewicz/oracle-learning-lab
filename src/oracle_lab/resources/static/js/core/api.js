@@ -32,6 +32,7 @@ export async function api(path, body, { language } = {}) {
   if (!res.ok) {
     const err = new ApiError(payload?.error || t("{path} failed with HTTP {status}.", { path, status: res.status }));
     err.problems = Array.isArray(payload?.problems) ? payload.problems : [];
+    err.limit = payload?.limit ?? null;  // "questions" or "cards": a free plan's daily allowance is used up
     err.status = res.status;
     throw err;
   }
