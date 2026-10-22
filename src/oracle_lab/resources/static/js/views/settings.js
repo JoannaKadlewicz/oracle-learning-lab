@@ -11,6 +11,7 @@ import { pageHead, section } from "../ui/widgets.js";
 import { applyTheme, refreshNav } from "../shell.js";
 import { clearUserStore } from "../core/store.js";
 import { loadSession, currentUser } from "../core/session.js";
+import { roleLabel } from "../core/roles.js";
 
 function render() {
   const settings = P.settings;
@@ -159,7 +160,7 @@ async function renderAccount() {
   panel.innerHTML = `
     <div class="setting">
       <div><h3>${esc(t("Account"))}</h3><p>${esc(user.display_name)}, <span class="acct-email">${esc(user.email)}</span></p></div>
-      <span class="tag">${esc(user.role === "admin" ? t("Administrator") : t("Learner"))}</span>
+      <span class="tag">${esc(roleLabel(user.role))}</span>
     </div>
     <div class="setting">
       <div><h3>${esc(t("Sign-in methods"))}</h3><p>${esc(user.methods.map(methodName).join(", ") || t("None"))}</p></div>

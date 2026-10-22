@@ -8,7 +8,9 @@ import { store } from "../core/store.js";
 import { S, DB, sqlOff, noSql } from "../core/state.js";
 import { main } from "../core/router.js";
 import { toast, toastError, confirmDialog, promptDialog } from "../ui/feedback.js";
-import { pageHead, loading } from "../ui/widgets.js";
+import { pageHead, loading, premiumCallout } from "../ui/widgets.js";
+import { currentUser } from "../core/session.js";
+import { canRunSql } from "../core/roles.js";
 import { makeEditor, schemaHtml, invalidateSchema } from "../ui/editor.js";
 import { displaySql, resultsHtml, vizHtml, bindViz, errorBox } from "../ui/sql.js";
 import { openNote } from "./notes.js";
@@ -27,6 +29,7 @@ async function render() {
   const where = DB ? `${DB.product} ${DB.version.split(".").slice(0, 2).join(".")}` : t("your database");
   main.innerHTML = `
     ${pageHead(esc(t("SQL lab")), esc(t("Run any SQL against the learning schema on {where}. Separate statements with semicolons, end PL/SQL blocks with a line holding only {slash}, and select text to run only that part.", { where })).replace("{slash}", "<code>/</code>"))}
+    ${canRunSql(currentUser()) ? "" : premiumCallout()}
     <div class="lab">
       <div>
         <div class="editor-wrap">

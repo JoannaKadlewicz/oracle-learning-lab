@@ -47,4 +47,4 @@ class UserContexts:
             raise LoginRequired("Login required")  # error_boundary: 401 {"error": "Login required"}
         return UserContext(principal, self.stores.states.for_user(principal.user_id),
                            self.stores.notes.for_user(principal.user_id), self.practice_factory,
-                           self.learners_get_sql or principal.role == "admin")
+                           principal.role == "admin" or (self.learners_get_sql and principal.role != "free"))

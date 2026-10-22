@@ -154,18 +154,34 @@ def test_daily_plan_fits_the_time_and_counts_days_left():
     assert "Take a timed mock exam this week." in plan["advice"]
 
 
-def test_daily_plan_skips_the_lab_when_time_is_short():
+def test_a_short_session_still_has_questions_cards_and_an_exercise():
     plan = engine.daily_plan(CONTENT, {"settings": {"daily_minutes": 10}}, NOW, rng=random.Random(1))
-    assert plan["lab"] is None and plan["days_left"] is None
+    assert plan["lab"] in ("lab-x", "lab-y") and not plan["lab_locked"] and plan["days_left"] is None
+    assert plan["cards"] and len(plan["questions"]) >= 5
 
 
-def test_plan_without_sql_has_no_exercise():
+def test_the_plan_tops_up_flashcards_with_the_ones_due_soonest():
+    state = {"settings": {"new_cards_per_day": 0},
+             "cards": {"c001": {"reviews": [[NOW - DAY, "good"]]}, "c002": {"reviews": [[NOW - DAY, "easy"]]}}}
+    assert sorted(engine.daily_plan(CONTENT, state, NOW, rng=random.Random(1))["cards"]) == ["c001", "c002"]
+
+
+def test_with_every_exercise_passed_the_plan_revisits_the_oldest():
+    state = {"labs": {"lab-x": {"passed": True, "t": NOW - DAY}, "lab-y": {"passed": True, "t": NOW - 5 * DAY}}}
+    assert engine.daily_plan(CONTENT, state, NOW, rng=random.Random(1))["lab"] == "lab-y"
+
+
+def test_without_sql_the_exercise_is_locked_and_not_needed():
     state = {"settings": {"daily_minutes": 30}}
     with_sql = engine.daily_plan(CONTENT, state, NOW, rng=random.Random(1))
     without = engine.daily_plan(CONTENT, state, NOW, rng=random.Random(1), sql_available=False)
-    assert with_sql["lab"] and without["lab"] is None
-    assert engine.todays_plan(CONTENT, state, NOW, sql_available=False)["lab"] is None
-    assert engine.progress(CONTENT, state, NOW, sql_available=False)["plan"]["lab"] is None
+    assert without["lab"] == with_sql["lab"] and without["lab_locked"] and not with_sql["lab_locked"]
+    plan = engine.todays_plan(CONTENT, state, NOW, sql_available=False)
+    assert plan["lab_locked"] and engine.progress(CONTENT, state, NOW, sql_available=False)["plan"]["lab_locked"]
+    for qid in plan["questions"]:
+        state.setdefault("attempts", {})[qid] = [{**answer(0, True), "t": NOW + 60}]
+    state["cards"] = {cid: {"reviews": [[NOW + 60, "good"]]} for cid in plan["cards"]}
+    assert engine.todays_plan(CONTENT, state, NOW + 120, sql_available=False)["complete"]
 
 
 def test_todays_plan_ticks_items_off_instead_of_replacing_them():

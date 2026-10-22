@@ -153,7 +153,8 @@ def drop_user_schemas(user_id: str, repo: PracticeSchemaRepository,
 
 def provisioning_hook(provisioners: Mapping[str, Provisioner], repo: PracticeSchemaRepository, clock: Clock,
                       audit: AuditLog | None, user_exists: UserExists = _always) -> Callable[[User], None]:
-    """The on_user_created hook: starts the default schema in a daemon thread. Never raises."""
+    """The on_user_created hook: starts the default schema in a daemon thread. Never raises. A free account runs no
+    SQL, so it gets none; after a promotion the first use of the SQL lab creates it."""
     key = exams.DEFAULT_DATABASE
     provisioner = provisioners.get(key)
 
@@ -166,7 +167,7 @@ def provisioning_hook(provisioners: Mapping[str, Provisioner], repo: PracticeSch
             log.exception("provisioning the practice schema of %s failed", user_id)
 
     def on_user_created(user: User) -> None:
-        if provisioner is None:
+        if provisioner is None or user.role == "free":
             return
         try:
             threading.Thread(target=work, args=(user.id,), name=f"provision-{user.id}", daemon=True).start()

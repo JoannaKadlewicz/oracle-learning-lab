@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 RESET_LINK_SECONDS = 24 * 3600
 MAX_EVENTS = 500
 DENIALS_PER_HOUR = 10
-ROLES = ("learner", "admin")
+ROLES = ("free", "learner", "admin")
 SELF = "You can't do that to your own account."
 ONLY_ADMIN = "You can't remove the only admin."
 

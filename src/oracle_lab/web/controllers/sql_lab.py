@@ -18,6 +18,17 @@ log = logging.getLogger(__name__)
 _NOT_SHOWN_IN_PAGE = (PracticeUnavailable, HttpError)
 
 
+NO_SQL = "Your account cannot run SQL. Ask an admin for learner access."
+
+
+def _sql_context(contexts: UserContexts, request: Request):
+    """The user's context; a free account may not run SQL at all (403)."""
+    ctx = contexts(request)
+    if ctx.principal.role == "free":
+        raise HttpError(403, NO_SQL)
+    return ctx
+
+
 def _database_failure(exc: Exception, **payload) -> Response:
     """Database problems are shown in the page (status 200), the way the front end expects them."""
     log.warning("database call failed: %s", exc)
@@ -34,7 +45,7 @@ class SqlLabController:
         self.clock = clock
 
     def lab(self, request: Request) -> SqlLabService:
-        ctx = self.contexts(request)
+        ctx = _sql_context(self.contexts, request)
         return SqlLabService(ctx.state, ctx.practice, self.guard, self.clock)
 
     def register(self, router: Router) -> None:
@@ -74,7 +85,7 @@ class ExerciseController:
         self.clock = clock
 
     def exercises(self, request: Request) -> ExerciseService:
-        ctx = self.contexts(request)
+        ctx = _sql_context(self.contexts, request)
         return ExerciseService(ctx.state, ctx.practice, self.guard, self.clock)
 
     def register(self, router: Router) -> None:

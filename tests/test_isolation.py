@@ -106,3 +106,11 @@ def test_progress_and_mock_exams_are_kept_per_user(serve):
     assert a.get("/api/mock?id=" + mock["id"])["report"] is None  # still open
     user_a = stores.users.by_email("a@x.org")
     assert mock["id"] in json.dumps(stores.states.for_user(user_a.id).load())
+
+
+@pytest.mark.parametrize("role,practice_on,expected", [("admin", False, True), ("learner", True, True),
+                                                       ("learner", False, False), ("free", True, False)])
+def test_who_may_run_sql(role, practice_on, expected):
+    principal = Principal("u1", "a@x.org", role, "hash", "csrf", None)
+    ctx = UserContexts(memory_stores(), None, practice_on)(Request("GET", "/api/state", {}, principal=principal))
+    assert ctx.sql_available is expected

@@ -2,11 +2,11 @@
    what else is open, and mastery per topic. */
 
 import { $$, esc, plural, icon } from "../core/dom.js";
-import { C, P, L, CARD, DB, mistakes, topicStats, topicLabel } from "../core/state.js";
+import { C, S, P, L, CARD, DB, mistakes, topicStats, topicLabel } from "../core/state.js";
 import { currentUser } from "../core/session.js";
 import { t, tn, formatDate } from "../core/i18n.js";
 import { main, go } from "../core/router.js";
-import { levelBadge, meter, section } from "../ui/widgets.js";
+import { levelBadge, meter, section, premiumTag } from "../ui/widgets.js";
 import { startQuiz, startMock, resumeMock, practiceSession, resumePractice } from "./quiz.js";
 import { openDeck } from "./cards.js";
 import { openNote } from "./notes.js";
@@ -60,6 +60,8 @@ function render() {
   const plan = P.plan;
   const miss = mistakes().length;
   const lab = plan.lab ? L[plan.lab] : null;
+  const locked = Boolean(lab && plan.lab_locked);  // shown, but a free account can't run it: not part of the count
+  const counted = lab && !locked;
   const done = plan.done;
   const questionsLeft = plan.questions.filter(id => !done.questions.includes(id));
   const cardsLeft = plan.cards.filter(id => !done.cards.includes(id));
@@ -68,9 +70,9 @@ function render() {
   const cardsNew = cardsLeft.length - cardsDue;
   const cardMinutes = Math.max(1, Math.round(cardsLeft.length * 0.3));
   const questionMinutes = Math.max(1, Math.round(questionsLeft.length * 1.5));
-  const total = plan.questions.length + plan.cards.length + (lab ? 1 : 0);
-  const finished = done.questions.length + done.cards.length + (done.lab ? 1 : 0);
-  const minutesLeft = Math.round(questionsLeft.length * 1.5 + cardsLeft.length * 0.3 + (lab && !done.lab ? 8 : 0));
+  const total = plan.questions.length + plan.cards.length + (counted ? 1 : 0);
+  const finished = done.questions.length + done.cards.length + (counted && done.lab ? 1 : 0);
+  const minutesLeft = Math.round(questionsLeft.length * 1.5 + cardsLeft.length * 0.3 + (counted && !done.lab ? 8 : 0));
   const questionsDone = !questionsLeft.length;
   const cardsDone = plan.cards.length && !cardsLeft.length;
   const mock = P.active_mock;
@@ -123,9 +125,14 @@ function render() {
             <small>${esc(cardsDone ? t("All reviewed") : done.cards.length ? t("{done} of {total} reviewed", { done: done.cards.length, total: plan.cards.length })
               : plan.cards.length ? t("Spaced by how well you know them") : t("Come back tomorrow, or study a topic deck"))}</small>
             <span class="minutes">${cardsLeft.length ? esc(t("{n} min", { n: cardMinutes })) : ""}</span></a></li>
-          ${lab ? `<li><a href="/exercises/${esc(lab.id)}" class="${done.lab ? "done" : ""}">
+          ${locked ? `<li><a href="/exercises/${esc(lab.id)}" class="locked">
+            <strong>${esc(t("Exercise: {title}", { title: lab.title }))} ${premiumTag()}</strong>
+            <small>${esc(t("Read it now; running SQL needs a premium account"))}</small>
+            <span class="minutes"></span></a></li>` : ""}
+          ${counted ? `<li><a href="/exercises/${esc(lab.id)}" class="${done.lab ? "done" : ""}">
             <strong>${esc(t("Exercise: {title}", { title: lab.title }))}</strong>
-            <small>${esc(done.lab ? t("Passed") : t("{topic}, one of your weakest objectives", { topic: topicLabel(lab.topic) }))}</small>
+            <small>${esc(done.lab ? t("Passed") : S.labs[lab.id]?.passed ? t("Passed before: a second go keeps it fresh")
+              : t("{topic}, one of your weakest objectives", { topic: topicLabel(lab.topic) }))}</small>
             <span class="minutes">${done.lab ? "" : esc(t("{n} min", { n: 8 }))}</span></a></li>` : ""}
         </ol>
         <div class="session-foot">
@@ -188,7 +195,7 @@ function render() {
       if (now?.fromToday && !staleToday(now)) return resumePractice();
       startQuiz({ mode: "practice", ids: questionsLeft.length ? questionsLeft : plan.questions, keepOrder: true, fromToday: true });
     } else if (kind === "cards" || cardsLeft.length) openDeck((cardsLeft.length ? cardsLeft : plan.cards).map(id => CARD[id]).filter(Boolean), true, { fromToday: true });
-    else if (lab) go(`/exercises/${lab.id}`);
+    else if (counted) go(`/exercises/${lab.id}`);
   }));
   $$("[data-topic]", main).forEach(b => b.addEventListener("click", () => startQuiz({ mode: "practice", topics: [b.dataset.topic], count: 10 })));
   $$("[data-note]", main).forEach(b => b.addEventListener("click", () => openNote(b.dataset.note)));
