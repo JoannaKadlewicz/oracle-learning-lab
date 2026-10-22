@@ -44,8 +44,8 @@ def answer(user):
     return user("/api/attempt", {"id": question["id"], "chosen": question["answer"]})
 
 
-def grade(user):
-    lab = content.LABS[0]
+def grade(user, n=0):
+    lab = content.LABS[n]
     return user("/api/grade", {"id": lab["id"], "sql": "SELECT 1 FROM dual"})
 
 
@@ -104,25 +104,31 @@ def graded(monkeypatch):
     monkeypatch.setattr(sql_lab.ExerciseService, "grade", lambda self, *a: {"passed": False, "feedback": []})
 
 
-def test_user_gets_ten_graded_exercises_a_day(lab, graded):
+def test_user_solves_ten_graded_exercises_a_day(lab, graded, monkeypatch):
+    from oracle_lab.web.controllers import sql_lab
+
     stores, _, user, uid = lab
     as_plan(stores, uid, "user")
-    for _ in range(10):
-        assert grade(user)[0] == 200
-    status, _, raw = grade(user)
+    monkeypatch.setattr(sql_lab.ExerciseService, "grade", lambda self, *a: {"passed": True, "feedback": []})
+    for n in range(10):
+        assert grade(user, n)[0] == 200
+    status, _, raw = grade(user, 10)
     assert status == 403 and json.loads(raw)["limit"] == "exercises"
     assert user("/api/reset-progress", {})[0] == 200
     assert grade(user)[0] == 403
     assert body(user("/api/progress"))["access"]["used"]["exercises"] == 10
 
 
-def test_override_unlocks_more_for_one_account(lab, graded):
+def test_override_unlocks_more_for_one_account(lab, graded, monkeypatch):
+    from oracle_lab.web.controllers import sql_lab
+
     stores, _, user, uid = lab
     as_plan(stores, uid, "user")
     plans.set_override(stores.settings, uid, {"exercises": 1})
-    assert grade(user)[0] != 403 and grade(user)[0] == 403
+    monkeypatch.setattr(sql_lab.ExerciseService, "grade", lambda self, *a: {"passed": True, "feedback": []})
+    assert grade(user)[0] != 403 and grade(user, 1)[0] == 403
     plans.set_override(stores.settings, uid, {"exercises": 3})
-    assert grade(user)[0] != 403
+    assert grade(user, 1)[0] != 403
 
 
 def test_user_can_start_a_mock_guest_cannot(lab):

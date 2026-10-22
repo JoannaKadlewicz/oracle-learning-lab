@@ -224,7 +224,8 @@
   "Create a free account to use this.": "Załóż darmowe konto, aby z tego korzystać.",
   "You have used today's {n} questions. Come back tomorrow.": "Dzisiejszy limit pytań ({n}) został wykorzystany. Wróć jutro.",
   "You have used today's {n} flashcards. Come back tomorrow.": "Dzisiejszy limit fiszek ({n}) został wykorzystany. Wróć jutro.",
-  "You have used today's {n} exercises. Come back tomorrow.": "Dzisiejszy limit ćwiczeń ({n}) został wykorzystany. Wróć jutro.",
+  "You have solved today's {n} exercises. Come back tomorrow.": "Dzisiejsze ćwiczenia ({n}) są już rozwiązane. Wróć jutro.",
+  "You have checked {n} answers today. Come back tomorrow.": "Dzisiaj sprawdzono już {n} odpowiedzi. Wróć jutro.",
   "member must be true or false.": "member musi mieć wartość true albo false.",
   "This lab is not open to guests.": "To laboratorium nie jest otwarte dla gości."
 }

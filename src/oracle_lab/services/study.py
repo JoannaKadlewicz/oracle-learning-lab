@@ -22,7 +22,8 @@ DEFAULT_PICK = 10
 LIMIT_MESSAGES = {
     "questions": "You have used today's {n} questions. Come back tomorrow.",
     "cards": "You have used today's {n} flashcards. Come back tomorrow.",
-    "exercises": "You have used today's {n} exercises. Come back tomorrow.",
+    "exercises": "You have solved today's {n} exercises. Come back tomorrow.",
+    "checks": "You have checked {n} answers today. Come back tomorrow.",
 }
 
 
@@ -116,7 +117,7 @@ class StudyService:
         if allowed is None:
             return
         if used_today(state, self.clock())[kind] >= allowed:
-            raise LimitReached(Msg.of(LIMIT_MESSAGES[kind], n=allowed), kind)
+            raise LimitReached(Msg.of(LIMIT_MESSAGES[kind], n=allowed), kind, allowed)
         count_use(state, kind, self.clock())
 
     def _snapshot(self, state: State) -> dict[str, Any]:

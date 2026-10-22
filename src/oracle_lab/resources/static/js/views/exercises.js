@@ -78,7 +78,7 @@ function render(arg) {
   main.innerHTML = `
     ${pageHead(esc(t("Exercises")), esc(t("Your SQL and the reference solution both run on the database, and the results are compared. {passed} of {total} passed.", { passed: passedCount, total: C.labs.length })))}
     ${can("exercises") ? (leftToday("exercises") !== Infinity ? `<p class="callout">${esc(tn(leftToday("exercises"),
-      "{n} graded exercise left today on your plan.", "{n} graded exercises left today on your plan."))}</p>` : "")
+      "{n} exercise left to solve today on your plan. Only correct answers count.", "{n} exercises left to solve today on your plan. Only correct answers count."))}</p>` : "")
       : accountCallout(t("SQL exercises are free with an account"))}
     <label class="list-picker field"><span>${esc(t("Exercise"))}</span><select id="ex-picker">${pickerHtml(shown, lab)}</select></label>
     <div class="split">
@@ -144,7 +144,8 @@ function render(arg) {
       res = await api("/api/grade", { id: lab.id, sql: editor.get() });
       await loadProgress();
     } catch (err) {
-      results.innerHTML = err.limit ? limitPanel("exercises", A?.limits?.exercises) : errorBox(err.message);
+      results.innerHTML = err.limit === "checks" ? limitPanel("checks", err.allowance)
+        : err.limit ? limitPanel("exercises", A?.limits?.exercises) : errorBox(err.message);
       return;
     }
     let html;

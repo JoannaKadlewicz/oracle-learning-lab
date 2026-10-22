@@ -900,7 +900,6 @@
   "{role} accounts have one workspace: choosing another moves it. More than one needs the Pro plan.": "Konto typu {role} ma jeden workspace: wybór innego go przenosi. Więcej wymaga planu Pro.",
   "{who} follows the plan's limits again.": "{who}: znowu obowiązują limity planu.",
   "{who} has one workspace. {from} is replaced.": "{who} ma jeden workspace. {from} zostanie zastąpiony.",
-  "{n} graded exercises left today on your plan.": ["Na dziś zostało {n} sprawdzane ćwiczenie.", "Na dziś zostały {n} sprawdzane ćwiczenia.", "Na dziś zostało {n} sprawdzanych ćwiczeń."],
   "Not registered yet": "Bez rejestracji",
   "SQL on the most loved open-source database": "SQL na najbardziej lubianej otwartej bazie",
   "SQL for the web's favourite database": "SQL na ulubionej bazie internetu",
@@ -939,5 +938,8 @@
   "Write any query and see its rows, what your INSERT, UPDATE or DELETE changed, and how a join combines the rows of two tables.": "Napisz dowolne zapytanie i zobacz jego wiersze, co zmienił Twój INSERT, UPDATE lub DELETE i jak złączenie łączy wiersze dwóch tabel.",
   "Sign in to an account with the Pro plan. New here? A free account comes first and already checks 10 SQL exercises a day.": "Zaloguj się na konto z planem Pro. Jesteś tu pierwszy raz? Najpierw załóż darmowe konto: już ono sprawdza 10 ćwiczeń SQL dziennie.",
   "Pro is assigned by an admin for now: ask yours to upgrade your account. Your free account checks 10 SQL exercises a day.": "Plan Pro przydziela na razie administrator: poproś go o podniesienie planu. Twoje darmowe konto sprawdza 10 ćwiczeń SQL dziennie.",
-  "Go to SQL exercises": "Przejdź do ćwiczeń SQL"
+  "Go to SQL exercises": "Przejdź do ćwiczeń SQL",
+  "That's today's checks": "To już dzisiejsze sprawdzenia",
+  "You checked {n} answers today. Come back tomorrow, or ask an admin for the Pro plan to practise without limits.": "Dzisiaj sprawdzono już {n} odpowiedzi. Wróć jutro albo poproś administratora o plan Pro, aby ćwiczyć bez limitu.",
+  "{n} exercises left to solve today on your plan. Only correct answers count.": ["Na dziś zostało {n} ćwiczenie do rozwiązania. Liczą się tylko poprawne odpowiedzi.", "Na dziś zostały {n} ćwiczenia do rozwiązania. Liczą się tylko poprawne odpowiedzi.", "Na dziś zostało {n} ćwiczeń do rozwiązania. Liczą się tylko poprawne odpowiedzi."]
 }

@@ -84,6 +84,15 @@ def test_used_today_counts_exercises_from_the_usage_counter():
     assert limits.used_today(state, NOW + 2 * engine.DAY)["exercises"] == 0
 
 
+def test_a_solved_exercise_counts_once_a_day():
+    state = {}
+    assert limits.count_solved(state, "lab-a", NOW) and limits.count_solved(state, "lab-b", NOW)
+    assert not limits.count_solved(state, "lab-a", NOW)  # solving it again the same day is free
+    assert limits.used_today(state, NOW)["exercises"] == 2
+    assert limits.count_solved(state, "lab-a", NOW + engine.DAY)  # a new day counts it again
+    assert limits.used_today(state, NOW + engine.DAY)["exercises"] == 1
+
+
 def test_membership_policy():
     from oracle_lab.access import policy
 

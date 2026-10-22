@@ -52,20 +52,40 @@ def test_an_exercise_that_did_not_run_is_not_counted(lab):
     assert stores.states.for_user(uid).load().get("usage", {}).get("exercises", 0) == 0
 
 
-def test_graded_runs_are_counted_and_limited(lab, monkeypatch):
+def test_only_solved_exercises_use_the_allowance(lab, monkeypatch):
     from oracle_lab.web.controllers import sql_lab
 
     stores, _, user, uid, _ = lab
+    usage = lambda: stores.states.for_user(uid).load().get("usage", {})  # noqa: E731
+    grade = lambda lab_id: user("/api/grade", {"id": lab_id, "sql": "SELECT 1 FROM dual"})  # noqa: E731
     monkeypatch.setattr(sql_lab.ExerciseService, "grade", lambda self, *a: {"passed": False, "feedback": []})
-    lab_id = content.LABS[0]["id"]
-    for _ in range(10):
-        assert user("/api/grade", {"id": lab_id, "sql": "SELECT 1 FROM dual"})[0] == 200
-    status, _, raw = user("/api/grade", {"id": lab_id, "sql": "SELECT 1 FROM dual"})
+    for _ in range(15):  # more wrong answers than the plan's 10 exercises
+        assert grade(content.LABS[0]["id"])[0] == 200
+    assert usage()["exercises"] == 0 and usage()["checks"] == 15
+    monkeypatch.setattr(sql_lab.ExerciseService, "grade", lambda self, *a: {"passed": True, "feedback": []})
+    assert grade(content.LABS[0]["id"])[0] == 200 and grade(content.LABS[0]["id"])[0] == 200
+    assert usage()["exercises"] == 1  # the same exercise solved twice counts once
+    for lab_def in content.LABS[1:10]:
+        assert grade(lab_def["id"])[0] == 200
+    status, _, raw = grade(content.LABS[10]["id"])
     assert status == 403 and json.loads(raw)["limit"] == "exercises"
     monkeypatch.setattr(sql_lab.ExerciseService, "grade", lambda self, *a: {"passed": False, "error": "ORA-00942"})
     stores.settings.set(f"limits:{uid}", json.dumps({"exercises": 20}))
-    user("/api/grade", {"id": lab_id, "sql": "SELECT nope"})
-    assert stores.states.for_user(uid).load()["usage"]["exercises"] == 10  # SQL that did not run is free
+    user("/api/grade", {"id": content.LABS[10]["id"], "sql": "SELECT nope"})
+    assert usage()["checks"] == 26  # SQL that did not run, or was refused at the limit, is free
+
+
+def test_checks_have_their_own_daily_cap(lab, monkeypatch):
+    from oracle_lab.access.limits import CHECKS_PER_EXERCISE
+    from oracle_lab.web.controllers import sql_lab
+
+    stores, _, user, uid, _ = lab
+    stores.settings.set(f"limits:{uid}", json.dumps({"exercises": 1}))
+    monkeypatch.setattr(sql_lab.ExerciseService, "grade", lambda self, *a: {"passed": False, "feedback": []})
+    for _ in range(CHECKS_PER_EXERCISE):
+        assert user("/api/grade", {"id": content.LABS[0]["id"], "sql": "SELECT 1 FROM dual"})[0] == 200
+    status, _, raw = user("/api/grade", {"id": content.LABS[0]["id"], "sql": "SELECT 1 FROM dual"})
+    assert status == 403 and json.loads(raw)["limit"] == "checks" and json.loads(raw)["allowance"] == CHECKS_PER_EXERCISE
 
 
 def test_an_odd_exercise_id_is_a_client_error(lab):

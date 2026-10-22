@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from oracle_lab.access.limits import count_use, used_today
+from oracle_lab.access.limits import CHECKS_PER_EXERCISE, count_solved, count_use, used_today
 from oracle_lab.database.query import format_error
 from oracle_lab.i18n import Msg, message_of
 from oracle_lab.provisioning.guards import RunGuard
@@ -91,17 +91,28 @@ class ExerciseController:
             raise AccessDenied(NEEDS_ACCOUNT)
         return ExerciseService(ctx.state, ctx.practice, self.guard, self.clock), ctx
 
-    def _allowance(self, ctx: UserContext, count: bool) -> None:
-        """The plan's daily allowance of graded runs: checked before the SQL runs, and one counted once a run has
-        happened (an outage, a busy guard or SQL that did not run costs nothing). Kept by a progress reset."""
+    def _check_allowance(self, ctx: UserContext) -> None:
+        """Before the SQL runs: the plan's daily exercises (solved ones) and its cap on checked answers."""
         allowed = ctx.access.limits.exercises
         if allowed is None:
             return
         with ctx.state.transaction() as state:
-            if used_today(state, self.clock())["exercises"] >= allowed:
-                raise LimitReached(Msg.of(LIMIT_MESSAGES["exercises"], n=allowed), "exercises")
-            if count:
-                count_use(state, "exercises", self.clock())
+            used = used_today(state, self.clock())
+            if used["exercises"] >= allowed:
+                raise LimitReached(Msg.of(LIMIT_MESSAGES["exercises"], n=allowed), "exercises", allowed)
+            if used["checks"] >= allowed * CHECKS_PER_EXERCISE:
+                checks = allowed * CHECKS_PER_EXERCISE
+                raise LimitReached(Msg.of(LIMIT_MESSAGES["checks"], n=checks), "checks", checks)
+
+    def _count(self, ctx: UserContext, lab_id: str, passed: bool) -> None:
+        """After a run: one checked answer, and the exercise once a day when it passed (an outage, a busy guard or
+        SQL that did not run costs nothing). Kept by a progress reset."""
+        if ctx.access.limits.exercises is None:
+            return
+        with ctx.state.transaction() as state:
+            count_use(state, "checks", self.clock())
+            if passed:
+                count_solved(state, lab_id, self.clock())
 
     def register(self, router: Router) -> None:
         router.post("/api/grade", self.grade)
@@ -112,7 +123,7 @@ class ExerciseController:
         if not isinstance(lab_id, str) or lab_id not in recording.LAB_IDS:
             raise HttpError(404, "Unknown exercise")
         exercises, ctx = self.exercises(request)
-        self._allowance(ctx, count=False)
+        self._check_allowance(ctx)
         try:
             result = exercises.grade(lab_id, str(data.get("sql", "")), request.language)
         except NotFoundError as exc:
@@ -122,5 +133,5 @@ class ExerciseController:
         except Exception as exc:  # noqa: BLE001
             return _database_failure(exc, passed=False)
         if not result.get("error"):
-            self._allowance(ctx, count=True)
+            self._count(ctx, lab_id, bool(result.get("passed")))
         return Response.json(result)

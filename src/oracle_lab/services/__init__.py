@@ -29,11 +29,12 @@ class AccessDenied(AccessError):  # noqa: N818
 
 
 class LimitReached(AccessError):  # noqa: N818
-    """A free plan's daily allowance of `kind` ("questions" or "cards") is used up."""
+    """A free plan's daily allowance of `kind` ("questions", "cards", "exercises" or "checks"), `allowance` of them,
+    is used up."""
 
-    def __init__(self, message, kind: str):
+    def __init__(self, message, kind: str, allowance: int | None = None):
         super().__init__(message)
-        self.extra = {"limit": kind}
+        self.extra = {"limit": kind, "allowance": allowance}
 
 
 NEEDS_PRO = "This needs the Pro plan."

@@ -39,8 +39,8 @@ def test_used_today_counts_only_today():
         "attempts": {"q1": [{"t": today - 60}, {"t": today + 60}], "q2": [{"t": today + 120}]},
         "cards": {"c1": {"reviews": [[today - 60, "good"], [today + 10, "good"]]}, "c2": {"reviews": [[today + 20, "easy"]]}},
     }
-    assert limits.used_today(state, NOW) == {"questions": 2, "cards": 2, "exercises": 0}
-    assert limits.used_today({}, NOW) == {"questions": 0, "cards": 0, "exercises": 0}
+    assert limits.used_today(state, NOW) == {"questions": 2, "cards": 2, "exercises": 0, "checks": 0}
+    assert limits.used_today({}, NOW) == {"questions": 0, "cards": 0, "exercises": 0, "checks": 0}
 
 
 def test_note_allowed_for_free_users():

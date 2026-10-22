@@ -67,13 +67,17 @@ export const registerButton = () => `<a class="btn small" href="/register">${esc
 export const accountCallout = title => premiumCallout(title, accountPitch(), registerButton());
 
 
-/** Shown instead of the next question or card once a free plan's daily allowance of `kind` is used up. */
+/** Shown instead of the next question or card once a free plan's daily allowance of `kind` is used up
+    ("checks": the cap on checked answers, `n` of them). */
 export function limitPanel(kind, n, guest = false) {
-  const title = { cards: t("That's today's flashcards"), exercises: t("That's today's exercises") }[kind] ?? t("That's today's questions");
+  const title = { cards: t("That's today's flashcards"), exercises: t("That's today's exercises"),
+    checks: t("That's today's checks") }[kind] ?? t("That's today's questions");
   const text = kind === "exercises"
     ? t("You solved all {n} exercises included for today. Come back tomorrow, or ask an admin for the Pro plan to practise without limits.", { n })
-    : guest ? `${t("A guest gets {n} a day.", { n })} ${accountPitch()}`
-      : t("You used all {n} for today. Come back tomorrow.", { n });
+    : kind === "checks"
+      ? t("You checked {n} answers today. Come back tomorrow, or ask an admin for the Pro plan to practise without limits.", { n })
+      : guest ? `${t("A guest gets {n} a day.", { n })} ${accountPitch()}`
+        : t("You used all {n} for today. Come back tomorrow.", { n });
   return `<div class="empty limit-panel">${icon("lock")}<strong>${esc(title)}</strong><p>${esc(text)}</p>
     <div class="row">${guest ? `<a class="btn" href="/register">${esc(t("Create a free account"))}</a>` : ""}
       <a class="btn ${guest ? "secondary" : ""}" href="/">${esc(t("Back to Today"))}</a><a class="btn secondary" href="/progress">${esc(t("See your progress"))}</a></div></div>`;
