@@ -40,7 +40,7 @@ class FakePractice:
         return size
 
 
-def _user(stores, uid, role="learner", created=NOW - 100 * DAY, last_login=None, provider="password"):
+def _user(stores, uid, role="user", created=NOW - 100 * DAY, last_login=None, provider="password"):
     user = User(uid, f"{uid}@example.org", uid, role, "active", created, last_login, None)
     stores.users.add(user, Identity(provider, uid, uid, "h" if provider == "password" else None))
     return user
@@ -72,7 +72,7 @@ def admin():
 
 def test_require_admin_hides_the_admin_area_from_everyone_else():
     assert require_admin(_actor()).user_id == "boss"
-    learner = Principal("u1", "u1@example.org", "learner", "h", "c", 0.0)
+    learner = Principal("u1", "u1@example.org", "user", "h", "c", 0.0)
     for subject in (learner, None):
         with pytest.raises(HttpError) as raised:
             require_admin(subject)
@@ -104,7 +104,7 @@ def test_admin_api_over_http(serve):
 
     users = json.loads(owner("/api/admin/users")[2])["users"]
     row = next(u for u in users if u["email"] == "learner@example.org")
-    assert row["methods"] == ["password"] and row["role"] == "free" and row["sessions"] == 1
+    assert row["methods"] == ["password"] and row["role"] == "user" and row["sessions"] == 1
     assert row["schemas"] == []
     status, _, body = owner("/api/admin/reset-link", {"user_id": learner.id})
     assert status == 200 and "/reset?token=" in json.loads(body)["link"]
@@ -217,7 +217,7 @@ def test_lock_ends_sessions_and_blocks_login(serve):
 
 def test_admin_cannot_lock_or_demote_or_delete_self(admin):
     me = _actor()
-    for action in (lambda: admin.lock(me, "boss"), lambda: admin.set_role(me, "boss", "learner"),
+    for action in (lambda: admin.lock(me, "boss"), lambda: admin.set_role(me, "boss", "user"),
                    lambda: admin.delete(me, "boss")):
         with pytest.raises(ValueError, match="You can't do that to your own account."):
             action()
@@ -226,12 +226,12 @@ def test_admin_cannot_lock_or_demote_or_delete_self(admin):
 
 def test_the_last_admin_cannot_be_demoted(admin):
     _user(admin.stores, "other", role="admin")
-    admin.set_role(_actor(), "other", "learner")  # two admins: fine
-    assert admin.stores.users.get("other").role == "learner"
-    admin.stores.users.update(User("boss", "boss@example.org", "boss", "learner", "active", NOW, NOW, None))
+    admin.set_role(_actor(), "other", "user")  # two admins: fine
+    assert admin.stores.users.get("other").role == "user"
+    admin.stores.users.update(User("boss", "boss@example.org", "boss", "user", "active", NOW, NOW, None))
     _user(admin.stores, "solo", role="admin")
     with pytest.raises(AuthError, match="You can't remove the only admin."):
-        admin.set_role(_actor(), "solo", "learner")
+        admin.set_role(_actor(), "solo", "user")
 
 
 def test_set_role_promotes_and_rejects_unknown_roles(admin):
@@ -343,7 +343,7 @@ def test_every_admin_action_is_audited(admin):
 def test_refused_admin_actions_are_audited_as_denied(admin):
     me = _actor()
     for action, event in ((lambda: admin.lock(me, "boss", ip="1.2.3.4"), "user_locked"),
-                          (lambda: admin.set_role(me, "boss", "learner", ip="1.2.3.4"), "role_changed"),
+                          (lambda: admin.set_role(me, "boss", "user", ip="1.2.3.4"), "role_changed"),
                           (lambda: admin.delete(me, "boss", ip="1.2.3.4"), "account_deleted")):
         with pytest.raises(ValueError):
             action()
@@ -353,11 +353,11 @@ def test_refused_admin_actions_are_audited_as_denied(admin):
 
 def test_only_active_admins_count_as_the_last_admin(admin):
     stores = admin.stores
-    stores.users.set_role("boss", "learner")  # e.g. demoted by another admin meanwhile
+    stores.users.set_role("boss", "user")  # e.g. demoted by another admin meanwhile
     _user(stores, "a2", role="admin")
     _user(stores, "a3", role="admin")
     stores.users.set_status("a3", "locked")
-    for action, event in ((lambda: admin.set_role(_actor(), "a2", "learner"), "role_changed"),
+    for action, event in ((lambda: admin.set_role(_actor(), "a2", "user"), "role_changed"),
                           (lambda: admin.lock(_actor(), "a2"), "user_locked"),
                           (lambda: admin.delete(_actor(), "a2"), "account_deleted")):
         with pytest.raises(AuthError, match="You can't remove the only admin."):
@@ -365,8 +365,8 @@ def test_only_active_admins_count_as_the_last_admin(admin):
         (denied,) = stores.audit.recent(event=event)
         assert (denied.outcome, denied.detail["reason"]) == ("denied", "last_admin")
     assert stores.users.get("a2").role == "admin" and stores.users.get("a2").status == "active"
-    admin.set_role(_actor(), "a3", "learner")  # a locked admin is not the last one
-    assert stores.users.get("a3").role == "learner"
+    admin.set_role(_actor(), "a3", "user")  # a locked admin is not the last one
+    assert stores.users.get("a3").role == "user"
 
 
 def test_lock_and_role_change_touch_only_their_column(admin):
@@ -407,11 +407,11 @@ def test_the_admin_page_uses_the_deletion_guard(admin):
 
 
 def test_admin_denied_is_recorded_at_most_ten_times_an_hour(admin):
-    learner = Principal("u1", "u1@example.org", "learner", "h", "c", 0.0)
+    learner = Principal("u1", "u1@example.org", "user", "h", "c", 0.0)
     for _ in range(15):
         admin.denied(learner, "/api/admin/users", ip="1.2.3.4", user_agent="ua")
     assert len(admin.stores.audit.recent(event="admin_denied")) == 10
-    other = Principal("u2", "u2@example.org", "learner", "h", "c", 0.0)
+    other = Principal("u2", "u2@example.org", "user", "h", "c", 0.0)
     admin.denied(other, "/api/admin/users")  # counted per account
     assert len(admin.stores.audit.recent(event="admin_denied", user_id="u2")) == 1
 
@@ -424,24 +424,3 @@ def test_admin_denied_cap_over_http_still_answers_404(serve):
     statuses = [learner("/api/admin/users")[0] for _ in range(12)]
     assert statuses == [404] * 12 and len(stores.audit.recent(event="admin_denied")) == 10
 
-
-def test_set_role_accepts_the_free_role(admin):
-    _user(admin.stores, "u1")
-    admin.set_role(_actor(), "u1", "free")
-    assert admin.stores.users.get("u1").role == "free"
-
-
-@pytest.mark.parametrize("method,path", [("POST", "/api/run"), ("POST", "/api/visualize"), ("GET", "/api/schema"),
-                                         ("POST", "/api/reset-data"), ("POST", "/api/grade")])
-def test_a_free_account_cannot_run_sql(serve, method, path):
-    stores = memory_stores()
-    server = serve(stores=stores)
-    owner = Client(server.port).sign_in("owner@example.org")
-    free = Client(server.port).sign_in("free@example.org")
-    user = stores.users.by_email("free@example.org")
-    assert owner("/api/admin/role", {"user_id": user.id, "role": "free"})[0] == 200
-    status, _, body = free(path, {"sql": "select 1 from dual", "id": "x"} if method == "POST" else None)
-    assert status == 403
-    assert json.loads(body)["error"] == "Your account cannot run SQL. Ask an admin for learner access."
-    assert json.loads(free("/api/progress")[2])["sql_available"] is False
-    assert free("/api/admin/users")[0] == 404  # and no admin area

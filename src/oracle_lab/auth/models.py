@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-Role = Literal["free", "learner", "admin"]  # free: flashcards, quizzes, progress and notes; no SQL
+Role = Literal["user", "admin"]  # what a user may do in a workspace is their workspace access
 Status = Literal["active", "locked"]
 
 

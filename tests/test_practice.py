@@ -1,10 +1,11 @@
 """Each user's practice schemas, and the guard around learner sessions (no database needed)."""
 
+import dataclasses
 import threading
 
 import pytest
 
-from oracle_lab import content
+from oracle_lab import content, exams
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.memory import memory_stores
 from oracle_lab.auth.audit import AuditLog
@@ -59,7 +60,7 @@ class FakeProvisioner:
         self.calls.append(("drop", name))
 
 
-def principal(user_id="u1", role="learner"):
+def principal(user_id="u1", role="user"):
     return Principal(user_id, f"{user_id}@x.org", role, "hash", "csrf", 0.0)
 
 
@@ -67,7 +68,7 @@ def gateway(key):
     return DatabaseTarget(f"gw_{key}", f"dsn_{key}", Secret(lambda: "secret", "test"))
 
 
-def practice(stores, provisioners, role="learner", user_id="u1", shared=None, clock=lambda: NOW):
+def practice(stores, provisioners, role="user", user_id="u1", shared=None, clock=lambda: NOW):
     return PracticeDatabases(principal(user_id, role), stores.schemas, provisioners,
                              {key: gateway(key) for key in provisioners}, shared or DatabaseCatalog({"default": FakeDatabase()}),
                              15000, clock, audit=AuditLog(stores.audit, clock))
@@ -139,7 +140,7 @@ def test_exam_whose_database_key_is_not_configured_is_not_set_up(monkeypatch):
     stores = memory_stores()
     stores.schemas.put(PracticeSchema("u1", "default", "OLL_UDEFAULTAAA", "ready", NOW))
     shared = DatabaseCatalog({"default": FakeDatabase()})
-    for role in ("learner", "admin"):
+    for role in ("user", "admin"):
         with pytest.raises(PracticeUnavailable) as raised:
             practice(stores, {"default": FakeProvisioner()}, role=role, shared=shared).for_exam("PG-1")
         assert str(raised.value) == NOT_SET_UP
@@ -265,7 +266,7 @@ def test_guard_allows_one_run_per_user_and_caps_total():
 
 def test_deleting_an_account_drops_its_schemas():
     stores = memory_stores()
-    stores.users.add(User("u1", "a@x.org", "A", "learner", "active", NOW, None, None), Identity("password", "u1", "u1", "h"))
+    stores.users.add(User("u1", "a@x.org", "A", "user", "active", NOW, None, None), Identity("password", "u1", "u1", "h"))
     stores.schemas.put(PracticeSchema("u1", "default", "OLL_UAAAAAAAAAA", "ready", NOW))
     stores.schemas.put(PracticeSchema("u1", "23ai", "OLL_UBBBBBBBBBB", "failed", NOW, "ORA-1"))
     stores.schemas.put(PracticeSchema("u2", "default", "OLL_UCCCCCCCCCC", "ready", NOW))
@@ -293,7 +294,7 @@ def test_sign_up_hook_provisions_the_default_schema_in_the_background():
     provisioner.release = threading.Event()
     hook = provisioning_hook({"default": provisioner, "23ai": FakeProvisioner()}, stores.schemas, lambda: NOW,
                              AuditLog(stores.audit, lambda: NOW))
-    user = User("u1", "a@x.org", "A", "learner", "active", NOW, None, None)
+    user = User("u1", "a@x.org", "A", "admin", "active", NOW, None, None)
     hook(user)  # returns at once, while create is still waiting
     assert stores.schemas.get("u1", "23ai") is None
     provisioner.release.set()
@@ -312,7 +313,7 @@ def test_sign_up_hook_never_raises():
             raise RuntimeError("store down")
 
     hook = provisioning_hook({"default": FakeProvisioner()}, Broken(), lambda: NOW, None)
-    hook(User("u1", "a@x.org", "A", "learner", "active", NOW, None, None))
+    hook(User("u1", "a@x.org", "A", "user", "active", NOW, None, None))
     for thread in threading.enumerate():
         if thread.name.startswith("provision-"):
             thread.join(5)
@@ -347,12 +348,15 @@ def test_learner_without_a_practice_database_gets_503_on_every_sql_route(serve):
     import json
 
     from conftest import PASSWORD
+    from oracle_lab.access.models import WorkspaceAccess
 
-    server = serve(stores=memory_stores())
-    admin = server.sign_in("admin@x.org")  # the first account is the admin
+    stores = memory_stores()
+    server = serve(stores=stores)
+    server.sign_in("admin@x.org")  # the first account is the admin
     learner = type(server)(server.port).sign_in("learner@x.org", PASSWORD)
-    user_id = next(u["id"] for u in json.loads(admin("/api/admin/users")[2])["users"] if u["email"] == "learner@x.org")
-    assert admin("/api/admin/role", {"user_id": user_id, "role": "learner"})[0] == 200  # new accounts are free
+    user_id = stores.users.by_email("learner@x.org").id
+    for code in exams.EXAMS:  # a subscriber everywhere: only the missing practice database stops the SQL
+        stores.access.put(WorkspaceAccess(user_id, code, "subscribed", "admin", 1.0))
     routes = (("/api/run", {"sql": "SELECT 1 FROM dual;"}), ("/api/visualize", {"sql": "SELECT 1 FROM dual"}),
               ("/api/schema", None), ("/api/reset-data", {}), ("/api/grade", {"id": content.LABS[0]["id"], "sql": "SELECT 1"}))
     for path, data in routes:
@@ -379,7 +383,7 @@ def _join_provisioning_threads():
 
 
 def _learner(stores, user_id="u1"):
-    user = User(user_id, f"{user_id}@x.org", "A", "learner", "active", NOW, None, None)
+    user = User(user_id, f"{user_id}@x.org", "A", "user", "active", NOW, None, None)
     stores.users.add(user, Identity("password", user_id, user_id, "h"))
     return user
 
@@ -387,6 +391,11 @@ def _learner(stores, user_id="u1"):
 def _deletion(stores, provisioners):
     return AccountDeletion(stores, SessionManager(stores.sessions, lambda: NOW), AuditLog(stores.audit, lambda: NOW),
                            lambda user_id: drop_user_schemas(user_id, stores.schemas, provisioners))
+
+
+def as_admin(user):
+    """The sign-up hook provisions only for admins (others get their schema on first use)."""
+    return dataclasses.replace(user, role="admin")
 
 
 def test_account_deleted_while_its_schema_is_created_leaves_nothing():
@@ -399,7 +408,7 @@ def test_account_deleted_while_its_schema_is_created_leaves_nothing():
     provisioner.create = lambda name: (created.__setitem__(name, True), original_create(name))[1]
     provisioner.drop = lambda name: (created.pop(name, None), original_drop(name))[1]
     exists = lambda uid: stores.users.get(uid) is not None  # noqa: E731
-    provisioning_hook({"default": provisioner}, stores.schemas, lambda: NOW, None, exists)(user)
+    provisioning_hook({"default": provisioner}, stores.schemas, lambda: NOW, None, exists)(as_admin(user))
     while not provisioner.calls:
         threading.Event().wait(0.01)
     deleter = threading.Thread(target=_deletion(stores, {"default": provisioner}).delete, args=("u1", "admin"))
@@ -417,7 +426,7 @@ def test_schema_finished_after_the_account_is_gone_is_dropped_without_a_record()
     provisioner = FakeProvisioner()
     provisioner.release = threading.Event()
     provisioning_hook({"default": provisioner}, stores.schemas, lambda: NOW, None,
-                      lambda uid: stores.users.get(uid) is not None)(user)
+                      lambda uid: stores.users.get(uid) is not None)(as_admin(user))
     while not provisioner.calls:
         threading.Event().wait(0.01)
     stores.users.delete("u1")  # gone without waiting for the lock
@@ -433,7 +442,7 @@ def test_sign_up_thread_started_after_deletion_creates_nothing():
     provisioner = FakeProvisioner()
     _deletion(stores, {"default": provisioner}).delete("u1", "admin")
     provisioning_hook({"default": provisioner}, stores.schemas, lambda: NOW, None,
-                      lambda uid: stores.users.get(uid) is not None)(user)
+                      lambda uid: stores.users.get(uid) is not None)(as_admin(user))
     _join_provisioning_threads()
     assert provisioner.calls == [] and stores.schemas.for_user("u1") == []
 
@@ -495,7 +504,7 @@ def test_each_hook_runs_even_when_one_fails(caplog):
     def broken(user):
         raise RuntimeError("legacy store down")
 
-    each_hook(broken, ran.append)(User("u1", "a@x.org", "A", "learner", "active", NOW, None, None))
+    each_hook(broken, ran.append)(User("u1", "a@x.org", "A", "user", "active", NOW, None, None))
     assert [u.id for u in ran] == ["u1"] and "legacy store down" in caplog.text
 
 
@@ -526,8 +535,8 @@ def test_lab_service_reads_the_exam_once_for_database_and_engine(monkeypatch):
         assert database == engine
 
 
-def test_a_free_account_gets_no_schema_at_sign_up():
+def test_a_new_user_gets_no_schema_at_sign_up():
     stores, provisioner = memory_stores(), FakeProvisioner()
-    user = User("u1", "u1@x.org", "u1", "free", "active", NOW, None, None)
+    user = User("u1", "u1@x.org", "u1", "user", "active", NOW, None, None)
     provisioning_hook({"default": provisioner}, stores.schemas, lambda: NOW, None)(user)
     assert stores.schemas.get("u1", "default") is None and provisioner.calls == []

@@ -7,6 +7,7 @@ import time
 from collections.abc import Callable
 
 from oracle_lab import engines
+from oracle_lab.access.migration import migrate_roles
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.first_admin import Sources, ensure_first_admin, first_user_is_admin, legacy_hook, retry_legacy_import
 from oracle_lab.accounts.maintenance import Maintenance
@@ -158,6 +159,10 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
     registration = Registration(stores, policy, registration_policy, sessions, throttle, audit, clock,
                                 on_user_created, first_user_is_admin=first_user_is_admin(settings))
     ensure_first_admin(stores, settings, clock, audit, on_user_created)
+    try:
+        migrate_roles(stores, clock, audit)
+    except Exception:  # noqa: BLE001 - e.g. the state database is not up yet: the next start retries
+        log.exception("moving the old account roles to workspace access failed")
     retry_legacy_import(stores, sources, audit, settings)
     deletion = AccountDeletion(stores, sessions, audit,
                                lambda user_id: drop_user_schemas(user_id, stores.schemas, provisioners))

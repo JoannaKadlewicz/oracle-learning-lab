@@ -122,7 +122,7 @@ def test_new_google_user_is_created_and_logged_in(g):
     out = g.g.finish(fid, state, "code", "1.1.1.1", "ua", None)
     assert out.message is None and out.token and out.next_path == "/next"
     user = g.stores.users.by_identity("google", "sub-1")
-    assert (user.email, user.display_name, user.role) == ("ann@example.org", "Ann A", "free")
+    assert (user.email, user.display_name, user.role) == ("ann@example.org", "Ann A", "user")
     assert user.last_login_at == 1000.0 and [u.id for u in g.created] == [user.id]
     assert g.sessions.resolve(out.token).user_id == user.id
     assert g.ep.calls[0][0] == "code" and g.ep.calls[0][2].endswith("/auth/google/callback")
@@ -137,7 +137,7 @@ def test_display_name_falls_back_to_email_local_part(g):
 
 
 def test_existing_password_email_is_not_merged(g):
-    g.stores.users.add(User("u1", "ann@example.org", "Ann", "learner", "active", 1.0, None, None),
+    g.stores.users.add(User("u1", "ann@example.org", "Ann", "user", "active", 1.0, None, None),
                        Identity("password", "u1", "u1", "x"))
     fid, state = g.run()
     out = g.g.finish(fid, state, "c", "ip", "ua", None)
@@ -216,7 +216,7 @@ def test_registration_closed_blocks_google_sign_up(g):
 
 def test_cap_is_shared_with_password_sign_up(g):
     g.policy.set(max_users=1)
-    g.stores.users.add(User("u1", "x@example.org", "x", "learner", "active", 1.0, None, None),
+    g.stores.users.add(User("u1", "x@example.org", "x", "user", "active", 1.0, None, None),
                        Identity("password", "u1", "u1", "h"))
     fid, state = g.run()
     out = g.g.finish(fid, state, "c", "ip", "ua", None)
@@ -233,10 +233,10 @@ def test_admin_email_claim_makes_admin_once(g):
 
 
 def logged_in(g, email="me@example.org"):
-    u = User("me", email, "Me", "learner", "active", 1.0, None, None)
+    u = User("me", email, "Me", "user", "active", 1.0, None, None)
     g.stores.users.add(u, Identity("password", "me", "me", "h"))
     token, rec = g.sessions.start("me", "ip", "ua")
-    return token, Principal("me", email, "learner", rec.token_hash, rec.csrf_token, 0.0)
+    return token, Principal("me", email, "user", rec.token_hash, rec.csrf_token, 0.0)
 
 
 def test_link_and_reauth_need_the_logged_in_user(g):
@@ -258,7 +258,7 @@ def test_link_without_current_or_other_user_fails(g):
     token, p = logged_in(g)
     fid, state = g.run("link", p)
     assert g.g.finish(fid, state, "c", "ip", "ua", None).message == GENERIC
-    other = User("o", "o@example.org", "o", "learner", "active", 1.0, None, None)
+    other = User("o", "o@example.org", "o", "user", "active", 1.0, None, None)
     g.stores.users.add(other, Identity("google", "sub-1", "o"))
     fid, state = g.run("link", p)
     out = g.g.finish(fid, state, "c", "ip", "ua", p)
@@ -350,12 +350,12 @@ def test_admin_claim_bypasses_closed_registration_and_cap(g):
 
 
 def test_admin_claim_kept_when_email_taken(g):
-    g.stores.users.add(User("u1", "ann@example.org", "Ann", "learner", "active", 1.0, None, None),
+    g.stores.users.add(User("u1", "ann@example.org", "Ann", "user", "active", 1.0, None, None),
                        Identity("password", "u1", "u1", "x"))
     g.stores.settings.set("admin_email_claim", "ann@example.org")
     fid, state = g.run()
     assert g.g.finish(fid, state, "c", "ip", "ua", None).message == EXISTS
-    assert g.stores.users.get("u1").role == "learner"
+    assert g.stores.users.get("u1").role == "user"
     assert g.stores.settings.get("admin_email_claim") == "ann@example.org"
 
 
@@ -462,7 +462,7 @@ def test_outcomes_carry_a_reason_code(g):
     assert g.g.finish(fid, state, "c", "ip", "ua", None).code is None  # success
     fid, state = g.run()
     assert g.g.finish(fid, "wrong", "c", "ip", "ua", None).code == "failed"
-    g.stores.users.add(User("u2", "bob@example.org", "Bob", "learner", "active", 1.0, None, None),
+    g.stores.users.add(User("u2", "bob@example.org", "Bob", "user", "active", 1.0, None, None),
                        Identity("password", "u2", "u2", "x"))
     fid, state = g.run(sub="sub-2", email="bob@example.org")
     assert g.g.finish(fid, state, "c", "ip", "ua", None).code == "exists"

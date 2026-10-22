@@ -68,7 +68,7 @@ def test_register_then_login(app):
     assert app.sessions.resolve(r.token)
     assert app.created == [r.user]
     assert app.login.login("me@example.org", PW, "1.1.1.1", "ua").user.id == r.user.id
-    assert register(app, "two@example.org", "2.2.2.2").user.role == "free"
+    assert register(app, "two@example.org", "2.2.2.2").user.role == "user"
 
 
 def test_email_is_normalised_everywhere(app):
@@ -215,7 +215,7 @@ def test_each_login_failure_is_audited_with_its_reason(app):
 
 def _google_only_user():
     from oracle_lab.auth.models import Identity, User
-    u = User("g1", "g@example.org", "g", "learner", "active", 0.0, None, None)
+    u = User("g1", "g@example.org", "g", "user", "active", 0.0, None, None)
     return u, Identity("google", "gsub", "g1")
 
 
@@ -306,7 +306,7 @@ def test_concurrent_first_signups_make_exactly_one_admin(app):
     threads = [threading.Thread(target=go, args=(i,)) for i in range(2)]
     [t.start() for t in threads]
     [t.join() for t in threads]
-    assert sorted(r.user.role for r in results) == ["admin", "free"]
+    assert sorted(r.user.role for r in results) == ["admin", "user"]
 
 
 def test_weak_reset_password_does_not_burn_the_link(app):

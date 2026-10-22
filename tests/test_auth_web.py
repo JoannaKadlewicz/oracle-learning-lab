@@ -336,7 +336,7 @@ def test_public_assets_stay_public(serve):
 
 
 def test_csrf_is_checked_on_every_method_but_get():
-    principal = Principal("u1", "a@example.org", "learner", "hash", "the-token", 0.0)
+    principal = Principal("u1", "a@example.org", "user", "hash", "the-token", 0.0)
     for method in ("HEAD", "POST", "DELETE"):
         with pytest.raises(HttpError) as err:
             csrf(Request(method, "/api/state", {"x-csrf-token": "wrong"}, principal=principal), lambda _: Response())

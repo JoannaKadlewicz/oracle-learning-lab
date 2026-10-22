@@ -19,7 +19,7 @@ from oracle_lab.auth.models import (
 
 
 def make_user(n: int = 1, email: str | None = None) -> User:
-    return User(f"u{n}", email or f"user{n}@example.com", f"User {n}", "learner", "active", 100.0, None, None)
+    return User(f"u{n}", email or f"user{n}@example.com", f"User {n}", "user", "active", 100.0, None, None)
 
 
 def password_identity(user: User) -> Identity:
@@ -27,7 +27,7 @@ def password_identity(user: User) -> Identity:
 
 
 def add_user(stores: AppStores, user_id: str) -> User:
-    user = User(user_id, f"{user_id}@example.com", user_id, "learner", "active", 100.0, None, None)
+    user = User(user_id, f"{user_id}@example.com", user_id, "user", "active", 100.0, None, None)
     stores.users.add(user, password_identity(user))
     return user
 

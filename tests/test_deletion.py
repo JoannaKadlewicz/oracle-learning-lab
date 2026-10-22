@@ -13,9 +13,9 @@ from oracle_lab.auth.sessions import SessionManager
 def test_delete_removes_everything_and_ends_sessions():
     stores = memory_stores()
     sessions = SessionManager(stores.sessions, lambda: 1.0)
-    stores.users.add(User("u1", "a@example.org", "A", "learner", "active", 1.0, None, None),
+    stores.users.add(User("u1", "a@example.org", "A", "user", "active", 1.0, None, None),
                      Identity("password", "u1", "u1", "h"))
-    stores.users.add(User("u2", "b@example.org", "B", "learner", "active", 1.0, None, None),
+    stores.users.add(User("u2", "b@example.org", "B", "user", "active", 1.0, None, None),
                      Identity("password", "u2", "u2", "h"))
     with stores.states.for_user("u2").transaction() as s:
         s["settings"]["keep"] = 1

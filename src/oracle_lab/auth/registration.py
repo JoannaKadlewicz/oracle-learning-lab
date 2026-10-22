@@ -110,7 +110,7 @@ class Registration:
             uid = new_id()
             ident = identity(uid)
             user = User(id=uid, email=email, display_name=display_name,
-                        role="admin" if admin or first else "free", status="active", created_at=now,
+                        role="admin" if admin or first else "user", status="active", created_at=now,
                         last_login_at=None, password_changed_at=now if ident.provider == "password" else None)
             self._users.add(user, ident)
         return user
