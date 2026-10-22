@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-Role = Literal["user", "admin"]  # what a user may do in a workspace is their workspace access
+Role = Literal["guest", "user", "pro", "admin"]  # the account's plan (see access/plans.py)
 Status = Literal["active", "locked"]
 
 

@@ -355,8 +355,9 @@ def test_learner_without_a_practice_database_gets_503_on_every_sql_route(serve):
     server.sign_in("admin@x.org")  # the first account is the admin
     learner = type(server)(server.port).sign_in("learner@x.org", PASSWORD)
     user_id = stores.users.by_email("learner@x.org").id
-    for code in exams.EXAMS:  # a subscriber everywhere: only the missing practice database stops the SQL
-        stores.access.put(WorkspaceAccess(user_id, code, "subscribed", "admin", 1.0))
+    stores.users.set_role(user_id, "pro")  # pro everywhere: only the missing practice database stops the SQL
+    for code in exams.EXAMS:
+        stores.access.put(WorkspaceAccess(user_id, code, "member", "admin", 1.0))
     routes = (("/api/run", {"sql": "SELECT 1 FROM dual;"}), ("/api/visualize", {"sql": "SELECT 1 FROM dual"}),
               ("/api/schema", None), ("/api/reset-data", {}), ("/api/grade", {"id": content.LABS[0]["id"], "sql": "SELECT 1"}))
     for path, data in routes:

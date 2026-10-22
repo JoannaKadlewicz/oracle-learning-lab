@@ -74,4 +74,4 @@ def test_a_learner_not_migrated_yet_keeps_everything():
     from oracle_lab.access import policy
 
     assert policy.usable("learner", []) == list(exams.EXAMS)
-    assert all(policy.level_in("learner", [], code) == "subscribed" for code in exams.EXAMS)
+    assert all(policy.level_in("learner", [], code) == "member" for code in exams.EXAMS)

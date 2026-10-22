@@ -52,7 +52,8 @@ class AdminController:
             ("POST", "/api/admin/recreate-schema"): self.recreate_schema,
             ("POST", "/api/admin/delete-inactive"): self.delete_inactive,
             ("POST", "/api/admin/settings"): self.update_settings,
-            ("POST", "/api/admin/workspace-access"): self.workspace_access,
+            ("POST", "/api/admin/membership"): self.membership,
+            ("POST", "/api/admin/limits"): self.limits,
         }
         for (method, path), handler in routes.items():
             router.add(method, path, self._guarded(handler))
@@ -73,8 +74,14 @@ class AdminController:
                 raise HttpError(400, message_of(exc)) from exc
         return run
 
-    def users(self, _: Request) -> Response:
-        return Response.json({"users": self.admin.users()})
+    def users(self, request: Request) -> Response:
+        return Response.json({"users": self.admin.users(include_guests=request.query("guests") == "1")})
+
+    def limits(self, request: Request) -> Response:
+        data = request.json()
+        saved = self.admin.set_limits(require_admin(request), _string(data, "user_id"), data.get("limits"),
+                                      **_meta(request))
+        return Response.json({"ok": True, "limits": saved})
 
     def events(self, request: Request) -> Response:
         try:
@@ -124,13 +131,13 @@ class AdminController:
         data = request.json()
         return Response.json(self.admin.update_settings(require_admin(request), _optional(data, "open", bool),
                                                         _optional(data, "max_users", int),
-                                                        _optional(data, "free_limits", dict), **_meta(request)))
+                                                        _optional(data, "plan_defaults", dict), **_meta(request)))
 
-    def workspace_access(self, request: Request) -> Response:
+    def membership(self, request: Request) -> Response:
         data = request.json()
         try:
-            self.workspaces.set_access(require_admin(request), _string(data, "user_id"), data.get("workspace"),
-                                       data.get("level"), **_meta(request))
+            self.workspaces.set_membership(require_admin(request), _string(data, "user_id"), data.get("workspace"),
+                                           data.get("member"), **_meta(request))
         except UnknownUserError as exc:
             raise HttpError(404, "Not found") from exc
         return Response.json(OK)

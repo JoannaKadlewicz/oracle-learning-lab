@@ -8,7 +8,8 @@ from collections.abc import Callable
 from typing import Any, Protocol
 
 from oracle_lab import exams
-from oracle_lab.access.limits import FreeLimits
+from oracle_lab.access import plans
+from oracle_lab.access.plans import PlanDefaults
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.audit import AuditLog
@@ -23,9 +24,10 @@ log = logging.getLogger(__name__)
 RESET_LINK_SECONDS = 24 * 3600
 MAX_EVENTS = 500
 DENIALS_PER_HOUR = 10
-ROLES = ("user", "admin")
+ROLES = ("user", "pro", "admin")  # what an admin can assign; guests only come from "Try it without an account"
 SELF = "You can't do that to your own account."
 ONLY_ADMIN = "You can't remove the only admin."
+GUEST_TARGET = "A guest has no account to upgrade. They can register first."
 
 
 class NotFound(AuthError):  # noqa: N818 - matches the other AuthError names
@@ -67,8 +69,10 @@ class AdminService:
 
     # --- reading -------------------------------------------------------------------------------------------------
 
-    def users(self) -> list[dict]:
-        return [self._row(user) for user in sorted(self._users.all(), key=lambda u: (u.created_at, u.email))]
+    def users(self, include_guests: bool = False) -> list[dict]:
+        """Every account, oldest first; guests only when asked (they come and go)."""
+        return [self._row(user) for user in sorted(self._users.all(), key=lambda u: (u.created_at, u.email))
+                if include_guests or user.role != "guest"]
 
     def _row(self, user: User) -> dict:
         access = self._stores.access.for_user(user.id)
@@ -77,9 +81,9 @@ class AdminService:
             "methods": sorted({i.provider for i in self._users.identities(user.id)}),
             "role": user.role, "status": user.status, "created_at": user.created_at,
             "last_login_at": user.last_login_at, "sessions": len(self._sessions.live(user.id)),
-            "workspaces": [{"code": code, "level": level}
-                           for code in exams.EXAMS
-                           if (level := next((r.level for r in access if r.workspace == code), None))],
+            "workspaces": [code for code in exams.EXAMS if any(r.workspace == code for r in access)],
+            "limits": plans.override(self._stores.settings, user.id),
+            "effective_limits": plans.limits_for(user.role, user.id, self._stores.settings).public(),
             "schemas": [{"key": rec.database_key, "status": rec.status, "size_mb": self._size(user, rec),
                          "error": rec.error}
                         for rec in sorted(self._stores.schemas.for_user(user.id), key=lambda r: r.database_key)],
@@ -98,7 +102,7 @@ class AdminService:
 
     def settings(self) -> dict:
         return {"registration_open": self._registration.is_open(), "max_users": self._registration.max_users(),
-                "users": self._users.count(), "free_limits": FreeLimits.load(self._stores.settings).public()}
+                "users": self._users.count(), "plan_defaults": PlanDefaults.load(self._stores.settings).public()}
 
     def events(self, limit: int = 200, event: str | None = None, user_id: str | None = None) -> list[dict]:
         """Newest first, at most MAX_EVENTS."""
@@ -143,10 +147,23 @@ class AdminService:
             user = self._other(actor, user_id, "role_changed", meta)
             if user.role == role:
                 return
+            if user.role == "guest":
+                raise ValueError(GUEST_TARGET)
             if role != "admin":
                 self._keep_an_admin(actor, user, "role_changed", meta)
             self._users.set_role(user.id, role)
         self._audit.record("role_changed", "ok", user_id=actor.user_id, target=user.id, role=role, **meta)
+
+    def set_limits(self, actor: Principal, user_id: str, limits: dict | None, *, ip: str = "",
+                   user_agent: str = "") -> dict:
+        """The account's own limits (None or {} clears them: the plan's apply again)."""
+        if limits is not None and not isinstance(limits, dict):
+            raise ValueError("limits must be an object.")
+        user = self._user(user_id)
+        saved = plans.set_override(self._stores.settings, user.id, limits)
+        self._audit.record("account_limits_changed", "ok", user_id=actor.user_id, ip=ip, user_agent=user_agent,
+                           target=user.id, **{f"limit_{k}": v for k, v in saved.items()})
+        return saved
 
     def delete(self, actor: Principal, user_id: str, *, ip: str = "", user_agent: str = "") -> None:
         meta = {"ip": ip, "user_agent": user_agent}
@@ -200,25 +217,23 @@ class AdminService:
         return deleted
 
     def update_settings(self, actor: Principal, open: bool | None = None,  # noqa: A002
-                        max_users: int | None = None, free_limits: dict | None = None, *, ip: str = "",
+                        max_users: int | None = None, plan_defaults: dict | None = None, *, ip: str = "",
                         user_agent: str = "") -> dict:
         if open is not None and not isinstance(open, bool):
             raise ValueError("open must be true or false.")
         if max_users is not None and (isinstance(max_users, bool) or not isinstance(max_users, int) or max_users < 1):
             raise ValueError("The user limit must be a whole number of at least 1.")
-        limits = None
-        if free_limits is not None:
-            if not isinstance(free_limits, dict):
-                raise ValueError("free_limits must be an object.")
-            limits = FreeLimits.parse({"questions_per_day": free_limits.get("questions"),
-                                       "cards_per_day": free_limits.get("cards"),
-                                       "free_topics": free_limits.get("topics")})
+        defaults = None
+        if plan_defaults is not None:
+            if not isinstance(plan_defaults, dict):
+                raise ValueError("plan_defaults must be an object.")
+            defaults = PlanDefaults.parse(plan_defaults)
         self._registration.set(open, max_users)
-        if limits is not None:
-            limits.save(self._stores.settings)
+        if defaults is not None:
+            defaults.save(self._stores.settings)
         changed = {k: v for k, v in (("open", open), ("max_users", max_users)) if v is not None}
-        if limits is not None:
-            changed["free_limits"] = limits.public()
+        if defaults is not None:
+            changed["plan_defaults"] = defaults.public()
         self._audit.record("registration_settings_changed", "ok", user_id=actor.user_id, ip=ip,
                            user_agent=user_agent, **changed)
         return self.settings()

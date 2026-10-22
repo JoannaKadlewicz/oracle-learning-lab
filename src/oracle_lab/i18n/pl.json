@@ -216,5 +216,14 @@
   "Admins already have every workspace.": "Administratorzy mają już dostęp do każdego workspace’u.",
   "Unknown workspace: {code}": "Nieznany workspace: {code}",
   "Unknown access level: {level}": "Nieznany poziom dostępu: {level}",
-  "free_limits must be an object.": "free_limits musi być obiektem."
+  "free_limits must be an object.": "free_limits musi być obiektem.",
+  "limits must be an object.": "limits musi być obiektem.",
+  "A guest has no account to upgrade. They can register first.": "Gość nie ma konta do zmiany planu. Najpierw musi się zarejestrować.",
+  "plan_defaults must be an object.": "plan_defaults musi być obiektem.",
+  "This needs the Pro plan.": "To wymaga planu Pro.",
+  "Create a free account to use this.": "Załóż darmowe konto, aby z tego korzystać.",
+  "You have used today's {n} questions. Come back tomorrow.": "Dzisiejszy limit pytań ({n}) został wykorzystany. Wróć jutro.",
+  "You have used today's {n} flashcards. Come back tomorrow.": "Dzisiejszy limit fiszek ({n}) został wykorzystany. Wróć jutro.",
+  "You have used today's {n} exercises. Come back tomorrow.": "Dzisiejszy limit ćwiczeń ({n}) został wykorzystany. Wróć jutro.",
+  "member must be true or false.": "member musi mieć wartość true albo false."
 }

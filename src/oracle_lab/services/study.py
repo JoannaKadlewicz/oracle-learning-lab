@@ -10,7 +10,7 @@ from oracle_lab import content, exams
 from oracle_lab.access.limits import count_use, used_today
 from oracle_lab.engines import engine_for_exam
 from oracle_lab.i18n import Msg
-from oracle_lab.services import NEEDS_SUBSCRIPTION, AccessDenied, Clock, LimitReached, NotFoundError
+from oracle_lab.services import NEEDS_PRO, AccessDenied, Clock, LimitReached, NotFoundError
 from oracle_lab.services.context import UNRESTRICTED, Access
 from oracle_lab.study import engine, recording
 from oracle_lab.study.mocks import finalize_expired
@@ -20,8 +20,9 @@ from oracle_lab.study.tracks import track, track_state
 
 DEFAULT_PICK = 10
 LIMIT_MESSAGES = {
-    "questions": "You have used today's {n} free questions. Come back tomorrow, or ask an admin for a subscription.",
-    "cards": "You have used today's {n} free flashcards. Come back tomorrow, or ask an admin for a subscription.",
+    "questions": "You have used today's {n} questions. Come back tomorrow.",
+    "cards": "You have used today's {n} flashcards. Come back tomorrow.",
+    "exercises": "You have used today's {n} exercises. Come back tomorrow.",
 }
 
 
@@ -87,7 +88,7 @@ class StudyService:
 
     def update_settings(self, data: dict) -> dict[str, Any]:
         if self.access.workspace is not None and "exam" in data and data["exam"] not in self.access.usable:
-            raise AccessDenied(NEEDS_SUBSCRIPTION)
+            raise AccessDenied(NEEDS_PRO)  # more than one workspace is the Pro plan
         return self._change(lambda state: recording.record_settings(state, data))
 
     def reset_progress(self) -> dict[str, Any]:
@@ -110,18 +111,17 @@ class StudyService:
         return self._snapshot(state)
 
     def _within(self, kind: str, state: State) -> None:
-        """LimitReached when a free plan's daily allowance of `kind` is used up (checked inside the transaction)."""
-        limits = self.access.limits
-        if limits is None:
+        """LimitReached when the plan's daily allowance of `kind` is used up (checked inside the transaction)."""
+        allowed = getattr(self.access.limits, kind)
+        if allowed is None:
             return
-        allowed = limits.questions_per_day if kind == "questions" else limits.cards_per_day
         if used_today(state, self.clock())[kind] >= allowed:
             raise LimitReached(Msg.of(LIMIT_MESSAGES[kind], n=allowed), kind)
         count_use(state, kind, self.clock())
 
     def _snapshot(self, state: State) -> dict[str, Any]:
         limits = self.access.limits
-        caps = {"questions": limits.questions_per_day, "cards": limits.cards_per_day} if limits else None
+        caps = {k: v for k, v in (("questions", limits.questions), ("cards", limits.cards)) if v is not None} or None
         result = snapshot(state, self.clock(), self.sql_available, self.lang, caps)
         result["access"] = self.access.public(state, self.clock())
         return result

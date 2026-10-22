@@ -4,7 +4,7 @@ from pathlib import Path
 
 from oracle_lab import content
 from oracle_lab.access.limits import note_allowed
-from oracle_lab.services import NEEDS_SUBSCRIPTION, AccessDenied, Clock
+from oracle_lab.services import NEEDS_ACCOUNT, AccessDenied, Clock
 from oracle_lab.services.context import UserContexts
 from oracle_lab.study.notes import PERSONAL, NotesLibrary
 from oracle_lab.study.tracks import exam_code
@@ -21,11 +21,9 @@ class NotesController:
         self.clock = clock
 
     def allowed(self, request: Request, path: str) -> bool:
-        """Personal notes are always the user's; built-in ones follow the workspace level (free: the first lessons)."""
+        """Personal notes are always the user's; built-in ones follow the plan's topics (guests: the first lessons)."""
         ctx = self.contexts(request)
-        if path.startswith(f"{PERSONAL}/") or ctx.access.limits is None:
-            return True
-        return note_allowed(path, ctx.level, ctx.access.limits.free_topics)
+        return path.startswith(f"{PERSONAL}/") or note_allowed(path, ctx.access.limits.topics)
 
     def listing(self, request: Request) -> list[dict]:
         return [{**n, "locked": not self.allowed(request, n["path"])}
@@ -46,7 +44,7 @@ class NotesController:
     def read(self, request: Request) -> Response:
         path = request.query("path")
         if path and not self.allowed(request, path):
-            raise AccessDenied(NEEDS_SUBSCRIPTION)
+            raise AccessDenied(NEEDS_ACCOUNT)  # only guests have locked lessons
         text = self.notes(request).read(path, self.globs(request), request.language)
         if text is None:
             raise HttpError(404, "Not found")

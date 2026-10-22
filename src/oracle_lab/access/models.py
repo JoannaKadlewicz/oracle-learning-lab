@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-Level = Literal["free", "subscribed"]
-LEVELS: tuple[Level, ...] = ("free", "subscribed")
+Level = Literal["member", "free", "subscribed"]  # "member" since plans; the other two only before the migration
+LEVELS: tuple[Level, ...] = ("member",)
 
 
 @dataclass(frozen=True)

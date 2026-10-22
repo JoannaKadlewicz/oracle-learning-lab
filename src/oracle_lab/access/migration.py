@@ -44,3 +44,25 @@ def _migrate(stores: AppStores, clock: Clock, audit: AuditLog, user: User) -> No
     stores.users.set_role(user.id, "user")
     audit.record("role_migrated", "ok", user_id=user.id, old_role=user.role,
                  workspaces=",".join(code for code, _ in grants))
+
+
+def migrate_plans(stores: AppStores, clock: Clock, audit: AuditLog) -> int:
+    """From per-workspace levels to account plans: a user subscribed anywhere becomes pro; every access row becomes
+    a plain membership. Per account, like migrate_roles; returns how many accounts changed."""
+    changed = 0
+    for user in stores.users.all():
+        rows = stores.access.for_user(user.id)
+        old = [r for r in rows if r.level != "member"]
+        if not old:
+            continue
+        try:
+            for r in old:
+                stores.access.put(WorkspaceAccess(r.user_id, r.workspace, "member", r.granted_by, r.granted_at))
+            if user.role == "user" and any(r.level == "subscribed" for r in old):
+                stores.users.set_role(user.id, "pro")
+                audit.record("role_migrated", "ok", user_id=user.id, old_role="user", new_role="pro")
+        except Exception:  # noqa: BLE001
+            log.exception("moving account %s to plans failed", user.id)
+            continue
+        changed += 1
+    return changed

@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from oracle_lab.access import policy
-from oracle_lab.access.limits import FreeLimits, used_today
+from oracle_lab.access import plans, policy
+from oracle_lab.access.limits import used_today
+from oracle_lab.access.plans import UNLIMITED, Limits
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.models import LoginRequired, Principal
 from oracle_lab.services import WORKSPACE_REQUIRED, WorkspaceRequired
@@ -23,17 +24,20 @@ if TYPE_CHECKING:  # services know nothing about HTTP beyond the request's princ
 
 @dataclass(frozen=True)
 class Access:
-    """The user's place in the current workspace: its code, their level there, the free plan's limits (None for
-    subscribers) and every workspace they may switch to."""
+    """The user's current workspace, their plan (the account role), its limits and every workspace they may
+    switch to."""
 
     workspace: str | None
-    level: str = "subscribed"
-    limits: FreeLimits | None = None
+    plan: str = "admin"
+    limits: Limits = UNLIMITED
     usable: tuple[str, ...] = ()
 
+    def can(self, feature: str) -> bool:
+        return plans.can(self.plan, feature)
+
     def public(self, state: State, now: float) -> dict[str, Any]:
-        return {"workspace": self.workspace, "level": self.level, "usable": list(self.usable),
-                "limits": self.limits.public() if self.limits else None, "used": used_today(state, now)}
+        return {"workspace": self.workspace, "plan": self.plan, "usable": list(self.usable),
+                "limits": self.limits.public(), "used": used_today(state, now)}
 
 
 UNRESTRICTED = Access(None)  # services built without a request (tests, tools) apply no workspace rules
@@ -49,8 +53,8 @@ class UserContext:
     access: Access = UNRESTRICTED
 
     @property
-    def level(self) -> str:
-        return self.access.level
+    def plan(self) -> str:
+        return self.access.plan
 
     @cached_property
     def practice(self) -> PracticeDatabases | None:
@@ -77,7 +81,7 @@ class UserContexts:
         access = self.access(principal, state)
         if access.workspace is None and require_workspace:
             raise WorkspaceRequired(WORKSPACE_REQUIRED)
-        sql = access.level == "subscribed" and (self.learners_get_sql or principal.role == "admin")
+        sql = access.can("exercises") and (self.learners_get_sql or principal.role == "admin")
         return UserContext(principal, state, self.stores.notes.for_user(principal.user_id), self.practice_factory,
                            sql, access)
 
@@ -90,6 +94,5 @@ class UserContexts:
         if workspace is not None and workspace != saved:
             with state.transaction() as changing:
                 changing["settings"]["exam"] = workspace
-        level = policy.level_in(principal.role, rows, workspace) if workspace else "none"
-        limits = FreeLimits.load(self.stores.settings) if level == "free" else None
-        return Access(workspace, level, limits, tuple(policy.usable(principal.role, rows)))
+        limits = plans.limits_for(principal.role, principal.user_id, self.stores.settings)
+        return Access(workspace, principal.role, limits, tuple(policy.usable(principal.role, rows)))

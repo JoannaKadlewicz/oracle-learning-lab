@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from oracle_lab.services import NEEDS_SUBSCRIPTION, AccessDenied, Clock
+from oracle_lab.services import NEEDS_ACCOUNT, AccessDenied, Clock
 from oracle_lab.services.context import UserContexts
 from oracle_lab.services.mock_exams import MockExamService
 from oracle_lab.web.controllers import respond
@@ -21,8 +21,8 @@ class MockExamController:
     def mocks(self, request: Request, starting: bool = False) -> MockExamService:
         """The user's mock exams; starting one needs a subscription (a running one can still be finished)."""
         context = self.contexts(request)
-        if starting and context.level != "subscribed":
-            raise AccessDenied(NEEDS_SUBSCRIPTION)
+        if starting and not context.access.can("mock"):
+            raise AccessDenied(NEEDS_ACCOUNT)  # every account plan has mock exams
         return MockExamService(context.state, self.clock, context.sql_available, request.language)
 
     def register(self, router: Router) -> None:

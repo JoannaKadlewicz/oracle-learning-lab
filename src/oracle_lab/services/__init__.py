@@ -36,5 +36,7 @@ class LimitReached(AccessError):  # noqa: N818
         self.extra = {"limit": kind}
 
 
-NEEDS_SUBSCRIPTION = "This needs a subscription to the workspace."
+NEEDS_PRO = "This needs the Pro plan."
+NEEDS_ACCOUNT = "Create a free account to use this."
+
 WORKSPACE_REQUIRED = "Choose a workspace first."

@@ -6,8 +6,8 @@ from __future__ import annotations
 from typing import Any
 
 from oracle_lab import content, exams
-from oracle_lab.access import policy
-from oracle_lab.access.models import LEVELS, WorkspaceAccess
+from oracle_lab.access import plans, policy
+from oracle_lab.access.models import WorkspaceAccess
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.audit import AuditLog
 from oracle_lab.auth.models import Principal
@@ -16,7 +16,6 @@ from oracle_lab.services import AccessDenied, Clock
 
 ALREADY_CHOSEN = "Your workspace is already chosen. Ask an admin to change it."
 ADMIN_TARGET = "Admins already have every workspace."
-NONE = "none"
 
 
 class UnknownUserError(LookupError):
@@ -47,37 +46,37 @@ class WorkspaceService:
         return {"current": policy.current_workspace(principal.role, rows, saved), "workspaces": workspaces}
 
     def choose(self, principal: Principal, workspace: Any, *, ip: str = "", user_agent: str = "") -> None:
-        """A user's first workspace, as their free one; refused once they have any access."""
+        """A user's first workspace (their only one, unless a pro is given more); refused once they have any."""
         code = _workspace(workspace)
         if principal.role == "admin" or self._stores.access.for_user(principal.user_id):
             self._audit.record("workspace_chosen", "denied", user_id=principal.user_id, ip=ip, user_agent=user_agent,
                                workspace=code)
             raise AccessDenied(ALREADY_CHOSEN)
-        self._stores.access.put(WorkspaceAccess(principal.user_id, code, "free", principal.user_id, self._clock()))
+        self._stores.access.put(WorkspaceAccess(principal.user_id, code, "member", principal.user_id, self._clock()))
         with self._stores.states.for_user(principal.user_id).transaction() as state:
             state["settings"]["exam"] = code
         self._audit.record("workspace_chosen", "ok", user_id=principal.user_id, ip=ip, user_agent=user_agent,
                            workspace=code)
 
-    def set_access(self, actor: Principal, user_id: str, workspace: Any, level: Any, *, ip: str = "",
-                   user_agent: str = "") -> None:
-        """An admin sets a user's level in a workspace: "none" removes it, "free" moves the user's one free
-        workspace here, "subscribed" grants everything there."""
+    def set_membership(self, actor: Principal, user_id: str, workspace: Any, member: Any, *, ip: str = "",
+                       user_agent: str = "") -> None:
+        """An admin adds (member=True) or removes a user's workspace. A plan with one workspace (guest, user) has it
+        moved here; a pro gains one more."""
         code = _workspace(workspace)
-        if level != NONE and level not in LEVELS:
-            raise ValueError(Msg.of("Unknown access level: {level}", level=str(level)))
+        if not isinstance(member, bool):
+            raise ValueError("member must be true or false.")
         user = self._stores.users.get(user_id)
         if user is None:
             raise UnknownUserError(user_id)
         if user.role == "admin":
             raise ValueError(ADMIN_TARGET)
-        if level == NONE:
+        if not member:
             self._stores.access.delete(user.id, code)
         else:
-            if level == "free":  # one free workspace per user
+            if not plans.can(user.role, "many_workspaces"):  # one workspace: moved, not added
                 for row in self._stores.access.for_user(user.id):
-                    if row.level == "free" and row.workspace != code:
+                    if row.workspace != code:
                         self._stores.access.delete(user.id, row.workspace)
-            self._stores.access.put(WorkspaceAccess(user.id, code, level, actor.user_id, self._clock()))
+            self._stores.access.put(WorkspaceAccess(user.id, code, "member", actor.user_id, self._clock()))
         self._audit.record("workspace_access_changed", "ok", user_id=actor.user_id, ip=ip, user_agent=user_agent,
-                           target=user.id, workspace=code, level=level)
+                           target=user.id, workspace=code, member=member)

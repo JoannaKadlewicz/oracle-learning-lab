@@ -7,15 +7,15 @@ from typing import Literal
 from oracle_lab import exams
 from oracle_lab.access.models import WorkspaceAccess
 
-LevelIn = Literal["none", "free", "subscribed"]
+LevelIn = Literal["none", "member"]
 
 
 def level_in(role: str, rows: list[WorkspaceAccess], workspace: str) -> LevelIn:
-    """The user's level in `workspace`; admins have every workspace without rows, and so does an account still on
-    the old `learner` role (its migration failed): it keeps what it had until it is moved."""
+    """Whether the user is a member of `workspace`; admins are members of every workspace without rows, and so is
+    an account still on the old `learner` role (its migration failed): it keeps what it had until it is moved."""
     if role in ("admin", "learner"):
-        return "subscribed"
-    return next((r.level for r in rows if r.workspace == workspace), "none")
+        return "member"
+    return "member" if any(r.workspace == workspace for r in rows) else "none"
 
 
 def usable(role: str, rows: list[WorkspaceAccess]) -> list[str]:

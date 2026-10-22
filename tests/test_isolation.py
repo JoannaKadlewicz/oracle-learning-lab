@@ -30,7 +30,7 @@ ADMIN = [("GET", "/api/admin/users"), ("GET", "/api/admin/events"), ("GET", "/ap
          ("POST", "/api/admin/reset-link"), ("POST", "/api/admin/lock"), ("POST", "/api/admin/unlock"),
          ("POST", "/api/admin/role"), ("POST", "/api/admin/delete"), ("POST", "/api/admin/recreate-schema"),
          ("POST", "/api/admin/delete-inactive"), ("POST", "/api/admin/settings"),
-         ("POST", "/api/admin/workspace-access")]
+         ("POST", "/api/admin/membership"), ("POST", "/api/admin/limits")]
 
 
 class User:
@@ -125,8 +125,8 @@ def test_progress_and_mock_exams_are_kept_per_user(serve):
 
 
 @pytest.mark.parametrize("role,level,practice_on,expected", [
-    ("admin", None, False, True), ("user", "subscribed", True, True),
-    ("user", "subscribed", False, False), ("user", "free", True, False)])
+    ("admin", None, False, True), ("pro", "member", True, True), ("user", "member", True, True),
+    ("user", "member", False, False), ("guest", "member", True, False)])
 def test_who_may_run_sql(role, level, practice_on, expected):
     from oracle_lab.access.models import WorkspaceAccess
 
