@@ -137,7 +137,7 @@ def require_admin(subject: object) -> Principal:
 
 # Public auth POSTs run without a session; a signed-in browser (an old cookie) must still reach them.
 # They are protected by same_origin_only instead of a token.
-CSRF_EXEMPT = frozenset({"/api/auth/login", "/api/auth/register", "/api/auth/reset"})
+CSRF_EXEMPT = frozenset({"/api/auth/login", "/api/auth/register", "/api/auth/reset", "/api/auth/guest"})
 
 
 def csrf(request: Request, call_next: Handler) -> Response:

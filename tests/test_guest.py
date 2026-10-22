@@ -32,6 +32,17 @@ def test_guest_start_creates_a_guest_session(serve):
     assert stores.users.count() == 2
 
 
+def test_a_browser_with_a_guest_session_can_try_again_from_the_landing_page(serve):
+    # A guest's "Sign in" keeps the session (for its progress); a landing tile then posts with the cookie, no token.
+    server = serve(stores=memory_stores())
+    cookie = start_guest(Client(server.port)).headers["Cookie"]
+    landing = Client(server.port)
+    status, headers, body = landing("/api/auth/guest", {"workspace": "1Z0-071"},
+                                    headers={"Cookie": cookie, "Origin": landing.origin})
+    assert status == 200, body
+    assert session_cookie(headers) != cookie
+
+
 def test_guests_do_not_count_toward_the_user_cap_or_the_first_admin(serve, tmp_path):
     from conftest import settings_for
 
