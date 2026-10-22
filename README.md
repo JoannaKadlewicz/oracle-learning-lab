@@ -214,3 +214,8 @@ or a clock. The tests can therefore swap in an in-memory store or a fixed time.
 
 The roadmap and what is still open are in [plan.md](plan.md). All questions are original
 practice material written for this project, not real exam questions.
+
+## Credits
+
+Technology logos on the workspace tiles come from [Simple Icons](https://simpleicons.org) (CC0 1.0). The names and
+logos are trademarks of their owners and are shown only to name the technology; "coming soon" tiles have no content yet.

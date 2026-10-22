@@ -41,7 +41,7 @@ class WorkspaceService:
         for code, exam in exams.EXAMS.items():
             facts = content.public_exam(exam, lang)
             workspaces.append({"code": code, "title": facts["title"], "tile": facts["tile"],
-                               "engine": exam.database_label, "questions": exam.questions,
+                               "engine": exam.database_label, "logo": exam.engine, "questions": exam.questions,
                                "level": policy.level_in(principal.role, rows, code)})
         return {"current": policy.current_workspace(principal.role, rows, saved), "workspaces": workspaces}
 

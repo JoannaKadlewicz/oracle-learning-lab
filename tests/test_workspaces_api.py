@@ -34,7 +34,7 @@ def test_overview_marks_levels_and_current(lab):
     first = body(user("/api/workspaces"))
     assert first["current"] is None
     assert [w["code"] for w in first["workspaces"]] == list(exams.EXAMS)
-    assert all(w["level"] == "none" and w["title"] and w["tile"] for w in first["workspaces"])
+    assert all(w["level"] == "none" and w["title"] and w["tile"] and w["logo"] == "oracle" for w in first["workspaces"])
     stores.access.put(WorkspaceAccess(uid, "1Z0-171", "member", uid, 1.0))
     after = body(user("/api/workspaces"))
     assert after["current"] == "1Z0-171"

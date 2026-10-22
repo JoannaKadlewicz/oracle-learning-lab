@@ -900,5 +900,16 @@
   "{who} follows the plan's limits again.": "{who}: znowu obowiązują limity planu.",
   "{who} has one workspace. {from} is replaced.": "{who} ma jeden workspace. {from} zostanie zastąpiony.",
   "{n} graded exercises left today on your plan.": ["Na dziś zostało {n} sprawdzane ćwiczenie.", "Na dziś zostały {n} sprawdzane ćwiczenia.", "Na dziś zostało {n} sprawdzanych ćwiczeń."],
-  "Not registered yet": "Bez rejestracji"
+  "Not registered yet": "Bez rejestracji",
+  "SQL on the most loved open-source database": "SQL na najbardziej lubianej otwartej bazie",
+  "SQL for the web's favourite database": "SQL na ulubionej bazie internetu",
+  "SQL in a single file": "SQL w jednym pliku",
+  "Data analysis in Python": "Analiza danych w Pythonie",
+  "PySpark DataFrames at scale": "Ramki danych PySpark na dużą skalę",
+  "Fast analytical SQL, in process": "Szybki analityczny SQL, wbudowany w aplikację",
+  "Cloud data warehouse SQL": "SQL w chmurowej hurtowni danych",
+  "Serverless SQL over huge tables": "Bezserwerowy SQL na ogromnych tabelach",
+  "Coming soon": "Wkrótce",
+  "Pick what you want to learn first. It becomes your workspace; more than one comes with the Pro plan.": "Wybierz, czego chcesz uczyć się najpierw. To będzie Twój workspace; więcej niż jeden daje plan Pro.",
+  "{title} becomes your workspace. More workspaces come with the Pro plan.": "{title} będzie Twoim workspace’em. Kolejne workspace’y daje plan Pro."
 }
