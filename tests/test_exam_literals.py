@@ -15,6 +15,7 @@ ALLOWED_FILES = {
     "config.py",
     "provisioning/schemas.py",
     "provisioning/proxy.py",
+    "resources/static/js/ui/tech-logos.js",  # SVG path data: digit runs, not exam names
 }
 ALLOWED_DIRS = ("content/", "database/", "analysis/", "grading/", "sqltext/")
 
