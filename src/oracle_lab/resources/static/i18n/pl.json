@@ -791,5 +791,9 @@
   "{topic} · a weak spot, checked automatically": "{topic} · słaby punkt, sprawdzany automatycznie",
   "Learn {n} new cards": ["Poznaj {n} nową fiszkę", "Poznaj {n} nowe fiszki", "Poznaj {n} nowych fiszek"],
   "Review {n} cards": ["Powtórz {n} fiszkę", "Powtórz {n} fiszki", "Powtórz {n} fiszek"],
-  "{n} cards reviewed": ["Powtórzono {n} fiszkę", "Powtórzono {n} fiszki", "Powtórzono {n} fiszek"]
+  "{n} cards reviewed": ["Powtórzono {n} fiszkę", "Powtórzono {n} fiszki", "Powtórzono {n} fiszek"],
+  "Didn't know it": "Nie znam odpowiedzi",
+  "Took some effort": "Z trudem",
+  "Knew it": "Znam",
+  "Knew it at once": "Znam od razu"
 }

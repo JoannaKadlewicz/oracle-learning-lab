@@ -69,7 +69,48 @@
 .card-box { position: absolute; top: 16px; right: 20px; font-size: var(--t-xs); color: var(--card-muted); }
 
 .ratings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: min(660px, 100%); }
-.ratings .btn { min-height: 52px; justify-content: center; text-align: center; }
+
+/* Rating buttons: one colour each, from red (again) to green (easy), with the key and what the rating means. */
+.rate {
+  --rate: var(--ink);
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-height: 72px;
+  padding: 12px 10px 10px;
+  font: inherit;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--rate) 9%, var(--paper));
+  border: 1.5px solid color-mix(in srgb, var(--rate) 40%, var(--rule));
+  border-bottom-width: 4px;
+  border-bottom-color: var(--rate);
+  border-radius: var(--r-m);
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s, transform .1s, box-shadow .15s;
+}
+.rate-again { --rate: var(--bad); }
+.rate-hard { --rate: var(--warn); }
+.rate-good { --rate: var(--link); }
+.rate-easy { --rate: var(--good); }
+.rate:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--rate) 18%, var(--paper));
+  border-color: var(--rate);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--rate) 70%, transparent);
+}
+.rate:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+.rate:focus-visible { outline: 3px solid color-mix(in srgb, var(--focus) 45%, transparent); outline-offset: 2px; }
+.rate:disabled { cursor: not-allowed; opacity: .4; filter: saturate(.3); }
+.rate kbd {
+  position: absolute; top: 7px; left: 8px;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  font: 700 11px/18px var(--mono); text-align: center;
+  color: var(--rate); background: var(--paper); border-radius: 4px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rate) 45%, transparent);
+}
+.rate-label { font-size: 16px; font-weight: 750; color: var(--rate); }
+.rate-hint { font-size: var(--t-xs); color: var(--muted); }
 @media (max-width: 600px) { .ratings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 @media (max-width: 600px) {

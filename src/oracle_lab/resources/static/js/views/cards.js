@@ -22,7 +22,13 @@ let deck = null;
 const narrow = matchMedia("(max-width: 1179.98px)");
 narrow.addEventListener("change", () => { if (deck?.queue.length && $("#card-try")) updateTry(currentCard()); });
 
-const ratings = () => [["again", t("Again"), "secondary"], ["hard", t("Hard"), "secondary"], ["good", t("Medium"), ""], ["easy", t("Easy"), "secondary"]];
+/** The four ratings in key order: [rating sent to the server, label, what it means]. */
+const ratings = () => [
+  ["again", t("Again"), t("Didn't know it")],
+  ["hard", t("Hard"), t("Took some effort")],
+  ["good", t("Medium"), t("Knew it")],
+  ["easy", t("Easy"), t("Knew it at once")],
+];
 const RATING_KEYS_SEEN = "seen-rating-keys";
 
 const currentCard = () => C.flashcards.find(c => c.id === deck.queue[0]);
@@ -132,7 +138,8 @@ function renderCard() {
         </button>
       </div>
       <div class="ratings" role="group" aria-label="${esc(t("How well did you know it?"))}">
-        ${ratings().map(([rating, label, kind], n) => `<button class="btn ${kind}" data-rating="${rating}" aria-keyshortcuts="${n + 1}" ${deck.flipped ? "" : "disabled"}>${esc(label)}</button>`).join("")}
+        ${ratings().map(([rating, label, hint], n) => `<button class="rate rate-${rating}" data-rating="${rating}" aria-keyshortcuts="${n + 1}" ${deck.flipped ? "" : "disabled"}>
+          <kbd aria-hidden="true">${n + 1}</kbd><span class="rate-label">${esc(label)}</span><span class="rate-hint">${esc(hint)}</span></button>`).join("")}
       </div>
     </div>
     <section class="card-try panel" id="card-try" aria-label="${esc(t("Try it in SQL"))}"></section>
