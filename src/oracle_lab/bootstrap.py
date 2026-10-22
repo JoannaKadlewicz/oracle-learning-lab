@@ -8,6 +8,7 @@ from collections.abc import Callable
 
 from oracle_lab import engines
 from oracle_lab.access.migration import migrate_roles
+from oracle_lab.access.service import WorkspaceService
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.first_admin import Sources, ensure_first_admin, first_user_is_admin, legacy_hook, retry_legacy_import
 from oracle_lab.accounts.maintenance import Maintenance
@@ -42,6 +43,7 @@ from oracle_lab.web.controllers.mock_exams import MockExamController
 from oracle_lab.web.controllers.notes import NotesController
 from oracle_lab.web.controllers.sql_lab import ExerciseController, SqlLabController
 from oracle_lab.web.controllers.study import StudyController
+from oracle_lab.web.controllers.workspaces import WorkspacesController
 from oracle_lab.web.cookies import CookiePolicy
 from oracle_lab.web.middleware import (
     PUBLIC_PATHS,
@@ -167,6 +169,7 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
     deletion = AccountDeletion(stores, sessions, audit,
                                lambda user_id: drop_user_schemas(user_id, stores.schemas, provisioners))
     account = AccountSettings(stores, policy, sessions, audit, clock, throttle)
+    workspaces = WorkspaceService(stores, audit, clock)
     admin = AdminService(stores, deletion, sessions, registration_policy, practice_of, audit, clock,
                          settings.public_url)
     google = None
@@ -186,7 +189,8 @@ def build_app(settings: Settings, *, catalog: DatabaseCatalog | None = None, sto
         AuthController(PasswordLogin(stores, sessions, throttle, audit, clock), registration, registration_policy,
                        account, sessions, cookies, google),
         AccountController(account, cookies, deletion),
-        AdminController(admin),
+        AdminController(admin, workspaces),
+        WorkspacesController(workspaces, contexts),
         StudyController(contexts, clock, track_databases=catalog.has_track_databases),
         MockExamController(contexts, clock),
         SqlLabController(contexts, guard, clock),

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from oracle_lab.access.service import UnknownUser, WorkspaceService
 from oracle_lab.auth.models import Principal
 from oracle_lab.i18n import Msg, message_of
 from oracle_lab.services.admin import AdminService
@@ -34,8 +35,9 @@ def _meta(request: Request) -> dict:
 
 
 class AdminController:
-    def __init__(self, admin: AdminService):
+    def __init__(self, admin: AdminService, workspaces: WorkspaceService):
         self.admin = admin
+        self.workspaces = workspaces
 
     def register(self, router: Router) -> None:
         routes = {
@@ -50,6 +52,7 @@ class AdminController:
             ("POST", "/api/admin/recreate-schema"): self.recreate_schema,
             ("POST", "/api/admin/delete-inactive"): self.delete_inactive,
             ("POST", "/api/admin/settings"): self.update_settings,
+            ("POST", "/api/admin/workspace-access"): self.workspace_access,
         }
         for (method, path), handler in routes.items():
             router.add(method, path, self._guarded(handler))
@@ -120,4 +123,14 @@ class AdminController:
     def update_settings(self, request: Request) -> Response:
         data = request.json()
         return Response.json(self.admin.update_settings(require_admin(request), _optional(data, "open", bool),
-                                                        _optional(data, "max_users", int), **_meta(request)))
+                                                        _optional(data, "max_users", int),
+                                                        _optional(data, "free_limits", dict), **_meta(request)))
+
+    def workspace_access(self, request: Request) -> Response:
+        data = request.json()
+        try:
+            self.workspaces.set_access(require_admin(request), _string(data, "user_id"), data.get("workspace"),
+                                       data.get("level"), **_meta(request))
+        except UnknownUser as exc:
+            raise HttpError(404, "Not found") from exc
+        return Response.json(OK)

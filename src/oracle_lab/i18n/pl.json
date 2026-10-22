@@ -211,5 +211,10 @@
   "Choose a workspace first.": "Najpierw wybierz workspace.",
   "This needs a subscription to the workspace.": "To wymaga subskrypcji tego workspace’u.",
   "You have used today's {n} free questions. Come back tomorrow, or ask an admin for a subscription.": "Dzisiejszy darmowy limit pytań ({n}) został wykorzystany. Wróć jutro albo poproś administratora o subskrypcję.",
-  "You have used today's {n} free flashcards. Come back tomorrow, or ask an admin for a subscription.": "Dzisiejszy darmowy limit fiszek ({n}) został wykorzystany. Wróć jutro albo poproś administratora o subskrypcję."
+  "You have used today's {n} free flashcards. Come back tomorrow, or ask an admin for a subscription.": "Dzisiejszy darmowy limit fiszek ({n}) został wykorzystany. Wróć jutro albo poproś administratora o subskrypcję.",
+  "Your workspace is already chosen. Ask an admin to change it.": "Twój workspace jest już wybrany. Aby go zmienić, poproś administratora.",
+  "Admins already have every workspace.": "Administratorzy mają już dostęp do każdego workspace’u.",
+  "Unknown workspace: {code}": "Nieznany workspace: {code}",
+  "Unknown access level: {level}": "Nieznany poziom dostępu: {level}",
+  "free_limits must be an object.": "free_limits musi być obiektem."
 }

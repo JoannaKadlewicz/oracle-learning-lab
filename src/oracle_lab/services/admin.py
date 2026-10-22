@@ -7,6 +7,8 @@ import logging
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from oracle_lab import exams
+from oracle_lab.access.limits import FreeLimits
 from oracle_lab.accounts.deletion import AccountDeletion
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.audit import AuditLog
@@ -69,11 +71,15 @@ class AdminService:
         return [self._row(user) for user in sorted(self._users.all(), key=lambda u: (u.created_at, u.email))]
 
     def _row(self, user: User) -> dict:
+        access = self._stores.access.for_user(user.id)
         return {
             "id": user.id, "email": user.email,
             "methods": sorted({i.provider for i in self._users.identities(user.id)}),
             "role": user.role, "status": user.status, "created_at": user.created_at,
             "last_login_at": user.last_login_at, "sessions": len(self._sessions.live(user.id)),
+            "workspaces": [{"code": code, "level": level}
+                           for code in exams.EXAMS
+                           if (level := next((r.level for r in access if r.workspace == code), None))],
             "schemas": [{"key": rec.database_key, "status": rec.status, "size_mb": self._size(user, rec),
                          "error": rec.error}
                         for rec in sorted(self._stores.schemas.for_user(user.id), key=lambda r: r.database_key)],
@@ -92,7 +98,7 @@ class AdminService:
 
     def settings(self) -> dict:
         return {"registration_open": self._registration.is_open(), "max_users": self._registration.max_users(),
-                "users": self._users.count()}
+                "users": self._users.count(), "free_limits": FreeLimits.load(self._stores.settings).public()}
 
     def events(self, limit: int = 200, event: str | None = None, user_id: str | None = None) -> list[dict]:
         """Newest first, at most MAX_EVENTS."""
@@ -194,13 +200,25 @@ class AdminService:
         return deleted
 
     def update_settings(self, actor: Principal, open: bool | None = None,  # noqa: A002
-                        max_users: int | None = None, *, ip: str = "", user_agent: str = "") -> dict:
+                        max_users: int | None = None, free_limits: dict | None = None, *, ip: str = "",
+                        user_agent: str = "") -> dict:
         if open is not None and not isinstance(open, bool):
             raise ValueError("open must be true or false.")
         if max_users is not None and (isinstance(max_users, bool) or not isinstance(max_users, int) or max_users < 1):
             raise ValueError("The user limit must be a whole number of at least 1.")
+        limits = None
+        if free_limits is not None:
+            if not isinstance(free_limits, dict):
+                raise ValueError("free_limits must be an object.")
+            limits = FreeLimits.parse({"questions_per_day": free_limits.get("questions"),
+                                       "cards_per_day": free_limits.get("cards"),
+                                       "free_topics": free_limits.get("topics")})
         self._registration.set(open, max_users)
+        if limits is not None:
+            limits.save(self._stores.settings)
         changed = {k: v for k, v in (("open", open), ("max_users", max_users)) if v is not None}
+        if limits is not None:
+            changed["free_limits"] = limits.public()
         self._audit.record("registration_settings_changed", "ok", user_id=actor.user_id, ip=ip,
                            user_agent=user_agent, **changed)
         return self.settings()
