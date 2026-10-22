@@ -7,7 +7,7 @@ import { store } from "../core/store.js";
 import { C, P, apply } from "../core/state.js";
 import { main } from "../core/router.js";
 import { toast, toastError, confirmDialog, passwordDialog } from "../ui/feedback.js";
-import { pageHead, section, accountCallout } from "../ui/widgets.js";
+import { pageHead, accountCallout } from "../ui/widgets.js";
 import { applyTheme, refreshNav } from "../shell.js";
 import { clearUserStore } from "../core/store.js";
 import { loadSession, currentUser } from "../core/session.js";
@@ -48,8 +48,6 @@ function render() {
       </div>
 
       <div class="panel" id="account"></div>
-
-      ${section(esc(t("About the exams")), Object.values(C.exams).map(e => `<p class="prose"><b>${esc(e.code)}</b> (${esc(e.name)}): ${esc(e.about)}</p>`).join(""))}
 
       <div class="panel danger-zone">
         <div class="setting">
@@ -174,7 +172,7 @@ async function renderAccount() {
     <div class="setting setting-form">
       <div><h3>${esc(hasPassword ? t("Change password") : t("Set a password"))}</h3>
         <p>${esc(hasPassword ? t("Changing it signs you out everywhere else.") : t("Your account signs in with Google only. A password lets you sign in with your email too. Confirm with Google first."))}</p></div>
-      <form class="stack" id="password-form" autocomplete="off">
+      <form class="stack password-form" id="password-form" autocomplete="off">
         ${hasPassword ? `<label class="field"><span>${esc(t("Current password"))}</span><input type="password" id="pw-current" autocomplete="current-password" required></label>` : ""}
         <label class="field"><span>${esc(t("New password"))}</span><input type="password" id="pw-new" autocomplete="new-password" required></label>
         <div class="form-error" id="pw-error" role="alert" hidden></div>

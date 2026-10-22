@@ -403,7 +403,6 @@
   "Take a mock exam": "Podejdź do egzaminu próbnego",
   "The {n} you had seen before make the overall score optimistic.": "Pytania znane już wcześniej ({n}) zawyżają wynik ogólny.",
   "Think so": "Raczej tak",
-  "This server does not provide {database}.": "Ten serwer nie udostępnia {database}.",
   "Time": "Czas",
   "Time is up. Your exam was submitted.": "Czas minął. Egzamin został oddany.",
   "Timed set results": "Wyniki zestawu na czas",
@@ -478,7 +477,6 @@
   "1 again, 2 hard, 3 medium, 4 easy": "1 jeszcze raz, 2 trudne, 3 średnie, 4 łatwe",
   "A sample for this card. Predict the result, then run it. Changes are rolled back.": "Przykład do tej fiszki. Przewidź wynik, potem go uruchom. Zmiany są wycofywane.",
   "A sample for this card. Predict the result, then run it. Its LAB_ objects are dropped before and after each run.": "Przykład do tej fiszki. Przewidź wynik, potem go uruchom. Jego obiekty LAB_ są usuwane przed każdym uruchomieniem i po nim.",
-  "About the exams": "O egzaminach",
   "Account": "Konto",
   "Account deleted.": "Konto usunięte.",
   "Account locked.": "Konto zablokowane.",
@@ -854,9 +852,6 @@
   "Free SQL runs are part of the Pro plan. Start with a free account.": "Swobodne uruchamianie SQL to plan Pro. Zacznij od darmowego konta.",
   "Graded exercises a day": "Sprawdzane ćwiczenia dziennie",
   "Guest": "Gość",
-  "Guest: flashcards a day": "Gość: fiszki dziennie",
-  "Guest: lessons, first topics": "Gość: lekcje, pierwsze tematy",
-  "Guest: questions a day": "Gość: pytania dziennie",
   "Included in a free account": "W darmowym koncie",
   "Leave a field empty to follow the {plan} plan. A number here wins, up or down.": "Puste pole oznacza limit planu {plan}. Wpisana liczba ma pierwszeństwo, w górę i w dół.",
   "Lessons: first topics": "Lekcje: pierwsze tematy",
@@ -887,7 +882,6 @@
   "Try it without an account": "Wypróbuj bez konta",
   "Unlimited quizzes, flashcards and lessons, 10 graded SQL exercises a day, one workspace.": "Quizy, fiszki i lekcje bez limitu, 10 sprawdzanych ćwiczeń SQL dziennie, jeden workspace.",
   "Use the plan's limits": "Wróć do limitów planu",
-  "User: exercises a day": "Użytkownik: ćwiczenia dziennie",
   "What a guest gets each day, and how many graded exercises a free account solves. Pro has no limits.": "Ile dostaje gość każdego dnia i ile sprawdzanych ćwiczeń rozwiązuje darmowe konto. Pro nie ma limitów.",
   "You solved all {n} exercises included for today. Come back tomorrow, or ask an admin for the Pro plan to practise without limits.": "Dzisiejsze ćwiczenia ({n}) są już za Tobą. Wróć jutro albo poproś administratora o plan Pro, aby ćwiczyć bez limitu.",
   "You used all {n} for today. Come back tomorrow.": "Dzisiejszy limit ({n}) został wykorzystany. Wróć jutro.",
@@ -952,5 +946,8 @@
   "From": "Od",
   "To": "Do",
   "Newest first": "Od najnowszych",
-  "No accounts": "Brak kont"
+  "No accounts": "Brak kont",
+  "Guest, without an account": "Gość, bez konta",
+  "Free account": "Darmowe konto",
+  "Exercises a day": "Ćwiczenia dziennie"
 }

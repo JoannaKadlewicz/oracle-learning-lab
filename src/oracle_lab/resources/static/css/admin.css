@@ -12,6 +12,7 @@ table.admin-users td, table.admin-events td { vertical-align: top; }
 table.admin-users { min-width: 860px; }
 table.admin-events { min-width: 880px; font-size: var(--t-s); }
 .acct-cell { display: grid; gap: 2px; min-width: 200px; }
+
 .acct-cell strong { overflow-wrap: anywhere; font-weight: 650; }
 .acct-cell .tag { justify-self: start; }
 
@@ -76,7 +77,11 @@ table.admin-events code { font-size: var(--t-xs); }
   padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--r-m); }
 .ws-access-row > div:first-child { display: grid; gap: 2px; }
 .seg.small button { min-height: 30px; padding: 4px 10px; font-size: 13px; }
-.free-limits { display: flex; flex-wrap: wrap; gap: 12px; }
-.free-limits input { width: 7em; }
-.setting.free-plan { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+/* Plan limits: equal columns, inputs on one line however the labels wrap. */
+.free-limits { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px 16px; align-items: end; }
+.free-limits input { width: 100%; }
+dialog .free-limits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.setting.free-plan { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.plan-group { margin: 0; padding: 14px 16px 16px; border: 1px solid var(--rule); border-radius: var(--r-m); min-width: 0; }
+.plan-group legend { padding: 0 6px; margin-left: -6px; font-size: var(--t-s); font-weight: 650; color: var(--ink-2); }
 .ws-custom b { color: var(--link); background: color-mix(in srgb, var(--link) 12%, var(--paper)); }

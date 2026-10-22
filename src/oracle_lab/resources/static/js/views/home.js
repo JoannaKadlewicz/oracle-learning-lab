@@ -11,13 +11,13 @@ import { startQuiz, startMock, resumeMock, practiceSession, resumePractice } fro
 import { openDeck } from "./cards.js";
 import { openNote } from "./notes.js";
 
+/** For an admin only: the SQL lab's database is older than the exam needs, and how to give the exam its own.
+    Learners are told where it matters, on the questions, cards and exercises that need the newer database. */
 function trackWarning() {
-  if (!DB || !(C.exam.versions[0] > DB.major)) return "";
-  const ending = currentUser().role === "admin"
-    ? esc(t("Set {env} to give {code} its own database (see the README).", { code: C.exam.code })).replace("{env}", `<code>${esc(C.exam.database_env)}</code>`)
-    : esc(t("This server does not provide {database}.", { database: C.exam.database }));
+  if (currentUser().role !== "admin" || !DB || !(C.exam.versions[0] > DB.major)) return "";
   return `<div class="callout"><p>${esc(t("You are preparing for {code}, but the SQL lab is connected to {product} {version}.", { code: C.exam.code, product: DB.product, version: DB.version }))}
-    ${esc(t("Quizzes and flashcards work as usual; SQL that needs {database} won't run.", { database: C.exam.database }))} ${ending}</p></div>`;
+    ${esc(t("Quizzes and flashcards work as usual; SQL that needs {database} won't run.", { database: C.exam.database }))}
+    ${esc(t("Set {env} to give {code} its own database (see the README).", { code: C.exam.code })).replace("{env}", `<code>${esc(C.exam.database_env)}</code>`)}</p></div>`;
 }
 
 function countdownFact(plan, examDate) {

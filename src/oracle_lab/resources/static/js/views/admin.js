@@ -429,11 +429,12 @@ function renderRegistration(settings) {
     </div>
     <div class="setting free-plan">
       <div><h3>${esc(t("Plans"))}</h3><p>${esc(t("What a guest gets each day, and how many graded exercises a free account solves. Pro has no limits."))}</p></div>
-      <div class="free-limits">
-        ${[["guest_questions", t("Guest: questions a day"), 1000], ["guest_cards", t("Guest: flashcards a day"), 1000],
-          ["guest_topics", t("Guest: lessons, first topics"), 15], ["user_exercises", t("User: exercises a day"), 1000]].map(([key, label, max]) =>
-          `<label class="field"><span>${esc(label)}</span><input type="number" data-limit="${key}" min="0" max="${max}" step="1" inputmode="numeric" value="${esc(settings.plan_defaults?.[key] ?? 0)}"></label>`).join("")}
-      </div>
+      ${[[t("Guest, without an account"), [["guest_questions", t("Questions a day"), 1000], ["guest_cards", t("Flashcards a day"), 1000],
+          ["guest_topics", t("Lessons: first topics"), 15]]],
+        [t("Free account"), [["user_exercises", t("Exercises a day"), 1000]]]].map(([group, fields]) => `
+        <fieldset class="plan-group"><legend>${esc(group)}</legend><div class="free-limits">
+          ${fields.map(([key, label, max]) => `<label class="field"><span>${esc(label)}</span><input type="number" data-limit="${key}" min="0" max="${max}" step="1" inputmode="numeric" value="${esc(settings.plan_defaults?.[key] ?? 0)}"></label>`).join("")}
+        </div></fieldset>`).join("")}
     </div>
     <div class="form-actions"><button class="btn" type="button" id="save-registration">${esc(t("Save sign-up settings"))}</button></div>`;
   $$("[data-open]", panel).forEach(b => b.addEventListener("click", () => {
