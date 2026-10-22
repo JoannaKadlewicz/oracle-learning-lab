@@ -20,6 +20,7 @@ from typing import Any
 
 import oracledb
 
+from oracle_lab.access.models import WorkspaceAccess
 from oracle_lab.accounts.memory import TAKEN
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.models import (
@@ -118,6 +119,16 @@ MIGRATIONS: list[list[str]] = [
             body CLOB,
             created_at BINARY_DOUBLE NOT NULL,
             CONSTRAINT app_user_notes_pk PRIMARY KEY (user_id, name))""",
+    ],
+    [
+        """CREATE TABLE app_workspace_access (
+            seq NUMBER NOT NULL,
+            user_id VARCHAR2(64 CHAR) NOT NULL CONSTRAINT app_workspace_access_user_fk REFERENCES app_users(id) ON DELETE CASCADE,
+            workspace VARCHAR2(40 CHAR) NOT NULL,
+            access_level VARCHAR2(20 CHAR) NOT NULL,
+            granted_by VARCHAR2(64 CHAR) NOT NULL,
+            granted_at BINARY_DOUBLE NOT NULL,
+            CONSTRAINT app_workspace_access_pk PRIMARY KEY (user_id, workspace))""",
     ],
 ]
 
@@ -701,6 +712,49 @@ class OracleUserNotes:
             conn.commit()
 
 
+_ACCESS_COLS = "user_id, workspace, access_level, granted_by, granted_at"  # LEVEL is reserved in Oracle
+
+
+class OracleAccess:
+    def __init__(self, database: Database):
+        self._db = database
+
+    def for_user(self, user_id: str) -> list[WorkspaceAccess]:
+        return self._list("WHERE user_id = :u ", u=user_id)
+
+    def put(self, rec: WorkspaceAccess) -> None:
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute(
+                "MERGE INTO app_workspace_access a USING (SELECT :user_id AS user_id, :workspace AS workspace FROM dual) n "
+                "ON (a.user_id = n.user_id AND a.workspace = n.workspace) "
+                "WHEN MATCHED THEN UPDATE SET a.access_level = :access_level, a.granted_by = :granted_by, "
+                "a.granted_at = :granted_at "
+                f"WHEN NOT MATCHED THEN INSERT (seq, {_ACCESS_COLS}) VALUES (:seq, :user_id, :workspace, :access_level, "
+                ":granted_by, :granted_at)",
+                {"user_id": rec.user_id, "workspace": rec.workspace, "access_level": rec.level,
+                 "granted_by": rec.granted_by, "granted_at": rec.granted_at, "seq": next_seq()},
+            )
+            conn.commit()
+
+    def delete(self, user_id: str, workspace: str) -> None:
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM app_workspace_access WHERE user_id = :u AND workspace = :w", u=user_id, w=workspace)
+            conn.commit()
+
+    def delete_for_user(self, user_id: str) -> None:
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM app_workspace_access WHERE user_id = :u", u=user_id)
+            conn.commit()
+
+    def all(self) -> list[WorkspaceAccess]:
+        return self._list("")
+
+    def _list(self, where: str, **binds: Any) -> list[WorkspaceAccess]:
+        with session(self._db) as conn, conn.cursor() as cur:
+            cur.execute(f"SELECT {_ACCESS_COLS} FROM app_workspace_access {where}ORDER BY seq", binds)
+            return [WorkspaceAccess(*r) for r in cur]
+
+
 def oracle_stores(database: Database) -> AppStores:
     return AppStores(
         users=OracleUsers(database),
@@ -713,4 +767,5 @@ def oracle_stores(database: Database) -> AppStores:
         schemas=OracleSchemas(database),
         states=OracleUserStates(database),
         notes=OracleUserNotes(database),
+        access=OracleAccess(database),
     )

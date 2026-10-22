@@ -11,7 +11,7 @@ from oracle_lab.accounts.oracle_store import MIGRATIONS, migrate, oracle_stores
 from oracle_lab.database.connection import session
 
 APP_TABLES = [  # children first
-    "app_audit", "app_throttle", "app_reset_tokens", "app_login_flows", "app_settings", "app_user_notes",
+    "app_workspace_access", "app_audit", "app_throttle", "app_reset_tokens", "app_login_flows", "app_settings", "app_user_notes",
     "app_user_state", "app_practice_schemas", "app_sessions", "app_identities", "app_users",
 ]
 

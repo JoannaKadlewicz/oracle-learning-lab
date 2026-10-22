@@ -52,7 +52,8 @@ def test_data_survives_reopening_and_migrations_are_idempotent(tmp_path):
     second = sqlite_stores(path)
     assert second.users.get(user.id) == user
     with closing(sqlite3.connect(path)) as conn:
-        assert conn.execute("SELECT version FROM app_schema_version").fetchall() == [(len(MIGRATIONS),)]
+        versions = conn.execute("SELECT version FROM app_schema_version ORDER BY version").fetchall()
+        assert versions == [(n,) for n in range(1, len(MIGRATIONS) + 1)]  # each applied once
 
 
 def test_audit_detail_round_trips_as_json(tmp_path):

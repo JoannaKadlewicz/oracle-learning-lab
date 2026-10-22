@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from oracle_lab.access.models import WorkspaceAccess
 from oracle_lab.auth.models import (
     AuditEvent,
     Identity,
@@ -135,6 +136,19 @@ class PracticeSchemaRepository(Protocol):
     def all(self) -> list[PracticeSchema]: ...
 
 
+class WorkspaceAccessRepository(Protocol):
+    def for_user(self, user_id: str) -> list[WorkspaceAccess]: ...
+
+    def put(self, rec: WorkspaceAccess) -> None:
+        """Insert, or replace the row of the same (user_id, workspace)."""
+
+    def delete(self, user_id: str, workspace: str) -> None: ...
+
+    def delete_for_user(self, user_id: str) -> None: ...
+
+    def all(self) -> list[WorkspaceAccess]: ...
+
+
 class UserStateStores(Protocol):
     def for_user(self, user_id: str) -> StateStore: ...
 
@@ -159,3 +173,4 @@ class AppStores:
     schemas: PracticeSchemaRepository
     states: UserStateStores
     notes: UserNotesStores
+    access: WorkspaceAccessRepository

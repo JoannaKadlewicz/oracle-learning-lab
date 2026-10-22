@@ -339,6 +339,36 @@ def user_delete_cascades(stores: AppStores) -> None:
     assert len(stores.notes.for_user("u2").entries()) == 1
 
 
+def workspace_access_round_trip(stores: AppStores) -> None:
+    from oracle_lab.access.models import WorkspaceAccess
+
+    add_user(stores, "u1")
+    add_user(stores, "u2")
+    stores.access.put(WorkspaceAccess("u1", "1Z0-071", "free", "u1", 1.0))
+    stores.access.put(WorkspaceAccess("u1", "1Z0-071", "subscribed", "admin", 2.0))  # same key: replaced
+    stores.access.put(WorkspaceAccess("u1", "1Z0-171", "free", "u1", 3.0))
+    stores.access.put(WorkspaceAccess("u2", "1Z0-071", "free", "u2", 4.0))
+    assert sorted(stores.access.for_user("u1"), key=lambda r: r.workspace) == [
+        WorkspaceAccess("u1", "1Z0-071", "subscribed", "admin", 2.0),
+        WorkspaceAccess("u1", "1Z0-171", "free", "u1", 3.0)]
+    stores.access.delete("u1", "1Z0-171")
+    assert [r.workspace for r in stores.access.for_user("u1")] == ["1Z0-071"]
+    assert len(stores.access.all()) == 2
+    stores.access.delete_for_user("u1")
+    assert stores.access.for_user("u1") == [] and len(stores.access.for_user("u2")) == 1
+
+
+def user_delete_drops_workspace_access(stores: AppStores) -> None:
+    from oracle_lab.access.models import WorkspaceAccess
+
+    add_user(stores, "u1")
+    add_user(stores, "u2")
+    for uid in ("u1", "u2"):
+        stores.access.put(WorkspaceAccess(uid, "1Z0-071", "free", uid, 1.0))
+    stores.users.delete("u1")
+    assert stores.access.for_user("u1") == [] and len(stores.access.for_user("u2")) == 1
+
+
 def update_of_unknown_user_is_a_no_op(stores: AppStores) -> None:
     stores.users.update(make_user(9))
     assert stores.users.get("u9") is None
@@ -358,6 +388,8 @@ def oversized_client_strings_are_stored(stores: AppStores) -> None:
 
 
 CONTRACT = [
+    workspace_access_round_trip,
+    user_delete_drops_workspace_access,
     user_round_trip,
     duplicate_email_raises_email_taken,
     duplicate_identity_raises_email_taken,

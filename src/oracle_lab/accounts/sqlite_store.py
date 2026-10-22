@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from oracle_lab.access.models import WorkspaceAccess
 from oracle_lab.accounts.memory import TAKEN
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.models import (
@@ -107,6 +108,16 @@ MIGRATIONS = [
         body TEXT NOT NULL,
         created_at REAL NOT NULL,
         PRIMARY KEY (user_id, name)
+    );
+    """,
+    """
+    CREATE TABLE workspace_access (
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        workspace TEXT NOT NULL,
+        level TEXT NOT NULL,
+        granted_by TEXT NOT NULL,
+        granted_at REAL NOT NULL,
+        PRIMARY KEY (user_id, workspace)
     );
     """,
 ]
@@ -465,6 +476,35 @@ class SqliteSchemas:
         return [PracticeSchema(*r) for r in self._db.conn.execute(f"SELECT {_SCHEMA_COLS} FROM practice_schemas ORDER BY rowid")]
 
 
+class SqliteAccess:
+    def __init__(self, db: _Database):
+        self._db = db
+
+    def for_user(self, user_id: str) -> list[WorkspaceAccess]:
+        rows = self._db.conn.execute(f"SELECT {_ACCESS_COLS} FROM workspace_access WHERE user_id = ? ORDER BY rowid", (user_id,))
+        return [WorkspaceAccess(*r) for r in rows]
+
+    def put(self, rec: WorkspaceAccess) -> None:
+        self._db.conn.execute(
+            f"INSERT INTO workspace_access ({_ACCESS_COLS}) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(user_id, workspace) DO UPDATE SET level = excluded.level, "
+            "granted_by = excluded.granted_by, granted_at = excluded.granted_at",
+            dataclasses.astuple(rec),
+        )
+
+    def delete(self, user_id: str, workspace: str) -> None:
+        self._db.conn.execute("DELETE FROM workspace_access WHERE user_id = ? AND workspace = ?", (user_id, workspace))
+
+    def delete_for_user(self, user_id: str) -> None:
+        self._db.conn.execute("DELETE FROM workspace_access WHERE user_id = ?", (user_id,))
+
+    def all(self) -> list[WorkspaceAccess]:
+        return [WorkspaceAccess(*r) for r in self._db.conn.execute(f"SELECT {_ACCESS_COLS} FROM workspace_access ORDER BY rowid")]
+
+
+_ACCESS_COLS = "user_id, workspace, level, granted_by, granted_at"
+
+
 class SqliteState:
     """One user's study state as a JSON document."""
 
@@ -555,4 +595,5 @@ def sqlite_stores(path: Path) -> AppStores:
         schemas=SqliteSchemas(db),
         states=SqliteUserStates(db),
         notes=SqliteUserNotes(db),
+        access=SqliteAccess(db),
     )

@@ -6,6 +6,7 @@ import dataclasses
 import threading
 from collections.abc import Callable
 
+from oracle_lab.access.models import WorkspaceAccess
 from oracle_lab.accounts.repositories import AppStores
 from oracle_lab.auth.models import (
     AuditEvent,
@@ -290,6 +291,32 @@ class MemorySchemas:
             return list(self._recs.values())
 
 
+class MemoryAccess:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._recs: dict[tuple[str, str], WorkspaceAccess] = {}
+
+    def for_user(self, user_id: str) -> list[WorkspaceAccess]:
+        with self._lock:
+            return [r for r in self._recs.values() if r.user_id == user_id]
+
+    def put(self, rec: WorkspaceAccess) -> None:
+        with self._lock:
+            self._recs[(rec.user_id, rec.workspace)] = rec
+
+    def delete(self, user_id: str, workspace: str) -> None:
+        with self._lock:
+            self._recs.pop((user_id, workspace), None)
+
+    def delete_for_user(self, user_id: str) -> None:
+        with self._lock:
+            self._recs = {k: r for k, r in self._recs.items() if r.user_id != user_id}
+
+    def all(self) -> list[WorkspaceAccess]:
+        with self._lock:
+            return list(self._recs.values())
+
+
 class MemoryUserStates:
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -345,10 +372,11 @@ class MemoryUserNotes:
 
 
 def memory_stores() -> AppStores:
-    """Fresh stores; deleting a user also removes its sessions, practice schemas, state and notes."""
+    """Fresh stores; deleting a user also removes its sessions, practice schemas, state, notes and access."""
     users, sessions, schemas = MemoryUsers(), MemorySessions(), MemorySchemas()
-    states, notes = MemoryUserStates(), MemoryUserNotes()
-    users.on_delete = [sessions.delete_for_user, schemas.delete_for_user, states.delete, notes.delete]
+    states, notes, access = MemoryUserStates(), MemoryUserNotes(), MemoryAccess()
+    users.on_delete = [sessions.delete_for_user, schemas.delete_for_user, states.delete, notes.delete,
+                       access.delete_for_user]
     return AppStores(
         users=users,
         sessions=sessions,
@@ -360,4 +388,5 @@ def memory_stores() -> AppStores:
         schemas=schemas,
         states=states,
         notes=notes,
+        access=access,
     )
